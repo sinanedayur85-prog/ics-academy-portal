@@ -1,0 +1,263 @@
+{
+  "entities": {
+    "StudyNote": {
+      "title": "StudyNote",
+      "description": "A scholarly study note, Kitab Ibarat explanation, translation, or Da'wa outline saved by a student.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The authenticated Firebase user UID who owns this study note.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentId": {
+          "type": "string",
+          "description": "The ICS Academy student identifier (e.g., st-101).",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "mode": {
+          "type": "string",
+          "description": "The AI research mode used to generate the note.",
+          "enum": ["kitab", "qa", "translation", "dawa"],
+          "minLength": 2,
+          "maxLength": 20
+        },
+        "language": {
+          "type": "string",
+          "description": "The primary output language of the note.",
+          "enum": ["ml", "en", "ar"],
+          "minLength": 2,
+          "maxLength": 5
+        },
+        "prompt": {
+          "type": "string",
+          "description": "The student's question or Kitab passage.",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "response": {
+          "type": "string",
+          "description": "The AI-generated scholarly explanation or study outline.",
+          "minLength": 1,
+          "maxLength": 15000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The server timestamp when the note was created."
+        }
+      },
+      "required": ["uid", "studentId", "mode", "language", "prompt", "response", "createdAt"]
+    },
+    "LeaveRecord": {
+      "title": "LeaveRecord",
+      "description": "A student leave registration or return registry entry stored in Firestore.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The authenticated Firebase user UID who submitted the record.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentId": {
+          "type": "string",
+          "description": "The ICS Academy student identifier.",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentName": {
+          "type": "string",
+          "description": "The full name of the student.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "admissionNo": {
+          "type": "string",
+          "description": "The student's admission number.",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "recordType": {
+          "type": "string",
+          "description": "Whether this entry is a leave application or return registration.",
+          "enum": ["application", "return"],
+          "minLength": 6,
+          "maxLength": 15
+        },
+        "dateString": {
+          "type": "string",
+          "description": "Formatted date of departure or return (e.g., 29 Oct 2026).",
+          "minLength": 4,
+          "maxLength": 40
+        },
+        "timeString": {
+          "type": "string",
+          "description": "Formatted 12-hour time of departure or return (e.g., 09:00 AM).",
+          "minLength": 4,
+          "maxLength": 20
+        },
+        "reason": {
+          "type": "string",
+          "description": "The selected reason for leave or return note.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "details": {
+          "type": "string",
+          "description": "Additional details when reason is Other.",
+          "minLength": 0,
+          "maxLength": 6000
+        },
+        "status": {
+          "type": "string",
+          "description": "Current approval or registration status.",
+          "enum": ["pending", "recorded"],
+          "minLength": 6,
+          "maxLength": 15
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The server timestamp when the record was submitted."
+        }
+      },
+      "required": [
+        "uid",
+        "studentId",
+        "studentName",
+        "admissionNo",
+        "recordType",
+        "dateString",
+        "timeString",
+        "reason",
+        "details",
+        "status",
+        "createdAt"
+      ]
+    },
+    "DigitalKitab": {
+      "title": "DigitalKitab",
+      "description": "An academic Kitab or scholarly PDF stored in Firebase Storage and indexed in the Student Dashboard Digital Library.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The authenticated user or student portal session UID that registered or synced the Kitab.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentId": {
+          "type": "string",
+          "description": "The ICS Academy student identifier.",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "description": "The transliterated or English title of the academic Kitab.",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "arabicTitle": {
+          "type": "string",
+          "description": "The original Arabic title of the Kitab.",
+          "minLength": 0,
+          "maxLength": 160
+        },
+        "author": {
+          "type": "string",
+          "description": "The classical or contemporary scholar who authored the Kitab.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "category": {
+          "type": "string",
+          "description": "The academic subject category of the Kitab.",
+          "enum": ["fiqh", "hadith", "tafsir", "aqeedah", "nahw", "history"],
+          "minLength": 4,
+          "maxLength": 15
+        },
+        "classBatch": {
+          "type": "string",
+          "description": "Target Da'wa College class or batch (e.g., S1 Da'wa, S2 Da'wa, S3 Da'wa, General Reference).",
+          "minLength": 2,
+          "maxLength": 40
+        },
+        "language": {
+          "type": "string",
+          "description": "Primary language(s) of the PDF edition.",
+          "minLength": 2,
+          "maxLength": 40
+        },
+        "pages": {
+          "type": "integer",
+          "description": "Total page count of the PDF volume.",
+          "minimum": 1,
+          "maximum": 5000
+        },
+        "storagePath": {
+          "type": "string",
+          "description": "Firebase Storage object path (e.g., kitabs/fiqh/fathul-mueen.pdf).",
+          "minLength": 4,
+          "maxLength": 240,
+          "pattern": "^kitabs/[a-zA-Z0-9_\\-/\\.]+\\.pdf$"
+        },
+        "pdfUrl": {
+          "type": "string",
+          "description": "Resolved Firebase Storage download URL or fallback URL for the PDF.",
+          "minLength": 0,
+          "maxLength": 1500
+        },
+        "summary": {
+          "type": "string",
+          "description": "Concise syllabus description and scholarly overview of the Kitab.",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the Kitab entry was indexed."
+        }
+      },
+      "required": [
+        "uid",
+        "studentId",
+        "title",
+        "arabicTitle",
+        "author",
+        "category",
+        "classBatch",
+        "language",
+        "pages",
+        "storagePath",
+        "pdfUrl",
+        "summary",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/studyNotes/{noteId}": {
+      "schema": { "$ref": "#/entities/StudyNote" },
+      "description": "Stores scholarly AI study notes and Kitab research saved by students."
+    },
+    "/leaveRecords/{recordId}": {
+      "schema": { "$ref": "#/entities/LeaveRecord" },
+      "description": "Stores student leave applications and campus return registry records."
+    },
+    "/digitalKitabs/{kitabId}": {
+      "schema": { "$ref": "#/entities/DigitalKitab" },
+      "description": "Stores metadata and Firebase Storage paths for academic Kitabs and PDFs in the Digital Library."
+    }
+  }
+}

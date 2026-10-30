@@ -1,0 +1,131 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: 'Givonic', var(--font-poppins), 'Poppins', 'Tajawal', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-el-messiri), 'Tajawal', 'Noto Serif Malayalam', ui-serif, Georgia, serif;
+  --font-malayalam: 'Noto Serif Malayalam', 'Tajawal', var(--font-poppins), 'Poppins', serif;
+  --font-arabic: 'Tajawal', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', sans-serif;
+  --color-lime: var(--lime);
+  --color-cyan: var(--cyan);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  color-scheme: light;
+  --background: #ffffff;
+  --foreground: #081e21;
+  --card: #f4f8f7;
+  --card-foreground: #081e21;
+  --popover: #ffffff;
+  --popover-foreground: #081e21;
+  --primary: #8cc63f;
+  --primary-foreground: #081e21;
+  --secondary: #00aeef;
+  --secondary-foreground: #ffffff;
+  --muted: #eaf2f0;
+  --muted-foreground: #466360;
+  --accent: #eaf2f0;
+  --accent-foreground: #081e21;
+  --destructive: #dc2626;
+  --border: rgb(8 30 33 / 0.12);
+  --input: rgb(8 30 33 / 0.16);
+  --ring: #00aeef;
+  --lime: #8cc63f;
+  --cyan: #00aeef;
+  --radius: 0.75rem;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #081e21;
+  --foreground: #e8f1ef;
+  --card: #0c282c;
+  --card-foreground: #e8f1ef;
+  --popover: #0c282c;
+  --popover-foreground: #e8f1ef;
+  --primary: #8cc63f;
+  --primary-foreground: #081e21;
+  --secondary: #00aeef;
+  --secondary-foreground: #081e21;
+  --muted: #11333a;
+  --muted-foreground: #93aeab;
+  --accent: #11333a;
+  --accent-foreground: #e8f1ef;
+  --destructive: #f06a5f;
+  --border: rgb(232 241 239 / 0.1);
+  --input: rgb(232 241 239 / 0.14);
+  --ring: #00aeef;
+  --lime: #8cc63f;
+  --cyan: #00aeef;
+  --radius: 0.75rem;
+}
+
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 48px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 1.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.font-malayalam {
+  font-family: 'Noto Serif Malayalam', 'Tajawal', var(--font-poppins), 'Poppins', serif;
+}
+
+.font-arabic {
+  font-family: 'Tajawal', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans transition-colors duration-300;
+  }
+  [dir='rtl'],
+  :lang(ar) {
+    font-family: 'Tajawal', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', sans-serif;
+  }
+  :lang(ml) {
+    font-family: 'Noto Serif Malayalam', 'Tajawal', var(--font-poppins), 'Poppins', serif;
+  }
+}

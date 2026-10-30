@@ -1,0 +1,6 @@
+{
+  "name": "ICS Academy Manhappatta — Unified Digital Campus",
+  "description": "A unified digital campus for ICS Academy Manhappatta. Students, class leaders, teachers and the principal sign in to one secure portal.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

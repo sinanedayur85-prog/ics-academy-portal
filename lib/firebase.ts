@@ -1,0 +1,17 @@
+export {
+  app,
+  db,
+  auth,
+  storage,
+  SCOPES,
+  initAuth,
+  googleSignIn,
+  getAccessToken,
+  logout,
+  testConnection,
+  OperationType,
+  type FirestoreErrorInfo,
+  handleFirestoreError,
+  signInWithGoogle,
+  signOutFirebase,
+} from '../src/lib/firebase'

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#081E21" />
+    <script>
+      // Prevent @vite/client from failing WebSocket connection in AI Studio preview where HMR is disabled
+      (function () {
+        var NativeWebSocket = window.WebSocket;
+        if (NativeWebSocket) {
+          var PatchedWebSocket = function (url, protocols) {
+            var isViteHmr =
+              protocols === 'vite-hmr' ||
+              (Array.isArray(protocols) && protocols.indexOf('vite-hmr') !== -1) ||
+              (typeof url === 'string' && url.indexOf('token=') !== -1 && !protocols);
+            if (isViteHmr) {
+              return {
+                url: String(url || ''),
+                protocol: 'vite-hmr',
+                readyState: 1,
+                CONNECTING: 0,
+                OPEN: 1,
+                CLOSING: 2,
+                CLOSED: 3,
+                binaryType: 'blob',
+                bufferedAmount: 0,
+                extensions: '',
+                onopen: null,
+                onerror: null,
+                onclose: null,
+                onmessage: null,
+                addEventListener: function () {},
+                removeEventListener: function () {},
+                dispatchEvent: function () {
+                  return true;
+                },
+                send: function () {},
+                close: function () {
+                  this.readyState = 3;
+                },
+              };
+            }
+            return protocols !== undefined
+              ? new NativeWebSocket(url, protocols)
+              : new NativeWebSocket(url);
+          };
+          PatchedWebSocket.prototype = NativeWebSocket.prototype;
+          PatchedWebSocket.CONNECTING = NativeWebSocket.CONNECTING;
+          PatchedWebSocket.OPEN = NativeWebSocket.OPEN;
+          PatchedWebSocket.CLOSING = NativeWebSocket.CLOSING;
+          PatchedWebSocket.CLOSED = NativeWebSocket.CLOSED;
+          window.WebSocket = PatchedWebSocket;
+        }
+        window.addEventListener('unhandledrejection', function (event) {
+          if (
+            event.reason &&
+            (String(event.reason.message || event.reason).includes('WebSocket') ||
+              String(event.reason.message || event.reason).includes('websocket'))
+          ) {
+            event.preventDefault();
+          }
+        });
+      })();
+    </script>
+    <title>ICS Academy Manhappatta — Unified Digital Campus</title>
+    <meta
+      name="description"
+      content="A unified digital campus for ICS Academy Manhappatta. Students, class leaders, teachers and the principal sign in to one secure portal."
+    />
+    <meta property="og:title" content="ICS Academy Manhappatta — Unified Digital Campus" />
+    <meta
+      property="og:description"
+      content="A unified digital campus for ICS Academy Manhappatta. Students, class leaders, teachers and the principal sign in to one secure portal."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="/images/ics-mark-transparent.png" />
+    <link rel="apple-touch-icon" href="/images/ics-mark-transparent.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ICS Academy" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@400;500;600;700&family=Noto+Serif+Malayalam:wght@400;500;600;700&family=Poppins:wght@300;400;500;600&family=Tajawal:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+      crossorigin="anonymous"
+    />
+  </head>
+  <body class="antialiased">
+    <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').catch(function(err) {
+            console.warn('SW registration failed:', err);
+          });
+        });
+      }
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

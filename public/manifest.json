@@ -1,0 +1,35 @@
+{
+  "id": "/",
+  "name": "ICS Academy Manhappatta",
+  "short_name": "ICS Academy",
+  "description": "ICS Academy Manhappatta — Unified Digital Campus & Student Portal",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#081E21",
+  "theme_color": "#081E21",
+  "categories": ["education", "books", "productivity"],
+  "icons": [
+    {
+      "src": "/images/ics-mark-transparent.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/ics-mark-transparent.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/ics-mark-transparent.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

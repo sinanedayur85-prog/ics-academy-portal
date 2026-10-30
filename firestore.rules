@@ -1,0 +1,288 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Boot Connection Check Path
+    match /test/{docId} {
+      allow get: if docId == 'connection';
+    }
+
+    // Reusable Hardened Global Helpers
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isPortalStudentSession(uid, studentId) {
+      return studentId is string
+        && studentId.size() >= 4
+        && studentId.size() <= 32
+        && studentId.matches('^st[d]?-[a-zA-Z0-9_\\-]+$')
+        && uid is string
+        && uid.size() >= 11
+        && uid.size() <= 64
+        && uid == ('portal_' + studentId);
+    }
+
+    function isAuthorizedStudent(uid, studentId) {
+      return (isVerifiedUser() && uid == request.auth.uid)
+        || isPortalStudentSession(uid, studentId);
+    }
+
+    // Validation Blueprint: StudyNote
+    function isValidStudyNote(data) {
+      return data.keys().hasAll(['uid', 'studentId', 'mode', 'language', 'prompt', 'response', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'studentId', 'mode', 'language', 'prompt', 'response', 'createdAt'])
+        && data.uid is string
+        && data.uid.size() >= 1
+        && data.uid.size() <= 128
+        && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.studentId is string
+        && data.studentId.size() >= 1
+        && data.studentId.size() <= 64
+        && data.studentId.matches('^[a-zA-Z0-9_\\-]+$')
+        && isAuthorizedStudent(data.uid, data.studentId)
+        && data.mode is string
+        && data.mode.size() >= 2
+        && data.mode.size() <= 20
+        && (data.mode == 'kitab' || data.mode == 'qa' || data.mode == 'translation' || data.mode == 'dawa')
+        && data.language is string
+        && data.language.size() >= 2
+        && data.language.size() <= 5
+        && (data.language == 'ml' || data.language == 'en' || data.language == 'ar')
+        && data.prompt is string
+        && data.prompt.size() >= 1
+        && data.prompt.size() <= 2000
+        && data.response is string
+        && data.response.size() >= 1
+        && data.response.size() <= 15000
+        && data.createdAt is timestamp;
+    }
+
+    // Validation Blueprint: LeaveRecord
+    function isValidLeaveRecord(data) {
+      return data.keys().hasAll([
+          'uid',
+          'studentId',
+          'studentName',
+          'admissionNo',
+          'recordType',
+          'dateString',
+          'timeString',
+          'reason',
+          'details',
+          'status',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'studentId',
+          'studentName',
+          'admissionNo',
+          'recordType',
+          'dateString',
+          'timeString',
+          'reason',
+          'details',
+          'status',
+          'createdAt'
+        ])
+        && data.uid is string
+        && data.uid.size() >= 1
+        && data.uid.size() <= 128
+        && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.studentId is string
+        && data.studentId.size() >= 1
+        && data.studentId.size() <= 64
+        && data.studentId.matches('^[a-zA-Z0-9_\\-]+$')
+        && isAuthorizedStudent(data.uid, data.studentId)
+        && data.studentName is string
+        && data.studentName.size() >= 1
+        && data.studentName.size() <= 120
+        && data.admissionNo is string
+        && data.admissionNo.size() >= 1
+        && data.admissionNo.size() <= 40
+        && data.recordType is string
+        && data.recordType.size() >= 6
+        && data.recordType.size() <= 15
+        && (data.recordType == 'application' || data.recordType == 'return')
+        && data.dateString is string
+        && data.dateString.size() >= 4
+        && data.dateString.size() <= 40
+        && data.timeString is string
+        && data.timeString.size() >= 4
+        && data.timeString.size() <= 20
+        && data.reason is string
+        && data.reason.size() >= 1
+        && data.reason.size() <= 120
+        && data.details is string
+        && data.details.size() <= 6000
+        && data.status is string
+        && data.status.size() >= 6
+        && data.status.size() <= 15
+        && (data.status == 'pending' || data.status == 'recorded')
+        && data.createdAt is timestamp;
+    }
+
+    // Validation Blueprint: DigitalKitab
+    function isValidDigitalKitab(data) {
+      return data.keys().hasAll([
+          'uid',
+          'studentId',
+          'title',
+          'arabicTitle',
+          'author',
+          'category',
+          'classBatch',
+          'language',
+          'pages',
+          'storagePath',
+          'pdfUrl',
+          'summary',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'studentId',
+          'title',
+          'arabicTitle',
+          'author',
+          'category',
+          'classBatch',
+          'language',
+          'pages',
+          'storagePath',
+          'pdfUrl',
+          'summary',
+          'createdAt'
+        ])
+        && data.uid is string
+        && data.uid.size() >= 1
+        && data.uid.size() <= 128
+        && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.studentId is string
+        && data.studentId.size() >= 1
+        && data.studentId.size() <= 64
+        && data.studentId.matches('^[a-zA-Z0-9_\\-]+$')
+        && isAuthorizedStudent(data.uid, data.studentId)
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 160
+        && data.arabicTitle is string
+        && data.arabicTitle.size() <= 160
+        && data.author is string
+        && data.author.size() >= 1
+        && data.author.size() <= 120
+        && data.category is string
+        && data.category.size() >= 4
+        && data.category.size() <= 15
+        && (
+          data.category == 'fiqh'
+          || data.category == 'hadith'
+          || data.category == 'tafsir'
+          || data.category == 'aqeedah'
+          || data.category == 'nahw'
+          || data.category == 'history'
+        )
+        && data.classBatch is string
+        && data.classBatch.size() >= 2
+        && data.classBatch.size() <= 40
+        && data.language is string
+        && data.language.size() >= 2
+        && data.language.size() <= 40
+        && data.pages is int
+        && data.pages >= 1
+        && data.pages <= 5000
+        && data.storagePath is string
+        && data.storagePath.size() >= 4
+        && data.storagePath.size() <= 240
+        && data.storagePath.matches('^kitabs/[a-zA-Z0-9_\\-/\\.]+\\.pdf$')
+        && data.pdfUrl is string
+        && data.pdfUrl.size() <= 1500
+        && data.summary is string
+        && data.summary.size() >= 1
+        && data.summary.size() <= 1200
+        && data.createdAt is timestamp;
+    }
+
+    // Collection: /studyNotes/{noteId}
+    match /studyNotes/{noteId} {
+      allow get: if isValidId(noteId)
+        && resource != null
+        && isAuthorizedStudent(existing().uid, existing().studentId);
+      allow list: if isAuthorizedStudent(existing().uid, existing().studentId);
+      allow create: if isValidId(noteId)
+        && isValidStudyNote(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(noteId)
+        && resource != null
+        && isValidStudyNote(incoming())
+        && isAuthorizedStudent(existing().uid, existing().studentId)
+        && incoming().uid == existing().uid
+        && incoming().studentId == existing().studentId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['prompt', 'response', 'mode', 'language']);
+      allow delete: if isValidId(noteId)
+        && resource != null
+        && isAuthorizedStudent(existing().uid, existing().studentId);
+    }
+
+    // Collection: /leaveRecords/{recordId}
+    match /leaveRecords/{recordId} {
+      allow get: if isValidId(recordId)
+        && resource != null
+        && isAuthorizedStudent(existing().uid, existing().studentId);
+      allow list: if isAuthorizedStudent(existing().uid, existing().studentId);
+      allow create: if isValidId(recordId)
+        && isValidLeaveRecord(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isValidId(recordId)
+        && resource != null
+        && isAuthorizedStudent(existing().uid, existing().studentId);
+    }
+
+    // Collection: /digitalKitabs/{kitabId}
+    match /digitalKitabs/{kitabId} {
+      allow get: if isValidId(kitabId)
+        && resource != null
+        && isAuthorizedStudent(existing().uid, existing().studentId);
+      allow list: if isAuthorizedStudent(existing().uid, existing().studentId);
+      allow create: if isValidId(kitabId)
+        && isValidDigitalKitab(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(kitabId)
+        && resource != null
+        && isValidDigitalKitab(incoming())
+        && isAuthorizedStudent(existing().uid, existing().studentId)
+        && incoming().uid == existing().uid
+        && incoming().studentId == existing().studentId
+        && incoming().storagePath == existing().storagePath
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'arabicTitle', 'author', 'category', 'classBatch', 'language', 'pages', 'pdfUrl', 'summary']);
+      allow delete: if isValidId(kitabId)
+        && resource != null
+        && isAuthorizedStudent(existing().uid, existing().studentId);
+    }
+  }
+}
