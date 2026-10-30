@@ -40,8 +40,18 @@ const navItems = [
 ]
 
 export function DashboardShell() {
-  const student = students[0]
+  const [selectedStudentId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = window.localStorage.getItem('loggedInStudentId')
+      if (saved && students.some((s) => s.id === saved)) {
+        return saved
+      }
+    }
+    return students[0].id
+  })
   const [isOnLeave, setIsOnLeave] = useState(false)
+
+  const student = students.find((s) => s.id === selectedStudentId) ?? students[0]
 
   return (
     <div className="min-h-svh bg-background transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] lg:pl-64">
@@ -84,6 +94,7 @@ export function DashboardShell() {
             onClick={(event) => {
               event.preventDefault()
               window.localStorage.removeItem('isAuthenticated')
+              window.localStorage.removeItem('loggedInStudentId')
               window.dispatchEvent(new CustomEvent('ics-logout'))
             }}
             className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

@@ -37,7 +37,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import type { Student } from '@/components/dashboard/data'
+import { ACADEMY_CLASSES, type Student } from '@/components/dashboard/data'
 import { Panel, fieldClassName } from '@/components/dashboard/panel'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -1072,6 +1072,11 @@ export function DigitalLibrary({ student }: { student: Student }) {
                   onChange={(e) => setUploadBatch(e.target.value)}
                   className={fieldClassName}
                 >
+                  {ACADEMY_CLASSES.map((cls) => (
+                    <option key={cls.id} value={cls.className}>
+                      {cls.fullLabel}
+                    </option>
+                  ))}
                   <option value="S1 Da’wa">S1 Da’wa</option>
                   <option value="S2 Da’wa">S2 Da’wa</option>
                   <option value="S3 Da’wa">S3 Da’wa</option>
@@ -1218,6 +1223,11 @@ export function DigitalLibrary({ student }: { student: Student }) {
                   className="h-11 min-w-0 flex-1 rounded-lg border border-input bg-input/30 px-3 text-xs font-medium text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:w-auto sm:flex-initial dark:[color-scheme:dark]"
                 >
                   <option value="all">All Class Batches</option>
+                  {ACADEMY_CLASSES.map((cls) => (
+                    <option key={cls.id} value={cls.className}>
+                      {cls.fullLabel}
+                    </option>
+                  ))}
                   <option value="S1 Da’wa">S1 Da’wa</option>
                   <option value="S2 Da’wa">S2 Da’wa</option>
                   <option value="S3 Da’wa">S3 Da’wa</option>

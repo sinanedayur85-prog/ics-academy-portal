@@ -6,6 +6,7 @@ import { motion } from 'motion/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { findStudentByAdmissionNo, students } from '@/components/dashboard/data'
 import { cn } from '@/lib/utils'
 
 type Role = {
@@ -25,7 +26,7 @@ const studentRole: Role = {
   title: 'Student',
   description: 'View timetables, submit assignments and track your results.',
   idLabel: 'Admission number',
-  idPlaceholder: 'e.g. ICS-2026-0142',
+  idPlaceholder: 'e.g. ICS2K261401',
   icon: GraduationCap,
   tone: 'lime',
 }
@@ -100,15 +101,26 @@ export function LoginPortal({
     event.preventDefault()
     const data = new FormData(event.currentTarget)
     const identifier = String(data.get('identifier') ?? '').trim()
-    const password = String(data.get('password') ?? '')
-    const isValid =
-      selected.id === 'student' &&
-      identifier === DEMO_STUDENT.identifier &&
-      password === DEMO_STUDENT.password
-    if (isValid && onStudentLogin) {
-      setInvalid(false)
-      onStudentLogin()
-      return
+    const password = String(data.get('password') ?? '').trim()
+
+    if (selected.id === 'student' && password.length > 0) {
+      const matchedStudent = findStudentByAdmissionNo(identifier)
+      if (matchedStudent && onStudentLogin) {
+        setInvalid(false)
+        window.localStorage.setItem('loggedInStudentId', matchedStudent.id)
+        onStudentLogin()
+        return
+      }
+      if (
+        identifier.toUpperCase() === DEMO_STUDENT.identifier &&
+        password === DEMO_STUDENT.password &&
+        onStudentLogin
+      ) {
+        setInvalid(false)
+        window.localStorage.setItem('loggedInStudentId', students[0].id)
+        onStudentLogin()
+        return
+      }
     }
     setInvalid(true)
   }

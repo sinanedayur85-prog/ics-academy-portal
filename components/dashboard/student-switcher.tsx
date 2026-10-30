@@ -9,9 +9,11 @@ import { cn } from '@/lib/utils'
 function initials(name: string) {
   return name
     .split(' ')
+    .filter(Boolean)
     .map((part) => part[0])
     .slice(0, 2)
     .join('')
+    .toUpperCase()
 }
 
 export function StudentAvatar({ student, className }: { student: Student; className?: string }) {
@@ -137,6 +139,7 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
               event.preventDefault()
               setOpen(false)
               window.localStorage.removeItem('isAuthenticated')
+              window.localStorage.removeItem('loggedInStudentId')
               window.dispatchEvent(new CustomEvent('ics-logout'))
             }}
             className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-lime/30 bg-lime/10 px-4 text-xs font-semibold text-lime transition-colors duration-200 outline-none hover:border-lime hover:bg-lime hover:text-primary-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
