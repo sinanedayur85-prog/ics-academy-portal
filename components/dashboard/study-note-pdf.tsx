@@ -10,6 +10,16 @@ export interface StudyNoteExportData {
   personaTitle: string
 }
 
+export function isUrduText(text: string): boolean {
+  if (!text) return false
+  return /[\u0679\u067E\u0686\u0688\u0691\u0698\u06A9\u06AF\u06BA\u06BE\u06C1\u06C2\u06C3\u06CC\u06D2\u06D4]/.test(text)
+}
+
+export function isUrduLine(line: string): boolean {
+  if (!line) return false
+  return /[\u0679\u067E\u0686\u0688\u0691\u0698\u06A9\u06AF\u06BA\u06BE\u06C1\u06C2\u06C3\u06CC\u06D2\u06D4]/.test(line)
+}
+
 export function renderPrintScriptRuns(text: string, keyPrefix: string): React.ReactNode {
   const scriptRegex =
     /([\u0D00-\u0D7F\u200C\u200D]+|[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+)/g
@@ -29,16 +39,20 @@ export function renderPrintScriptRuns(text: string, keyPrefix: string): React.Re
       )
     }
     if (/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(part)) {
+      const partIsUrdu = isUrduText(part)
       return (
         <span
           key={`${keyPrefix}-ar-${idx}`}
           dir="rtl"
           style={{
-            fontFamily: "'Tajawal', 'Noto Sans Arabic', sans-serif",
+            fontFamily: partIsUrdu
+              ? "'Noto Nastaliq Urdu', 'Tajawal', serif"
+              : "'Tajawal', 'Noto Sans Arabic', sans-serif",
             fontWeight: 600,
             display: 'inline-block',
             margin: '0 2px',
-            fontSize: '1.08em',
+            fontSize: partIsUrdu ? '1.08em' : '1.08em',
+            lineHeight: partIsUrdu ? 2.1 : undefined,
           }}
         >
           {part}
@@ -121,18 +135,31 @@ export function renderPrintInlineMarkdown(line: string, keyPrefix: string) {
 
 export function isArabicText(text: string): boolean {
   if (!text) return false
-  const arabicChars = (text.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []).length
-  return arabicChars > 0
+  const stripped = text.replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+  const arabicChars = (
+    stripped.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []
+  ).length
+  const ltrChars = (stripped.match(/[A-Za-z\u00C0-\u024F\u0D00-\u0D7F]/g) || []).length
+  return arabicChars > 0 && arabicChars > ltrChars
 }
 
 export function isArabicLine(line: string): boolean {
   if (!line) return false
-  return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(line)
+  const stripped = line.replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+  const arabicChars = (
+    stripped.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []
+  ).length
+  const ltrChars = (stripped.match(/[A-Za-z\u00C0-\u024F\u0D00-\u0D7F]/g) || []).length
+  if (ltrChars >= 4 && arabicChars <= ltrChars * 1.5) {
+    return false
+  }
+  return arabicChars > 0 && arabicChars > ltrChars
 }
 
 export function StudyNotePrintBody({ text }: { text: string }) {
   const lines = text.split('\n')
   const noteIsArabic = isArabicText(text)
+  const noteIsUrdu = isUrduText(text) && noteIsArabic
 
   return (
     <div
@@ -142,6 +169,9 @@ export function StudyNotePrintBody({ text }: { text: string }) {
         flexDirection: 'column',
         gap: '8px',
         textAlign: noteIsArabic ? 'right' : 'left',
+        fontFamily: noteIsUrdu
+          ? "'Noto Nastaliq Urdu', 'Tajawal', serif"
+          : "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
       {lines.map((rawLine, idx) => {
@@ -169,7 +199,9 @@ export function StudyNotePrintBody({ text }: { text: string }) {
         if (headingMatch) {
           const level = headingMatch[1].length
           const content = headingMatch[2]
-          const isAr = isArabicLine(content) || noteIsArabic
+          const isAr = isArabicLine(content)
+          const isUr = isAr && (isUrduLine(content) || noteIsUrdu)
+          const isMl = /[\u0D00-\u0D7F]/.test(content)
           return (
             <div
               key={key}
@@ -183,9 +215,14 @@ export function StudyNotePrintBody({ text }: { text: string }) {
                 paddingBottom: level <= 2 ? '3px' : '0px',
                 textAlign: isAr ? 'right' : 'left',
                 direction: isAr ? 'rtl' : 'ltr',
-                fontFamily: isAr
-                  ? "'Tajawal', 'Noto Sans Arabic', sans-serif"
-                  : "'Noto Serif Malayalam', 'Tajawal', sans-serif",
+                lineHeight: isUr ? 2.1 : undefined,
+                fontFamily: isUr
+                  ? "'Noto Nastaliq Urdu', 'Tajawal', serif"
+                  : isAr
+                    ? "'Tajawal', 'Noto Sans Arabic', sans-serif"
+                    : isMl
+                      ? "'Noto Serif Malayalam', 'Poppins', sans-serif"
+                      : "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
               }}
             >
               {renderPrintInlineMarkdown(content, key)}
@@ -195,7 +232,9 @@ export function StudyNotePrintBody({ text }: { text: string }) {
 
         const quoteMatch = /^>\s*(.+)$/.exec(line.trim())
         if (quoteMatch) {
-          const isAr = isArabicLine(quoteMatch[1]) || noteIsArabic
+          const isAr = isArabicLine(quoteMatch[1])
+          const isUr = isAr && (isUrduLine(quoteMatch[1]) || noteIsUrdu)
+          const isMl = /[\u0D00-\u0D7F]/.test(quoteMatch[1])
           return (
             <blockquote
               key={key}
@@ -208,14 +247,18 @@ export function StudyNotePrintBody({ text }: { text: string }) {
                 backgroundColor: '#ecfdf5',
                 padding: '6px 12px',
                 fontSize: '11.5px',
-                fontStyle: 'italic',
-                lineHeight: 1.6,
+                fontStyle: isUr ? 'normal' : 'italic',
+                lineHeight: isUr ? 2.1 : 1.6,
                 color: '#334155',
                 textAlign: isAr ? 'right' : 'left',
                 direction: isAr ? 'rtl' : 'ltr',
-                fontFamily: isAr
-                  ? "'Tajawal', 'Noto Sans Arabic', sans-serif"
-                  : "'Noto Serif Malayalam', 'Tajawal', sans-serif",
+                fontFamily: isUr
+                  ? "'Noto Nastaliq Urdu', 'Tajawal', serif"
+                  : isAr
+                    ? "'Tajawal', 'Noto Sans Arabic', sans-serif"
+                    : isMl
+                      ? "'Noto Serif Malayalam', 'Poppins', sans-serif"
+                      : "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
               }}
             >
               {renderPrintInlineMarkdown(quoteMatch[1], key)}
@@ -225,7 +268,8 @@ export function StudyNotePrintBody({ text }: { text: string }) {
 
         const bulletMatch = /^(\s*)([*\-•])\s+(.+)$/.exec(line)
         if (bulletMatch) {
-          const isAr = isArabicLine(bulletMatch[3]) || noteIsArabic
+          const isAr = isArabicLine(bulletMatch[3])
+          const isUr = isAr && (isUrduLine(bulletMatch[3]) || noteIsUrdu)
           return (
             <div
               key={key}
@@ -255,8 +299,12 @@ export function StudyNotePrintBody({ text }: { text: string }) {
                 style={{
                   flex: 1,
                   minWidth: 0,
-                  lineHeight: 1.6,
-                  fontFamily: isAr ? "'Tajawal', 'Noto Sans Arabic', sans-serif" : undefined,
+                  lineHeight: isUr ? 2.1 : 1.6,
+                  fontFamily: isUr
+                    ? "'Noto Nastaliq Urdu', 'Tajawal', serif"
+                    : isAr
+                      ? "'Tajawal', 'Noto Sans Arabic', sans-serif"
+                      : "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
                 }}
               >
                 {renderPrintInlineMarkdown(bulletMatch[3], key)}
@@ -267,7 +315,8 @@ export function StudyNotePrintBody({ text }: { text: string }) {
 
         const numberedMatch = /^(\s*)(\d+[.)])\s+(.+)$/.exec(line)
         if (numberedMatch) {
-          const isAr = isArabicLine(numberedMatch[3]) || noteIsArabic
+          const isAr = isArabicLine(numberedMatch[3])
+          const isUr = isAr && (isUrduLine(numberedMatch[3]) || noteIsUrdu)
           return (
             <div
               key={key}
@@ -297,8 +346,12 @@ export function StudyNotePrintBody({ text }: { text: string }) {
                 style={{
                   flex: 1,
                   minWidth: 0,
-                  lineHeight: 1.6,
-                  fontFamily: isAr ? "'Tajawal', 'Noto Sans Arabic', sans-serif" : undefined,
+                  lineHeight: isUr ? 2.1 : 1.6,
+                  fontFamily: isUr
+                    ? "'Noto Nastaliq Urdu', 'Tajawal', serif"
+                    : isAr
+                      ? "'Tajawal', 'Noto Sans Arabic', sans-serif"
+                      : "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
                 }}
               >
                 {renderPrintInlineMarkdown(numberedMatch[3], key)}
@@ -307,17 +360,22 @@ export function StudyNotePrintBody({ text }: { text: string }) {
           )
         }
 
-        const isAr = isArabicLine(line) || noteIsArabic
+        const isAr = isArabicLine(line)
+        const isUr = isAr && (isUrduLine(line) || noteIsUrdu)
         return (
           <div
             key={key}
             dir={isAr ? 'rtl' : 'ltr'}
             style={{
               whiteSpace: 'pre-wrap',
-              lineHeight: 1.6,
+              lineHeight: isUr ? 2.1 : 1.6,
               textAlign: isAr ? 'right' : 'left',
               direction: isAr ? 'rtl' : 'ltr',
-              fontFamily: isAr ? "'Tajawal', 'Noto Sans Arabic', sans-serif" : undefined,
+              fontFamily: isUr
+                ? "'Noto Nastaliq Urdu', 'Tajawal', serif"
+                : isAr
+                  ? "'Tajawal', 'Noto Sans Arabic', sans-serif"
+                  : "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
             }}
           >
             {renderPrintInlineMarkdown(line, key)}
@@ -601,11 +659,13 @@ export function StudyNotePrintTemplate({
                   marginTop: '3px',
                   fontSize: '13px',
                   fontWeight: 600,
-                  lineHeight: 1.55,
+                  lineHeight: isUrduText(note.prompt) ? 2.1 : 1.55,
                   color: '#0f172a',
-                  fontFamily: isArabicText(note.prompt)
-                    ? "'Tajawal', 'Noto Sans Arabic', sans-serif"
-                    : "'Noto Serif Malayalam', 'Tajawal', sans-serif",
+                  fontFamily: isUrduText(note.prompt)
+                    ? "'Noto Nastaliq Urdu', 'Tajawal', serif"
+                    : isArabicText(note.prompt)
+                      ? "'Tajawal', 'Noto Sans Arabic', sans-serif"
+                      : "'Noto Serif Malayalam', 'Tajawal', sans-serif",
                 }}
               >
                 {renderPrintScriptRuns(note.prompt, 'print-prompt')}
@@ -631,14 +691,19 @@ export function StudyNotePrintTemplate({
                   fontWeight: 700,
                   color: '#081e21',
                   margin: 0,
-                  fontFamily: isArabicText(note.response)
-                    ? "'Tajawal', 'Noto Sans Arabic', sans-serif"
-                    : undefined,
+                  lineHeight: isUrduText(note.response) ? 2.1 : undefined,
+                  fontFamily: isUrduText(note.response)
+                    ? "'Noto Nastaliq Urdu', 'Tajawal', serif"
+                    : isArabicText(note.response)
+                      ? "'Tajawal', 'Noto Sans Arabic', sans-serif"
+                      : undefined,
                 }}
               >
-                {isArabicText(note.response)
-                  ? 'الشرح والمذكرة الدراسية'
-                  : 'Study Note & Explanation'}
+                {isUrduText(note.response)
+                  ? 'تشریح اور تعلیمی نوٹ'
+                  : isArabicText(note.response)
+                    ? 'الشرح والمذكرة الدراسية'
+                    : 'Study Note & Explanation'}
               </h2>
             </div>
 

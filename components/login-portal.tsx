@@ -6,7 +6,14 @@ import { motion } from 'motion/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { findStudentByAdmissionNo, students } from '@/components/dashboard/data'
+import {
+  findClassLeaderByIdentifier,
+  findStudentByAdmissionNo,
+  findUsthadByStaffId,
+  CLASS_USTHADS,
+  students,
+  type ClassUsthad,
+} from '@/components/dashboard/data'
 import { cn } from '@/lib/utils'
 
 type Role = {
@@ -34,10 +41,10 @@ const studentRole: Role = {
 const classLeaderRole: Role = {
   id: 'class-leader',
   tier: 'Tier 02',
-  title: 'Class Leader',
-  description: 'Mark daily attendance and share notices with your class.',
-  idLabel: 'Leader ID',
-  idPlaceholder: 'e.g. CL-8B-03',
+  title: 'Class Leader (Main & Assistant)',
+  description: 'Each class has 2 leaders (Main Leader & Assistant Leader) with identical permissions to submit period attendance.',
+  idLabel: 'Leader ID (Main / Assistant) or Admission number',
+  idPlaceholder: 'e.g. CL-14 or ACL-14 (or ICS2K261401 / ICS2K261402)',
   icon: Users,
   tone: 'cyan',
 }
@@ -45,10 +52,10 @@ const classLeaderRole: Role = {
 const teacherRole: Role = {
   id: 'teacher',
   tier: 'Tier 03',
-  title: 'Teacher',
-  description: 'Manage classes, publish lessons and grade submissions.',
+  title: 'Class Usthad (Teacher)',
+  description: 'Manage your assigned class attendance, leave register, notices, and digital Kitabs.',
   idLabel: 'Staff ID',
-  idPlaceholder: 'e.g. TCH-0217',
+  idPlaceholder: 'e.g. UST-07 (or UST-14 to UST-05)',
   icon: BookOpen,
   tone: 'lime',
 }
@@ -80,6 +87,8 @@ type LoginPortalProps = {
   gridClassName: string
   className?: string
   onStudentLogin?: () => void
+  onClassLeaderLogin?: () => void
+  onUsthadLogin?: (usthad: ClassUsthad) => void
 }
 
 const DEMO_STUDENT = { identifier: 'ICS-2026-0142', password: 'password123' }
@@ -92,6 +101,8 @@ export function LoginPortal({
   gridClassName,
   className,
   onStudentLogin,
+  onClassLeaderLogin,
+  onUsthadLogin,
 }: LoginPortalProps) {
   const [selectedId, setSelectedId] = useState(roles[0].id)
   const [invalid, setInvalid] = useState(false)
@@ -108,6 +119,7 @@ export function LoginPortal({
       if (matchedStudent && onStudentLogin) {
         setInvalid(false)
         window.localStorage.setItem('loggedInStudentId', matchedStudent.id)
+        window.localStorage.setItem('authRole', 'student')
         onStudentLogin()
         return
       }
@@ -118,10 +130,42 @@ export function LoginPortal({
       ) {
         setInvalid(false)
         window.localStorage.setItem('loggedInStudentId', students[0].id)
+        window.localStorage.setItem('authRole', 'student')
         onStudentLogin()
         return
       }
     }
+
+    if (selected.id === 'class-leader' && password.length > 0) {
+      const matchedLeader = findClassLeaderByIdentifier(identifier)
+      if (matchedLeader && (onClassLeaderLogin || onStudentLogin)) {
+        setInvalid(false)
+        window.localStorage.setItem('loggedInStudentId', matchedLeader.student.id)
+        window.localStorage.setItem('loggedInLeaderId', matchedLeader.leaderId)
+        window.localStorage.setItem('loggedInLeaderRoleTitle', matchedLeader.roleTitle)
+        window.localStorage.setItem('authRole', 'class-leader')
+        if (onClassLeaderLogin) {
+          onClassLeaderLogin()
+        } else {
+          onStudentLogin?.()
+        }
+        return
+      }
+    }
+
+    if (selected.id === 'teacher' && password.length > 0) {
+      const matchedUsthad =
+        findUsthadByStaffId(identifier) ??
+        (identifier.toUpperCase() === 'TCH-0217' ? CLASS_USTHADS[0] : undefined)
+      if (matchedUsthad && onUsthadLogin) {
+        setInvalid(false)
+        window.localStorage.setItem('loggedInUsthadId', matchedUsthad.id)
+        window.localStorage.setItem('authRole', 'usthad')
+        onUsthadLogin(matchedUsthad)
+        return
+      }
+    }
+
     setInvalid(true)
   }
 

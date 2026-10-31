@@ -42,7 +42,7 @@ import {
 import { cn } from '@/lib/utils'
 
 export type StudyMode = 'kitab' | 'qa' | 'translation' | 'dawa'
-export type OutputLanguage = 'ml' | 'en' | 'ar'
+export type OutputLanguage = 'ml' | 'en' | 'ar' | 'ur' | 'es' | 'de'
 
 export interface SavedStudyNote {
   id: string
@@ -157,9 +157,12 @@ const MODES: {
 ]
 
 const LANGUAGES: { id: OutputLanguage; label: string }[] = [
-  { id: 'ml', label: 'മലയാളം (Malayalam)' },
+  { id: 'ml', label: 'മലയാളം' },
   { id: 'en', label: 'English' },
-  { id: 'ar', label: 'العربية (Arabic)' },
+  { id: 'ar', label: 'العربية' },
+  { id: 'ur', label: 'اردو' },
+  { id: 'es', label: 'Español' },
+  { id: 'de', label: 'Deutsch' },
 ]
 
 const LOCAL_STORAGE_KEY = 'ics_saved_study_notes_v1'
@@ -264,7 +267,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
             mode: (['kitab', 'qa', 'translation', 'dawa'].includes(data.mode)
               ? data.mode
               : 'kitab') as StudyMode,
-            language: (['ml', 'en', 'ar'].includes(data.language)
+            language: (['ml', 'en', 'ar', 'ur', 'es', 'de'].includes(data.language)
               ? data.language
               : 'ml') as OutputLanguage,
             prompt: String(data.prompt ?? ''),
@@ -317,10 +320,14 @@ export function AiStudyAssistant({ student }: { student: Student }) {
     setErrorMessage(null)
     setJustSaved(false)
 
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 45000)
+
     try {
       const res = await fetch('/api/ai/study-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           prompt: activePrompt.slice(0, 2000),
           mode,
@@ -329,20 +336,57 @@ export function AiStudyAssistant({ student }: { student: Student }) {
         }),
       })
 
-      const data = await res.json()
+      clearTimeout(timeoutId)
+
+      const contentType = res.headers.get('content-type') || ''
+      let data: { response?: string; error?: string } | null = null
+
+      if (contentType.includes('application/json')) {
+        try {
+          data = await res.json()
+        } catch {
+          data = null
+        }
+      }
+
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to get response from AI Study Assistant.')
+        const errorMsg =
+          data?.error ||
+          (res.status === 504 || res.status === 502
+            ? 'AI സെർവറിൽ മറുപടി തയ്യാറാക്കാൻ സമയമെടുത്തതിനാൽ കണക്ഷൻ തടസ്സപ്പെട്ടു (Gateway Timeout). ദയവായി വീണ്ടും ശ്രമിക്കുക.'
+            : res.status === 503
+              ? 'AI സെർവറിൽ ഇപ്പോൾ തിരക്ക് കൂടുതലാണ് (503). ദയവായി അല്പം കഴിഞ്ഞ് വീണ്ടും ശ്രമിക്കുക.'
+              : `സെർവറിൽ നിന്ന് മറുപടി ലഭിക്കുന്നതിൽ തടസ്സം നേരിട്ടു (${res.status}). ദയവായി വീണ്ടും ശ്രമിക്കുക.`)
+        throw new Error(errorMsg)
+      }
+
+      if (!data || typeof data.response !== 'string') {
+        throw new Error('AI സെർവറിൽ നിന്ന് സാധുവായ മറുപടി ലഭിച്ചില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.')
       }
 
       setLastPrompt(activePrompt)
       setResponse(data.response)
     } catch (err) {
-      setErrorMessage(
+      let rawMsg =
         err instanceof Error
-          ? err.message
-          : 'ഇന്റർനെറ്റ് കണക്ഷൻ അല്ലെങ്കിൽ സെർവർ തകരാർ മൂലം ഉത്തരം ലഭ്യമായില്ല. വീണ്ടും ശ്രമിക്കുക.',
-      )
+          ? err.name === 'AbortError'
+            ? 'മറുപടി തയ്യാറാക്കാൻ അനുവദിച്ച സമയം കഴിഞ്ഞു (45s Timeout). ചോദ്യം ചെറുതാക്കി വീണ്ടും ശ്രമിക്കുക.'
+            : err.message
+          : 'ഇന്റർനെറ്റ് കണക്ഷൻ അല്ലെങ്കിൽ സെർവർ തകരാർ മൂലം ഉത്തരം ലഭ്യമായില്ല. വീണ്ടും ശ്രമിക്കുക.'
+
+      if (
+        rawMsg.includes('<!doctype') ||
+        rawMsg.includes('Unexpected token') ||
+        rawMsg.includes('is not valid JSON') ||
+        rawMsg.includes('JSON.parse')
+      ) {
+        rawMsg =
+          'AI സെർവറിൽ മറുപടി തയ്യാറാക്കാൻ സമയമെടുത്തതിനാൽ കണക്ഷൻ തടസ്സപ്പെട്ടു. ദയവായി വീണ്ടും ശ്രമിക്കുക.'
+      }
+
+      setErrorMessage(rawMsg)
     } finally {
+      clearTimeout(timeoutId)
       setLoading(false)
     }
   }

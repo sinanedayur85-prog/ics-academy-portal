@@ -26,9 +26,19 @@ function isArabicText(text: string): boolean {
   return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text)
 }
 
+function isUrduText(text: string): boolean {
+  if (!text) return false
+  return /[\u0679\u067E\u0686\u0688\u0691\u0698\u06A9\u06AF\u06BA\u06BE\u06C1\u06C2\u06C3\u06CC\u06D2\u06D4]/.test(text)
+}
+
+function getRtlFont(text: string): string {
+  return isUrduText(text) ? 'Noto Nastaliq Urdu' : 'Traditional Arabic'
+}
+
 function parseFormattedLines(rawText: string): Paragraph[] {
   const paragraphs: Paragraph[] = []
   const lines = rawText.split('\n')
+  const docHasUrdu = isUrduText(rawText)
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]?.trim()
@@ -44,6 +54,7 @@ function parseFormattedLines(rawText: string): Paragraph[] {
     }
 
     const isArabic = isArabicText(line)
+    const rtlFont = docHasUrdu || isUrduText(line) ? 'Noto Nastaliq Urdu' : 'Traditional Arabic'
 
     // Heading 1 (# Heading or ### Heading)
     if (line.startsWith('#')) {
@@ -60,7 +71,7 @@ function parseFormattedLines(rawText: string): Paragraph[] {
               bold: true,
               size: 28, // 14pt
               color: '1E3A8A', // Deep primary blue
-              font: isArabic ? 'Traditional Arabic' : 'Noto Sans Malayalam',
+              font: isArabic ? rtlFont : 'Noto Sans Malayalam',
               rightToLeft: isArabic,
             }),
           ],
@@ -81,13 +92,13 @@ function parseFormattedLines(rawText: string): Paragraph[] {
           bidirectional: isArabic,
           children: isArabic
             ? [
-                ...parseInlineBold(body, true),
+                ...parseInlineBold(body, true, rtlFont),
                 new TextRun({
                   text: ` ${numPrefix}`,
                   bold: true,
                   size: 22,
                   color: '047857',
-                  font: 'Traditional Arabic',
+                  font: rtlFont,
                   rightToLeft: true,
                 }),
               ]
@@ -99,7 +110,7 @@ function parseFormattedLines(rawText: string): Paragraph[] {
                   color: '047857',
                   font: 'Noto Sans Malayalam',
                 }),
-                ...parseInlineBold(body, false),
+                ...parseInlineBold(body, false, rtlFont),
               ],
         }),
       )
@@ -116,13 +127,13 @@ function parseFormattedLines(rawText: string): Paragraph[] {
             alignment: AlignmentType.RIGHT,
             bidirectional: true,
             children: [
-              ...parseInlineBold(bulletBody, true),
+              ...parseInlineBold(bulletBody, true, rtlFont),
               new TextRun({
                 text: ' •',
                 bold: true,
                 size: 22,
                 color: '047857',
-                font: 'Traditional Arabic',
+                font: rtlFont,
                 rightToLeft: true,
               }),
             ],
@@ -135,7 +146,7 @@ function parseFormattedLines(rawText: string): Paragraph[] {
             bullet: { level: 0 },
             alignment: AlignmentType.LEFT,
             bidirectional: false,
-            children: parseInlineBold(bulletBody, false),
+            children: parseInlineBold(bulletBody, false, rtlFont),
           }),
         )
       }
@@ -148,7 +159,7 @@ function parseFormattedLines(rawText: string): Paragraph[] {
         spacing: { before: 80, after: 120, line: 320 }, // 1.33x line spacing
         alignment: isArabic ? AlignmentType.RIGHT : AlignmentType.LEFT,
         bidirectional: isArabic,
-        children: parseInlineBold(line, isArabic),
+        children: parseInlineBold(line, isArabic, rtlFont),
       }),
     )
   }
@@ -156,7 +167,7 @@ function parseFormattedLines(rawText: string): Paragraph[] {
   return paragraphs
 }
 
-function parseInlineBold(text: string, isArabic: boolean): TextRun[] {
+function parseInlineBold(text: string, isArabic: boolean, rtlFont = 'Traditional Arabic'): TextRun[] {
   const runs: TextRun[] = []
   // Matches **bold** patterns
   const parts = text.split(/(\*\*[^*]+\*\*)/g)
@@ -171,7 +182,7 @@ function parseInlineBold(text: string, isArabic: boolean): TextRun[] {
           bold: true,
           size: 22, // 11pt
           color: '0F172A',
-          font: isArabic ? 'Traditional Arabic' : 'Noto Sans Malayalam',
+          font: isArabic ? getRtlFont(inner) || rtlFont : 'Noto Sans Malayalam',
           rightToLeft: isArabic,
         }),
       )
@@ -181,7 +192,7 @@ function parseInlineBold(text: string, isArabic: boolean): TextRun[] {
           text: part,
           size: 22, // 11pt
           color: '334155',
-          font: isArabic ? 'Traditional Arabic' : 'Noto Sans Malayalam',
+          font: isArabic ? getRtlFont(part) || rtlFont : 'Noto Sans Malayalam',
           rightToLeft: isArabic,
         }),
       )

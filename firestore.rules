@@ -69,7 +69,7 @@ service cloud.firestore {
         && data.language is string
         && data.language.size() >= 2
         && data.language.size() <= 5
-        && (data.language == 'ml' || data.language == 'en' || data.language == 'ar')
+        && (data.language == 'ml' || data.language == 'en' || data.language == 'ar' || data.language == 'ur' || data.language == 'es' || data.language == 'de')
         && data.prompt is string
         && data.prompt.size() >= 1
         && data.prompt.size() <= 2000

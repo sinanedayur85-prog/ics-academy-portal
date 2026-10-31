@@ -29,7 +29,7 @@
         "language": {
           "type": "string",
           "description": "The primary output language of the note.",
-          "enum": ["ml", "en", "ar"],
+          "enum": ["ml", "en", "ar", "ur", "es", "de"],
           "minLength": 2,
           "maxLength": 5
         },

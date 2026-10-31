@@ -4,19 +4,25 @@ import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
-  Award,
   BookMarked,
   CalendarCheck,
   CalendarDays,
   ClipboardList,
+  Globe,
   Library,
   LogOut,
   Megaphone,
   MessageSquareText,
+  UserCheck,
 } from 'lucide-react'
 import { BrandWordmark } from '@/components/brand-wordmark'
 import { AttendanceCard } from '@/components/dashboard/attendance-card'
-import { students } from '@/components/dashboard/data'
+import { ClassLeaderAttendanceCard } from '@/components/dashboard/class-leader-attendance-card'
+import {
+  getClassLeadersForClass,
+  getLeaderInfoForStudent,
+  students,
+} from '@/components/dashboard/data'
 import { DigitalLibrary } from '@/components/dashboard/digital-library'
 import { ExamResultCard } from '@/components/dashboard/exam-result-card'
 import { GeminiChatbot } from '@/components/dashboard/gemini-chatbot'
@@ -28,18 +34,34 @@ import { Timetable } from '@/components/dashboard/timetable'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { cn } from '@/lib/utils'
 
-const navItems = [
+const studentNavItems = [
+  { label: 'Notice Board', href: '#notices', icon: Megaphone },
+  { label: 'Attendance Status', href: '#attendance', icon: CalendarCheck },
+  { label: 'Leave Register', href: '#leave', icon: ClipboardList },
   { label: "Da'wa College Chatbot", href: '#gemini-chatbot', icon: MessageSquareText },
   { label: 'Digital Library', href: '#digital-library', icon: Library },
-  { label: 'Notice Board', href: '#notices', icon: Megaphone },
-  { label: 'Attendance', href: '#attendance', icon: CalendarCheck },
-  { label: 'Leave Register', href: '#leave', icon: ClipboardList },
+  { label: 'Library', href: '#library', icon: BookMarked },
   { label: 'Time Table', href: '#timetable', icon: CalendarDays },
-  { label: 'Bahrul Uloom Library', href: '#library', icon: BookMarked },
-  { label: 'Exam Result', href: '#results', icon: Award },
+  { label: 'University Portal', href: '#university-portal', icon: Globe },
 ]
 
-export function DashboardShell() {
+const classLeaderNavItems = [
+  { label: 'Notice Board', href: '#notices', icon: Megaphone },
+  { label: 'Attendance Status', href: '#attendance', icon: CalendarCheck },
+  { label: 'Class Attendance', href: '#class-attendance', icon: UserCheck },
+  { label: 'Leave Register', href: '#leave', icon: ClipboardList },
+  { label: "Da'wa College Chatbot", href: '#gemini-chatbot', icon: MessageSquareText },
+  { label: 'Digital Library', href: '#digital-library', icon: Library },
+  { label: 'Library', href: '#library', icon: BookMarked },
+  { label: 'Time Table', href: '#timetable', icon: CalendarDays },
+  { label: 'University Portal', href: '#university-portal', icon: Globe },
+]
+
+type DashboardShellProps = {
+  isClassLeader?: boolean
+}
+
+export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
   const [selectedStudentId] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const saved = window.localStorage.getItem('loggedInStudentId')
@@ -52,6 +74,15 @@ export function DashboardShell() {
   const [isOnLeave, setIsOnLeave] = useState(false)
 
   const student = students.find((s) => s.id === selectedStudentId) ?? students[0]
+  const leaderInfo = getLeaderInfoForStudent(student)
+  const classLeaders = getClassLeadersForClass(student.className)
+  const leaderId =
+    (typeof window !== 'undefined' && window.localStorage.getItem('loggedInLeaderId')) ||
+    leaderInfo.leaderId
+  const leaderRoleTitle =
+    (typeof window !== 'undefined' && window.localStorage.getItem('loggedInLeaderRoleTitle')) ||
+    leaderInfo.roleTitle
+  const navItems = isClassLeader ? classLeaderNavItems : studentNavItems
 
   return (
     <div className="min-h-svh bg-background transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] lg:pl-64">
@@ -74,7 +105,7 @@ export function DashboardShell() {
 
         <nav aria-label="Dashboard" className="flex flex-1 flex-col gap-1 p-4">
           <p className="px-3 pb-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            {"Da'wa College"}
+            {isClassLeader ? "Da'wa College • Class Leader" : "Da'wa College"}
           </p>
           {navItems.map((item) => (
             <a
@@ -95,6 +126,9 @@ export function DashboardShell() {
               event.preventDefault()
               window.localStorage.removeItem('isAuthenticated')
               window.localStorage.removeItem('loggedInStudentId')
+              window.localStorage.removeItem('loggedInLeaderId')
+              window.localStorage.removeItem('loggedInLeaderRoleTitle')
+              window.localStorage.removeItem('authRole')
               window.dispatchEvent(new CustomEvent('ics-logout'))
             }}
             className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -123,7 +157,7 @@ export function DashboardShell() {
           </Link>
           <div className="hidden lg:block">
             <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Student Dashboard
+              {isClassLeader ? 'Class Leader Dashboard' : 'Student Dashboard'}
             </p>
             <p className="text-sm text-foreground">Academic year 2026–27</p>
           </div>
@@ -158,8 +192,17 @@ export function DashboardShell() {
           <div>
             <div className="flex flex-wrap items-center gap-2.5">
               <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-lime">
-                {"Da'wa College Portal"}
+                {isClassLeader ? "Da'wa College • Class Leader Portal" : "Da'wa College Portal"}
               </p>
+              {isClassLeader && (
+                <a
+                  href="#class-attendance"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-xs font-bold tracking-wide text-cyan transition-colors hover:bg-cyan/25"
+                >
+                  <UserCheck className="size-3.5" aria-hidden="true" />
+                  {leaderRoleTitle} • {leaderId}
+                </a>
+              )}
               <a
                 href="#leave"
                 role="status"
@@ -198,30 +241,37 @@ export function DashboardShell() {
             <p>
               Admission no. <span className="font-medium tabular-nums text-foreground">{student.admissionNo}</span>
             </p>
+            {classLeaders.length > 0 && (
+              <>
+                <span className="text-border" aria-hidden="true">•</span>
+                <p>
+                  Class Leaders:{' '}
+                  <span className="font-medium text-cyan">
+                    {classLeaders
+                      .map((cl) => `${cl.studentName} (${cl.leaderId})`)
+                      .join(' & ')}
+                  </span>
+                </p>
+              </>
+            )}
           </div>
         </div>
+
+        <NoticeBoard />
+
+        <AttendanceCard student={student} />
+
+        {isClassLeader && (
+          <ClassLeaderAttendanceCard leader={student} leaderId={leaderId} />
+        )}
+
+        <LeaveRegister student={student} onLeaveStatusChange={setIsOnLeave} />
 
         <GeminiChatbot student={student} />
 
         <DigitalLibrary student={student} />
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-          <div className="w-full min-w-0 lg:col-span-3">
-            <NoticeBoard />
-          </div>
-          <div className="w-full min-w-0 lg:col-span-2">
-            <AttendanceCard student={student} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-          <div className="w-full min-w-0 lg:col-span-3">
-            <LeaveRegister student={student} onLeaveStatusChange={setIsOnLeave} />
-          </div>
-          <div className="w-full min-w-0 lg:col-span-2">
-            <LibraryBooks />
-          </div>
-        </div>
+        <LibraryBooks />
 
         <Timetable student={student} />
 

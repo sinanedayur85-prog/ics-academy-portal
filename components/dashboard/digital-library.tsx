@@ -89,24 +89,25 @@ export interface DigitalKitabItem {
 export const KITAB_CATEGORIES: {
   id: 'all' | KitabCategory
   label: string
+  arabicLabel: string
   malayalamLabel: string
 }[] = [
-  { id: 'all', label: 'All Kitabs', malayalamLabel: 'എല്ലാ കിതാബുകളും' },
-  { id: 'fiqh', label: 'Fiqh & Usul', malayalamLabel: 'ഫിഖ്ഹ് & ഉസൂൽ' },
-  { id: 'hadith', label: 'Hadith', malayalamLabel: 'ഹദീസ്' },
-  { id: 'tafsir', label: 'Tafsir', malayalamLabel: 'തഫ്സീർ' },
-  { id: 'aqeedah', label: 'Aqeedah & Tasawwuf', malayalamLabel: 'അഖീദ & തസ്വവ്വുഫ്' },
-  { id: 'nahw', label: 'Nahw & Sarf', malayalamLabel: 'നഹ്‌വ് & സർഫ്' },
-  { id: 'history', label: "History & Da'wa", malayalamLabel: 'ചരിത്രം & ദഅ്‌വ' },
+  { id: 'all', label: 'All Kitabs', arabicLabel: 'جَمِيعُ الْكُتُبِ', malayalamLabel: 'എല്ലാ കിതാബുകളും' },
+  { id: 'fiqh', label: 'Fiqh & Usul', arabicLabel: 'الْفِقْهُ وَأُصُولُهُ', malayalamLabel: 'ഫിഖ്ഹ് & ഉസൂൽ' },
+  { id: 'hadith', label: 'Hadith', arabicLabel: 'الْحَدِيثُ الشَّرِيفُ', malayalamLabel: 'ഹദീസ്' },
+  { id: 'tafsir', label: 'Tafsir', arabicLabel: 'التَّفْسِيرُ وَعُلُومُ الْقُرْآنِ', malayalamLabel: 'തഫ്സീർ' },
+  { id: 'aqeedah', label: 'Aqeedah & Tasawwuf', arabicLabel: 'الْعَقِيدَةُ وَالتَّصَوُّفُ', malayalamLabel: 'അഖീദ & തസ്വവ്വുഫ്' },
+  { id: 'nahw', label: 'Nahw & Sarf', arabicLabel: 'النَّحْوُ وَالصَّرْفُ', malayalamLabel: 'നഹ്‌വ് & സർഫ്' },
+  { id: 'history', label: "History & Da'wa", arabicLabel: 'التَّارِيخُ وَالدَّعْوَةُ', malayalamLabel: 'ചരിത്രം & ദഅ്‌വ' },
 ]
 
 const CATEGORY_LABELS: Record<KitabCategory, string> = {
-  fiqh: 'Fiqh & Usul',
-  hadith: 'Hadith Studies',
-  tafsir: 'Tafsir & Ulum',
-  aqeedah: 'Aqeedah & Tasawwuf',
-  nahw: 'Nahw & Sarf',
-  history: "History & Da'wa",
+  fiqh: 'Fiqh & Usul (الْفِقْهُ وَأُصُولُهُ)',
+  hadith: 'Hadith Studies (الْحَدِيثُ الشَّرِيفُ)',
+  tafsir: 'Tafsir & Ulum (التَّفْسِيرُ وَعُلُومُ الْقُرْآنِ)',
+  aqeedah: 'Aqeedah & Tasawwuf (الْعَقِيدَةُ وَالتَّصَوُّفُ)',
+  nahw: 'Nahw & Sarf (النَّحْوُ وَالصَّرْفُ)',
+  history: "History & Da'wa (التَّارِيخُ وَالدَّعْوَةُ)",
 }
 
 export const CURATED_KITABS: DigitalKitabItem[] = [
@@ -440,12 +441,22 @@ function buildKitabPdfBlob(kitab: DigitalKitabItem): Blob {
 export function DigitalLibrary({ student }: { student: Student }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeCategory, setActiveCategory] = useState<'all' | KitabCategory>('all')
-  const [batchFilter, setBatchFilter] = useState<string>('all')
   const [bookmarkedOnly, setBookmarkedOnly] = useState(false)
   const [bookmarkedIds, setBookmarkedIds] = useState<string[]>([
     'kitab-fathul-mueen',
     'kitab-riyad-as-salihin',
   ])
+
+  const studentClassLabel = useMemo(() => {
+    const matched = ACADEMY_CLASSES.find((cls) => cls.className === student.className)
+    return matched
+      ? matched.fullLabel
+      : student.className
+        ? student.className.startsWith('Class ')
+          ? student.className
+          : `Class ${student.className}`
+        : 'Class BS 3 • Batch 07'
+  }, [student.className])
 
   // Firebase Auth, Firestore & Storage State
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null)
@@ -468,7 +479,6 @@ export function DigitalLibrary({ student }: { student: Student }) {
   const [uploadArabicTitle, setUploadArabicTitle] = useState('')
   const [uploadAuthor, setUploadAuthor] = useState('')
   const [uploadCategory, setUploadCategory] = useState<KitabCategory>('fiqh')
-  const [uploadBatch, setUploadBatch] = useState(student.className || 'S3 Da’wa')
   const [uploadLanguage, setUploadLanguage] = useState('Arabic & Malayalam')
   const [uploadPages, setUploadPages] = useState('180')
   const [uploadSummary, setUploadSummary] = useState('')
@@ -603,28 +613,41 @@ export function DigitalLibrary({ student }: { student: Student }) {
     }
   }, [activePdfObjectUrl])
 
-  // Merge Curated Kitabs + Cloud Kitabs + Local Uploads without duplicates
+  // Merge Curated Kitabs + Cloud Kitabs + Local Uploads without duplicates, scoped to the logged-in student's class
   const allKitabs = useMemo(() => {
     const map = new Map<string, DigitalKitabItem>()
     for (const item of CURATED_KITABS) {
       map.set(item.id, {
         ...item,
+        classBatch: studentClassLabel,
         pdfUrl: syncedStoragePaths[item.storagePath] || item.pdfUrl,
       })
     }
     for (const item of localUploads) {
-      map.set(item.id, item)
+      if (
+        item.studentId &&
+        item.studentId !== safeStudentId &&
+        item.classBatch !== student.className &&
+        item.classBatch !== studentClassLabel
+      ) {
+        continue
+      }
+      map.set(item.id, {
+        ...item,
+        classBatch: studentClassLabel,
+      })
     }
     for (const item of cloudKitabs) {
       const existing = map.get(item.id)
       map.set(item.id, {
         ...existing,
         ...item,
+        classBatch: studentClassLabel,
         excerpt: existing?.excerpt ?? item.excerpt,
       })
     }
     return Array.from(map.values())
-  }, [cloudKitabs, localUploads, syncedStoragePaths])
+  }, [cloudKitabs, localUploads, safeStudentId, student.className, studentClassLabel, syncedStoragePaths])
 
   // Category counts for tabs
   const categoryCounts = useMemo(() => {
@@ -642,9 +665,6 @@ export function DigitalLibrary({ student }: { student: Student }) {
   const filteredKitabs = useMemo(() => {
     return allKitabs.filter((kitab) => {
       if (activeCategory !== 'all' && kitab.category !== activeCategory) {
-        return false
-      }
-      if (batchFilter !== 'all' && kitab.classBatch !== batchFilter) {
         return false
       }
       if (bookmarkedOnly && !bookmarkedIds.includes(kitab.id)) {
@@ -669,7 +689,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
 
       return haystack.includes(normalisedQuery)
     })
-  }, [allKitabs, activeCategory, batchFilter, bookmarkedOnly, bookmarkedIds, normalisedQuery])
+  }, [allKitabs, activeCategory, bookmarkedOnly, bookmarkedIds, normalisedQuery])
 
   function saveKitabToSaved(kitabId: string) {
     setBookmarkedIds((prev) => {
@@ -833,7 +853,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
       arabicTitle: uploadArabicTitle.trim(),
       author: cleanAuthor,
       category: uploadCategory,
-      classBatch: uploadBatch,
+      classBatch: studentClassLabel,
       language: uploadLanguage.trim() || 'Arabic',
       pages: parsedPages,
       storagePath: objectPath,
@@ -1053,64 +1073,41 @@ export function DigitalLibrary({ student }: { student: Student }) {
                   onChange={(e) => setUploadCategory(e.target.value as KitabCategory)}
                   className={fieldClassName}
                 >
-                  <option value="fiqh">Fiqh & Usul (ഫിഖ്ഹ് & ഉസൂൽ)</option>
-                  <option value="hadith">Hadith Studies (ഹദീസ്)</option>
-                  <option value="tafsir">Tafsir & Ulum (തഫ്സീർ)</option>
-                  <option value="aqeedah">Aqeedah & Tasawwuf (അഖീദ)</option>
-                  <option value="nahw">Nahw & Sarf (നഹ്‌വ് & സർഫ്)</option>
-                  <option value="history">History & Da&apos;wa (ചരിത്രം)</option>
+                  <option value="fiqh">Fiqh & Usul (الْفِقْهُ وَأُصُولُهُ)</option>
+                  <option value="hadith">Hadith Studies (الْحَدِيثُ الشَّرِيفُ)</option>
+                  <option value="tafsir">Tafsir & Ulum (التَّفْسِيرُ وَعُلُومُ الْقُرْآنِ)</option>
+                  <option value="aqeedah">Aqeedah & Tasawwuf (الْعَقِيدَةُ وَالتَّصَوُّفُ)</option>
+                  <option value="nahw">Nahw & Sarf (النَّحْوُ وَالصَّرْفُ)</option>
+                  <option value="history">History & Da&apos;wa (التَّارِيخُ وَالدَّعْوَةُ)</option>
                 </select>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="kitab-upload-batch" className="text-xs">
-                  Target Class Batch
+                <Label htmlFor="kitab-upload-pages" className="text-xs">
+                  Pages
                 </Label>
-                <select
-                  id="kitab-upload-batch"
-                  value={uploadBatch}
-                  onChange={(e) => setUploadBatch(e.target.value)}
-                  className={fieldClassName}
-                >
-                  {ACADEMY_CLASSES.map((cls) => (
-                    <option key={cls.id} value={cls.className}>
-                      {cls.fullLabel}
-                    </option>
-                  ))}
-                  <option value="S1 Da’wa">S1 Da’wa</option>
-                  <option value="S2 Da’wa">S2 Da’wa</option>
-                  <option value="S3 Da’wa">S3 Da’wa</option>
-                  <option value="General Reference">General Reference</option>
-                </select>
+                <input
+                  id="kitab-upload-pages"
+                  type="number"
+                  min={1}
+                  max={5000}
+                  value={uploadPages}
+                  onChange={(e) => setUploadPages(e.target.value)}
+                  className={cn(fieldClassName, 'tabular-nums')}
+                />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="kitab-upload-pages" className="text-xs">
-                    Pages
-                  </Label>
-                  <input
-                    id="kitab-upload-pages"
-                    type="number"
-                    min={1}
-                    max={5000}
-                    value={uploadPages}
-                    onChange={(e) => setUploadPages(e.target.value)}
-                    className={cn(fieldClassName, 'tabular-nums')}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="kitab-upload-lang" className="text-xs">
-                    Language
-                  </Label>
-                  <input
-                    id="kitab-upload-lang"
-                    type="text"
-                    value={uploadLanguage}
-                    onChange={(e) => setUploadLanguage(e.target.value)}
-                    className={fieldClassName}
-                  />
-                </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="kitab-upload-lang" className="text-xs">
+                  Language
+                </Label>
+                <input
+                  id="kitab-upload-lang"
+                  type="text"
+                  value={uploadLanguage}
+                  onChange={(e) => setUploadLanguage(e.target.value)}
+                  className={fieldClassName}
+                />
               </div>
             </div>
 
@@ -1211,30 +1208,6 @@ export function DigitalLibrary({ student }: { student: Student }) {
           </div>
 
           <div className="flex items-center gap-2">
-            {normalisedQuery || bookmarkedOnly ? (
-              <>
-                <label htmlFor="digital-library-batch" className="sr-only">
-                  Filter by Class Batch
-                </label>
-                <select
-                  id="digital-library-batch"
-                  value={batchFilter}
-                  onChange={(e) => setBatchFilter(e.target.value)}
-                  className="h-11 min-w-0 flex-1 rounded-lg border border-input bg-input/30 px-3 text-xs font-medium text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:w-auto sm:flex-initial dark:[color-scheme:dark]"
-                >
-                  <option value="all">All Class Batches</option>
-                  {ACADEMY_CLASSES.map((cls) => (
-                    <option key={cls.id} value={cls.className}>
-                      {cls.fullLabel}
-                    </option>
-                  ))}
-                  <option value="S1 Da’wa">S1 Da’wa</option>
-                  <option value="S2 Da’wa">S2 Da’wa</option>
-                  <option value="S3 Da’wa">S3 Da’wa</option>
-                  <option value="General Reference">General Reference</option>
-                </select>
-              </>
-            ) : null}
 
             <button
               type="button"
@@ -1283,12 +1256,21 @@ export function DigitalLibrary({ student }: { student: Student }) {
                 >
                   <span>{category.label}</span>
                   <span
+                    dir="rtl"
+                    className={cn(
+                      'font-arabic text-xs',
+                      selected ? 'text-primary-foreground/90' : 'text-muted-foreground',
+                    )}
+                  >
+                    ({category.arabicLabel})
+                  </span>
+                  <span
                     className={cn(
                       'text-[0.7rem] tabular-nums',
                       selected ? 'text-primary-foreground/85' : 'text-muted-foreground',
                     )}
                   >
-                    ({count})
+                    {count}
                   </span>
                 </button>
               )
@@ -1344,7 +1326,6 @@ export function DigitalLibrary({ student }: { student: Student }) {
               onClick={() => {
                 setSearchQuery('')
                 setActiveCategory('all')
-                setBatchFilter('all')
                 setBookmarkedOnly(false)
               }}
               className="text-xs font-medium text-lime hover:underline whitespace-nowrap shrink-0"
@@ -1509,7 +1490,6 @@ export function DigitalLibrary({ student }: { student: Student }) {
                   onClick={() => {
                     setSearchQuery('')
                     setActiveCategory('all')
-                    setBatchFilter('all')
                     setBookmarkedOnly(false)
                     searchInputRef.current?.focus()
                   }}

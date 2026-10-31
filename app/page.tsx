@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { DashboardShell } from '@/components/dashboard/dashboard-shell'
+import { UsthadDashboard } from '@/components/dashboard/usthad-dashboard'
 import { Hero } from '@/components/hero'
 import { LoginPortal, dawaCollegeRoles, englishSchoolRoles } from '@/components/login-portal'
 import { SiteFooter } from '@/components/site-footer'
@@ -10,20 +11,32 @@ import { SiteHeader } from '@/components/site-header'
 import { cn } from '@/lib/utils'
 
 const AUTH_STORAGE_KEY = 'isAuthenticated'
+const AUTH_ROLE_STORAGE_KEY = 'authRole'
 
 export default function Page() {
   const [hasMounted, setHasMounted] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [authRole, setAuthRole] = useState<'student' | 'class-leader' | 'usthad'>('student')
   const [showEnglishPortal, setShowEnglishPortal] = useState(false)
 
   useEffect(() => {
     const authenticated = window.localStorage.getItem(AUTH_STORAGE_KEY) === 'true'
+    const storedRole = window.localStorage.getItem(AUTH_ROLE_STORAGE_KEY)
     setIsLoggedIn(authenticated)
+    setAuthRole(
+      storedRole === 'usthad'
+        ? 'usthad'
+        : storedRole === 'class-leader'
+          ? 'class-leader'
+          : 'student',
+    )
     setHasMounted(true)
 
     function handleLogout() {
       window.localStorage.removeItem(AUTH_STORAGE_KEY)
+      window.localStorage.removeItem(AUTH_ROLE_STORAGE_KEY)
       setIsLoggedIn(false)
+      setAuthRole('student')
       window.scrollTo({ top: 0 })
     }
 
@@ -33,6 +46,24 @@ export default function Page() {
 
   function handleStudentLogin() {
     window.localStorage.setItem(AUTH_STORAGE_KEY, 'true')
+    window.localStorage.setItem(AUTH_ROLE_STORAGE_KEY, 'student')
+    setAuthRole('student')
+    setIsLoggedIn(true)
+    window.scrollTo({ top: 0 })
+  }
+
+  function handleClassLeaderLogin() {
+    window.localStorage.setItem(AUTH_STORAGE_KEY, 'true')
+    window.localStorage.setItem(AUTH_ROLE_STORAGE_KEY, 'class-leader')
+    setAuthRole('class-leader')
+    setIsLoggedIn(true)
+    window.scrollTo({ top: 0 })
+  }
+
+  function handleUsthadLogin() {
+    window.localStorage.setItem(AUTH_STORAGE_KEY, 'true')
+    window.localStorage.setItem(AUTH_ROLE_STORAGE_KEY, 'usthad')
+    setAuthRole('usthad')
     setIsLoggedIn(true)
     window.scrollTo({ top: 0 })
   }
@@ -43,7 +74,10 @@ export default function Page() {
   }
 
   if (isLoggedIn) {
-    return <DashboardShell />
+    if (authRole === 'usthad') {
+      return <UsthadDashboard />
+    }
+    return <DashboardShell isClassLeader={authRole === 'class-leader'} />
   }
 
   return (
@@ -59,6 +93,8 @@ export default function Page() {
           gridClassName="sm:grid-cols-2 lg:grid-cols-4"
           className="border-t-0 bg-background"
           onStudentLogin={handleStudentLogin}
+          onClassLeaderLogin={handleClassLeaderLogin}
+          onUsthadLogin={handleUsthadLogin}
         />
 
         {/* Toggle Divider Section between Da'wa College Portal and ICS English School Portal */}
@@ -114,6 +150,8 @@ export default function Page() {
               roles={englishSchoolRoles}
               gridClassName="grid-cols-1 md:grid-cols-3"
               onStudentLogin={handleStudentLogin}
+              onClassLeaderLogin={handleClassLeaderLogin}
+              onUsthadLogin={handleUsthadLogin}
             />
           </div>
         </div>

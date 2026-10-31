@@ -68,7 +68,7 @@ export function LibraryBooks() {
     <Panel
       id="library"
       eyebrow="BAHRUL ULOOM RESEARCH CENTRE"
-      title="LIBRARY"
+      title="Library"
       icon={BookMarked}
       action={
         <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium tabular-nums">

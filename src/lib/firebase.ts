@@ -11,7 +11,14 @@ import {
   type Auth,
   type User,
 } from 'firebase/auth'
-import { doc, getDocFromServer, getFirestore } from 'firebase/firestore'
+import {
+  doc,
+  getDoc,
+  getFirestore,
+  initializeFirestore,
+  setLogLevel,
+  type Firestore,
+} from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 import firebaseConfig from '../../firebase-applet-config.json'
 
@@ -19,6 +26,13 @@ export const SCOPES = [
   'https://www.googleapis.com/auth/documents',
   'https://www.googleapis.com/auth/drive.file',
 ]
+
+// Silence noisy internal @firebase/firestore WebChannel 10s offline-mode console errors
+try {
+  setLogLevel('silent')
+} catch {
+  // Ignore if unsupported
+}
 
 // Purge any stale cached Firebase Auth tokens in browser storage that could trigger
 // securetoken.googleapis.com token-refresh failures when Token Service API is disabled.
@@ -56,9 +70,22 @@ export const app = getApps().some((a) => a.name === '[DEFAULT]')
   ? getApp()
   : initializeApp(firebaseConfig)
 
-export const db = configWithOptionalDb.firestoreDatabaseId
-  ? getFirestore(app, configWithOptionalDb.firestoreDatabaseId)
-  : getFirestore(app)
+function createFirestoreInstance(): Firestore {
+  const dbId = configWithOptionalDb.firestoreDatabaseId
+  try {
+    return dbId
+      ? initializeFirestore(
+          app,
+          { experimentalAutoDetectLongPolling: true },
+          dbId,
+        )
+      : initializeFirestore(app, { experimentalAutoDetectLongPolling: true })
+  } catch {
+    return dbId ? getFirestore(app, dbId) : getFirestore(app)
+  }
+}
+
+export const db = createFirestoreInstance()
 export const storage = getStorage(app, firebaseConfig.storageBucket)
 
 // Isolated Firebase app for Auth with inMemoryPersistence so stale IndexedDB sessions
@@ -161,20 +188,10 @@ export const logout = async () => {
 
 export async function testConnection() {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'))
-  } catch (error) {
-    if (error instanceof Error) {
-      const code = (error as { code?: string }).code ?? 'unknown'
-      // Only log unexpected errors, ignoring transient offline states during initial boot
-      if (!error.message.includes('the client is offline')) {
-        console.warn(`Firebase connection check notice [${code}]: ${error.message}`)
-      }
-    }
+    await getDoc(doc(db, 'test', 'connection'))
+  } catch {
+    // Ignore transient offline or permission notices during connection check
   }
-}
-
-if (typeof window !== 'undefined') {
-  void testConnection()
 }
 
 export enum OperationType {

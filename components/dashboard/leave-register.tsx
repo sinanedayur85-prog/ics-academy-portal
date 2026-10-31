@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth'
 import {
   collection,
-  deleteDoc,
   doc,
   onSnapshot,
   query,
@@ -15,16 +14,28 @@ import {
 } from 'firebase/firestore'
 import {
   AlertCircle,
+  CalendarClock,
   CheckCircle2,
   ChevronDown,
   ClipboardList,
   Clock,
   Cloud,
+  Filter,
   LogIn,
   LogOut,
-  Trash2,
+  Search,
 } from 'lucide-react'
-import { leaveReasons, type Student } from '@/components/dashboard/data'
+import {
+  ABSENT_REASONS,
+  ATTENDANCE_LEAVE_REASONS,
+  getEffectiveStudentAttendance,
+  leaveReasons,
+  loadAttendanceOverrides,
+  loadPeriodAttendanceSubmissions,
+  type AttendanceOverrideMap,
+  type PeriodAttendanceSubmission,
+  type Student,
+} from '@/components/dashboard/data'
 import { Panel, fieldClassName } from '@/components/dashboard/panel'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -328,21 +339,38 @@ export function LeaveRegister({
     }
   }
 
-  async function handleDeleteEntry(entry: SavedLeaveEntry) {
-    setLocalEntries((prev) => prev.filter((item) => item.id !== entry.id))
-    if (entry.syncedToCloud) {
-      const path = `leaveRecords/${entry.id}`
-      try {
-        await deleteDoc(doc(db, 'leaveRecords', entry.id))
-      } catch (error) {
-        try {
-          handleFirestoreError(error, OperationType.DELETE, path)
-        } catch {
-          // Logged by handleFirestoreError
-        }
-      }
+  // Sync Period Attendance & Monthly Attendance Overrides for unified Leave & Absent Search
+  const [periodSubmissions, setPeriodSubmissions] = useState<
+    Record<string, PeriodAttendanceSubmission>
+  >({})
+  const [attendanceOverrides, setAttendanceOverrides] = useState<AttendanceOverrideMap>({})
+
+  // Search & Filter State for Leave & Absent History
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterMonth, setFilterMonth] = useState<string>('all')
+  const [filterYear, setFilterYear] = useState<string>('all')
+  const [filterDay, setFilterDay] = useState<string>('all')
+  const [filterPeriodTime, setFilterPeriodTime] = useState<string>('all')
+  const [filterRecordCategory, setFilterRecordCategory] = useState<
+    'all' | 'leave-departure' | 'campus-return' | 'period-absent-leave' | 'monthly-absent-leave'
+  >('all')
+  const [showAllMatchingRecords, setShowAllMatchingRecords] = useState(false)
+
+  useEffect(() => {
+    function syncAttendanceRecords() {
+      setPeriodSubmissions(loadPeriodAttendanceSubmissions())
+      setAttendanceOverrides(loadAttendanceOverrides())
     }
-  }
+    syncAttendanceRecords()
+    window.addEventListener('ics-period-attendance-updated', syncAttendanceRecords)
+    window.addEventListener('ics-attendance-updated', syncAttendanceRecords)
+    window.addEventListener('storage', syncAttendanceRecords)
+    return () => {
+      window.removeEventListener('ics-period-attendance-updated', syncAttendanceRecords)
+      window.removeEventListener('ics-attendance-updated', syncAttendanceRecords)
+      window.removeEventListener('storage', syncAttendanceRecords)
+    }
+  }, [])
 
   const displayedEntries = useMemo(() => {
     const combined =
@@ -360,10 +388,161 @@ export function LeaveRegister({
   const activeLeaveEntry = isOnLeave ? latestEntry : null
   const latestApplicationEntry =
     displayedEntries.find((item) => item.recordType === 'application') ?? null
+  const latestReturnEntry =
+    displayedEntries.find((item) => item.recordType === 'return') ?? null
 
   useEffect(() => {
     onLeaveStatusChange?.(isOnLeave)
   }, [isOnLeave, onLeaveStatusChange])
+
+  // Build unified searchable items across Leave Register, Period Absents/Leaves, and Monthly Absents/Leaves
+  const unifiedHistoryItems = useMemo(() => {
+    type UnifiedRecordItem = {
+      id: string
+      category: 'leave-departure' | 'campus-return' | 'period-absent-leave' | 'monthly-absent-leave'
+      badgeLabel: string
+      badgeTone: 'red' | 'emerald' | 'amber' | 'cyan'
+      title: string
+      reason: string
+      details: string
+      dateLabel: string
+      timeLabel: string
+      dayStr: string
+      monthShort: string
+      yearStr: string
+      sortMs: number
+    }
+
+    const items: UnifiedRecordItem[] = []
+
+    // 1. Leave Register Entries (Departures & Returns)
+    for (const entry of displayedEntries) {
+      const parts = entry.dateString.trim().split(/\s+/)
+      const dayStr = (parts[0] ?? '').padStart(2, '0')
+      const monthShort = parts[1] ?? ''
+      const yearStr = parts[2] ?? '2026'
+      const isApp = entry.recordType === 'application'
+
+      items.push({
+        id: `lr-${entry.id}`,
+        category: isApp ? 'leave-departure' : 'campus-return',
+        badgeLabel: isApp ? 'Leave Departure' : 'Campus Return',
+        badgeTone: isApp ? 'red' : 'emerald',
+        title: isApp ? `Personal Leave — ${entry.reason}` : 'Returned to Academy Campus',
+        reason: entry.reason,
+        details: entry.details || (isApp ? 'Outpass registered in Leave Register' : 'Verified return to campus'),
+        dateLabel: entry.dateString,
+        timeLabel: entry.timeString,
+        dayStr,
+        monthShort,
+        yearStr,
+        sortMs: entry.createdAtMs,
+      })
+    }
+
+    // 2. Period-by-Period Absent & Leave Records for this student
+    for (const sub of Object.values(periodSubmissions)) {
+      if (sub.className !== student.className) continue
+      const stStatus = sub.records?.[student.id]
+      if (stStatus !== 'absent' && stStatus !== 'leave') continue
+
+      const reason =
+        sub.reasons?.[student.id] ??
+        (stStatus === 'absent' ? ABSENT_REASONS[0] : ATTENDANCE_LEAVE_REASONS[0])
+      const [yStr, mNumStr, dStr] = sub.date.split('-')
+      const mIdx = Math.max(0, Math.min(11, (Number(mNumStr) || 1) - 1))
+      const monthShort = MONTHS[mIdx] ?? 'Oct'
+      const dayFormatted = `${(dStr ?? '01').padStart(2, '0')} ${monthShort} ${yStr ?? '2026'}`
+
+      items.push({
+        id: `prd-${sub.key}-${student.id}`,
+        category: 'period-absent-leave',
+        badgeLabel: stStatus === 'absent' ? `Period Absent (${sub.periodLabel})` : `Period Leave (${sub.periodLabel})`,
+        badgeTone: stStatus === 'absent' ? 'red' : 'amber',
+        title: `${sub.subject} • ${sub.periodLabel}`,
+        reason,
+        details: `Usthad: ${sub.teacher} • Marked by ${sub.submittedByName} (${sub.submittedByLeaderId})`,
+        dateLabel: dayFormatted,
+        timeLabel: sub.periodTime,
+        dayStr: (dStr ?? '01').padStart(2, '0'),
+        monthShort,
+        yearStr: yStr ?? '2026',
+        sortMs: new Date(sub.submittedAt || sub.date).getTime() || Date.now(),
+      })
+    }
+
+    // 3. Monthly Attendance Absent & Student Personal Leave Records
+    const effective = getEffectiveStudentAttendance(student, attendanceOverrides)
+    for (const m of effective.monthlyAttendance) {
+      if (m.absent === 0 && m.leave === 0) continue
+      const ov = attendanceOverrides[`${student.id}__${m.id}`]
+      const absReason = m.absent > 0 ? (ov?.absentReason ?? ABSENT_REASONS[0]) : null
+      const lvReason = m.leave > 0 ? (ov?.leaveReason ?? ATTENDANCE_LEAVE_REASONS[0]) : null
+      const combinedReason = [
+        absReason ? `Absent (${m.absent}d): ${absReason}` : null,
+        lvReason ? `Personal Leave (${m.leave}d): ${lvReason}` : null,
+      ]
+        .filter(Boolean)
+        .join(' • ')
+
+      items.push({
+        id: `mth-${student.id}-${m.id}`,
+        category: 'monthly-absent-leave',
+        badgeLabel: `Monthly Record (${m.shortMonth} ${m.year})`,
+        badgeTone: 'cyan',
+        title: `${m.month} ${m.year} — ${m.absent}d Absent, ${m.leave}d Personal Leave`,
+        reason: combinedReason,
+        details: `${m.workingDays} Working Days (${m.present}d Present • ${m.officialHolidayDays}d Official Holiday Excluded)`,
+        dateLabel: `${m.month} ${m.year}`,
+        timeLabel: 'Monthly Summary',
+        dayStr: 'all',
+        monthShort: m.shortMonth,
+        yearStr: String(m.year),
+        sortMs: new Date(`${m.id}-15T12:00:00`).getTime(),
+      })
+    }
+
+    return items.sort((a, b) => b.sortMs - a.sortMs)
+  }, [displayedEntries, periodSubmissions, student, attendanceOverrides])
+
+  const hasActiveSearchOrFilter =
+    searchQuery.trim().length > 0 ||
+    filterMonth !== 'all' ||
+    filterYear !== 'all' ||
+    filterDay !== 'all' ||
+    filterPeriodTime !== 'all' ||
+    filterRecordCategory !== 'all'
+
+  const filteredHistoryItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    return unifiedHistoryItems.filter((item) => {
+      if (filterRecordCategory !== 'all' && item.category !== filterRecordCategory) return false
+      if (filterMonth !== 'all' && item.monthShort !== filterMonth) return false
+      if (filterYear !== 'all' && item.yearStr !== filterYear) return false
+      if (filterDay !== 'all' && item.dayStr !== filterDay) return false
+      if (filterPeriodTime !== 'all') {
+        const tUpper = item.timeLabel.toUpperCase()
+        if (!tUpper.includes(filterPeriodTime.toUpperCase())) return false
+      }
+      if (!q) return true
+      return (
+        item.title.toLowerCase().includes(q) ||
+        item.reason.toLowerCase().includes(q) ||
+        item.details.toLowerCase().includes(q) ||
+        item.dateLabel.toLowerCase().includes(q) ||
+        item.timeLabel.toLowerCase().includes(q) ||
+        item.badgeLabel.toLowerCase().includes(q)
+      )
+    })
+  }, [
+    unifiedHistoryItems,
+    searchQuery,
+    filterRecordCategory,
+    filterMonth,
+    filterYear,
+    filterDay,
+    filterPeriodTime,
+  ])
 
   return (
     <Panel
@@ -398,6 +577,68 @@ export function LeaveRegister({
         </div>
       }
     >
+      {/* 1. CURRENT ACTIVE LEAVE STATUS & REASON BANNER */}
+      <div
+        className={cn(
+          'mb-5 flex flex-col justify-between gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center',
+          isOnLeave && activeLeaveEntry
+            ? 'border-red-500/40 bg-red-500/10'
+            : 'border-emerald-500/35 bg-emerald-500/[0.07] dark:border-lime/30 dark:bg-lime/[0.06]',
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <span
+            className={cn(
+              'mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl',
+              isOnLeave
+                ? 'bg-red-500/20 text-red-600 dark:text-red-400'
+                : 'bg-emerald-500/20 text-emerald-700 dark:bg-lime/20 dark:text-lime',
+            )}
+          >
+            <CalendarClock className="size-5" aria-hidden="true" />
+          </span>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground">
+                Current Campus Status
+              </span>
+              <span
+                className={cn(
+                  'rounded-full px-2 py-0.5 text-[11px] font-bold',
+                  isOnLeave
+                    ? 'bg-red-500/20 text-red-700 dark:text-red-300'
+                    : 'bg-emerald-500/20 text-emerald-800 dark:bg-lime/20 dark:text-lime',
+                )}
+              >
+                {isOnLeave ? 'Currently On Leave (ലീവിലാണ്)' : 'Present At Academy (ക്യാമ്പസിലുണ്ട്)'}
+              </span>
+            </div>
+
+            {isOnLeave && activeLeaveEntry ? (
+              <div className="text-xs leading-relaxed text-foreground">
+                <p className="text-sm font-semibold text-red-700 dark:text-red-300">
+                  Active Leave Reason: <span className="underline decoration-red-500/40 underline-offset-4">{activeLeaveEntry.reason}</span>
+                </p>
+                <p className="mt-0.5 text-muted-foreground">
+                  Departed on{' '}
+                  <strong className="font-mono text-foreground">{activeLeaveEntry.dateString}</strong> at{' '}
+                  <strong className="font-mono text-foreground">{activeLeaveEntry.timeString}</strong>
+                  {activeLeaveEntry.details ? ` • Note: ${activeLeaveEntry.details}` : ''}
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {student.name} is currently at the academy campus.
+                {latestReturnEntry
+                  ? ` Last returned on ${latestReturnEntry.dateString} at ${latestReturnEntry.timeString}.`
+                  : ' No active personal leave outpass is currently open.'}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 2. LEAVE APPLICATION & RETURN TABS */}
       <div
         role="tablist"
         aria-label="Leave register"
@@ -451,47 +692,211 @@ export function LeaveRegister({
         )}
       </div>
 
-      {displayedEntries.length > 0 ? (
-        <div className="mt-6 border-t border-border pt-4">
-          <div className="mb-2.5 flex items-center justify-between">
-            <p className="text-xs font-semibold text-foreground">
-              Recent Leave & Return Logs
+      {/* 3. SEARCH & FILTER LEAVE, RETURN & ABSENT HISTORY (No Delete Buttons) */}
+      <div className="mt-6 border-t border-border pt-5">
+        <div className="mb-3 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+          <div>
+            <h3 className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-foreground uppercase">
+              <Filter className="size-3.5 text-lime" aria-hidden="true" />
+              Search & Filter Leave / Absent Records
+            </h3>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Search by Month, Year, Date/Day, Time, or Reason to view when you took leave or were marked absent.
             </p>
-            <span className="font-mono text-xs tabular-nums text-muted-foreground">
-              {displayedEntries.length} recorded
-            </span>
           </div>
-          <ul className="flex max-h-44 flex-col gap-2 overflow-y-auto pr-1">
-            {displayedEntries.map((item) => (
-              <li
-                key={item.id}
-                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/50 px-3.5 py-2.5 text-xs"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 text-foreground font-medium">
-                    <span>
-                      {item.recordType === 'application' ? 'Leave Application' : 'Campus Return'}
-                    </span>
-                    <span aria-hidden="true">·</span>
-                    <span className="text-lime">{item.reason}</span>
-                  </div>
-                  <p className="mt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
-                    {item.dateString} at {item.timeString} · Status: {item.status}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void handleDeleteEntry(item)}
-                  aria-label="Delete leave record"
-                  className="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
-                >
-                  <Trash2 className="size-3.5" aria-hidden="true" />
-                </button>
-              </li>
-            ))}
-          </ul>
+          <button
+            type="button"
+            onClick={() => setShowAllMatchingRecords((prev) => !prev)}
+            className="self-start rounded-lg border border-border bg-background/70 px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-lime/50 hover:text-lime sm:self-auto"
+          >
+            {showAllMatchingRecords || hasActiveSearchOrFilter
+              ? `Showing ${filteredHistoryItems.length} Record${filteredHistoryItems.length === 1 ? '' : 's'}`
+              : `View All History (${unifiedHistoryItems.length})`}
+          </button>
         </div>
-      ) : null}
+
+        {/* Search Input + Month / Year / Day / Time / Category Filters */}
+        <div className="grid gap-2.5 rounded-2xl border border-border bg-background/50 p-3.5 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="relative sm:col-span-2">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                setShowAllMatchingRecords(true)
+              }}
+              placeholder="Search reason, subject, date, or time..."
+              className="h-9 w-full rounded-lg border border-input bg-background pr-3 pl-8 text-xs text-foreground placeholder:text-muted-foreground focus-visible:border-lime focus-visible:outline-none"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="leave-search-category" className="sr-only">
+              Record Category
+            </label>
+            <select
+              id="leave-search-category"
+              value={filterRecordCategory}
+              onChange={(e) => {
+                setFilterRecordCategory(
+                  e.target.value as
+                    | 'all'
+                    | 'leave-departure'
+                    | 'campus-return'
+                    | 'period-absent-leave'
+                    | 'monthly-absent-leave',
+                )
+                setShowAllMatchingRecords(true)
+              }}
+              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none dark:[color-scheme:dark]"
+            >
+              <option value="all">All Record Types</option>
+              <option value="leave-departure">Leave Departures</option>
+              <option value="campus-return">Campus Returns</option>
+              <option value="period-absent-leave">Period Absent / Leave</option>
+              <option value="monthly-absent-leave">Monthly Absent / Leave</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="leave-search-month" className="sr-only">
+              Filter by Month
+            </label>
+            <select
+              id="leave-search-month"
+              value={filterMonth}
+              onChange={(e) => {
+                setFilterMonth(e.target.value)
+                setShowAllMatchingRecords(true)
+              }}
+              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none dark:[color-scheme:dark]"
+            >
+              <option value="all">All Months</option>
+              {MONTHS.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="leave-search-year" className="sr-only">
+              Filter by Year
+            </label>
+            <select
+              id="leave-search-year"
+              value={filterYear}
+              onChange={(e) => {
+                setFilterYear(e.target.value)
+                setShowAllMatchingRecords(true)
+              }}
+              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none dark:[color-scheme:dark]"
+            >
+              <option value="all">All Years</option>
+              {BASE_YEARS.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1.5">
+            <div>
+              <label htmlFor="leave-search-day" className="sr-only">
+                Filter by Day
+              </label>
+              <select
+                id="leave-search-day"
+                value={filterDay}
+                onChange={(e) => {
+                  setFilterDay(e.target.value)
+                  setShowAllMatchingRecords(true)
+                }}
+                className="h-9 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none dark:[color-scheme:dark]"
+              >
+                <option value="all">Any Day</option>
+                {DAYS.map((d) => (
+                  <option key={d} value={d}>
+                    Day {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="leave-search-time" className="sr-only">
+                Filter by Time
+              </label>
+              <select
+                id="leave-search-time"
+                value={filterPeriodTime}
+                onChange={(e) => {
+                  setFilterPeriodTime(e.target.value)
+                  setShowAllMatchingRecords(true)
+                }}
+                className="h-9 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none dark:[color-scheme:dark]"
+              >
+                <option value="all">Any Time</option>
+                <option value="AM">Morning (AM)</option>
+                <option value="PM">Afternoon/Eve (PM)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Search Results Display */}
+        {showAllMatchingRecords || hasActiveSearchOrFilter ? (
+          <div className="mt-3">
+            {filteredHistoryItems.length === 0 ? (
+              <p className="rounded-xl border border-border/60 bg-background/40 p-4 text-center text-xs text-muted-foreground">
+                No leave or absent records found matching your search filters.
+              </p>
+            ) : (
+              <ul className="flex max-h-64 flex-col gap-2 overflow-y-auto pr-1">
+                {filteredHistoryItems.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex flex-col justify-between gap-2 rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-xs sm:flex-row sm:items-center"
+                  >
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={cn(
+                            'rounded-md px-2 py-0.5 text-[10px] font-bold uppercase',
+                            item.badgeTone === 'red' &&
+                              'bg-red-500/15 text-red-600 dark:text-red-400',
+                            item.badgeTone === 'emerald' &&
+                              'bg-emerald-500/15 text-emerald-700 dark:text-lime',
+                            item.badgeTone === 'amber' &&
+                              'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+                            item.badgeTone === 'cyan' &&
+                              'bg-cyan/15 text-sky-700 dark:text-cyan',
+                          )}
+                        >
+                          {item.badgeLabel}
+                        </span>
+                        <span className="font-semibold text-foreground">{item.title}</span>
+                      </div>
+                      <p className="text-xs font-medium text-lime">{item.reason}</p>
+                      <p className="text-[11px] text-muted-foreground">{item.details}</p>
+                    </div>
+                    <div className="shrink-0 text-left font-mono text-[11px] tabular-nums text-muted-foreground sm:text-right">
+                      <p className="font-semibold text-foreground">{item.dateLabel}</p>
+                      <p>{item.timeLabel}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
+      </div>
     </Panel>
   )
 }

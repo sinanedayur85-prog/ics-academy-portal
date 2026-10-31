@@ -1,70 +1,58 @@
 import { CalendarDays } from 'lucide-react'
-import { getTimetable, periods, weekDays, type Student } from '@/components/dashboard/data'
+import {
+  CURRENT_SEMESTER,
+  getClassSemesterTimetable,
+  type Student,
+} from '@/components/dashboard/data'
 import { Panel } from '@/components/dashboard/panel'
-import { cn } from '@/lib/utils'
-
-const TODAY_INDEX = 2
 
 export function Timetable({ student }: { student: Student }) {
-  const schedule = getTimetable(student)
+  const classSchedule = getClassSemesterTimetable(student)
+  const slots =
+    CURRENT_SEMESTER === 1 ? classSchedule.semester1 : classSchedule.semester2
 
   return (
     <Panel
       id="timetable"
-      eyebrow={`Class ${student.className} · Weekly schedule`}
+      eyebrow="Semester Schedule"
       title="Time Table"
       icon={CalendarDays}
+      action={
+        <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-lime/15 dark:text-lime">
+          Semester {CURRENT_SEMESTER}
+        </span>
+      }
     >
-      <div className="-mx-5 overflow-x-auto px-5 md:-mx-6 md:px-6">
-        <table className="w-full min-w-[640px] border-separate border-spacing-1.5 text-sm">
-          <caption className="sr-only">Weekly class schedule for class {student.className}</caption>
-          <thead>
-            <tr>
-              <th scope="col" className="w-16 text-left text-xs font-medium text-muted-foreground">
-                <span className="sr-only">Day</span>
-              </th>
-              {periods.map((period) => (
-                <th key={period.label} scope="col" className="pb-1 text-left font-normal">
-                  <span className="block text-xs font-semibold text-foreground">{period.label}</span>
-                  <span className="block text-[0.7rem] tabular-nums text-muted-foreground">{period.time}</span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {weekDays.map((day, dayIndex) => {
-              const isToday = dayIndex === TODAY_INDEX
-              return (
-                <tr key={day}>
-                  <th
-                    scope="row"
-                    className={cn(
-                      'rounded-lg px-2 text-left text-xs font-semibold uppercase tracking-wider',
-                      isToday ? 'text-lime' : 'text-muted-foreground',
-                    )}
-                  >
-                    {day}
-                    {isToday ? <span className="sr-only"> (today)</span> : null}
-                  </th>
-                  {schedule[dayIndex].map((slot, periodIndex) => (
-                    <td
-                      key={periodIndex}
-                      className={cn(
-                        'rounded-lg border px-3 py-2.5 font-medium transition-colors duration-200',
-                        isToday
-                          ? 'border-lime/30 bg-lime/10 text-foreground'
-                          : 'border-border bg-background/50 text-foreground/90 hover:border-cyan/40 hover:bg-cyan/5',
-                      )}
-                    >
-                      <span className="block">{slot.subject}</span>
-                      <span className="mt-0.5 block text-xs font-normal text-gray-400/80">{slot.teacher}</span>
-                    </td>
-                  ))}
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+        {classSchedule.periods.map((period, periodIndex) => {
+          const slot = slots[periodIndex]
+          if (!slot) return null
+
+          return (
+            <div
+              key={period.label}
+              className="flex flex-col justify-between rounded-xl border border-border bg-background/50 p-3.5 transition-colors duration-200 hover:border-lime/40 hover:bg-lime/5"
+            >
+              <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-lime">
+                  {period.label}
+                </span>
+                <span className="text-[0.7rem] tabular-nums text-muted-foreground">
+                  {period.time}
+                </span>
+              </div>
+
+              <div className="mt-2.5">
+                <p className="text-sm font-semibold leading-snug text-foreground">
+                  {slot.subject}
+                </p>
+                <p className="mt-1 text-xs font-normal text-muted-foreground">
+                  {slot.teacher}
+                </p>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </Panel>
   )

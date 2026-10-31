@@ -5,10 +5,11 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: 'Givonic', var(--font-poppins), 'Poppins', 'Tajawal', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Givonic', var(--font-poppins), 'Poppins', 'Tajawal', 'Noto Nastaliq Urdu', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-el-messiri), 'Tajawal', 'Noto Serif Malayalam', ui-serif, Georgia, serif;
   --font-malayalam: 'Noto Serif Malayalam', 'Tajawal', var(--font-poppins), 'Poppins', serif;
   --font-arabic: 'Tajawal', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', sans-serif;
+  --font-urdu: 'Noto Nastaliq Urdu', 'Tajawal', serif;
   --color-lime: var(--lime);
   --color-cyan: var(--cyan);
   --color-ring: var(--ring);
@@ -103,12 +104,21 @@
   animation: fadeInUp 1.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.font-poppins {
+  font-family: 'Poppins', var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+}
+
 .font-malayalam {
   font-family: 'Noto Serif Malayalam', 'Tajawal', var(--font-poppins), 'Poppins', serif;
 }
 
 .font-arabic {
   font-family: 'Tajawal', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', sans-serif;
+}
+
+.font-urdu {
+  font-family: 'Noto Nastaliq Urdu', 'Tajawal', serif;
+  line-height: 2.15;
 }
 
 @layer base {
@@ -125,7 +135,75 @@
   :lang(ar) {
     font-family: 'Tajawal', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', sans-serif;
   }
+  :lang(ur) {
+    font-family: 'Noto Nastaliq Urdu', 'Tajawal', serif;
+  }
   :lang(ml) {
     font-family: 'Noto Serif Malayalam', 'Tajawal', var(--font-poppins), 'Poppins', serif;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  html,
+  body {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* When the parent report modal is open during print, hide all other app elements */
+  body:has(#printable-parent-report-container) > *:not(#printable-parent-report-container) {
+    display: none !important;
+  }
+
+  #printable-parent-report-container {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  #printable-parent-report-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .a4-report-page {
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 18px !important;
+    page-break-after: always;
+    break-after: page;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .a4-report-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .no-print {
+    display: none !important;
   }
 }

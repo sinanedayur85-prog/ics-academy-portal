@@ -3,6 +3,10 @@ export type MonthlyAttendance = {
   month: string
   shortMonth: string
   year: number
+  calendarDays: number
+  officialHolidayDays: number
+  officialHolidayNote: string
+  workingDays: number
   present: number
   absent: number
   leave: number
@@ -285,19 +289,127 @@ const RAW_CLASS_ROSTERS: {
   },
 ]
 
-const MONTHS_META = [
-  { id: '2026-01', month: 'January', shortMonth: 'Jan', year: 2026, baseDays: 24 },
-  { id: '2026-02', month: 'February', shortMonth: 'Feb', year: 2026, baseDays: 22 },
-  { id: '2026-03', month: 'March', shortMonth: 'Mar', year: 2026, baseDays: 25 },
-  { id: '2026-04', month: 'April', shortMonth: 'Apr', year: 2026, baseDays: 23 },
-  { id: '2026-05', month: 'May', shortMonth: 'May', year: 2026, baseDays: 21 },
-  { id: '2026-06', month: 'June', shortMonth: 'Jun', year: 2026, baseDays: 24 },
-  { id: '2026-07', month: 'July', shortMonth: 'Jul', year: 2026, baseDays: 26 },
-  { id: '2026-08', month: 'August', shortMonth: 'Aug', year: 2026, baseDays: 25 },
-  { id: '2026-09', month: 'September', shortMonth: 'Sep', year: 2026, baseDays: 24 },
-  { id: '2026-10', month: 'October', shortMonth: 'Oct', year: 2026, baseDays: 23 },
-  { id: '2026-11', month: 'November', shortMonth: 'Nov', year: 2026, baseDays: 24 },
-  { id: '2026-12', month: 'December', shortMonth: 'Dec', year: 2026, baseDays: 23 },
+export const MONTHS_META = [
+  {
+    id: '2026-01',
+    month: 'January',
+    shortMonth: 'Jan',
+    year: 2026,
+    calendarDays: 31,
+    officialHolidayDays: 7,
+    officialHolidayNote: '2nd Sat Official Leave (Fri Morning – Mon Morning)',
+    baseDays: 24,
+  },
+  {
+    id: '2026-02',
+    month: 'February',
+    shortMonth: 'Feb',
+    year: 2026,
+    calendarDays: 28,
+    officialHolidayDays: 6,
+    officialHolidayNote: '2nd Sat Official Leave (Fri Noon – Mon Morning)',
+    baseDays: 22,
+  },
+  {
+    id: '2026-03',
+    month: 'March',
+    shortMonth: 'Mar',
+    year: 2026,
+    calendarDays: 31,
+    officialHolidayDays: 11,
+    officialHolidayNote: 'Eid-ul-Fitr Festival Vacation (10d) & Official Leave',
+    baseDays: 20,
+  },
+  {
+    id: '2026-04',
+    month: 'April',
+    shortMonth: 'Apr',
+    year: 2026,
+    calendarDays: 30,
+    officialHolidayDays: 7,
+    officialHolidayNote: '2nd Sat Official Leave (Fri Morning – Mon Morning)',
+    baseDays: 23,
+  },
+  {
+    id: '2026-05',
+    month: 'May',
+    shortMonth: 'May',
+    year: 2026,
+    calendarDays: 31,
+    officialHolidayDays: 10,
+    officialHolidayNote: 'Eid-ul-Adha (Bakrid) Vacation (7d) & 2nd Sat Leave',
+    baseDays: 21,
+  },
+  {
+    id: '2026-06',
+    month: 'June',
+    shortMonth: 'Jun',
+    year: 2026,
+    calendarDays: 30,
+    officialHolidayDays: 6,
+    officialHolidayNote: '2nd Sat Official Leave (Fri Afternoon – Mon Morning)',
+    baseDays: 24,
+  },
+  {
+    id: '2026-07',
+    month: 'July',
+    shortMonth: 'Jul',
+    year: 2026,
+    calendarDays: 31,
+    officialHolidayDays: 6,
+    officialHolidayNote: '2nd Sat Official Leave (Fri Morning – Sun Evening)',
+    baseDays: 25,
+  },
+  {
+    id: '2026-08',
+    month: 'August',
+    shortMonth: 'Aug',
+    year: 2026,
+    calendarDays: 31,
+    officialHolidayDays: 7,
+    officialHolidayNote: '2nd Sat Official Leave & Milad-un-Nabi Holiday',
+    baseDays: 24,
+  },
+  {
+    id: '2026-09',
+    month: 'September',
+    shortMonth: 'Sep',
+    year: 2026,
+    calendarDays: 30,
+    officialHolidayDays: 6,
+    officialHolidayNote: '2nd Sat Official Leave (Fri Noon – Mon Morning)',
+    baseDays: 24,
+  },
+  {
+    id: '2026-10',
+    month: 'October',
+    shortMonth: 'Oct',
+    year: 2026,
+    calendarDays: 31,
+    officialHolidayDays: 8,
+    officialHolidayNote: '2nd Sat Official Leave (Thu Evening – Mon Morning)',
+    baseDays: 23,
+  },
+  {
+    id: '2026-11',
+    month: 'November',
+    shortMonth: 'Nov',
+    year: 2026,
+    calendarDays: 30,
+    officialHolidayDays: 6,
+    officialHolidayNote: '2nd Sat Official Leave (Fri Morning – Mon Morning)',
+    baseDays: 24,
+  },
+  {
+    id: '2026-12',
+    month: 'December',
+    shortMonth: 'Dec',
+    year: 2026,
+    calendarDays: 31,
+    officialHolidayDays: 8,
+    officialHolidayNote: '2nd Sat Official Leave & Term Break',
+    baseDays: 23,
+  },
 ]
 
 function buildStudentMonthlyAttendance(seedIndex: number): {
@@ -310,8 +422,9 @@ function buildStudentMonthlyAttendance(seedIndex: number): {
 
   const monthlyAttendance: MonthlyAttendance[] = MONTHS_META.map((m, monthIdx) => {
     const absent = (seedIndex + monthIdx) % 5 === 0 ? 1 : 0
-    const leave = (seedIndex + monthIdx * 2) % 3 === 0 ? 2 : 1
-    const present = Math.max(18, m.baseDays - absent - leave)
+    const leave = (seedIndex + monthIdx * 2) % 4 === 0 ? 1 : 0
+    const present = Math.max(15, m.baseDays - absent - leave)
+    const workingDays = present + absent + leave
     totalPresent += present
     totalAbsent += absent
     totalLeave += leave
@@ -320,6 +433,10 @@ function buildStudentMonthlyAttendance(seedIndex: number): {
       month: m.month,
       shortMonth: m.shortMonth,
       year: m.year,
+      calendarDays: m.calendarDays,
+      officialHolidayDays: m.officialHolidayDays,
+      officialHolidayNote: m.officialHolidayNote,
+      workingDays,
       present,
       absent,
       leave,
@@ -387,6 +504,18 @@ export function findStudentByAdmissionNo(identifier: string): Student | undefine
   return digitsOnlyMatch
 }
 
+export type OfficialHolidayMeta = {
+  isOfficialHoliday: boolean
+  holidayType: 'monthly-second-saturday' | 'festival-celebration'
+  monthId: string // e.g. '2026-11'
+  departureDate: string // e.g. 'Friday, 13 Nov 2026'
+  departureTime: string // e.g. '09:30 AM (Morning)' or '12:45 PM (After Jumu’ah)'
+  returnDate: string // e.g. 'Monday, 16 Nov 2026'
+  returnTime: string // e.g. '07:30 AM (Before Period 1)'
+  holidayDaysDeducted: number
+  announcedBy: string // e.g. 'Principal • ICS Academy' or Usthad name
+}
+
 export type Notice = {
   id: string
   date: string
@@ -394,9 +523,48 @@ export type Notice = {
   pinned?: boolean
   title: string
   body: string
+  holidayMeta?: OfficialHolidayMeta
 }
 
 export const notices: Notice[] = [
+  {
+    id: 'nt-holiday-monthly',
+    date: '2026-10-30',
+    category: 'Hostel',
+    pinned: true,
+    title: 'Official Second-Saturday Monthly Holiday — Departure & Return Schedule',
+    body: 'Official monthly academy leave is scheduled around the Second Saturday. These official holidays are excluded from Academy Working Days and are NOT counted as student personal leaves.',
+    holidayMeta: {
+      isOfficialHoliday: true,
+      holidayType: 'monthly-second-saturday',
+      monthId: '2026-11',
+      departureDate: 'Friday, 13 Nov 2026 (2nd Sat Eve)',
+      departureTime: '12:45 PM (Afternoon — After Jumu’ah)',
+      returnDate: 'Monday, 16 Nov 2026',
+      returnTime: '07:00 AM (Morning — Before Class)',
+      holidayDaysDeducted: 3,
+      announcedBy: 'Principal & Academic Council',
+    },
+  },
+  {
+    id: 'nt-holiday-festival',
+    date: '2026-10-28',
+    category: 'Event',
+    pinned: true,
+    title: 'Festival & Special Celebration Vacation Policy (Excluded from Working Days)',
+    body: 'During Eid (Perunnal) and special academy celebrations (7 to 10 days official vacation), the academy working days for that month are automatically reduced. Only leaves taken personally by students on actual working days are counted in the Student Leave tally.',
+    holidayMeta: {
+      isOfficialHoliday: true,
+      holidayType: 'festival-celebration',
+      monthId: '2026-03',
+      departureDate: 'Thursday, 19 Mar 2026',
+      departureTime: '09:30 AM (Morning)',
+      returnDate: 'Sunday, 29 Mar 2026',
+      returnTime: '06:00 PM (Evening)',
+      holidayDaysDeducted: 10,
+      announcedBy: 'Principal • ICS Academy Manhappatta',
+    },
+  },
   {
     id: 'nt-1',
     date: '2026-10-28',
@@ -409,16 +577,8 @@ export const notices: Notice[] = [
     id: 'nt-2',
     date: '2026-10-24',
     category: 'Event',
-    pinned: true,
     title: 'Annual Arabic & Urdu Literary Symposium — Registration Open',
     body: 'Submit individual and group entries through your respective Class Leaders before Friday, 5:00 PM.',
-  },
-  {
-    id: 'nt-3',
-    date: '2026-10-19',
-    category: 'Hostel',
-    title: 'Monthly Home Leave Outpass Window',
-    body: 'Students applying for weekend home leave must log their departure in the digital Leave Register prior to warden sign-off.',
   },
   {
     id: 'nt-4',
@@ -429,13 +589,25 @@ export const notices: Notice[] = [
   },
 ]
 
+export const ABSENT_REASONS: string[] = [
+  'Sick / Rest in Hostel',
+  'Uninformed Absence',
+  'Late to Class',
+  'Special Duty / Office Call',
+]
+
+export const ATTENDANCE_LEAVE_REASONS: string[] = [
+  'Medical / Hospital Visit',
+  'Home Visit / Family Need',
+  'Academic Program / Exam',
+  'Official Outpass / Emergency',
+]
+
 export const leaveReasons: string[] = [
-  'Medical Appointment',
-  'Monthly Home Visit',
-  'Family Function',
-  'Academic Competition / Seminar',
-  'Emergency Personal Leave',
-  'Other',
+  'Medical / Hospital Visit',
+  'Home Visit / Family Need',
+  'Academic Program / Exam',
+  'Official Outpass / Emergency',
 ]
 
 export type LibraryBook = {
@@ -615,7 +787,12 @@ export const libraryBooks: LibraryBook[] = [
   },
 ]
 
-export const periods = [
+export type PeriodTiming = {
+  label: string
+  time: string
+}
+
+export const periods: PeriodTiming[] = [
   { label: 'Period 1', time: '07:00 – 08:00' },
   { label: 'Period 2', time: '08:30 – 09:30' },
   { label: 'Period 3', time: '09:45 – 10:45' },
@@ -623,56 +800,857 @@ export const periods = [
   { label: 'Period 5', time: '14:00 – 15:15' },
 ]
 
-export const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Sat']
-
 export type TimetableSlot = {
   subject: string
   teacher: string
 }
 
-const baseSchedule: TimetableSlot[][] = [
-  [
-    { subject: 'Fiqh (Shafi’i)', teacher: 'Usthad Abdul Hakeem' },
-    { subject: 'Tafsir & Ulum', teacher: 'Usthad Ibrahim Faizy' },
-    { subject: 'Arabic Literature', teacher: 'Prof. Salman Hudawi' },
-    { subject: 'English & Comm.', teacher: 'Mr. Roshan Thomas' },
-    { subject: 'Hadith Studies', teacher: 'Usthad Zubair Wafy' },
-  ],
-  [
-    { subject: 'Usul al-Fiqh', teacher: 'Usthad Abdul Hakeem' },
-    { subject: 'Hadith Studies', teacher: 'Usthad Zubair Wafy' },
-    { subject: 'World History', teacher: 'Mr. Haris K.' },
-    { subject: 'Arabic Grammar', teacher: 'Prof. Salman Hudawi' },
-    { subject: 'Da’wa Practicum', teacher: 'Usthad Najeeb Darimi' },
-  ],
-  [
-    { subject: 'Tafsir & Ulum', teacher: 'Usthad Ibrahim Faizy' },
-    { subject: 'Fiqh (Shafi’i)', teacher: 'Usthad Abdul Hakeem' },
-    { subject: 'English & Comm.', teacher: 'Mr. Roshan Thomas' },
-    { subject: 'Logic (Mantiq)', teacher: 'Usthad Zubair Wafy' },
-    { subject: 'Public Speaking', teacher: 'Prof. Salman Hudawi' },
-  ],
-  [
-    { subject: 'Hadith Studies', teacher: 'Usthad Zubair Wafy' },
-    { subject: 'Arabic Literature', teacher: 'Prof. Salman Hudawi' },
-    { subject: 'Fiqh (Shafi’i)', teacher: 'Usthad Abdul Hakeem' },
-    { subject: 'Islamic History', teacher: 'Usthad Najeeb Darimi' },
-    { subject: 'Research Seminar', teacher: 'Usthad Ibrahim Faizy' },
-  ],
-  [
-    { subject: 'Aqidah & Kalam', teacher: 'Usthad Ibrahim Faizy' },
-    { subject: 'Usul al-Fiqh', teacher: 'Usthad Abdul Hakeem' },
-    { subject: 'Urdu Language', teacher: 'Maulana Tariq Nadwi' },
-    { subject: 'Computer & IT', teacher: 'Mr. Vivek Menon' },
-    { subject: 'Library & Review', teacher: 'Faculty Mentor' },
-  ],
-]
+export type ClassSemesterTimetable = {
+  periods: PeriodTiming[]
+  semester1: TimetableSlot[]
+  semester2: TimetableSlot[]
+}
 
-export function getTimetable(student: Student): TimetableSlot[][] {
-  if (student.id === 'std-1') return baseSchedule
-  return baseSchedule.map((dayRow, idx) =>
-    idx % 2 === 0 ? [...dayRow].reverse() : dayRow,
+/** Active semester configured by the Principal (1 or 2) */
+export const CURRENT_SEMESTER: 1 | 2 = 1
+
+const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
+  '8th • Batch 14': {
+    periods: [
+      { label: 'Period 1', time: '07:15 – 08:05' },
+      { label: 'Period 2', time: '08:30 – 09:20' },
+      { label: 'Period 3', time: '09:30 – 10:20' },
+      { label: 'Period 4', time: '10:35 – 11:25' },
+      { label: 'Period 5', time: '14:00 – 15:00' },
+    ],
+    semester1: [
+      { subject: 'Mizan & Sarf Foundation', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Fiqh (Mabadi al-Fiqh)', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'Arabic Muhadathah', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'English Foundation', teacher: 'Mr. Roshan Thomas' },
+      { subject: 'Mathematics & Science', teacher: 'Mr. Vivek Menon' },
+    ],
+    semester2: [
+      { subject: 'Ajnas & Sarf Practice', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Aqeedah (Aqeedat al-Awam)', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'Basic Nahw (Al-Ajurrumiyyah)', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'Seerah & Islamic History', teacher: 'Usthad Najeeb Darimi' },
+      { subject: 'Social Studies & English', teacher: 'Mr. Haris K.' },
+    ],
+  },
+  '9th • Batch 13': {
+    periods: [
+      { label: 'Period 1', time: '07:15 – 08:05' },
+      { label: 'Period 2', time: '08:30 – 09:20' },
+      { label: 'Period 3', time: '09:30 – 10:20' },
+      { label: 'Period 4', time: '10:35 – 11:25' },
+      { label: 'Period 5', time: '14:00 – 15:00' },
+    ],
+    semester1: [
+      { subject: 'Zanjani (Ilm al-Sarf)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Nahw Mir & Tarkib', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'Fiqh (Safinat al-Najah)', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'Hadith (Arba’in al-Nawawiyyah)', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'High School English & IT', teacher: 'Mr. Roshan Thomas' },
+    ],
+    semester2: [
+      { subject: 'Mi’at Amil (Nahw)', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'Fiqh (Abi Shuja’)', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'Tasawwuf (Bidayat al-Hidayah)', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'Urdu Literature', teacher: 'Maulana Tariq Nadwi' },
+      { subject: 'High School Social Science', teacher: 'Mr. Haris K.' },
+    ],
+  },
+  '10th • Batch 12': {
+    periods: [
+      { label: 'Period 1', time: '07:00 – 08:00' },
+      { label: 'Period 2', time: '08:30 – 09:25' },
+      { label: 'Period 3', time: '09:35 – 10:30' },
+      { label: 'Period 4', time: '10:45 – 11:45' },
+      { label: 'Period 5', time: '14:00 – 15:10' },
+    ],
+    semester1: [
+      { subject: 'Qatr al-Nada (Nahw)', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'Fiqh (Umdat al-Salik)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Hadith (Riyad as-Salihin)', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'SSLC Core Subjects', teacher: 'Mr. Vivek Menon' },
+      { subject: 'SSLC English & Lang.', teacher: 'Mr. Roshan Thomas' },
+    ],
+    semester2: [
+      { subject: 'Sharh al-Jami / Nahw', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'Usul al-Fiqh (Al-Waraqat)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Tafsir Selected Surahs', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'SSLC Exam Intensive', teacher: 'Mr. Vivek Menon' },
+      { subject: 'SSLC Social Science', teacher: 'Mr. Haris K.' },
+    ],
+  },
+  'HS 1 • Batch 11': {
+    periods: [
+      { label: 'Period 1', time: '07:00 – 08:00' },
+      { label: 'Period 2', time: '08:30 – 09:30' },
+      { label: 'Period 3', time: '09:45 – 10:45' },
+      { label: 'Period 4', time: '11:00 – 12:00' },
+      { label: 'Period 5', time: '14:00 – 15:15' },
+    ],
+    semester1: [
+      { subject: 'Fath al-Mu’in (Ibadat)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Alfiyyah Ibn Malik (Part 1)', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'Hadith (Bulugh al-Maram)', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'Plus One Humanities / Hist.', teacher: 'Mr. Haris K.' },
+      { subject: 'Plus One English', teacher: 'Mr. Roshan Thomas' },
+    ],
+    semester2: [
+      { subject: 'Fath al-Mu’in (Salah & Zakah)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Alfiyyah Ibn Malik (Part 2)', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'Mantiq (Mirqat / Sullam)', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'Plus One Sociology & Pol.', teacher: 'Mr. Haris K.' },
+      { subject: 'Arabic & Urdu Rhetoric', teacher: 'Maulana Tariq Nadwi' },
+    ],
+  },
+  'HS 2A • Batch 10': {
+    periods: [
+      { label: 'Period 1', time: '07:00 – 08:00' },
+      { label: 'Period 2', time: '08:30 – 09:30' },
+      { label: 'Period 3', time: '09:45 – 10:45' },
+      { label: 'Period 4', time: '11:00 – 12:00' },
+      { label: 'Period 5', time: '14:00 – 15:15' },
+    ],
+    semester1: [
+      { subject: 'Fath al-Mu’in (Mu’amalat)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Tafsir al-Jalalayn (Part 1)', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'Alfiyyah Ibn Malik (Part 3)', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'Plus Two History & Econ.', teacher: 'Mr. Haris K.' },
+      { subject: 'Plus Two English', teacher: 'Mr. Roshan Thomas' },
+    ],
+    semester2: [
+      { subject: 'Fath al-Mu’in (Munakahat)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Tafsir al-Jalalayn (Part 2)', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'Balaghah (Mukhtasar al-Ma’ani)', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'Plus Two Board Revision', teacher: 'Mr. Haris K.' },
+      { subject: 'Da’wa & Elocution Lab', teacher: 'Usthad Najeeb Darimi' },
+    ],
+  },
+  'HS 2B • Batch 1': {
+    periods: [
+      { label: 'Period 1', time: '07:00 – 08:00' },
+      { label: 'Period 2', time: '08:30 – 09:30' },
+      { label: 'Period 3', time: '09:45 – 10:45' },
+      { label: 'Period 4', time: '11:00 – 12:00' },
+      { label: 'Period 5', time: '14:00 – 15:15' },
+    ],
+    semester1: [
+      { subject: 'Tafsir al-Jalalayn (Part 1)', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'Fath al-Mu’in (Mu’amalat)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Hadith (Riyad as-Salihin)', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'Plus Two Commerce / Hist.', teacher: 'Mr. Haris K.' },
+      { subject: 'Plus Two English', teacher: 'Mr. Roshan Thomas' },
+    ],
+    semester2: [
+      { subject: 'Tafsir al-Jalalayn (Part 2)', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'Fath al-Mu’in (Munakahat)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Usul al-Hadith (Nukhbat al-Fikar)', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'Plus Two Final Revision', teacher: 'Mr. Haris K.' },
+      { subject: 'Arabic Composition', teacher: 'Prof. Salman Hudawi' },
+    ],
+  },
+  'BS 1 • Batch 09': {
+    periods: [
+      { label: 'Period 1', time: '06:45 – 07:50' },
+      { label: 'Period 2', time: '08:30 – 09:30' },
+      { label: 'Period 3', time: '09:45 – 10:45' },
+      { label: 'Period 4', time: '11:00 – 12:00' },
+      { label: 'Period 5', time: '14:00 – 15:15' },
+    ],
+    semester1: [
+      { subject: 'Mahalli (Kitab al-Taharah & Salah)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Tafsir al-Jalalayn (Juz 1–10)', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'Mishkat al-Masabih (Vol 1)', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'BA Arabic / Islamic History', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'Academic English & Research', teacher: 'Mr. Roshan Thomas' },
+    ],
+    semester2: [
+      { subject: 'Mahalli (Kitab al-Zakah & Sawm)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Tafsir al-Jalalayn (Juz 11–20)', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'Usul al-Fiqh (Lub al-Usul)', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'BA Core Humanities', teacher: 'Mr. Haris K.' },
+      { subject: 'Classical Balaghah', teacher: 'Prof. Salman Hudawi' },
+    ],
+  },
+  'BS 2 • Batch 08': {
+    periods: [
+      { label: 'Period 1', time: '06:45 – 07:50' },
+      { label: 'Period 2', time: '08:30 – 09:30' },
+      { label: 'Period 3', time: '09:45 – 10:45' },
+      { label: 'Period 4', time: '11:00 – 12:00' },
+      { label: 'Period 5', time: '14:00 – 15:15' },
+    ],
+    semester1: [
+      { subject: 'Mahalli (Kitab al-Buyu’)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Mishkat al-Masabih (Vol 2)', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'Aqeedah (Sharh al-Aqaid)', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'BA Sociology & History', teacher: 'Mr. Haris K.' },
+      { subject: 'Urdu Classical Prose', teacher: 'Maulana Tariq Nadwi' },
+    ],
+    semester2: [
+      { subject: 'Mahalli (Kitab al-Fara’id)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Tafsir al-Jalalayn (Juz 21–30)', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'Ilm al-Mantiq & Hikmah', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'BA Degree Paper II', teacher: 'Mr. Roshan Thomas' },
+      { subject: 'Comparative Da’wa Studies', teacher: 'Usthad Najeeb Darimi' },
+    ],
+  },
+  'BS 3 • Batch 07': {
+    periods: [
+      { label: 'Period 1', time: '06:45 – 07:50' },
+      { label: 'Period 2', time: '08:30 – 09:30' },
+      { label: 'Period 3', time: '09:45 – 10:45' },
+      { label: 'Period 4', time: '11:00 – 12:00' },
+      { label: 'Period 5', time: '14:00 – 15:15' },
+    ],
+    semester1: [
+      { subject: 'Fiqh (Mahalli — Nikah & Talaq)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Tafsir al-Baydawi & Ulum', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'Jam’ al-Jawami’ (Usul al-Fiqh)', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'Arabic Literature & Criticism', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'BA Final Year Seminar', teacher: 'Mr. Roshan Thomas' },
+    ],
+    semester2: [
+      { subject: 'Fiqh (Mahalli — Jinayat & Qada)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Sunan al-Tirmidhi (Selected)', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'Jam’ al-Jawami’ (Qiyas & Ijtihad)', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'Islamic Historiography', teacher: 'Usthad Najeeb Darimi' },
+      { subject: 'BA Dissertation & Viva', teacher: 'Mr. Haris K.' },
+    ],
+  },
+  'BS 4 • Batch 06': {
+    periods: [
+      { label: 'Period 1', time: '06:30 – 07:45' },
+      { label: 'Period 2', time: '08:30 – 09:35' },
+      { label: 'Period 3', time: '09:50 – 10:50' },
+      { label: 'Period 4', time: '11:05 – 12:05' },
+      { label: 'Period 5', time: '14:00 – 15:15' },
+    ],
+    semester1: [
+      { subject: 'Tuhfat al-Muhtaj (Selected Bab)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Sahih Muslim (Kitab al-Iman)', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'Tafsir al-Nasafi / Baydawi', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'Maqasid al-Shari’ah', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'Postgraduate Research Methods', teacher: 'Usthad Najeeb Darimi' },
+    ],
+    semester2: [
+      { subject: 'Tuhfat al-Muhtaj (Mu’amalat)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Sunan Abi Dawud (Ahkam)', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'Tasawwuf (Ihya’ Ulum al-Din)', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'Contemporary Fiqh Academy Papers', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'Translation & Publication Lab', teacher: 'Mr. Roshan Thomas' },
+    ],
+  },
+  'BS 5 • Batch 05': {
+    periods: [
+      { label: 'Period 1', time: '06:30 – 07:45' },
+      { label: 'Period 2', time: '08:30 – 09:35' },
+      { label: 'Period 3', time: '09:50 – 10:50' },
+      { label: 'Period 4', time: '11:05 – 12:05' },
+      { label: 'Period 5', time: '14:00 – 15:15' },
+    ],
+    semester1: [
+      { subject: 'Sahih al-Bukhari (Dawrah Part 1)', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'Tuhfat al-Muhtaj & Fatawa', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Jami’ al-Tirmidhi & Ilal', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'Comparative Religion & Da’wa', teacher: 'Usthad Najeeb Darimi' },
+      { subject: 'Senior Thesis & Ifta’ Practicum', teacher: 'Prof. Salman Hudawi' },
+    ],
+    semester2: [
+      { subject: 'Sahih al-Bukhari (Dawrah Part 2)', teacher: 'Usthad Ibrahim Faizy' },
+      { subject: 'Qawa’id Fiqhiyyah (Al-Ashbah)', teacher: 'Usthad Abdul Hakeem' },
+      { subject: 'Muwatta’ Imam Malik & Sunan', teacher: 'Usthad Zubair Wafy' },
+      { subject: 'Global Da’wa Leadership', teacher: 'Usthad Najeeb Darimi' },
+      { subject: 'Final Thesis Defense & Fatwa Lab', teacher: 'Prof. Salman Hudawi' },
+    ],
+  },
+}
+
+export function getClassSemesterTimetable(student: Student): ClassSemesterTimetable {
+  return (
+    CLASS_SEMESTER_SCHEDULES[student.className] ??
+    CLASS_SEMESTER_SCHEDULES['BS 3 • Batch 07']
   )
 }
 
 export const EXAM_RESULTS_URL = 'https://jamiathulhind.com/index.php'
+
+export type ClassUsthad = {
+  id: string
+  staffId: string
+  name: string
+  shortName: string
+  designation: string
+  className: string
+  fullClassLabel: string
+  batchCode: string
+  specialization: string
+}
+
+export const CLASS_USTHADS: ClassUsthad[] = [
+  {
+    id: 'usthad-14',
+    staffId: 'UST-14',
+    name: 'Usthad Zubair Wafy',
+    shortName: 'Usthad Zubair Wafy',
+    designation: 'Class Usthad',
+    className: '8th • Batch 14',
+    fullClassLabel: 'Class 8th • Batch 14',
+    batchCode: '14',
+    specialization: 'Fiqh & Foundation Sarf',
+  },
+  {
+    id: 'usthad-13',
+    staffId: 'UST-13',
+    name: 'Usthad Muhsin Hudawi',
+    shortName: 'Usthad Muhsin Hudawi',
+    designation: 'Class Usthad',
+    className: '9th • Batch 13',
+    fullClassLabel: 'Class 9th • Batch 13',
+    batchCode: '13',
+    specialization: 'Nahw & Classical Sarf',
+  },
+  {
+    id: 'usthad-12',
+    staffId: 'UST-12',
+    name: 'Prof. Salman Hudawi',
+    shortName: 'Prof. Salman Hudawi',
+    designation: 'Class Usthad',
+    className: '10th • Batch 12',
+    fullClassLabel: 'Class 10th • Batch 12',
+    batchCode: '12',
+    specialization: 'Qatr al-Nada & Arabic Literature',
+  },
+  {
+    id: 'usthad-11',
+    staffId: 'UST-11',
+    name: 'Usthad Najeeb Darimi',
+    shortName: 'Usthad Najeeb Darimi',
+    designation: 'Class Usthad',
+    className: 'HS 1 • Batch 11',
+    fullClassLabel: 'Class HS 1 • Batch 11',
+    batchCode: '11',
+    specialization: 'Alfiyyah & Hadith Studies',
+  },
+  {
+    id: 'usthad-10',
+    staffId: 'UST-10',
+    name: 'Usthad Rashid Baqawi',
+    shortName: 'Usthad Rashid Baqawi',
+    designation: 'Class Usthad',
+    className: 'HS 2A • Batch 10',
+    fullClassLabel: 'Class HS 2A • Batch 10',
+    batchCode: '10',
+    specialization: 'Fath al-Mu’in & Balaghah',
+  },
+  {
+    id: 'usthad-01',
+    staffId: 'UST-01',
+    name: 'Maulana Tariq Nadwi',
+    shortName: 'Maulana Tariq Nadwi',
+    designation: 'Class Usthad',
+    className: 'HS 2B • Batch 1',
+    fullClassLabel: 'Class HS 2B • Batch 1',
+    batchCode: '01',
+    specialization: 'Tafsir al-Jalalayn & Urdu',
+  },
+  {
+    id: 'usthad-09',
+    staffId: 'UST-09',
+    name: 'UsthadShihabudheen Faizy',
+    shortName: 'Usthad Shihabudheen Faizy',
+    designation: 'Class Usthad',
+    className: 'BS 1 • Batch 09',
+    fullClassLabel: 'Class BS 1 • Batch 09',
+    batchCode: '09',
+    specialization: 'Mahalli & Mishkat al-Masabih',
+  },
+  {
+    id: 'usthad-08',
+    staffId: 'UST-08',
+    name: 'Usthad Anas Wafy',
+    shortName: 'Usthad Anas Wafy',
+    designation: 'Class Usthad',
+    className: 'BS 2 • Batch 08',
+    fullClassLabel: 'Class BS 2 • Batch 08',
+    batchCode: '08',
+    specialization: 'Usul al-Fiqh & Mantiq',
+  },
+  {
+    id: 'usthad-07',
+    staffId: 'UST-07',
+    name: 'Usthad Abdul Hakeem Faizy',
+    shortName: 'Usthad Abdul Hakeem',
+    designation: 'Class Usthad',
+    className: 'BS 3 • Batch 07',
+    fullClassLabel: 'Class BS 3 • Batch 07',
+    batchCode: '07',
+    specialization: 'Shafi’i Jurisprudence & Jam’ al-Jawami’',
+  },
+  {
+    id: 'usthad-06',
+    staffId: 'UST-06',
+    name: 'Usthad Ibrahim Faizy',
+    shortName: 'Usthad Ibrahim Faizy',
+    designation: 'Class Usthad',
+    className: 'BS 4 • Batch 06',
+    fullClassLabel: 'Class BS 4 • Batch 06',
+    batchCode: '06',
+    specialization: 'Tuhfat al-Muhtaj & Tafsir al-Baydawi',
+  },
+  {
+    id: 'usthad-05',
+    staffId: 'UST-05',
+    name: 'Shaykh Mahmood Musliyar',
+    shortName: 'Shaykh Mahmood Musliyar',
+    designation: 'Class Usthad',
+    className: 'BS 5 • Batch 05',
+    fullClassLabel: 'Class BS 5 • Batch 05',
+    batchCode: '05',
+    specialization: 'Sahih al-Bukhari & Fatwa Research',
+  },
+]
+
+export function findUsthadByStaffId(identifier: string): ClassUsthad | undefined {
+  const cleaned = normalizeAdmissionKey(identifier)
+  if (!cleaned) return undefined
+
+  // 1. Direct match on staffId (e.g. "UST-07", "UST07", "UST-14")
+  const exact = CLASS_USTHADS.find((u) => normalizeAdmissionKey(u.staffId) === cleaned)
+  if (exact) return exact
+
+  // 2. Match TCH-XX or batch number (e.g. "TCH07", "BATCH07", "07", "7")
+  const digits = cleaned.replace(/[^0-9]/g, '')
+  if (digits) {
+    const padded = digits.padStart(2, '0')
+    const byBatch = CLASS_USTHADS.find((u) => u.batchCode === padded || u.batchCode === digits)
+    if (byBatch) return byBatch
+  }
+
+  // 3. Support default placeholder "TCH-0217" -> defaults to BS 3 • Batch 07 Class Usthad
+  if (cleaned === 'TCH0217' || cleaned === 'USTHAD' || cleaned === 'TEACHER') {
+    return CLASS_USTHADS.find((u) => u.batchCode === '07') ?? CLASS_USTHADS[0]
+  }
+
+  return undefined
+}
+
+export const ATTENDANCE_OVERRIDES_STORAGE_KEY = 'ics_attendance_overrides_v1'
+export const CUSTOM_NOTICES_STORAGE_KEY = 'ics_custom_notices_v1'
+
+export type MonthlyAttendanceOverride = {
+  present: number
+  absent: number
+  leave: number
+  workingDaysOverride?: number
+  absentReason?: string
+  leaveReason?: string
+}
+
+/** Keyed by `${studentId}__${monthId}` */
+export type AttendanceOverrideMap = Record<string, MonthlyAttendanceOverride>
+
+export function loadAttendanceOverrides(): AttendanceOverrideMap {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = window.localStorage.getItem(ATTENDANCE_OVERRIDES_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as AttendanceOverrideMap
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+export function saveAttendanceOverrides(map: AttendanceOverrideMap): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(ATTENDANCE_OVERRIDES_STORAGE_KEY, JSON.stringify(map))
+    window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function loadCustomNotices(): Notice[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_NOTICES_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as Notice[]
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+export function saveCustomNotices(customList: Notice[]): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(CUSTOM_NOTICES_STORAGE_KEY, JSON.stringify(customList))
+    window.dispatchEvent(new CustomEvent('ics-notices-updated'))
+    window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function getEffectiveStudentAttendance(
+  student: Student,
+  overrides: AttendanceOverrideMap,
+  customNoticesList?: Notice[],
+): {
+  monthlyAttendance: MonthlyAttendance[]
+  attendance: {
+    present: number
+    absent: number
+    leave: number
+    workingDays: number
+    officialHolidayDays: number
+    calendarDays: number
+  }
+} {
+  let presentTotal = 0
+  let absentTotal = 0
+  let leaveTotal = 0
+  let workingDaysTotal = 0
+  let officialHolidaysTotal = 0
+  let calendarDaysTotal = 0
+
+  const activeCustomNotices = customNoticesList ?? loadCustomNotices()
+
+  // Calculate any extra official holiday deductions announced on Notice Board per month
+  const extraHolidayByMonth: Record<string, { days: number; notes: string[] }> = {}
+  for (const nt of activeCustomNotices) {
+    if (nt.holidayMeta?.isOfficialHoliday && nt.holidayMeta.monthId && nt.holidayMeta.holidayDaysDeducted > 0) {
+      const mId = nt.holidayMeta.monthId
+      if (!extraHolidayByMonth[mId]) {
+        extraHolidayByMonth[mId] = { days: 0, notes: [] }
+      }
+      extraHolidayByMonth[mId].days += nt.holidayMeta.holidayDaysDeducted
+      extraHolidayByMonth[mId].notes.push(
+        `${nt.title} (${nt.holidayMeta.departureDate} ${nt.holidayMeta.departureTime} → ${nt.holidayMeta.returnDate} ${nt.holidayMeta.returnTime})`,
+      )
+    }
+  }
+
+  const monthlyAttendance = student.monthlyAttendance.map((m) => {
+    const key = `${student.id}__${m.id}`
+    const override = overrides[key]
+    const extraHoliday = extraHolidayByMonth[m.id]
+    const extraDeducted = extraHoliday ? extraHoliday.days : 0
+
+    let present = override ? Math.max(0, override.present) : m.present
+    const absent = override ? Math.max(0, override.absent) : m.absent
+    const leave = override ? Math.max(0, override.leave) : m.leave
+
+    // If a new Official Holiday notice was posted for this month and no manual override was set after,
+    // automatically reduce the working days (and present days accordingly so workingDays = present + absent + leave)
+    if (extraDeducted > 0 && !override) {
+      present = Math.max(5, present - extraDeducted)
+    }
+
+    const workingDays = present + absent + leave
+    const officialHolidayDays = Math.min(
+      m.calendarDays,
+      Math.max(0, m.calendarDays - workingDays),
+    )
+    const officialHolidayNote = extraHoliday
+      ? `${m.officialHolidayNote} • Notice: -${extraDeducted}d`
+      : m.officialHolidayNote
+
+    presentTotal += present
+    absentTotal += absent
+    leaveTotal += leave
+    workingDaysTotal += workingDays
+    officialHolidaysTotal += officialHolidayDays
+    calendarDaysTotal += m.calendarDays
+
+    return {
+      ...m,
+      officialHolidayDays,
+      officialHolidayNote,
+      workingDays,
+      present,
+      absent,
+      leave,
+    }
+  })
+
+  return {
+    monthlyAttendance,
+    attendance: {
+      present: presentTotal,
+      absent: absentTotal,
+      leave: leaveTotal,
+      workingDays: workingDaysTotal,
+      officialHolidayDays: officialHolidaysTotal,
+      calendarDays: calendarDaysTotal,
+    },
+  }
+}
+
+export type ClassLeaderInfo = {
+  leaderId: string
+  roleTitle: 'Main Class Leader' | 'Assistant Class Leader'
+  className: string
+  batchCode: string
+  studentId: string
+  admissionNo: string
+  studentName: string
+}
+
+/**
+ * Each class has TWO Class Leaders with identical role & permissions:
+ * 1. Main Class Leader (CL-XX) — Roll #01 of the class
+ * 2. Assistant Class Leader (ACL-XX) — Roll #02 of the class
+ */
+export const CLASS_LEADERS: ClassLeaderInfo[] = (() => {
+  const batchMapping: { className: string; batchCode: string }[] = [
+    { className: '8th • Batch 14', batchCode: '14' },
+    { className: '9th • Batch 13', batchCode: '13' },
+    { className: '10th • Batch 12', batchCode: '12' },
+    { className: 'HS 1 • Batch 11', batchCode: '11' },
+    { className: 'HS 2A • Batch 10', batchCode: '10' },
+    { className: 'HS 2B • Batch 1', batchCode: '01' },
+    { className: 'BS 1 • Batch 09', batchCode: '09' },
+    { className: 'BS 2 • Batch 08', batchCode: '08' },
+    { className: 'BS 3 • Batch 07', batchCode: '07' },
+    { className: 'BS 4 • Batch 06', batchCode: '06' },
+    { className: 'BS 5 • Batch 05', batchCode: '05' },
+  ]
+
+  const leaders: ClassLeaderInfo[] = []
+  for (const item of batchMapping) {
+    const classRoster = students.filter((s) => s.className === item.className)
+    const mainStudent = classRoster[0]
+    const assistantStudent = classRoster[1] ?? classRoster[0]
+
+    if (mainStudent) {
+      leaders.push({
+        leaderId: `CL-${item.batchCode}`,
+        roleTitle: 'Main Class Leader',
+        className: item.className,
+        batchCode: item.batchCode,
+        studentId: mainStudent.id,
+        admissionNo: mainStudent.admissionNo,
+        studentName: mainStudent.name,
+      })
+    }
+    if (assistantStudent) {
+      leaders.push({
+        leaderId: `ACL-${item.batchCode}`,
+        roleTitle: 'Assistant Class Leader',
+        className: item.className,
+        batchCode: item.batchCode,
+        studentId: assistantStudent.id,
+        admissionNo: assistantStudent.admissionNo,
+        studentName: assistantStudent.name,
+      })
+    }
+  }
+  return leaders
+})()
+
+export function getClassLeadersForClass(className: string): ClassLeaderInfo[] {
+  return CLASS_LEADERS.filter((item) => item.className === className)
+}
+
+export function getLeaderIdForClass(className: string, studentId?: string): string {
+  if (studentId) {
+    const byStudent = CLASS_LEADERS.find(
+      (item) => item.className === className && item.studentId === studentId,
+    )
+    if (byStudent) return byStudent.leaderId
+  }
+  const found = CLASS_LEADERS.find((item) => item.className === className)
+  return found?.leaderId ?? 'CL-14'
+}
+
+export function getLeaderInfoForStudent(student: Student): ClassLeaderInfo {
+  const exact = CLASS_LEADERS.find((item) => item.studentId === student.id)
+  if (exact) return exact
+  const classMain = CLASS_LEADERS.find((item) => item.className === student.className)
+  return (
+    classMain ?? {
+      leaderId: 'CL-14',
+      roleTitle: 'Main Class Leader',
+      className: student.className,
+      batchCode: '14',
+      studentId: student.id,
+      admissionNo: student.admissionNo,
+      studentName: student.name,
+    }
+  )
+}
+
+export function findClassLeaderByIdentifier(
+  identifier: string,
+): { student: Student; leaderId: string; roleTitle: 'Main Class Leader' | 'Assistant Class Leader' } | undefined {
+  const cleaned = normalizeAdmissionKey(identifier)
+  if (!cleaned) return undefined
+
+  // 1. Direct match on Leader ID (e.g. CL-14, ACL-14, CL14, ACL14, CL-07, ACL-07)
+  const directLeader = CLASS_LEADERS.find(
+    (item) => normalizeAdmissionKey(item.leaderId) === cleaned,
+  )
+  if (directLeader) {
+    const student =
+      students.find((s) => s.id === directLeader.studentId) ??
+      students.find((s) => s.className === directLeader.className) ??
+      students[0]
+    return {
+      student,
+      leaderId: directLeader.leaderId,
+      roleTitle: directLeader.roleTitle,
+    }
+  }
+
+  // 2. Support CL-14-A / CL14A / CL-14-2 format for Assistant Class Leader
+  if (cleaned.startsWith('ACL') || cleaned.endsWith('A') || cleaned.endsWith('2')) {
+    const digits = cleaned.replace(/[^0-9]/g, '').slice(0, 2)
+    if (digits) {
+      const padded = digits.padStart(2, '0')
+      const assistant = CLASS_LEADERS.find(
+        (item) =>
+          item.roleTitle === 'Assistant Class Leader' &&
+          (item.batchCode === padded || item.batchCode === digits),
+      )
+      if (assistant && (cleaned.startsWith('ACL') || cleaned.startsWith('CL'))) {
+        const student =
+          students.find((s) => s.id === assistant.studentId) ??
+          students[1] ??
+          students[0]
+        return {
+          student,
+          leaderId: assistant.leaderId,
+          roleTitle: assistant.roleTitle,
+        }
+      }
+    }
+  }
+
+  // 3. Check if the user entered a Student Admission Number (e.g. ICS2K261401 or ICS2K261402)
+  const matchedByAdmission = findStudentByAdmissionNo(identifier)
+  if (matchedByAdmission) {
+    const matchingLeader = CLASS_LEADERS.find(
+      (item) => item.studentId === matchedByAdmission.id,
+    )
+    if (matchingLeader) {
+      return {
+        student: matchedByAdmission,
+        leaderId: matchingLeader.leaderId,
+        roleTitle: matchingLeader.roleTitle,
+      }
+    }
+    const fallbackLeaderId = getLeaderIdForClass(
+      matchedByAdmission.className,
+      matchedByAdmission.id,
+    )
+    return {
+      student: matchedByAdmission,
+      leaderId: fallbackLeaderId,
+      roleTitle: 'Main Class Leader',
+    }
+  }
+
+  // 4. Support legacy placeholder "CL-8B-03" or "LEADER" / "ASSISTANT"
+  if (cleaned === 'CL8B03' || cleaned === 'LEADER' || cleaned === 'CLASSLEADER') {
+    const fallback = CLASS_LEADERS[0]
+    const student =
+      students.find((s) => s.id === fallback.studentId) ?? students[0]
+    return {
+      student,
+      leaderId: fallback.leaderId,
+      roleTitle: fallback.roleTitle,
+    }
+  }
+  if (cleaned === 'ACLEADER' || cleaned === 'ASSISTANTLEADER') {
+    const fallback = CLASS_LEADERS[1] ?? CLASS_LEADERS[0]
+    const student =
+      students.find((s) => s.id === fallback.studentId) ?? students[1] ?? students[0]
+    return {
+      student,
+      leaderId: fallback.leaderId,
+      roleTitle: fallback.roleTitle,
+    }
+  }
+
+  // 5. Match by batch digits in CL-XX or ACL-XX (e.g. CL-7 -> 07, ACL-7 -> 07)
+  if (cleaned.startsWith('CL') || cleaned.startsWith('ACL')) {
+    const isAssistant = cleaned.startsWith('ACL')
+    const digits = cleaned.replace(/[^0-9]/g, '')
+    if (digits) {
+      const padded = digits.padStart(2, '0')
+      const byBatch = CLASS_LEADERS.find(
+        (item) =>
+          (item.batchCode === padded || item.batchCode === digits) &&
+          item.roleTitle ===
+            (isAssistant ? 'Assistant Class Leader' : 'Main Class Leader'),
+      )
+      if (byBatch) {
+        const student =
+          students.find((s) => s.id === byBatch.studentId) ??
+          students.find((s) => s.className === byBatch.className) ??
+          students[0]
+        return {
+          student,
+          leaderId: byBatch.leaderId,
+          roleTitle: byBatch.roleTitle,
+        }
+      }
+    }
+  }
+
+  return undefined
+}
+
+export type PeriodAttendanceStatus = 'present' | 'absent' | 'leave'
+
+export type PeriodAttendanceSubmission = {
+  key: string // `${date}__${className}__${periodIndex}`
+  date: string // YYYY-MM-DD
+  className: string
+  periodIndex: number // 1-based period number
+  periodLabel: string
+  periodTime: string
+  subject: string
+  teacher: string
+  submittedByLeaderId: string
+  submittedByName: string
+  submittedAt: string // ISO string
+  records: Record<string, PeriodAttendanceStatus> // studentId -> status
+  reasons?: Record<string, string> // studentId -> selected reason for absent or leave
+}
+
+export const PERIOD_ATTENDANCE_STORAGE_KEY = 'ics_period_attendance_v1'
+
+export function loadPeriodAttendanceSubmissions(): Record<string, PeriodAttendanceSubmission> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = window.localStorage.getItem(PERIOD_ATTENDANCE_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, PeriodAttendanceSubmission>
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+export function savePeriodAttendanceSubmissions(
+  map: Record<string, PeriodAttendanceSubmission>,
+): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(PERIOD_ATTENDANCE_STORAGE_KEY, JSON.stringify(map))
+    window.dispatchEvent(new CustomEvent('ics-period-attendance-updated'))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+

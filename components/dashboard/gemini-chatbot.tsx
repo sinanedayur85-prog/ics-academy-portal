@@ -46,12 +46,14 @@ import {
   exportStudyNoteDirectPdf,
   isArabicText,
   isArabicLine,
+  isUrduText,
+  isUrduLine,
   type StudyNoteExportData,
 } from '@/components/dashboard/study-note-pdf'
 import { exportStudyNoteDirectDocx } from '@/components/dashboard/study-note-docx'
 
 export type ChatRole = 'usthad' | 'academic' | 'language' | 'campus'
-export type ChatLanguage = 'ml' | 'en' | 'ar'
+export type ChatLanguage = 'ml' | 'en' | 'ar' | 'ur' | 'es' | 'de'
 export type ChatModelTier = 'flash' | 'flash-lite'
 
 export interface ChatTurnMessage {
@@ -80,21 +82,24 @@ const PERSONAS: {
     badge: 'Kitab · Fiqh · Nahw',
     icon: BookOpen,
     description:
-      'Multi-turn scholarly dialogue on Fathul Mueen, Mahalli, Tafsir Jalalayn, Alfiyyah, and Shafi\'i Fiqh.',
+      "Multi-turn scholarly dialogue on Fathul Mueen, Mahalli, Tafsir Jalalayn, Alfiyyah, and Shafi'i Fiqh.",
     welcomeMessage: {
-      en: 'As-salāmu ʿalaykum! I am the Kitab & Fiqh Mentor for ICS Academy Da\'wa College. Ask any question regarding Fathul Mueen, Mahalli, Alfiyyah, Tafsir, Nahw, and Sarf.',
-      ml: 'السَّلَامُ عَلَيْكُمْ! ഐ.സി.എസ് അക്കാദമി ദാഅ്വാ കോളേജിന്റെ കിതാബ് & ഫിഖ്ഹ് മെന്ററാണ് ഞാൻ. ഫത്ഹുൽ മുഈൻ, മഹല്ലി, അൽഫിയ്യ, തഫ്സീർ ജലാലൈൻ, നഹ്‌വ്, സർഫ് എന്നിവയെക്കുറിച്ചുള്ള ഏത് സംശയങ്ങളും ചോദിക്കാം.',
+      en: "السَّلَامُ عَلَيْكُمْ!\nI am the Kitab & Fiqh Mentor for ICS Academy Da'wa College. Ask any question regarding Fathul Mueen, Mahalli, Alfiyyah, Tafsir, Nahw, and Sarf.",
+      ml: 'السَّلَامُ عَلَيْكُمْ!\nഐ.സി.എസ് അക്കാദമി ദാഅ്വാ കോളേജിന്റെ കിതാബ് & ഫിഖ്ഹ് മെന്ററാണ് ഞാൻ. ഫത്ഹുൽ മുഈൻ, മഹല്ലി, അൽഫിയ്യ, തഫ്സീർ ജലാലൈൻ, നഹ്‌വ്, സർഫ് എന്നിവയെക്കുറിച്ചുള്ള ഏത് സംശയങ്ങളും ചോദിക്കാം.',
       ar: 'السَّلَامُ عَلَيْكُمْ! أنا المرشد العلمي لكتب الشريعة والفقه بكلية الدعوة في أكاديمية ICS. يمكنك طرح أي سؤال حول فتح المعين، والمحلي، وألفية ابن مالك، وتفسير الجلالين، وقواعد النحو والصرف.',
+      ur: 'السَّلَامُ عَلَيْكُمْ! میں آئی سی ایس اکیڈمی دعوۃ کالج کا کتاب اور فقہ مینٹر ہوں۔ آپ فتح المعین، محلی، الفیہ ابن مالک، تفسیر جلالین، نحو اور صرف سے متعلق کوئی بھی علمی سوال پوچھ سکتے ہیں۔',
+      es: "السَّلَامُ عَلَيْكُمْ!\nSoy el Mentor de Kitab y Fiqh del Da'wa College de ICS Academy. Puedes hacer cualquier consulta sobre Fathul Mueen, Mahalli, Alfiyyah, Tafsir, Nahw y Sarf.",
+      de: "السَّلَامُ عَلَيْكُمْ!\nIch bin der Kitab- und Fiqh-Mentor des Da'wa College der ICS Academy. Stellen Sie gerne jede Frage zu Fathul Mueen, Mahalli, Alfiyyah, Tafsir, Nahw und Sarf.",
     },
     starters: {
       en: [
         {
           label: 'Fathul Mueen — Tayammum Conditions',
           prompt:
-            'What are the core conditions for Tayammum according to the Shafi\'i Madhhab? Could you follow up with a short question to test my understanding?',
+            "What are the core conditions for Tayammum according to the Shafi'i Madhhab? Could you follow up with a short question to test my understanding?",
         },
         {
-          label: 'Grammar & I\'rab Analysis',
+          label: "Grammar & I'rab Analysis",
           prompt:
             'Could you explain the I\'rab and Nahw grammatical rules for: "الْعِلْمُ نُورٌ يَقْذِفُهُ اللَّهُ فِي الْقَلْبِ" step-by-step?',
         },
@@ -138,6 +143,57 @@ const PERSONAS: {
             'ما هو الفرق بين العام والخاص في أصول الفقه مع ذكر أمثلة توضيحية؟',
         },
       ],
+      ur: [
+        {
+          label: 'فتح المعین — تیمم کی شرائط',
+          prompt:
+            'فقہ شافعی کی کتاب فتح المعین کے مطابق تیمم کی بنیادی شرائط کیا ہیں؟ اور آخر میں میری فہم جانچنے کے لیے ایک مختصر سوال بھی پوچھیں۔',
+        },
+        {
+          label: 'نحوی ترکیب اور اعراب',
+          prompt:
+            'جملہ "الْعِلْمُ نُورٌ يَقْذِفُهُ اللَّهُ فِي الْقَلْبِ" کی نحوی ترکیب اور اعراب مرحلہ وار واضح کریں۔',
+        },
+        {
+          label: 'اصول الفقہ — عام اور خاص',
+          prompt:
+            'اصول الفقہ میں العام اور الخاص کے درمیان فرق مثالوں کے ساتھ واضح کریں۔',
+        },
+      ],
+      es: [
+        {
+          label: 'Fathul Mueen — Condiciones del Tayammum',
+          prompt:
+            '¿Cuáles son las condiciones principales del Tayammum según la escuela Shafi\'i en Fathul Mueen? Añade una breve pregunta al final para evaluar mi comprensión.',
+        },
+        {
+          label: 'Análisis Gramatical e I\'rab',
+          prompt:
+            'Explica paso a paso el I\'rab y las reglas de Nahw de la frase: "الْعِلْمُ نُورٌ يَقْذِفُهُ اللَّهُ فِي الْقَلْبِ".',
+        },
+        {
+          label: 'Usul al-Fiqh — Aam y Khas',
+          prompt:
+            'Explica la diferencia entre Aam (العام) y Khas (الخاص) en Usul al-Fiqh con ejemplos claros.',
+        },
+      ],
+      de: [
+        {
+          label: 'Fathul Mueen — Bedingungen für Tayammum',
+          prompt:
+            'Was sind die wichtigsten Bedingungen für Tayammum gemäß der Schafi\'i-Rechtsschule in Fathul Mueen? Stelle mir am Ende eine kurze Verständnisfrage.',
+        },
+        {
+          label: 'Grammatik- & I\'rab-Analyse',
+          prompt:
+            'Erkläre Schritt für Schritt den I\'rab und die Nahw-Regeln für den Satz: "الْعِلْمُ نُورٌ يَقْذِفُهُ اللَّهُ فِي الْقَلْبِ".',
+        },
+        {
+          label: 'Usul al-Fiqh — Aam & Khas',
+          prompt:
+            'Erkläre den Unterschied zwischen Aam (العام) und Khas (الخاص) in Usul al-Fiqh anhand von Beispielen.',
+        },
+      ],
     },
   },
   {
@@ -152,6 +208,9 @@ const PERSONAS: {
       en: 'Welcome! I am your multi-turn academic tutor for exam preparations and degree coursework in Humanities, History, English, and Islamic Studies. Which subject would you like to revise today?',
       ml: 'സ്വാഗതം! ഹ്യുമാനിറ്റീസ്, ഇസ്‌ലാമിക് ഹിസ്റ്ററി, ഇംഗ്ലീഷ്, പരീക്ഷാ റിവിഷൻ എന്നിവയ്ക്കായുള്ള നിങ്ങളുടെ അക്കാദമിക് ട്യൂട്ടറാണ് ഞാൻ. ഇന്ന് ഏത് വിഷയമാണ് റിവൈസ് ചെയ്യേണ്ടത്?',
       ar: 'أهلاً بك! أنا مرشدك الأكاديمي للاستعداد للاختبارات ومناهج الإنسانيات، والتاريخ الإسلامي، واللغة الإنجليزية. أي مادة تود مراجعتها اليوم؟',
+      ur: 'خوش آمدید! میں ہیومینٹیز، اسلامی تاریخ، انگریزی اور امتحانی تیاری کے لیے آپ کا اکیڈمک ٹیوٹر ہوں۔ آج آپ کون سا مضمون دہرانا چاہیں گے؟',
+      es: '¡Bienvenido! Soy tu tutor académico para la preparación de exámenes y asignaturas de Humanidades, Historia Islámica e Inglés. ¿Qué tema te gustaría repasar hoy?',
+      de: 'Willkommen! Ich bin Ihr akademischer Tutor für Prüfungsvorbereitungen sowie Geisteswissenschaften, Islamische Geschichte und Englisch. Welches Fach möchten Sie heute wiederholen?',
     },
     starters: {
       en: [
@@ -205,27 +264,81 @@ const PERSONAS: {
             'اقترح جدولاً أسبوعياً متوازناً يجمع بين مراجعة كتب الشريعة والمناهج الأكاديمية الجامعية.',
         },
       ],
+      ur: [
+        {
+          label: 'اسلامی تاریخ — عباسی دورِ زریں',
+          prompt:
+            'خلافتِ عباسیہ کے علمی و فکری ارتقاء اور بیت الحکمت کے بارے میں اہم امتحانی نکات بیان کریں۔',
+        },
+        {
+          label: 'انٹرایکٹو امتحانی کوئز',
+          prompt:
+            'کیرالہ میں اسلام کی تاریخ سے متعلق مجھ سے یکے بعد دیگرے 3 سوالات پوچھیں اور میرے جوابات کا جائزہ لیں۔',
+        },
+        {
+          label: 'ہفتہ وار تعلیمی ٹائم ٹیبل',
+          prompt:
+            'درسِ نظامی کی کتابوں اور یونیورسٹی ڈگری مضامین دونوں کی متوازن تیاری کے لیے ہفتہ وار اسٹڈی پلان بنا کر دیں۔',
+        },
+      ],
+      es: [
+        {
+          label: 'Historia Islámica — Edad de Oro Abasí',
+          prompt:
+            'Proporciona los puntos clave para el examen sobre los avances intelectuales y la Casa de la Sabiduría (Bayt al-Hikmah) durante el Califato Abasí.',
+        },
+        {
+          label: 'Cuestionario Interactivo de Repaso',
+          prompt:
+            'Hazme 3 preguntas consecutivas sobre la historia del Islam en Kerala y evalúa mis respuestas una por una.',
+        },
+        {
+          label: 'Horario de Estudio para Exámenes',
+          prompt:
+            '¿Podrías crear un plan de estudio semanal equilibrado que combine el temario de Kitabs y las asignaturas universitarias?',
+        },
+      ],
+      de: [
+        {
+          label: 'Islamische Geschichte — Blütezeit der Abbasiden',
+          prompt:
+            'Fasse die wichtigsten Prüfungspunkte zu den wissenschaftlichen Fortschritten und dem Haus der Weisheit (Bayt al-Hikmah) im Abbasiden-Kalifat zusammen.',
+        },
+        {
+          label: 'Interaktives Wiederholungs-Quiz',
+          prompt:
+            'Stelle mir 3 aufeinanderfolgende Fragen zur Geschichte des Islam in Kerala und bewerte meine Antworten einzeln.',
+        },
+        {
+          label: 'Wöchentlicher Lernplan',
+          prompt:
+            'Erstelle bitte einen ausgewogenen wöchentlichen Studienplan, der sowohl das Kitab-Curriculum als auch die Studienfächer abdeckt.',
+        },
+      ],
     },
   },
   {
     id: 'language',
-    title: 'Trilingual Coach',
-    subTitle: 'Arabic · English · Malayalam',
-    badge: 'Arabic · English · Malayalam',
+    title: 'Multilingual Coach',
+    subTitle: 'Arabic · English · Malayalam · Urdu · Spanish · German',
+    badge: '6 Languages · Translation · Grammar',
     icon: Languages,
     description:
-      'Practice Arabic conversation (Muhadathah), academic English, and trilingual translation with grammar feedback.',
+      'Practice Arabic conversation (Muhadathah), academic English, Malayalam, Urdu, Spanish, and German with grammar feedback.',
     welcomeMessage: {
-      en: 'Ahlan wa Sahlan! Welcome! Let us practice Arabic conversation (المحادثة العربية), academic English, and trilingual translation. Which language would you like to start with?',
-      ml: 'അഹ്‌ലൻ വ സഹ്‌ലൻ! സ്വാഗതം! അറബിക് മുഹാദസ (المحادثة العربية), അക്കാദമിക് ഇംഗ്ലീഷ്, ത്രിഭാഷാ പരിഭാഷ എന്നിവ നമുക്ക് ഇവിടെ പരിശീലിക്കാം. ഏത് ഭാഷയിലാണ് തുടങ്ങേണ്ടത്?',
-      ar: 'أهلاً وسهلاً بك! دعنا نتدرب معاً على المحادثة العربية الفصحى، والإنجليزية الأكاديمية، والترجمة الثلاثية مع تصويب القواعد. بأي لغة تفضل أن نبدأ؟',
+      en: 'Ahlan wa Sahlan! Welcome! Let us practice Arabic conversation (المحادثة العربية), academic English, Malayalam, Urdu, Spanish, and German translation. Which language would you like to start with?',
+      ml: 'അഹ്‌ലൻ വ സഹ്‌ലൻ! സ്വാഗതം! അറബിക് മുഹാദസ (المحادثة العربية), ഇംഗ്ലീഷ്, മലയാളം, ഉറുദു, സ്പാനിഷ്, ജർമ്മൻ ഭാഷാ പരിശീലനവും പരിഭാഷയും നമുക്ക് ഇവിടെ നടത്താം. ഏത് ഭാഷയിലാണ് തുടങ്ങേണ്ടത്?',
+      ar: 'أهلاً وسهلاً بك! دعنا نتدرب معاً على المحادثة العربية الفصحى، والإنجليزية، والمالايالامية، والأردية، والإسبانية، والألمانية مع تصويب القواعد. بأي لغة تفضل أن نبدأ؟',
+      ur: 'اہلاً و سہلاً! خوش آمدید! آئیں عربی محادثہ (المحادثة العربية)، اردو، انگریزی، ملیالم، ہسپانوی اور جرمن زبان کی مشق اور علمی ترجمہ کریں۔ آپ کس زبان سے آغاز کرنا پسند کریں گے؟',
+      es: '¡Ahlan wa Sahlan! ¡Bienvenido! Practiquemos conversación árabe (المحادثة العربية), español, inglés académico, urdu, alemán y traducción. ¿Con qué idioma te gustaría comenzar?',
+      de: 'Ahlan wa Sahlan! Willkommen! Lassen Sie uns arabische Konversation (المحادثة العربية), Deutsch, akademisches Englisch, Urdu, Spanisch und Übersetzungen üben. Mit welcher Sprache möchten Sie beginnen?',
     },
     starters: {
       en: [
         {
           label: 'Arabic Dialogue (Muhadathah)',
           prompt:
-            'Start a short Arabic conversation between a teacher and student in the Da\'wa College library, with English translations.',
+            "Start a short Arabic conversation between a teacher and student in the Da'wa College library, with English translations.",
         },
         {
           label: 'Arabic Root & Morphology (Sarf)',
@@ -233,9 +346,9 @@ const PERSONAS: {
             'Explain the root letters and morphological derivation (Sarf) for "استغفار" (Istighfar) and "تعلّم" (Ta\'allum).',
         },
         {
-          label: 'Academic English Presentation',
+          label: 'Multilingual Scholarly Translation',
           prompt:
-            'Help me practice formal academic English for an inter-collegiate Da\'wa seminar presentation. Start by asking me about my topic.',
+            'Translate the Hadith "طَلَبُ الْعِلْمِ فَرِيضَةٌ عَلَى كُلِّ مُسْلِمٍ" into English, Urdu, Spanish, and German with key vocabulary notes.',
         },
       ],
       ml: [
@@ -250,9 +363,9 @@ const PERSONAS: {
             '"استغفار", "تعلّم" എന്നീ പദങ്ങളുടെ മൂല ധാതുവും (Root) സർഫിലെ രൂപീകരണവും വിവരിക്കാമോ?',
         },
         {
-          label: 'അക്കാദമിക് ഇംഗ്ലീഷ് പരിശീലനം',
+          label: 'ബഹുഭാഷാ വൈജ്ഞാനിക പരിഭാഷ',
           prompt:
-            'ദാഅ്വാ സെമിനാറിലെ പ്രസന്റേഷന് വേണ്ടിയുള്ള ഫോർമൽ അക്കാദമിക് ഇംഗ്ലീഷ് സംസാരിക്കാൻ എന്നെ സഹായിക്കാമോ? എന്റെ വിഷയം ചോദിച്ചു കൊണ്ട് തുടങ്ങൂ.',
+            '"طَلَبُ الْعِلْمِ فَرِيضَةٌ عَلَى كُلِّ مُسْلِمٍ" എന്ന ഹദീസ് മലയാളം, ഉറുദു, സ്പാനിഷ്, ജർമ്മൻ ഭാഷകളിലേക്ക് പദപരിചയത്തോടെ വിവർത്തനം ചെയ്യാമോ?',
         },
       ],
       ar: [
@@ -267,9 +380,60 @@ const PERSONAS: {
             'اشرح الجذر اللغوي والاشتقاق الصرفي لكلمتي "استغفار" و"تعلّم".',
         },
         {
-          label: 'تدريب المحادثة الإنجليزية الأكاديمية',
+          label: 'ترجمة علمية متعددة اللغات',
           prompt:
-            'ساعدني في التدرب على الإنجليزية الأكاديمية الرسمية لعرض تقديمي في ندوة الكلية. ابدأ بسؤالي عن موضوعي.',
+            'ترجم حديث "طَلَبُ الْعِلْمِ فَرِيضَةٌ عَلَى كُلِّ مُسْلِمٍ" إلى الأردية والإسبانية والألمانية والإنجليزية مع شرح المفردات.',
+        },
+      ],
+      ur: [
+        {
+          label: 'عربی بول چال (محادثہ)',
+          prompt:
+            'دعوۃ کالج کی لائبریری میں استاد اور طالب علم کے درمیان ایک مختصر عربی مکالمہ اردو ترجمے کے ساتھ شروع کریں۔',
+        },
+        {
+          label: 'عربی مادہ اور علم الصرف',
+          prompt:
+            'الفاظ "استغفار" اور "تعلّم" کے حروفِ اصلیہ (مادہ) اور صرفی اشتقاق کی اردو میں وضاحت کریں۔',
+        },
+        {
+          label: 'کثیر اللسانی علمی ترجمہ',
+          prompt:
+            'حدیث مبارکہ "طَلَبُ الْعِلْمِ فَرِيضَةٌ عَلَى كُلِّ مُسْلِمٍ" کا اردو، انگریزی، ہسپانوی اور جرمن زبان میں ترجمہ اور الفاظ کی تشریح کریں۔',
+        },
+      ],
+      es: [
+        {
+          label: 'Diálogo en Árabe (Muhadathah)',
+          prompt:
+            'Inicia una breve conversación en árabe entre un profesor y un estudiante en la biblioteca del Da\'wa College, con traducción al español.',
+        },
+        {
+          label: 'Raíz Árabe y Morfología (Sarf)',
+          prompt:
+            'Explica en español las letras radicales y la derivación morfológica (Sarf) de las palabras "استغفار" y "تعلّم".',
+        },
+        {
+          label: 'Práctica de Español para Da\'wa',
+          prompt:
+            'Ayúdame a practicar español académico para presentar una charla sobre ética islámica y convivencia. Incluye vocabulario clave árabe-español.',
+        },
+      ],
+      de: [
+        {
+          label: 'Arabischer Dialog (Muhadathah)',
+          prompt:
+            'Beginne ein kurzes arabisches Gespräch zwischen einem Lehrer und einem Studenten in der Bibliothek des Da\'wa College mit deutscher Übersetzung.',
+        },
+        {
+          label: 'Arabische Wurzel & Morphologie (Sarf)',
+          prompt:
+            'Erkläre auf Deutsch die Wurzelbuchstaben und die morphologische Ableitung (Sarf) der Wörter "استغفار" und "تعلّم".',
+        },
+        {
+          label: 'Wissenschaftliches Deutsch für Da\'wa',
+          prompt:
+            'Hilf mir, akademisches Deutsch für einen Vortrag über islamische Bildungsgeschichte zu üben, inklusive wichtiger arabisch-deutscher Fachbegriffe.',
         },
       ],
     },
@@ -283,9 +447,12 @@ const PERSONAS: {
     description:
       'Speech preparation, Friday Khutbah structuring, Kitab reading recommendations, and campus routines.',
     welcomeMessage: {
-      en: 'As-salāmu ʿalaykum! I am here to assist you with Da\'wa speeches, Literary Association (Sahitya Samajam) essays, and digital library recommendations.',
+      en: "As-salāmu ʿalaykum! I am here to assist you with Da'wa speeches, Literary Association (Sahitya Samajam) essays, and digital library recommendations.",
       ml: 'السَّلَامُ عَلَيْكُمْ! ദാഅ്വാ പ്രസംഗങ്ങൾ, സാഹിത്യ സമാജം ഉപന്യാസങ്ങൾ, ഡിജിറ്റൽ ലൈബ്രറി കിതാബുകൾ എന്നിവയിൽ സഹായിക്കാൻ ഞാൻ സദാ സന്നദ്ധനാണ്.',
       ar: 'السَّلَامُ عَلَيْكُمْ! أنا هنا لمساعدتك في إعداد الخطب الدعوية، ومقالات النادي الأدبي، وتوصيات كتب المكتبة الرقمية.',
+      ur: 'السَّلَامُ عَلَيْكُمْ! میں دعوتی تقاریر، بزمِ ادب کے مضامین اور ڈیجیٹل لائبریری کی کتابوں کے انتخاب میں آپ کی رہنمائی کے لیے حاضر ہوں۔',
+      es: 'السَّلَامُ عَلَيْكُمْ! Estoy aquí para ayudarte con discursos de Da\'wa, ensayos de la asociación literaria y recomendaciones de Kitabs de la biblioteca.',
+      de: 'السَّلَامُ عَلَيْكُمْ! Ich unterstütze Sie gerne bei Da\'wa-Vorträgen, Aufsätzen für den Literaturverein und Buchempfehlungen aus unserer Bibliothek.',
     },
     starters: {
       en: [
@@ -297,7 +464,7 @@ const PERSONAS: {
         {
           label: 'Must-Read Classical Kitabs',
           prompt:
-            'Recommend 5 classical Kitabs that every Da\'wa student should read, along with their key insights.',
+            "Recommend 5 classical Kitabs that every Da'wa student should read, along with their key insights.",
         },
       ],
       ml: [
@@ -324,6 +491,42 @@ const PERSONAS: {
             'اقترح 5 كتب كلاسيكية أساسية يجب على كل طالب دعوة قراءتها مع بيان أهم فوائدها ومزاياها.',
         },
       ],
+      ur: [
+        {
+          label: 'تقریر کی تیاری — وقت کی پابندی',
+          prompt:
+            '"طلبہ اور وقت کی قدر و منزلت" کے موضوع پر قرآنی آیات اور احادیث کے حوالوں کے ساتھ ایک جامع تقریری خاکہ تیار کریں۔',
+        },
+        {
+          label: 'مطالعہ کے لیے اہم کلاسیکی کتب',
+          prompt:
+            'ہر طالبِ علمِ دین و دعوت کے لیے لازمی 5 کلاسیکی کتابیں اور ان کی اہم خصوصیات تجویز کریں۔',
+        },
+      ],
+      es: [
+        {
+          label: 'Preparación de Discurso — Gestión del Tiempo',
+          prompt:
+            'Prepara un esquema de discurso sobre "Los Estudiantes y el Valor del Tiempo" con citas del Corán y Hadices en árabe y español.',
+        },
+        {
+          label: 'Kitabs Clásicos Imprescindibles',
+          prompt:
+            'Recomienda 5 Kitabs clásicos que todo estudiante de Da\'wa debería leer y explica sus enseñanzas principales.',
+        },
+      ],
+      de: [
+        {
+          label: 'Vortragsentwurf — Zeitmanagement',
+          prompt:
+            'Erstelle eine Gliederung für einen Vortrag zum Thema "Studierende und Zeitmanagement" mit Koranversen und Hadith-Belegen auf Arabisch und Deutsch.',
+        },
+        {
+          label: 'Empfohlene klassische Kitabs',
+          prompt:
+            'Empfiehl 5 klassische Kitabs, die jeder Da\'wa-Student lesen sollte, und erläutere ihre wichtigsten Inhalte.',
+        },
+      ],
     },
   },
 ]
@@ -332,6 +535,9 @@ const LANGUAGES: { id: ChatLanguage; label: string }[] = [
   { id: 'en', label: 'English' },
   { id: 'ar', label: 'العربية' },
   { id: 'ml', label: 'മലയാളം' },
+  { id: 'ur', label: 'اردو' },
+  { id: 'es', label: 'Español' },
+  { id: 'de', label: 'Deutsch' },
 ]
 
 const UI_TEXT: Record<
@@ -357,8 +563,7 @@ const UI_TEXT: Record<
 > = {
   en: {
     tryAsking: 'Try asking:',
-    placeholder: (personaTitle) =>
-      `Ask ${personaTitle}... (Press Enter to send, Shift+Enter for new line)`,
+    placeholder: (personaTitle) => `Ask ${personaTitle}...`,
     send: 'Send',
     thinking: (personaTitle) => `${personaTitle} is thinking...`,
     analyzing: 'Preparing answer · Analyzing conversation history',
@@ -372,12 +577,12 @@ const UI_TEXT: Record<
     voiceTyping: 'Voice Typing',
     voiceListening: 'Listening in English... Speak clearly',
     voiceStop: 'Stop Voice',
-    voiceNotSupported: 'Speech recognition is not supported in this browser. Please use Chrome, Safari, or Edge.',
+    voiceNotSupported:
+      'Speech recognition is not supported in this browser. Please use Chrome, Safari, or Edge.',
   },
   ml: {
     tryAsking: 'ചോദിച്ചു നോക്കൂ:',
-    placeholder: (personaTitle) =>
-      `${personaTitle}-യോട് ചോദിക്കൂ... (അയക്കാൻ Enter, പുതിയ വരിക്ക് Shift+Enter)`,
+    placeholder: (personaTitle) => `${personaTitle}-യോട് ചോദിക്കൂ...`,
     send: 'അയക്കുക',
     thinking: (personaTitle) => `${personaTitle} ചിന്തിക്കുന്നു...`,
     analyzing: 'മറുപടി തയ്യാറാക്കുന്നു · സംഭാഷണ ചരിത്രം വിശകലനം ചെയ്യുന്നു',
@@ -391,12 +596,12 @@ const UI_TEXT: Record<
     voiceTyping: 'വോയിസ് ടൈപ്പിംഗ്',
     voiceListening: 'കേൾക്കുന്നു... നിങ്ങളുടെ ചോദ്യം മലയാളത്തിൽ വ്യക്തമായി സംസാരിക്കൂ',
     voiceStop: 'വോയിസ് നിർത്തുക',
-    voiceNotSupported: 'ഈ ബ്രൗസറിൽ സ്പീച്ച് റെക്കഗ്നിഷൻ ലഭ്യമല്ല. ദയവായി Google Chrome അല്ലെങ്കിൽ Microsoft Edge ഉപയോഗിക്കുക.',
+    voiceNotSupported:
+      'ഈ ബ്രൗസറിൽ സ്പീച്ച് റെക്കഗ്നിഷൻ ലഭ്യമല്ല. ദയവായി Google Chrome അല്ലെങ്കിൽ Microsoft Edge ഉപയോഗിക്കുക.',
   },
   ar: {
     tryAsking: 'جرّب السؤال:',
-    placeholder: (personaTitle) =>
-      `اسأل ${personaTitle}... (اضغط Enter للإرسال، وShift+Enter لسطر جديد)`,
+    placeholder: (personaTitle) => `اسأل ${personaTitle}...`,
     send: 'إرسال',
     thinking: (personaTitle) => `${personaTitle} يفكر...`,
     analyzing: 'جارٍ إعداد الإجابة · تحليل سياق المحادثة',
@@ -410,7 +615,65 @@ const UI_TEXT: Record<
     voiceTyping: 'الإملاء الصوتي',
     voiceListening: 'جارٍ الاستماع... تكلّم بوضوح باللغة العربية',
     voiceStop: 'إيقاف الصوت',
-    voiceNotSupported: 'خاصية التعرف على الصوت غير مدعومة في هذا المتصفح. يُرجى استخدام متصفح Chrome أو Safari أو Edge.',
+    voiceNotSupported:
+      'خاصية التعرف على الصوت غير مدعومة في هذا المتصفح. يُرجى استخدام متصفح Chrome أو Safari أو Edge.',
+  },
+  ur: {
+    tryAsking: 'یہ سوال پوچھ کر دیکھیں:',
+    placeholder: (personaTitle) => `${personaTitle} سے پوچھیں...`,
+    send: 'ارسال کریں',
+    thinking: (personaTitle) => `${personaTitle} جواب تیار کر رہا ہے...`,
+    analyzing: 'علمی جواب تیار کیا جا رہا ہے · گفتگو کے سیاق و سباق کا جائزہ',
+    selectPersona: 'چیٹ بوٹ رہنما منتخب کریں',
+    responseLang: 'جواب کی زبان:',
+    newChat: 'نئی گفتگو',
+    turnSingular: 'سوال',
+    turnPlural: 'سوالات',
+    activeRole: 'فعال کردار:',
+    maintainsMemory: 'پوری گفتگو کے تمام پچھلے سوالات اور سیاق و سباق کو یاد رکھتا ہے۔',
+    voiceTyping: 'آواز سے لکھیں',
+    voiceListening: 'اردو میں سنا جا رہا ہے... براہِ کرم واضح بولیں',
+    voiceStop: 'آواز روکیں',
+    voiceNotSupported:
+      'اس براؤزر میں وائس ٹائپنگ دستیاب نہیں ہے۔ براہِ کرم Chrome، Safari یا Edge استعمال کریں۔',
+  },
+  es: {
+    tryAsking: 'Prueba a preguntar:',
+    placeholder: (personaTitle) => `Pregunta a ${personaTitle}...`,
+    send: 'Enviar',
+    thinking: (personaTitle) => `${personaTitle} está pensando...`,
+    analyzing: 'Preparando respuesta académica · Analizando el historial de conversación',
+    selectPersona: 'Seleccionar Mentor del Chatbot',
+    responseLang: 'Idioma de respuesta:',
+    newChat: 'Nuevo Chat',
+    turnSingular: 'turno',
+    turnPlural: 'turnos',
+    activeRole: 'Rol activo del sistema:',
+    maintainsMemory: 'Mantiene la memoria contextual durante toda la conversación.',
+    voiceTyping: 'Dictado por voz',
+    voiceListening: 'Escuchando en español... Habla con claridad',
+    voiceStop: 'Detener voz',
+    voiceNotSupported:
+      'El reconocimiento de voz no es compatible con este navegador. Utiliza Chrome, Safari o Edge.',
+  },
+  de: {
+    tryAsking: 'Beispielfragen:',
+    placeholder: (personaTitle) => `Fragen Sie ${personaTitle}...`,
+    send: 'Senden',
+    thinking: (personaTitle) => `${personaTitle} denkt nach...`,
+    analyzing: 'Antwort wird erstellt · Gesprächsverlauf wird analysiert',
+    selectPersona: 'Chatbot-Mentor auswählen',
+    responseLang: 'Antwortsprache:',
+    newChat: 'Neuer Chat',
+    turnSingular: 'Frage',
+    turnPlural: 'Fragen',
+    activeRole: 'Aktive Systemrolle:',
+    maintainsMemory: 'Bewahrt den gesamten Gesprächskontext über mehrere Fragen hinweg.',
+    voiceTyping: 'Spracheingabe',
+    voiceListening: 'Hört auf Deutsch zu... Bitte deutlich sprechen',
+    voiceStop: 'Stopp',
+    voiceNotSupported:
+      'Spracherkennung wird in diesem Browser nicht unterstützt. Bitte verwenden Sie Chrome, Safari oder Edge.',
   },
 }
 
@@ -531,7 +794,70 @@ function buildStudyNoteDirectPdf(params: {
   return new Blob([pdf], { type: 'application/pdf' })
 }
 
-function renderScriptRuns(text: string, keyPrefix: string): React.ReactNode {
+function hasSalamGreeting(text: string): boolean {
+  if (!text) return false
+  return (
+    /\b(salam|salaam|assalam|as-salam|as\s+salam|alsalam|al-salam|assalamu|assalaamu)\b/i.test(text) ||
+    /السلام|سلام|السَّلَام|سَلَام/.test(text) ||
+    /സലാം|അസ്സലാമു/.test(text)
+  )
+}
+
+function normalizeEnglishChatText(text: string, userSaidSalam = false): string {
+  if (!text) return text
+  let out = text
+
+  // 1. Convert any Latin/Malayalam transliterated Salam back into Arabic script
+  out = out
+    .replace(
+      /^(\s*)(?:Wa\s+[ʿ'‘’`]?alaykumu\s+s-sal[aā]m(?:\s+wa\s+ra[hḥ]matull[aā]hi\s+wa\s+barak[aā]tuh)?|Wa\s+alaikum\s+assalam(?:\s+wa\s+rahmatullahi\s+wa\s+barakatuh)?)/im,
+      (_, prefix: string) =>
+        `${prefix}${userSaidSalam ? 'وَعَلَيْكُمُ السَّلَامُ وَرَحْمَةُ اللَّهِ وَبَرَكَاتُهُ' : 'السَّلَامُ عَلَيْكُمْ وَرَحْمَةُ اللَّهِ وَبَرَكَاتُهُ'}`,
+    )
+    .replace(
+      /^(\s*)(?:As-sal[aā]mu\s+[ʿ'‘’`]?alaykum(?:\s+wa\s+ra[hḥ]matull[aā]hi\s+wa\s+barak[aā]tuh)?|Assalamu\s+alaikum(?:\s+wa\s+rahmatullahi\s+wa\s+barakatuh)?)/im,
+      '$1السَّلَامُ عَلَيْكُمْ',
+    )
+
+  // 2. If the student did NOT say Salam in the previous turn, ensure opening greeting initiates Salam (السَّلَامُ عَلَيْكُمْ) instead of returning Salam (وَعَلَيْكُمُ السَّلَامُ)
+  if (!userSaidSalam) {
+    out = out
+      .replace(
+        /^(\s*)(?:وَعَلَيْكُمُ\s+السَّلَامُ\s+وَرَحْمَةُ\s+اللَّهِ\s+وَبَرَكَاتُهُ|وعليكم\s+السلام\s+ورحمة\s+الله\s+وبركاته)/m,
+        '$1السَّلَامُ عَلَيْكُمْ وَرَحْمَةُ اللَّهِ وَبَرَكَاتُهُ',
+      )
+      .replace(/^(\s*)(?:وَعَلَيْكُمُ\s+السَّلَامُ|وعليكم\s+السلام)/m, '$1السَّلَامُ عَلَيْكُمْ')
+  }
+
+  // 3. In English messages, ensure 'ഐ.സി.എസ് അക്കാദമി' is rendered in English as 'ICS Academy'
+  const englishLetters = (out.match(/[A-Za-z]/g) || []).length
+  const malayalamLetters = (out.match(/[\u0D00-\u0D7F]/g) || []).length
+  if (englishLetters >= 20 && englishLetters > malayalamLetters * 3 && !isArabicText(out)) {
+    out = out
+      .replace(/ഐ\.?\s*സി\.?\s*എസ്\.?\s*അക്കാദമിയുടെ/g, "ICS Academy's")
+      .replace(/ഐ\.?\s*സി\.?\s*എസ്\.?\s*അക്കാദമിയിൽ/g, 'at ICS Academy')
+      .replace(/ഐ\.?\s*സി\.?\s*എസ്\.?\s*അക്കാദമി/g, 'ICS Academy')
+  }
+
+  // 4. Whenever an Arabic Salam at the start of a line is followed on the SAME line by English or Malayalam words (e.g. ", my dear student Muhammed Junaid"), split them onto separate lines (\n) so the English/Malayalam salutation below starts cleanly from the LEFT side!
+  out = out.replace(
+    /^(\s*(?:وَعَلَيْكُمُ\s+السَّلَامُ(?:\s+وَرَحْمَةُ\s+اللَّهِ\s+وَبَرَكَاتُهُ)?|وعليكم\s+السلام(?:\s+ورحمة\s+الله\s+وبركاته)?|السَّلَامُ\s+عَلَيْكُمْ(?:\s+وَرَحْمَةُ\s+اللَّهِ\s+وَبَرَكَاتُهُ)?|السلام\s+عليكم(?:\s+ورحمة\s+الله\s+وبركاته)?)[!،,]?)\s*[,،!.-]*\s+([A-Za-z\u00C0-\u024F\u0D00-\u0D7F].*)$/m,
+    (_, salamPart: string, restPart: string) => {
+      const cleanSalam = salamPart.replace(/[,،]\s*$/, '')
+      const capitalizedRest =
+        /^[a-z]/.test(restPart) ? restPart.charAt(0).toUpperCase() + restPart.slice(1) : restPart
+      return `${cleanSalam}\n${capitalizedRest}`
+    },
+  )
+
+  return out
+}
+
+function renderScriptRuns(
+  text: string,
+  keyPrefix: string,
+  preferUrduFont = false,
+): React.ReactNode {
   const scriptRegex =
     /([\u0D00-\u0D7F\u200C\u200D]+|[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+)/g
   const parts = text.split(scriptRegex)
@@ -547,17 +873,22 @@ function renderScriptRuns(text: string, keyPrefix: string): React.ReactNode {
       )
     }
     if (/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(part)) {
+      const useUrdu = preferUrduFont || isUrduText(part)
       return (
-        <span key={`${keyPrefix}-ar-${idx}`} className="font-arabic">
+        <bdi
+          key={`${keyPrefix}-ar-${idx}`}
+          dir="rtl"
+          className={useUrdu ? 'font-urdu' : 'font-arabic'}
+        >
           {part}
-        </span>
+        </bdi>
       )
     }
     return <React.Fragment key={`${keyPrefix}-tx-${idx}`}>{part}</React.Fragment>
   })
 }
 
-function renderSlantedWords(content: string, keyPrefix: string) {
+function renderSlantedWords(content: string, keyPrefix: string, preferUrduFont = false) {
   const parts = content.split(/(\s+)/)
   return parts.map((part, idx) => {
     if (!part) return null
@@ -566,13 +897,18 @@ function renderSlantedWords(content: string, keyPrefix: string) {
     }
     return (
       <span key={`${keyPrefix}-w-${idx}`} className="inline-block -skew-x-10">
-        {renderScriptRuns(part, `${keyPrefix}-sw-${idx}`)}
+        {renderScriptRuns(part, `${keyPrefix}-sw-${idx}`, preferUrduFont)}
       </span>
     )
   })
 }
 
-function renderInlineMarkdown(line: string, keyPrefix: string, isUser: boolean) {
+function renderInlineMarkdown(
+  line: string,
+  keyPrefix: string,
+  isUser: boolean,
+  preferUrduFont = false,
+) {
   const tokenRegex =
     /(\*\*\*[\s\S]+?\*\*\*|___[\s\S]+?___|\*\*[\s\S]+?\*\*|__[\s\S]+?__|\*[^\s*](?:[\s\S]*?[^\s*])?\*|_[^\s_](?:[\s\S]*?[^\s_])?_|\`[^\`]+\`)/g
 
@@ -582,7 +918,13 @@ function renderInlineMarkdown(line: string, keyPrefix: string, isUser: boolean) 
 
   while ((match = tokenRegex.exec(line)) !== null) {
     if (match.index > lastIndex) {
-      nodes.push(renderScriptRuns(line.slice(lastIndex, match.index), `${keyPrefix}-pre-${match.index}`))
+      nodes.push(
+        renderScriptRuns(
+          line.slice(lastIndex, match.index),
+          `${keyPrefix}-pre-${match.index}`,
+          preferUrduFont,
+        ),
+      )
     }
 
     const token = match[0]
@@ -598,7 +940,7 @@ function renderInlineMarkdown(line: string, keyPrefix: string, isUser: boolean) 
             isUser ? 'text-primary-foreground' : 'text-foreground',
           )}
         >
-          <em className="not-italic">{renderSlantedWords(inner, k)}</em>
+          <em className="not-italic">{renderSlantedWords(inner, k, preferUrduFont)}</em>
         </strong>,
       )
     } else if ((token.startsWith('**') && token.endsWith('**')) || (token.startsWith('__') && token.endsWith('__'))) {
@@ -611,7 +953,7 @@ function renderInlineMarkdown(line: string, keyPrefix: string, isUser: boolean) 
             isUser ? 'text-primary-foreground' : 'text-foreground',
           )}
         >
-          {renderScriptRuns(inner, `${k}-b`)}
+          {renderScriptRuns(inner, `${k}-b`, preferUrduFont)}
         </strong>,
       )
     } else if ((token.startsWith('*') && token.endsWith('*')) || (token.startsWith('_') && token.endsWith('_'))) {
@@ -624,7 +966,7 @@ function renderInlineMarkdown(line: string, keyPrefix: string, isUser: boolean) 
             isUser ? 'text-primary-foreground/95' : 'text-lime/95',
           )}
         >
-          {renderSlantedWords(inner, k)}
+          {renderSlantedWords(inner, k, preferUrduFont)}
         </em>,
       )
     } else if (token.startsWith('`') && token.endsWith('`')) {
@@ -637,33 +979,46 @@ function renderInlineMarkdown(line: string, keyPrefix: string, isUser: boolean) 
             isUser ? 'bg-primary-foreground/15 text-primary-foreground' : 'bg-muted text-lime',
           )}
         >
-          {renderScriptRuns(inner, `${k}-c`)}
+          {renderScriptRuns(inner, `${k}-c`, preferUrduFont)}
         </code>,
       )
     } else {
-      nodes.push(renderScriptRuns(token, `${k}-raw`))
+      nodes.push(renderScriptRuns(token, `${k}-raw`, preferUrduFont))
     }
 
     lastIndex = tokenRegex.lastIndex
   }
 
   if (lastIndex < line.length) {
-    nodes.push(renderScriptRuns(line.slice(lastIndex), `${keyPrefix}-end`))
+    nodes.push(renderScriptRuns(line.slice(lastIndex), `${keyPrefix}-end`, preferUrduFont))
   }
 
-  return nodes.length > 0 ? nodes : renderScriptRuns(line, `${keyPrefix}-full`)
+  return nodes.length > 0 ? nodes : renderScriptRuns(line, `${keyPrefix}-full`, preferUrduFont)
 }
 
-function FormattedChatText({ text, isUser }: { text: string; isUser: boolean }) {
-  const lines = text.split('\n')
-  const messageIsArabic = isArabicText(text)
+function FormattedChatText({
+  text,
+  isUser,
+  activeLanguage,
+  userSaidSalam = false,
+}: {
+  text: string
+  isUser: boolean
+  activeLanguage?: ChatLanguage
+  userSaidSalam?: boolean
+}) {
+  const normalizedText = isUser ? text : normalizeEnglishChatText(text, userSaidSalam)
+  const lines = normalizedText.split('\n')
+  const messageIsArabic = isArabicText(normalizedText)
+  const messageIsUrdu = messageIsArabic && (activeLanguage === 'ur' || isUrduText(normalizedText))
+  const rtlFontClass = messageIsUrdu ? 'font-urdu' : 'font-arabic'
 
   return (
     <div
       dir={messageIsArabic ? 'rtl' : 'ltr'}
       className={cn(
         'flex flex-col gap-1.5 break-words',
-        messageIsArabic ? 'font-arabic text-right' : 'font-malayalam text-left',
+        messageIsArabic ? `${rtlFontClass} text-right` : 'font-poppins text-left',
       )}
     >
       {lines.map((rawLine, idx) => {
@@ -682,7 +1037,8 @@ function FormattedChatText({ text, isUser }: { text: string; isUser: boolean }) 
         if (headingMatch) {
           const level = headingMatch[1].length
           const content = headingMatch[2]
-          const isAr = isArabicLine(content) || messageIsArabic
+          const isAr = isArabicLine(content)
+          const isUr = isAr && (messageIsUrdu || isUrduLine(content))
           return (
             <div
               key={key}
@@ -690,17 +1046,20 @@ function FormattedChatText({ text, isUser }: { text: string; isUser: boolean }) 
               className={cn(
                 'mt-1.5 font-bold [font-synthesis:weight]',
                 level <= 2 ? 'text-base text-lime' : 'text-sm text-lime',
-                isAr ? 'text-right font-arabic' : 'text-left font-malayalam',
+                isAr
+                  ? `text-right ${isUr ? 'font-urdu' : 'font-arabic'}`
+                  : 'text-left font-poppins',
               )}
             >
-              {renderInlineMarkdown(content, key, isUser)}
+              {renderInlineMarkdown(content, key, isUser, isUr)}
             </div>
           )
         }
 
         const quoteMatch = /^>\s*(.+)$/.exec(line.trim())
         if (quoteMatch) {
-          const isAr = isArabicLine(quoteMatch[1]) || messageIsArabic
+          const isAr = isArabicLine(quoteMatch[1])
+          const isUr = isAr && (messageIsUrdu || isUrduLine(quoteMatch[1]))
           return (
             <blockquote
               key={key}
@@ -708,25 +1067,26 @@ function FormattedChatText({ text, isUser }: { text: string; isUser: boolean }) 
               className={cn(
                 'my-0.5 py-1.5 text-sm',
                 isAr
-                  ? 'border-r-2 border-l-0 rounded-l-lg rounded-r-none pr-3 pl-2 text-right border-lime/70 bg-lime/10 font-arabic'
-                  : 'rounded-r-lg border-l-2 border-lime/70 bg-lime/10 pl-3 pr-2 text-left',
+                  ? `border-r-2 border-l-0 rounded-l-lg rounded-r-none pr-3 pl-2 text-right border-lime/70 bg-lime/10 ${isUr ? 'font-urdu' : 'font-arabic'}`
+                  : 'rounded-r-lg border-l-2 border-lime/70 bg-lime/10 pl-3 pr-2 text-left font-poppins',
               )}
             >
-              {renderInlineMarkdown(quoteMatch[1], key, isUser)}
+              {renderInlineMarkdown(quoteMatch[1], key, isUser, isUr)}
             </blockquote>
           )
         }
 
         const bulletMatch = /^(\s*)([*\-•])\s+(.+)$/.exec(line)
         if (bulletMatch) {
-          const isAr = isArabicLine(bulletMatch[3]) || messageIsArabic
+          const isAr = isArabicLine(bulletMatch[3])
+          const isUr = isAr && (messageIsUrdu || isUrduLine(bulletMatch[3]))
           return (
             <div
               key={key}
               dir={isAr ? 'rtl' : 'ltr'}
               className={cn(
                 'flex items-start gap-2',
-                isAr ? 'pr-1 text-right' : 'pl-1 text-left',
+                isAr ? 'pr-1 text-right' : 'pl-1 text-left font-poppins',
               )}
             >
               <span
@@ -736,8 +1096,8 @@ function FormattedChatText({ text, isUser }: { text: string; isUser: boolean }) 
                 )}
                 aria-hidden="true"
               />
-              <div className={cn('min-w-0 flex-1', isAr && 'font-arabic')}>
-                {renderInlineMarkdown(bulletMatch[3], key, isUser)}
+              <div className={cn('min-w-0 flex-1', isAr ? (isUr ? 'font-urdu' : 'font-arabic') : 'font-poppins')}>
+                {renderInlineMarkdown(bulletMatch[3], key, isUser, isUr)}
               </div>
             </div>
           )
@@ -745,14 +1105,15 @@ function FormattedChatText({ text, isUser }: { text: string; isUser: boolean }) 
 
         const numberedMatch = /^(\s*)(\d+[.)])\s+(.+)$/.exec(line)
         if (numberedMatch) {
-          const isAr = isArabicLine(numberedMatch[3]) || messageIsArabic
+          const isAr = isArabicLine(numberedMatch[3])
+          const isUr = isAr && (messageIsUrdu || isUrduLine(numberedMatch[3]))
           return (
             <div
               key={key}
               dir={isAr ? 'rtl' : 'ltr'}
               className={cn(
                 'flex items-start gap-2',
-                isAr ? 'pr-0.5 text-right' : 'pl-0.5 text-left',
+                isAr ? 'pr-0.5 text-right' : 'pl-0.5 text-left font-poppins',
               )}
             >
               <span
@@ -763,21 +1124,25 @@ function FormattedChatText({ text, isUser }: { text: string; isUser: boolean }) 
               >
                 {numberedMatch[2]}
               </span>
-              <div className={cn('min-w-0 flex-1', isAr && 'font-arabic')}>
-                {renderInlineMarkdown(numberedMatch[3], key, isUser)}
+              <div className={cn('min-w-0 flex-1', isAr ? (isUr ? 'font-urdu' : 'font-arabic') : 'font-poppins')}>
+                {renderInlineMarkdown(numberedMatch[3], key, isUser, isUr)}
               </div>
             </div>
           )
         }
 
-        const isAr = isArabicLine(line) || messageIsArabic
+        const isAr = isArabicLine(line)
+        const isUr = isAr && (messageIsUrdu || isUrduLine(line))
         return (
           <div
             key={key}
             dir={isAr ? 'rtl' : 'ltr'}
-            className={cn('whitespace-pre-wrap', isAr ? 'text-right font-arabic' : 'text-left')}
+            className={cn(
+              'whitespace-pre-wrap',
+              isAr ? `text-right ${isUr ? 'font-urdu' : 'font-arabic'}` : 'text-left font-poppins',
+            )}
           >
-            {renderInlineMarkdown(line, key, isUser)}
+            {renderInlineMarkdown(line, key, isUser, isUr)}
           </div>
         )
       })}
@@ -859,6 +1224,16 @@ export function GeminiChatbot({ student }: { student: Student }) {
 
   const threadContainerRef = useRef<HTMLDivElement | null>(null)
   const printTemplateRef = useRef<HTMLDivElement | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // Auto-resize textarea height smoothly like the Gemini app composer
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    const nextHeight = Math.min(Math.max(el.scrollHeight, 40), 144)
+    el.style.height = `${nextHeight}px`
+  }, [input, language])
 
   // Clean up voice recognition on unmount
   useEffect(() => {
@@ -956,6 +1331,12 @@ export function GeminiChatbot({ student }: { student: Student }) {
 
     setErrorMessage(null)
 
+    // Automatically switch to Urdu ('ur') if the user asks a question in Urdu script
+    const effectiveLanguage: ChatLanguage = isUrduText(textToSend) ? 'ur' : language
+    if (effectiveLanguage !== language) {
+      setLanguage(effectiveLanguage)
+    }
+
     const userMsg: ChatTurnMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -964,10 +1345,12 @@ export function GeminiChatbot({ student }: { student: Student }) {
       persona: role,
     }
 
-    const previousHistory = currentMessages.map((m) => ({
-      role: m.role,
-      text: m.text,
-    }))
+    const previousHistory = currentMessages
+      .filter((m) => !m.id.startsWith('welcome-'))
+      .map((m) => ({
+        role: m.role,
+        text: m.text,
+      }))
 
     setThreads((prev) => ({
       ...prev,
@@ -976,24 +1359,51 @@ export function GeminiChatbot({ student }: { student: Student }) {
 
     setSending(true)
 
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 45000)
+
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           message: textToSend.slice(0, 2000),
           history: previousHistory,
           role,
-          language,
+          language: effectiveLanguage,
           modelTier,
           studentName: student.name,
           studentClass: student.className,
         }),
       })
 
-      const data = await res.json()
+      clearTimeout(timeoutId)
+
+      const contentType = res.headers.get('content-type') || ''
+      let data: { reply?: string; modelUsed?: string; error?: string } | null = null
+
+      if (contentType.includes('application/json')) {
+        try {
+          data = await res.json()
+        } catch {
+          data = null
+        }
+      }
+
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to get response from Gemini chatbot.')
+        const errorMsg =
+          data?.error ||
+          (res.status === 504 || res.status === 502
+            ? 'AI സെർവറിൽ മറുപടി തയ്യാറാക്കാൻ സമയമെടുത്തതിനാൽ കണക്ഷൻ തടസ്സപ്പെട്ടു (Gateway Timeout). ദയവായി വീണ്ടും ശ്രമിക്കുക.'
+            : res.status === 503
+              ? 'AI സെർവറിൽ ഇപ്പോൾ തിരക്ക് കൂടുതലാണ് (503). ദയവായി ഏതാനും നിമിഷങ്ങൾക്ക് ശേഷം വീണ്ടും ശ്രമിക്കുക.'
+              : `സെർവറിൽ നിന്ന് മറുപടി ലഭിക്കുന്നതിൽ തടസ്സം നേരിട്ടു (${res.status}). ദയവായി വീണ്ടും ശ്രമിക്കുക.`)
+        throw new Error(errorMsg)
+      }
+
+      if (!data || typeof data.reply !== 'string') {
+        throw new Error('AI സെർവറിൽ നിന്ന് സാധുവായ മറുപടി ലഭിച്ചില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.')
       }
 
       const botMsg: ChatTurnMessage = {
@@ -1010,12 +1420,26 @@ export function GeminiChatbot({ student }: { student: Student }) {
         [role]: [...(prev[role] ?? []), botMsg],
       }))
     } catch (err) {
-      setErrorMessage(
+      let rawMsg =
         err instanceof Error
-          ? err.message
-          : 'Server busy. Could not get a response. Please try again.',
-      )
+          ? err.name === 'AbortError'
+            ? 'മറുപടി തയ്യാറാക്കാൻ അനുവദിച്ച സമയം കഴിഞ്ഞു (45s Timeout). ചോദ്യം ചെറുതാക്കി വീണ്ടും ശ്രമിക്കുക.'
+            : err.message
+          : 'Server busy. Could not get a response. Please try again.'
+
+      if (
+        rawMsg.includes('<!doctype') ||
+        rawMsg.includes('Unexpected token') ||
+        rawMsg.includes('is not valid JSON') ||
+        rawMsg.includes('JSON.parse')
+      ) {
+        rawMsg =
+          'AI സെർവറിൽ മറുപടി തയ്യാറാക്കാൻ സമയമെടുത്തതിനാൽ കണക്ഷൻ തടസ്സപ്പെട്ടു. ദയവായി വീണ്ടും ശ്രമിക്കുക.'
+      }
+
+      setErrorMessage(rawMsg)
     } finally {
+      clearTimeout(timeoutId)
       setSending(false)
     }
   }
@@ -1043,7 +1467,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
       const updated = { ...prev }
       ;(Object.keys(updated) as ChatRole[]).forEach((r) => {
         const msgs = updated[r]
-        if (msgs && msgs.length === 1 && msgs[0].id.startsWith('welcome-')) {
+        if (msgs && msgs.length > 0 && msgs[0].id.startsWith('welcome-')) {
           const persona = PERSONAS.find((p) => p.id === r)
           if (persona) {
             updated[r] = [
@@ -1051,6 +1475,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
                 ...msgs[0],
                 text: persona.welcomeMessage[newLang],
               },
+              ...msgs.slice(1),
             ]
           }
         }
@@ -1083,6 +1508,15 @@ export function GeminiChatbot({ student }: { student: Student }) {
       return
     }
 
+    const micDeniedMessages: Record<ChatLanguage, string> = {
+      ml: 'മൈക്രോഫോൺ അനുമതി നൽകിയിട്ടില്ല. ബ്രൗസർ സെറ്റിംഗ്സിൽ (അല്ലെങ്കിൽ അഡ്രസ് ബാറിലെ മൈക്ക് ഐക്കണിൽ) മൈക്ക് പെർമിഷൻ Allow ചെയ്യുക.',
+      ar: 'لم يتم السماح بالوصول إلى الميكروفون. يُرجى تفعيل إذن الميكروفون في المتصفح.',
+      ur: 'مائیکروفون کی اجازت نہیں دی گئی۔ براہِ کرم براؤزر سیٹنگز میں مائیکروفون کی اجازت (Allow) دیں۔',
+      es: 'Se denegó el acceso al micrófono. Por favor, permite el uso del micrófono en la configuración del navegador.',
+      de: 'Der Mikrofonzugriff wurde verweigert. Bitte erlauben Sie den Mikrofonzugriff in den Browsereinstellungen.',
+      en: 'Microphone access was denied. Please allow microphone permissions in browser settings.',
+    }
+
     // Explicitly request microphone access first so browser/iframe permission prompt triggers cleanly
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       try {
@@ -1090,13 +1524,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
         stream.getTracks().forEach((track) => track.stop())
       } catch (permErr) {
         console.warn('Microphone permission error:', permErr)
-        setErrorMessage(
-          language === 'ml'
-            ? 'മൈക്രോഫോൺ അനുമതി നൽകിയിട്ടില്ല. ബ്രൗസർ സെറ്റിംഗ്സിൽ (അല്ലെങ്കിൽ അഡ്രസ് ബാറിലെ മൈക്ക് ഐക്കണിൽ) മൈക്ക് പെർമിഷൻ Allow ചെയ്യുക.'
-            : language === 'ar'
-              ? 'لم يتم السماح بالوصول إلى الميكروفون. يُرجى تفعيل إذن الميكروفون في المتصفح.'
-              : 'Microphone access was denied. Please allow microphone permissions in browser settings.',
-        )
+        setErrorMessage(micDeniedMessages[language])
         setIsListening(false)
         return
       }
@@ -1106,9 +1534,15 @@ export function GeminiChatbot({ student }: { student: Student }) {
       const recognition = new SpeechRecognitionClass()
       recognition.continuous = true
       recognition.interimResults = true
-      // Language code for Web Speech recognition:
-      // Malayalam: ml-IN, Arabic: ar-SA, English: en-IN (or en-US)
-      recognition.lang = language === 'ml' ? 'ml-IN' : language === 'ar' ? 'ar-SA' : 'en-IN'
+      const speechLangMap: Record<ChatLanguage, string> = {
+        ml: 'ml-IN',
+        ar: 'ar-SA',
+        ur: 'ur-PK',
+        es: 'es-ES',
+        de: 'de-DE',
+        en: 'en-IN',
+      }
+      recognition.lang = speechLangMap[language] || 'en-IN'
 
       speechBaseTextRef.current = input.trim()
 
@@ -1132,20 +1566,16 @@ export function GeminiChatbot({ student }: { student: Student }) {
       recognition.onerror = (event: any) => {
         console.warn('Speech recognition error:', event.error)
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          setErrorMessage(
-            language === 'ml'
-              ? 'മൈക്രോഫോൺ അനുമതി നൽകിയിട്ടില്ല. ബ്രൗസർ സെറ്റിംഗ്സിൽ മൈക്ക് പെർമിഷൻ Allow ചെയ്യുക.'
-              : language === 'ar'
-                ? 'لم يتم السماح بالوصول إلى الميكروفون. يُرجى تفعيل إذن الميكروفون في المتصفح.'
-                : 'Microphone access was denied. Please allow microphone permissions in browser settings.',
-          )
+          setErrorMessage(micDeniedMessages[language])
         } else if (event.error === 'no-speech') {
           // Normal timeout if user was silent
         } else {
           setErrorMessage(
             language === 'ml'
               ? `വോയിസ് റെക്കഗ്നിഷൻ: ${event.error}`
-              : `Voice typing error: ${event.error}`,
+              : language === 'ur'
+                ? `وائس ٹائپنگ خرابی: ${event.error}`
+                : `Voice typing error: ${event.error}`,
           )
         }
         setIsListening(false)
@@ -1290,6 +1720,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
   }
 
   const turnCount = Math.max(0, currentMessages.filter((m) => m.role === 'user').length)
+  const isRtlLang = language === 'ar' || language === 'ur'
 
   return (
     <Panel
@@ -1317,6 +1748,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
                     'rounded-lg px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap',
                     lang.id === 'ml' && 'font-malayalam',
                     lang.id === 'ar' && 'font-arabic',
+                    lang.id === 'ur' && 'font-urdu text-sm leading-none',
                     active
                       ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
                       : 'text-muted-foreground hover:text-foreground',
@@ -1368,6 +1800,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
               className={cn(
                 language === 'ml' && 'font-malayalam',
                 language === 'ar' && 'font-arabic',
+                language === 'ur' && 'font-urdu',
               )}
             >
               {UI_TEXT[language].newChat}
@@ -1386,6 +1819,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
                   'text-xs font-semibold uppercase tracking-wider text-muted-foreground',
                   language === 'ml' && 'font-malayalam normal-case',
                   language === 'ar' && 'font-arabic normal-case',
+                  language === 'ur' && 'font-urdu normal-case text-sm',
                 )}
               >
                 {UI_TEXT[language].selectPersona}
@@ -1396,6 +1830,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
                   className={cn(
                     language === 'ml' && 'font-malayalam',
                     language === 'ar' && 'font-arabic',
+                    language === 'ur' && 'font-urdu',
                   )}
                 >
                   {turnCount === 1 ? UI_TEXT[language].turnSingular : UI_TEXT[language].turnPlural}
@@ -1457,6 +1892,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
                   'text-xs font-medium text-muted-foreground',
                   language === 'ml' && 'font-malayalam',
                   language === 'ar' && 'font-arabic',
+                  language === 'ur' && 'font-urdu text-sm',
                 )}
               >
                 {UI_TEXT[language].responseLang}
@@ -1475,6 +1911,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
                       'rounded-md px-2 py-1 text-xs font-medium transition-colors whitespace-nowrap',
                       lang.id === 'ml' && 'font-malayalam',
                       lang.id === 'ar' && 'font-arabic',
+                      lang.id === 'ur' && 'font-urdu text-sm leading-none',
                       language === lang.id
                         ? 'bg-primary text-primary-foreground font-semibold'
                         : 'text-muted-foreground hover:text-foreground',
@@ -1486,7 +1923,12 @@ export function GeminiChatbot({ student }: { student: Student }) {
               </div>
             </div>
 
-            <div className="border-t border-border/60 pt-2.5 text-[11px] leading-relaxed text-muted-foreground">
+            <div
+              className={cn(
+                'border-t border-border/60 pt-2.5 text-[11px] leading-relaxed text-muted-foreground',
+                language === 'ur' && 'font-urdu text-xs',
+              )}
+            >
               <span className="font-semibold text-foreground">
                 {UI_TEXT[language].activeRole}{' '}
               </span>
@@ -1529,7 +1971,8 @@ export function GeminiChatbot({ student }: { student: Student }) {
           >
             {currentMessages.map((msg, idx) => {
               const isUser = msg.role === 'user'
-              const msgIsAr = isArabicText(msg.text) || (language === 'ar' && !isUser)
+              const msgIsAr = isArabicText(msg.text)
+              const msgIsUr = msgIsAr && (isUrduText(msg.text) || language === 'ur')
               return (
                 <div
                   key={msg.id}
@@ -1554,13 +1997,26 @@ export function GeminiChatbot({ student }: { student: Student }) {
                     dir={msgIsAr ? 'rtl' : 'ltr'}
                     className={cn(
                       'flex max-w-[85%] flex-col gap-2 rounded-2xl border px-4 py-3 text-sm leading-relaxed',
-                      msgIsAr && 'text-right font-arabic',
+                      msgIsAr
+                        ? msgIsUr
+                          ? 'text-right font-urdu'
+                          : 'text-right font-arabic'
+                        : 'text-left font-poppins',
                       isUser
                         ? 'border-primary/30 bg-primary text-primary-foreground'
                         : 'border-border bg-card/90 text-foreground',
                     )}
                   >
-                    <FormattedChatText text={msg.text} isUser={isUser} />
+                    <FormattedChatText
+                      text={msg.text}
+                      isUser={isUser}
+                      activeLanguage={language}
+                      userSaidSalam={
+                        !isUser && idx > 0 && currentMessages[idx - 1]?.role === 'user'
+                          ? hasSalamGreeting(currentMessages[idx - 1].text)
+                          : false
+                      }
+                    />
 
                     <div
                       dir="ltr"
@@ -1641,6 +2097,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
                       'font-medium text-foreground',
                       language === 'ml' && 'font-malayalam',
                       language === 'ar' && 'font-arabic',
+                      language === 'ur' && 'font-urdu text-sm',
                     )}
                   >
                     {UI_TEXT[language].thinking(currentPersona.title)}
@@ -1649,6 +2106,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
                     className={cn(
                       language === 'ml' && 'font-malayalam',
                       language === 'ar' && 'font-arabic',
+                      language === 'ur' && 'font-urdu text-sm',
                     )}
                   >
                     {UI_TEXT[language].analyzing}
@@ -1660,18 +2118,19 @@ export function GeminiChatbot({ student }: { student: Student }) {
 
           {/* Starter Prompts Bar */}
           <div
-            dir={language === 'ar' ? 'rtl' : 'ltr'}
+            dir={isRtlLang ? 'rtl' : 'ltr'}
             className={cn(
-              'border-t border-border/70 bg-background/40 px-4 py-2.5',
-              language === 'ar' && 'text-right',
+              'border-t border-border/60 bg-background/30 px-4 py-2',
+              isRtlLang && 'text-right',
             )}
           >
-            <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+            <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <span
                 className={cn(
                   'shrink-0 text-[11px] font-semibold text-muted-foreground',
                   language === 'ml' && 'font-malayalam',
                   language === 'ar' && 'font-arabic',
+                  language === 'ur' && 'font-urdu text-xs',
                 )}
               >
                 {UI_TEXT[language].tryAsking}
@@ -1683,9 +2142,10 @@ export function GeminiChatbot({ student }: { student: Student }) {
                   disabled={sending}
                   onClick={() => void handleSendMessage(starter.prompt)}
                   className={cn(
-                    'shrink-0 rounded-lg border border-border bg-background/80 px-2.5 py-1 text-xs font-medium text-foreground/90 transition-colors hover:border-lime/50 hover:bg-lime/10 disabled:opacity-50',
+                    'shrink-0 rounded-full border border-border/80 bg-background/80 px-3 py-1 text-xs font-medium text-foreground/90 transition-colors hover:border-lime/50 hover:bg-lime/10 disabled:opacity-50',
                     language === 'ml' && 'font-malayalam',
                     language === 'ar' && 'font-arabic',
+                    language === 'ur' && 'font-urdu text-sm',
                   )}
                 >
                   {starter.label}
@@ -1700,7 +2160,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
               role="alert"
               className="mx-4 mt-2 flex items-center justify-between gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-3.5 py-2 text-xs text-destructive"
             >
-              <span>{errorMessage}</span>
+              <span className={cn(language === 'ur' && 'font-urdu text-sm')}>{errorMessage}</span>
               <button
                 type="button"
                 onClick={() => setErrorMessage(null)}
@@ -1716,19 +2176,20 @@ export function GeminiChatbot({ student }: { student: Student }) {
             <div
               role="status"
               aria-live="polite"
-              dir={language === 'ar' ? 'rtl' : 'ltr'}
-              className="flex items-center justify-between gap-3 border-t border-red-500/30 bg-red-500/10 px-4 py-2 text-xs text-red-600 dark:text-red-400"
+              dir={isRtlLang ? 'rtl' : 'ltr'}
+              className="flex items-center justify-between gap-3 border-t border-cyan/35 bg-cyan/10 px-4 py-2 text-xs text-cyan"
             >
               <div className="flex items-center gap-2">
                 <span className="relative flex size-2.5">
-                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex size-2.5 rounded-full bg-red-500" />
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-cyan opacity-75" />
+                  <span className="relative inline-flex size-2.5 rounded-full bg-cyan" />
                 </span>
                 <span
                   className={cn(
                     'font-medium animate-pulse',
                     language === 'ml' && 'font-malayalam',
                     language === 'ar' && 'font-arabic',
+                    language === 'ur' && 'font-urdu text-sm',
                   )}
                 >
                   {UI_TEXT[language].voiceListening}
@@ -1738,9 +2199,10 @@ export function GeminiChatbot({ student }: { student: Student }) {
                 type="button"
                 onClick={toggleVoiceInput}
                 className={cn(
-                  'rounded-lg border border-red-500/30 bg-background/80 px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-muted',
+                  'rounded-full border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-[11px] font-semibold text-cyan transition-colors hover:bg-cyan hover:text-[#081e21]',
                   language === 'ml' && 'font-malayalam',
                   language === 'ar' && 'font-arabic',
+                  language === 'ur' && 'font-urdu text-xs',
                 )}
               >
                 {UI_TEXT[language].voiceStop}
@@ -1748,90 +2210,96 @@ export function GeminiChatbot({ student }: { student: Student }) {
             </div>
           ) : null}
 
-          {/* Message Input Composer */}
+          {/* Gemini-App Style Unified Message Input Composer */}
           <form
             onSubmit={(e) => {
               e.preventDefault()
               void handleSendMessage()
             }}
-            className="flex items-end gap-2 border-t border-border p-3 md:p-4"
+            className="border-t border-border/70 bg-background/40 p-3 sm:p-3.5"
           >
             <label htmlFor="gemini-chatbot-input" className="sr-only">
               Type your message to the Da&apos;wa College Gemini Chatbot
             </label>
-            <textarea
-              id="gemini-chatbot-input"
-              rows={2}
-              maxLength={2000}
-              value={input}
-              dir={language === 'ar' || isArabicText(input) ? 'rtl' : 'ltr'}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  void handleSendMessage()
-                }
-              }}
-              placeholder={UI_TEXT[language].placeholder(currentPersona.title)}
+            <div
               className={cn(
-                fieldClassName,
-                'h-auto min-h-[52px] max-h-32 flex-1 resize-y py-2.5 text-sm leading-relaxed',
-                language === 'ml' && 'font-malayalam',
-                language === 'ar' && 'font-arabic',
-                (language === 'ar' || isArabicText(input)) && 'text-right font-arabic',
-              )}
-            />
-
-            {/* Microphone Button (Voice-to-Text) */}
-            <Button
-              type="button"
-              variant={isListening ? 'destructive' : 'outline'}
-              onClick={toggleVoiceInput}
-              disabled={sending}
-              title={isListening ? UI_TEXT[language].voiceStop : UI_TEXT[language].voiceTyping}
-              aria-label={isListening ? UI_TEXT[language].voiceStop : UI_TEXT[language].voiceTyping}
-              className={cn(
-                'h-[52px] gap-1.5 rounded-xl px-3 sm:px-3.5 font-semibold whitespace-nowrap shrink-0 transition-all duration-300',
+                'flex w-full items-end gap-2 rounded-[26px] border bg-card/95 pl-4 pr-2 py-1.5 shadow-sm transition-all duration-200 focus-within:bg-card',
                 isListening
-                  ? 'border-red-500 bg-red-600 text-white shadow-md shadow-red-500/25 animate-pulse hover:bg-red-700'
-                  : 'hover:border-lime/50 hover:bg-lime/10 hover:text-lime',
+                  ? 'border-cyan/70 ring-2 ring-cyan/20'
+                  : 'border-border/90 focus-within:border-lime/60 focus-within:ring-2 focus-within:ring-lime/15',
               )}
             >
-              {isListening ? (
-                <MicOff className="size-4 animate-bounce text-white" aria-hidden="true" />
-              ) : (
-                <Mic className="size-4" aria-hidden="true" />
-              )}
-              <span
+              <textarea
+                ref={textareaRef}
+                id="gemini-chatbot-input"
+                rows={1}
+                maxLength={2000}
+                value={input}
+                dir={(input.trim().length > 0 ? isArabicText(input) : isRtlLang) ? 'rtl' : 'ltr'}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    void handleSendMessage()
+                  }
+                }}
+                placeholder={UI_TEXT[language].placeholder(currentPersona.title)}
                 className={cn(
-                  'hidden md:inline text-xs',
-                  language === 'ml' && 'font-malayalam',
-                  language === 'ar' && 'font-arabic',
+                  'min-h-[40px] max-h-36 min-w-0 flex-1 w-full resize-none border-0 bg-transparent py-2 text-sm sm:text-[15px] leading-relaxed text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0 [scrollbar-width:thin]',
+                  (input.trim().length > 0 ? isArabicText(input) : isRtlLang)
+                    ? language === 'ur' || isUrduText(input)
+                      ? 'text-right font-urdu leading-[2.1]'
+                      : 'text-right font-arabic'
+                    : /[\u0D00-\u0D7F]/.test(input) || (input.trim().length === 0 && language === 'ml')
+                      ? 'text-left font-malayalam'
+                      : 'text-left font-poppins',
                 )}
-              >
-                {isListening ? UI_TEXT[language].voiceStop : UI_TEXT[language].voiceTyping}
-              </span>
-            </Button>
+              />
 
-            <Button
-              type="submit"
-              disabled={sending || !input.trim()}
-              className="h-[52px] gap-2 rounded-xl px-4 sm:px-5 font-semibold whitespace-nowrap shrink-0"
-            >
-              {sending ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <Send className="size-4" aria-hidden="true" />
-              )}
-              <span
-                className={cn(
-                  language === 'ml' && 'font-malayalam',
-                  language === 'ar' && 'font-arabic',
-                )}
-              >
-                {UI_TEXT[language].send}
-              </span>
-            </Button>
+              {/* Compact Right Action Cluster (Voice + Send Icons like Gemini App) */}
+              <div className="flex shrink-0 items-center gap-1 self-end pb-0.5">
+                {/* Microphone Icon Button */}
+                <button
+                  type="button"
+                  onClick={toggleVoiceInput}
+                  disabled={sending}
+                  title={isListening ? UI_TEXT[language].voiceStop : UI_TEXT[language].voiceTyping}
+                  aria-label={isListening ? UI_TEXT[language].voiceStop : UI_TEXT[language].voiceTyping}
+                  className={cn(
+                    'flex size-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan disabled:opacity-40',
+                    isListening
+                      ? 'bg-cyan text-[#081e21] shadow-md shadow-cyan/35 ring-2 ring-cyan/40 animate-pulse hover:bg-cyan/90'
+                      : 'text-muted-foreground hover:bg-cyan/15 hover:text-cyan active:bg-cyan active:text-[#081e21]',
+                  )}
+                >
+                  {isListening ? (
+                    <MicOff className="size-4 text-[#081e21]" aria-hidden="true" />
+                  ) : (
+                    <Mic className="size-4" aria-hidden="true" />
+                  )}
+                </button>
+
+                {/* Send Icon Button */}
+                <button
+                  type="submit"
+                  disabled={sending || !input.trim()}
+                  title={UI_TEXT[language].send}
+                  aria-label={UI_TEXT[language].send}
+                  className={cn(
+                    'flex size-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime',
+                    input.trim() && !sending
+                      ? 'bg-lime text-primary-foreground shadow-xs hover:bg-lime/90 active:scale-95'
+                      : 'bg-muted/60 text-muted-foreground/40 cursor-not-allowed',
+                  )}
+                >
+                  {sending ? (
+                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Send className="size-4" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+            </div>
           </form>
         </div>
       </div>
@@ -1980,13 +2448,20 @@ export function GeminiChatbot({ student }: { student: Student }) {
                 <p
                   className={cn(
                     'mt-1.5 text-xs font-semibold text-foreground',
-                    isArabicText(activeExportNote.prompt) && 'text-right font-arabic',
+                    isArabicText(activeExportNote.prompt) &&
+                      (language === 'ur' || isUrduText(activeExportNote.prompt)
+                        ? 'text-right font-urdu'
+                        : 'text-right font-arabic'),
                   )}
                 >
                   {activeExportNote.prompt}
                 </p>
                 <div className="mt-2 max-h-40 overflow-y-auto border-t border-border/60 pt-2 text-xs leading-relaxed text-muted-foreground">
-                  <FormattedChatText text={activeExportNote.response} isUser={false} />
+                  <FormattedChatText
+                    text={activeExportNote.response}
+                    isUser={false}
+                    activeLanguage={language}
+                  />
                 </div>
               </div>
 
