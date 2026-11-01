@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
+  ACADEMY_PRINCIPAL,
   findClassLeaderByIdentifier,
+  findPrincipalByIdentifier,
   findStudentByAdmissionNo,
   findUsthadByStaffId,
   CLASS_USTHADS,
@@ -64,9 +66,9 @@ const principalRole: Role = {
   id: 'principal',
   tier: 'Tier 04',
   title: 'Principal',
-  description: 'Oversee the whole campus with reports and approvals.',
-  idLabel: 'Administrator ID',
-  idPlaceholder: 'e.g. ADM-001',
+  description: 'Oversee all 11 classes, monitor unheld periods & assign substitute Usthads, announce official holidays, and manage campus records.',
+  idLabel: 'Principal / Administrator ID',
+  idPlaceholder: 'e.g. ADM-001 (or PRINCIPAL)',
   icon: Crown,
   tone: 'cyan',
 }
@@ -89,6 +91,7 @@ type LoginPortalProps = {
   onStudentLogin?: () => void
   onClassLeaderLogin?: () => void
   onUsthadLogin?: (usthad: ClassUsthad) => void
+  onPrincipalLogin?: () => void
 }
 
 const DEMO_STUDENT = { identifier: 'ICS-2026-0142', password: 'password123' }
@@ -103,6 +106,7 @@ export function LoginPortal({
   onStudentLogin,
   onClassLeaderLogin,
   onUsthadLogin,
+  onPrincipalLogin,
 }: LoginPortalProps) {
   const [selectedId, setSelectedId] = useState(roles[0].id)
   const [invalid, setInvalid] = useState(false)
@@ -162,6 +166,17 @@ export function LoginPortal({
         window.localStorage.setItem('loggedInUsthadId', matchedUsthad.id)
         window.localStorage.setItem('authRole', 'usthad')
         onUsthadLogin(matchedUsthad)
+        return
+      }
+    }
+
+    if (selected.id === 'principal' && password.length > 0) {
+      const matchedPrincipal = findPrincipalByIdentifier(identifier)
+      if (matchedPrincipal && onPrincipalLogin) {
+        setInvalid(false)
+        window.localStorage.setItem('loggedInPrincipalId', ACADEMY_PRINCIPAL.staffId)
+        window.localStorage.setItem('authRole', 'principal')
+        onPrincipalLogin()
         return
       }
     }

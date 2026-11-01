@@ -227,10 +227,16 @@ export function ParentReportModal({
       const key = `${reportDate}__${student.className}__${periodIndex}`
       const savedSub = periodSubmissions[key]
 
-      let status: PeriodAttendanceStatus | 'not-submitted' = 'not-submitted'
+      let status: PeriodAttendanceStatus | 'not-submitted' | 'not-held' = 'not-submitted'
       let reason = '—'
+      const effectiveTeacher = savedSub?.substituteUsthad
+        ? `${savedSub.substituteUsthad.usthadName} (Sub)`
+        : slot.teacher
 
-      if (savedSub && savedSub.records[student.id]) {
+      if (savedSub?.sessionStatus === 'not-held') {
+        status = 'not-held'
+        reason = savedSub.notHeldReason ?? 'Class Not Held (Usthad on Leave / Duty)'
+      } else if (savedSub && savedSub.records[student.id]) {
         status = savedSub.records[student.id]
         if (status === 'absent') {
           reason = savedSub.reasons?.[student.id] ?? ABSENT_REASONS[0]
@@ -255,7 +261,7 @@ export function ParentReportModal({
         label: period.label,
         time: period.time,
         subject: slot.subject,
-        teacher: slot.teacher,
+        teacher: effectiveTeacher,
         status,
         reason,
         isSubmitted: Boolean(savedSub),
@@ -571,6 +577,9 @@ export function ParentReportModal({
         } else if (row.status === 'leave') {
           pdf.setTextColor(217, 119, 6)
           pdf.text('On Leave', 119, rowY + 5.6)
+        } else if (row.status === 'not-held') {
+          pdf.setTextColor(180, 83, 9)
+          pdf.text('Class Not Held', 119, rowY + 5.6)
         } else {
           pdf.setTextColor(148, 163, 184)
           pdf.text('Not Marked', 119, rowY + 5.6)
@@ -1170,6 +1179,8 @@ export function ParentReportModal({
                               <span className="text-red-600">Absent</span>
                             ) : row.status === 'leave' ? (
                               <span className="text-amber-600">On Leave</span>
+                            ) : row.status === 'not-held' ? (
+                              <span className="text-orange-700">Class Not Held</span>
                             ) : (
                               <span className="text-slate-400">Not Marked</span>
                             )}

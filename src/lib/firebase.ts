@@ -87,26 +87,27 @@ function createFirestoreInstance(): Firestore {
 
 export const db = createFirestoreInstance()
 export const storage = getStorage(app, firebaseConfig.storageBucket)
+try {
+  storage.maxUploadRetryTime = 4000
+  storage.maxOperationRetryTime = 4000
+} catch {
+  // Ignore if unsupported
+}
 
-// Isolated Firebase app for Auth with inMemoryPersistence so stale IndexedDB sessions
-// are never restored on boot.
-const AUTH_APP_NAME = 'ics-auth-client'
-const authApp = getApps().some((a) => a.name === AUTH_APP_NAME)
-  ? getApp(AUTH_APP_NAME)
-  : initializeApp(firebaseConfig, AUTH_APP_NAME)
-
-function createIsolatedAuth(): Auth {
+// Initialize Auth on the primary app with inMemoryPersistence so stale IndexedDB sessions
+// are never restored on boot while sharing auth state with Firestore and Storage.
+function createAppAuth(): Auth {
   try {
-    return initializeAuth(authApp, {
+    return initializeAuth(app, {
       persistence: inMemoryPersistence,
       popupRedirectResolver: browserPopupRedirectResolver,
     })
   } catch {
-    return getAuth(authApp)
+    return getAuth(app)
   }
 }
 
-export const auth = createIsolatedAuth()
+export const auth = createAppAuth()
 
 const provider = new GoogleAuthProvider()
 for (const scope of SCOPES) {

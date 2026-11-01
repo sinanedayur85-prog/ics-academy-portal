@@ -1,113 +1,104 @@
-# Official Parent Attendance & Leave PDF Report — Plan for Class Leader & Class Usthad
+# പ്രിൻസിപ്പൽ ഡാഷ്‌ബോർഡ് & ഉസ്താദ് ക്ലാസ് മോണിറ്ററിംഗ് പ്ലാൻ (Principal Dashboard & Class Session Control Plan)
 
-This plan introduces a professional **Parent Attendance & Leave PDF Report** generator accessible to both **Class Leaders** and **Class Usthads**. It compiles each student's monthly attendance, period-by-period attendance (including the 4-option Absent/Leave reasons), and leave register history into an official, print-ready ICS Academy document that can be **downloaded as a PDF** or **printed** to share with parents.
+**ICS Academy Manhappatta (Da'wa College & ICS English School Portal)**-ലെ മുഴുവൻ 11 ക്ലാസുകളെയും (Batch 14 മുതൽ Batch 05 വരെ), 11 ക്ലാസ് ഉസ്താദുമാരെയും, 22 ക്ലാസ് ലീഡർമാരെയും, 204 വിദ്യാർത്ഥികളെയും ഒരൊറ്റ കമാൻഡ് സെന്ററിൽ നിന്ന് നിയന്ത്രിക്കാനും നിരീക്ഷിക്കാനും സാധിക്കുന്ന **പ്രിൻസിപ്പൽ ഡാഷ്‌ബോർഡ് (Tier 04 — Principal Portal)** രൂപകൽപ്പന ചെയ്യുന്നതിനുള്ള സമ്പൂർണ്ണ പ്ലാൻ.
+
+---
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> All choices confirmed during our interactive clarification are incorporated below:
-
-- **Confirmed Decision 1 — Comprehensive Attendance, Period & Leave Content**: Each student's report includes:
-  1. **Monthly Attendance Summary** (`Present`, `Absent`, `Leave` days, overall & monthly percentage, and recorded Absent/Leave reasons).
-  2. **Period-by-Period Attendance Table** (showing `Period 1` to `Period 5`, Subject, Usthad, Time, Status, and the specific **Reason** selected when marked `Absent` or `Leave`).
-  3. **Campus Leave & Return Register Log** (showing departure/return dates, times, leave reasons, and remarks).
-- **Confirmed Decision 2 — Official Academy Branding & Usthad Signature Block**: The PDF features the **ICS Academy Manhappatta (Da'wa College)** logo and letterhead, a structured **Student Profile** box (Name, Admission No., Class & Batch, Class Usthad), and an official **Class Usthad Signature** column at the bottom.
-- **Confirmed Decision 3 — Download PDF & Print Options**: Both Class Leaders and Class Usthads can open a live **A4 Report Preview** for any student in their class and either **Download PDF** directly or **Print** the report.
+> **സ്ഥിരീകരിച്ച പ്രധാന തീരുമാനങ്ങൾ (Confirmed Decisions from Phase 1):**
+> 1. **'ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ല' (Class Not Held) രേഖപ്പെടുത്താനുള്ള അധികാരം:** ക്ലാസ് ലീഡർമാർക്കും (Main & Assistant), ക്ലാസ് ഉസ്താദുമാർക്കും, പ്രിൻസിപ്പലിനും ഏതെങ്കിലും പിരീഡിൽ ക്ലാസ് നടന്നിട്ടില്ലെങ്കിൽ കാരണം സഹിതം **"Class Not Held (ക്ലാസ് നടന്നിട്ടില്ല)"** എന്ന് രേഖപ്പെടുത്താം.
+> 2. **ക്ലാസ് നടക്കാത്ത പിരീഡുകളിൽ ഹാജർ ലോക്ക് & പകരക്കാരൻ ഉസ്താദ് (Attendance Lock & Substitute Usthad):** ഒരു പിരീഡ് "Class Not Held" ആയി രേഖപ്പെടുത്തിയാൽ ആ പിരീഡിൽ വിദ്യാർത്ഥികളുടെ ഹാജർ (Present / Absent / Leave) രേഖപ്പെടുത്താൻ സാധിക്കാത്തവിധം ലോക്ക് ആകും. പ്രിൻസിപ്പലിന് ആ പിരീഡ് നടക്കാത്തതിന്റെ കാരണം കാണാനും, അവിടെ **പകരക്കാരൻ ഉസ്താദിനെ (Substitute Usthad)** നിശ്ചയിക്കാനും സാധിക്കും. പകരക്കാരൻ ഉസ്താദ് ക്ലാസ് എടുക്കുമ്പോൾ ഹാജർ രേഖപ്പെടുത്താനുള്ള സൗകര്യം വീണ്ടും അൺലോക്ക് ആകും.
+> 3. **പ്രിൻസിപ്പൽ ഡാഷ്‌ബോർഡിലെ 4 പ്രധാന കൺട്രോൾ സെന്ററുകൾ:**
+>    - **Campus Live Monitor:** 11 ക്ലാസുകളുടെയും ഹാജർ, ലീവ് രജിസ്റ്റർ, നടക്കാത്ത പിരീഡുകൾ (Unheld Periods), പകരക്കാരൻ ഉസ്താദ് ക്രമീകരണം എന്നിവയുടെ തത്സമയ നിരീക്ഷണം.
+>    - **Official Holidays & Campus Notice Board:** മാസത്തിലെ രണ്ടാം ശനിയാഴ്ച അടക്കമുള്ള ഔദ്യോഗിക അവധികളും (Official Leave) ക്യാമ്പസ് നോട്ടീസുകളും നേരിട്ട് പ്രഖ്യാപിക്കാനും നിയന്ത്രിക്കാനുമുള്ള പാനൽ.
+>    - **Usthad, Class Leader & Student Control Panel:** മുഴുവൻ ഉസ്താദുമാരെയും, ക്ലാസ് ലീഡർമാരെയും, വിദ്യാർത്ഥികളെയും നിയന്ത്രിക്കാനും ഏത് ക്ലാസിന്റെയും നിയന്ത്രണം നേരിട്ട് ഏറ്റെടുക്കാനുമുള്ള സൗകര്യം.
+>    - **Parent Reports & Digital Library Control:** ഏത് വിദ്യാർത്ഥിയുടെയും പേരന്റ് റിപ്പോർട്ട് (മലയാളം/ഇംഗ്ലീഷ് PDF & WhatsApp) എടുക്കാനും ഡിജിറ്റൽ ലൈബ്രറി കിതാബുകൾ നിയന്ത്രിക്കാനുമുള്ള പൂർണ്ണ അധികാരം.
 
 ---
 
 ## 1. Overview & Core Concept
 
-- **What It Does**: Allows a Class Leader or Class Usthad to click **"Parent PDF"** next to any student in their class (or from the Attendance/Leave panel) to preview, download, or print a structured, parent-friendly official report.
-- **Target Audience / Persona**: Class Leaders (Tier 02) and Class Usthads (Tier 03) preparing individual progress, attendance, and leave statements for parents/guardians.
-- **Key Value**: Gives parents complete transparency into their child's overall attendance, daily period participation, and exact reasons for any absences or leaves in a clean, authoritative layout.
+പ്രിൻസിപ്പൽ ഡാഷ്‌ബോർഡ് സ്ഥാപനത്തിന്റെ പരമോന്നത അക്കാദമിക്-അഡ്മിനിസ്ട്രേറ്റീവ് പോർട്ടലായി പ്രവർത്തിക്കും:
+
+- **പ്രിൻസിപ്പൽ ലോഗിൻ (Principal Login — Tier 04):** ലോഗിൻ പോർട്ടലിൽ `Principal` കാർഡ് വഴി ഔദ്യോഗിക പ്രിൻസിപ്പൽ ഐഡി (`ADM-001` അല്ലെങ്കിൽ `PRINCIPAL`) ഉപയോഗിച്ച് പ്രവേശിക്കാം.
+- **യഥാർത്ഥ സമയ പിരീഡ് മോണിറ്ററിംഗ് (Real-Time Period & Session Governance):** ഓരോ ദിവസവും ഓരോ ക്ലാസിലും 5 പിരീഡുകളിലായി നടക്കുന്ന ക്ലാസുകളുടെ തൽസ്ഥിതി പ്രിൻസിപ്പലിന് ഒറ്റനോട്ടത്തിൽ കാണാം:
+  - **Conducted (ക്ലാസ് നടന്നു):** ഉസ്താദ് ക്ലാസ് എടുക്കുകയും വിദ്യാർത്ഥികളുടെ ഹാജർ രേഖപ്പെടുത്തുകയും ചെയ്ത പിരീഡുകൾ.
+  - **Class Not Held (ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ല):** ഉസ്താദ് അവധിയിലായതിനാലോ മറ്റ് ഔദ്യോഗിക കാരണങ്ങളാലോ ക്ലാസ് നടക്കാത്ത പിരീഡുകൾ. ഈ അവസ്ഥയിൽ വിദ്യാർത്ഥികളുടെ ഹാജർ ബട്ടണുകൾ ലോക്ക് ചെയ്യപ്പെടും.
+  - **Substituted (പകരക്കാരൻ ഉസ്താദ് ക്ലാസ് എടുത്തു):** ക്ലാസ് നടക്കാത്ത പിരീഡിൽ പ്രിൻസിപ്പൽ പകരക്കാരനായി മറ്റൊരു ഉസ്താദിനെ (Substitute Usthad) ചുമതലപ്പെടുത്തുമ്പോൾ, ആ ഉസ്താദിന്റെ പേരിൽ ക്ലാസ് രേഖപ്പെടുത്താനും വിദ്യാർത്ഥികളുടെ ഹാജർ എടുക്കാനും സാധിക്കും.
+- **സമ്പൂർണ്ണ ക്യാമ്പസ് നിയന്ത്രണം (Full Institutional Oversight):** 11 ബാച്ചുകളിലെയും ഓരോ ക്ലാസിലേക്കും പ്രിൻസിപ്പലിന് നേരിട്ട് പ്രവേശിക്കാനും, ഉസ്താദുമാരുടെയും ക്ലാസ് ലീഡർമാരുടെയും പ്രവർത്തനങ്ങൾ പരിശോധിക്കാനും, മന്ത്ലി അറ്റൻഡൻസ് അപ്ഡേറ്റ് ചെയ്യാനും സാധിക്കും.
 
 ---
 
 ## 2. User Experience & Visual Design
 
-### Professional PDF Document Structure (A4 Portrait Layout)
-```
-┌────────────────────────────────────────────────────────────────────────────┐
-│  [ICS LOGO]   ICS ACADEMY MANHAPPATTA — DA'WA COLLEGE PORTAL               │
-│               Official Student Attendance & Leave Report (For Parents)     │
-│               Academic Year 2026–27  •  Report Date: DD MMM YYYY           │
-├────────────────────────────────────────────────────────────────────────────┤
-│  STUDENT PROFILE                                                           │
-│  • Name: Muhammed Sinan             • Admission No.: ICS2K261401           │
-│  • Class & Batch: 8th • Batch 14    • Class Usthad: Usthad Zubair Wafy     │
-│  • Current Campus Status: At Academy / On Leave   • Overall Rate: 94.2%    │
-├────────────────────────────────────────────────────────────────────────────┤
-│  SECTION 1: ACADEMIC YEAR & MONTHLY ATTENDANCE SUMMARY                     │
-│  ┌──────────────┬─────────┬─────────┬─────────┬────────────┬────────────┐  │
-│  │ Month        │ Present │ Absent  │ Leave   │ Rate (%)   │ Reason/Note│  │
-│  ├──────────────┼─────────┼─────────┼─────────┼────────────┼────────────┤  │
-│  │ October 2026 │   21    │    1    │    1    │   91.3%    │ Sick / ... │  │
-│  └──────────────┴─────────┴─────────┴─────────┴────────────┴────────────┘  │
-├────────────────────────────────────────────────────────────────────────────┤
-│  SECTION 2: DAILY PERIOD-BY-PERIOD ATTENDANCE & REASONS                    │
-│  ┌──────────┬──────────────────────┬───────────────┬─────────┬──────────┐  │
-│  │ Period   │ Subject & Usthad     │ Time Slot     │ Status  │ Reason   │  │
-│  ├──────────┼──────────────────────┼───────────────┼─────────┼──────────┤  │
-│  │ Period 1 │ Mizan & Sarf         │ 07:15 – 08:05 │ Present │ —        │  │
-│  │ Period 2 │ Fiqh (Mabadi)        │ 08:30 – 09:20 │ Absent  │ Sick/... │  │
-│  └──────────┴──────────────────────┴───────────────┴─────────┴──────────┘  │
-├────────────────────────────────────────────────────────────────────────────┤
-│  SECTION 3: CAMPUS LEAVE & RETURN REGISTER HISTORY                         │
-│  ┌──────────────┬──────────────┬───────────────────────────┬────────────┐  │
-│  │ Date & Time  │ Entry Type   │ Leave Reason              │ Details    │  │
-│  ├──────────────┼──────────────┼───────────────────────────┼────────────┤  │
-│  │ 28 Oct, 4 PM │ Leave Out    │ Medical / Hospital Visit  │ Approved   │  │
-│  └──────────────┴──────────────┴───────────────────────────┴────────────┘  │
-├────────────────────────────────────────────────────────────────────────────┤
-│  Generated by: Class Leader / Class Usthad                                 │
-│                                                                            │
-│                                      ____________________________________  │
-│                                      Signature of Class Usthad & Seal      │
-│                                      (Usthad Name • Staff ID)              │
-└────────────────────────────────────────────────────────────────────────────┘
-```
+നിലവിലുള്ള ICS Academy പോർട്ടലിന്റെ **Emerald & Lime Academic Luxury** തീമിനോട് ചേർന്നുനിൽക്കുന്നതും എന്നാൽ പ്രിൻസിപ്പൽ പദവിക്ക് അനുയോജ്യമായ ഉയർന്ന വിവരസാന്ദ്രതയുള്ളതുമായ (High-Density Executive Command UI) ഡിസൈൻ:
 
-### Entry Points in Both Dashboards
-1. **In Class Leader & Usthad Period Attendance Table**: Every student row includes a **"Parent PDF"** button that opens that student's report for the selected date and academic year.
-2. **In Class Usthad Dashboard**:
-   - **Class Students & Profiles Roster**: Quick-action **"Parent PDF"** button on every student row.
-   - **Attendance Status & Update Card**: **"Download / Print Parent PDF"** button for the currently selected student.
+- **ടോപ്പ് എക്സിക്യൂട്ടീവ് സ്റ്റാറ്റ്സ് ബാർ (Campus Pulse Strip):**
+  - മുഴുവൻ ക്യാമ്പസിലെയും ആകെ വിദ്യാർത്ഥികൾ (`204`), ഇന്ന് ഹാജരായവർ, നിലവിൽ ലീവിലുള്ളവർ, ഇന്ന് രേഖപ്പെടുത്തിയ പിരീഡുകൾ, **ഇന്ന് ഉസ്താദ് ക്ലാസ് എടുക്കാത്ത പിരീഡുകളുടെ (Unheld Periods) എണ്ണം** എന്നിവ `tabular-nums` ഫോർമാറ്റിൽ മുകളിൽ കാണിക്കും.
+- **നാല് പ്രധാന വിഭാഗങ്ങൾ (Executive Navigation Tabs):**
+  1. **Campus Live Monitor (`ക്യാമ്പസ് ലൈവ് മോണിറ്റർ`):**
+     - **Unheld Periods & Substitute Assignment Alert Panel:** ഏതെങ്കിലും ക്ലാസിൽ ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ലെങ്കിൽ അത് മുകളിൽ തന്നെ ചുവപ്പ്/ആംബർ അലേർട്ട് കാർഡായി കാണിക്കും. അവിടെ ക്ലാസ് നടക്കാത്തതിന്റെ കാരണം (`Usthad on Leave`, `Official Meeting / Duty`, `Medical Emergency`, `Exam / Combined Class` മുതലായവ), ആരാണ് രേഖപ്പെടുത്തിയത് എന്ന വിവരം, കൂടാതെ **"Assign Substitute Usthad (പകരക്കാരൻ ഉസ്താദിനെ നിശ്ചയിക്കുക)"** ഡ്രോപ്പ്ഡൗണും ബട്ടണും ഉണ്ടായിരിക്കും.
+     - **11-Class Live Period Matrix:** `8th • Batch 14` മുതൽ `BS 5 • Batch 05` വരെയുള്ള 11 ക്ലാസുകളുടെയും ഇന്നത്തെ 5 പിരീഡുകളുടെ തൽസ്ഥിതി (Conducted / Not Held / Substituted / Pending), ഹാജർ ശതമാനം, ക്ലാസ് ഉസ്താദ് എന്നിവ ഒറ്റ പട്ടികയിൽ കാണാം. ഏത് ക്ലാസിൽ ക്ലിക്ക് ചെയ്താലും ആ ക്ലാസിന്റെ പിരീഡ് ഹാജർ കാർഡും മന്ത്ലി അറ്റൻഡൻസും പ്രിൻസിപ്പലിന് നേരിട്ട് എഡിറ്റ് ചെയ്യാം.
+  2. **Usthads, Leaders & Students (`ഉസ്താദുമാർ & വിദ്യാർത്ഥികൾ`):**
+     - **Usthad Directory & Performance:** 11 ക്ലാസ് ഉസ്താദുമാരുടെയും പട്ടിക, അവരുടെ വിഷയങ്ങൾ, അവർ എടുത്ത പിരീഡുകൾ, എടുക്കാത്ത പിരീഡുകൾ എന്നിവ കാണാം.
+     - **Class Leaders (22 Leaders) & Students (204 Students) Control:** ക്ലാസ് അടിസ്ഥാനത്തിൽ ഫിൽട്ടർ ചെയ്ത് ഏത് വിദ്യാർത്ഥിയുടെയും വിവരങ്ങൾ കാണാനും, ഹാജർ തിരുത്താനും, ലീവ് രജിസ്റ്റർ പരിശോധിക്കാനും, **Parent Report (മലയാളം / ഇംഗ്ലീഷ് PDF & WhatsApp)** ജനറേറ്റ് ചെയ്യാനും സാധിക്കും.
+  3. **Official Holidays & Notices (`ഔദ്യോഗിക അവധികളും നോട്ടീസുകളും`):**
+     - മാസത്തിലെ രണ്ടാം ശനിയാഴ്ച (Monthly 2nd Saturday Leave) ഉൾപ്പെടെയുള്ള ഔദ്യോഗിക അവധികൾ ഒറ്റ ക്ലിക്കിൽ പ്രഖ്യാപിക്കാനും, മുഴുവൻ ക്യാമ്പസിനുമായി പുതിയ നോട്ടീസുകൾ പ്രസിദ്ധീകരിക്കാനും ഒഴിവാക്കാനും സാധിക്കും.
+  4. **Digital Library & Kitabs (`ഡിജിറ്റൽ ലൈബ്രറി നിയന്ത്രണം`):**
+     - എല്ലാ ക്ലാസുകളിലെയും ഡിജിറ്റൽ കിതാബുകൾ കാണാനും, പുതിയ PDF കിതാബുകൾ അപ്‌ലോഡ് ചെയ്യാനും, Jamiathul Hind Official University Portal റിസൾട്ട് വിഭാഗം പരിശോധിക്കാനും സാധിക്കും.
+- **ഹാജർ കാർഡിലെ 'Class Not Held' ലോക്ക് യു.ഐ (Attendance Card Session Lock UI):**
+  - ക്ലാസ് ലീഡർ, ഉസ്താദ്, പ്രിൻസിപ്പൽ എന്നിവരുടെ Period Attendance കാർഡിൽ ഓരോ പിരീഡിനും മുകളിൽ **"Session Status: Class Conducted / Class Not Held (ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ല)"** എന്ന ടോഗിൾ ഉണ്ടായിരിക്കും.
+  - **"Class Not Held"** തിരഞ്ഞെടുക്കുമ്പോൾ കാരണം (Reason) തിരഞ്ഞെടുക്കാനുള്ള ബോക്സ് വരും; അത് സേവ് ചെയ്യുന്നതോടെ താഴെയുള്ള വിദ്യാർത്ഥികളുടെ Present / Absent / Leave ബട്ടണുകൾ മങ്ങി (Disabled/Locked) *"ഈ പിരീഡിൽ ക്ലാസ് നടന്നിട്ടില്ലാത്തതിനാൽ വിദ്യാർത്ഥികളുടെ ഹാജർ രേഖപ്പെടുത്താൻ കഴിയില്ല"* എന്ന സന്ദേശം വ്യക്തമായി കാണിക്കും.
 
 ---
 
 ## 3. Key Product Decisions & Trade-Offs
 
-- **Decision 1 — Dual Output: Direct Vector PDF Download (`jsPDF`) + Native A4 Print Sheet**
-  - *Chosen Approach*: Provide an interactive A4 preview modal with both a **Download PDF** button (generating a crisp, multi-table `.pdf` file with the embedded ICS Academy logo, student tables, reasons, and signature block) and a **Print Report** button.
-  - *Why*: Downloading a `.pdf` file makes it effortless to send the file to parents on mobile or desktop, while printing supports physical distribution during parent-teacher meetings.
-- **Decision 2 — Live Data Aggregation Across All Three Stores**
-  - *Chosen Approach*: Dynamically combine data from Monthly Attendance Overrides (`ics_attendance_overrides_v1`), Period-by-Period Submissions (`ics_period_attendance_v1`), and Student Leave Records (`ics_leave_records_<studentId>`) at the moment the report is opened.
-  - *Why*: Ensures any update just made by the Class Leader or Class Usthad—including the 4 Absent/Leave reasons—is immediately reflected in the PDF sent to parents.
+- **ക്ലാസ് നടക്കാത്തപ്പോൾ ഹാജർ ശതമാനത്തെ ബാധിക്കാതിരിക്കൽ (Fair Attendance Calculation):**
+  - ഒരു പിരീഡിൽ ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ലെങ്കിൽ (`sessionStatus === 'not-held'`), ആ പിരീഡ് വിദ്യാർത്ഥികളുടെ ഹാജർ നഷ്ടമായി (Absent) കണക്കാക്കില്ല. പകരം ആ പിരീഡിൽ വ്യക്തിഗത ഹാജർ ബട്ടണുകൾ പൂർണ്ണമായി ലോക്ക് ചെയ്യപ്പെടും.
+- **പകരക്കാരൻ ഉസ്താദ് സംവിധാനം (Seamless Substitute Handover):**
+  - പ്രിൻസിപ്പൽ ഒരു പിരീഡിലേക്ക് പകരക്കാരൻ ഉസ്താദിനെ (`Substitute Usthad`) നിശ്ചയിക്കുമ്പോൾ ആ പിരീഡിന്റെ സ്റ്റാറ്റസ് `substituted` ആയി മാറുകയും, പകരക്കാരൻ ഉസ്താദിന്റെ പേര് ടൈംടേബിൾ/ഹാജർ കാർഡിൽ രേഖപ്പെടുത്തുകയും, വിദ്യാർത്ഥികളുടെ ഹാജർ രേഖപ്പെടുത്താനുള്ള ലോക്ക് തുറക്കുകയും ചെയ്യും.
+- **തത്സമയ സിൻക്രൊണൈസേഷൻ (Instant Cross-Role Sync):**
+  - ക്ലാസ് ലീഡറോ ഉസ്താദോ ഒരു പിരീഡ് "Class Not Held" ആയി രേഖപ്പെടുത്തിയാൽ ഉടൻ തന്നെ പ്രിൻസിപ്പൽ ഡാഷ്‌ബോർഡിലെ Live Monitor-ൽ അത് പ്രതിഫലിക്കും. പ്രിൻസിപ്പൽ വരുത്തുന്ന മാറ്റങ്ങൾ തിരിച്ച് ക്ലാസ് ലീഡറുടെയും ഉസ്താദിന്റെയും വിദ്യാർത്ഥികളുടെയും ഡാഷ്‌ബോർഡുകളിലും തൽക്ഷണം അപ്ഡേറ്റ് ആകും.
 
 ---
 
-## 4. Technical Architecture & Data Strategy *(Technical Reference)*
-
-### Architecture & Component Flow
+## 4. Technical Architecture & Data Strategy
 
 ```
-┌────────────────────────────────────────────────────────────────────────────┐
-│  Class Leader Dashboard                     Class Usthad Dashboard         │
-│  • Period Attendance Student Rows           • Student Roster Table         │
-│                                             • Monthly Attendance Card      │
-│                                             • Period Attendance Card       │
-└───────────────────┬────────────────────────────────────────┬───────────────┘
-                    │ Clicks "Parent PDF" for Student        │
-                    ▼                                        ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│                  ParentReportModal (A4 Preview + PDF Engine)               │
-│  • Aggregates:                                                             │
-│    1. Effective Monthly Attendance + Absent/Leave Reasons                  │
-│    2. Selected Date Period-by-Period Status + 4-Option Reasons             │
-│    3. Student Leave & Return Register Entries                              │
-│  • Actions:                                                                │
-│    ├─► [Download PDF] -> Builds structured A4 PDF via jsPDF + Logo         │
-│    └─► [Print Report] -> Prints A4 formatted report sheet                  │
-└────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                       LOGIN PORTAL (Tier 01 – Tier 04)                       │
+│  • Student (Admission No)          • Class Leader (CL-14..05 / ACL-14..05)   │
+│  • Class Usthad (UST-14..05)       • Principal (ADM-001 / PRINCIPAL)         │
+└───────────────────────────────────────┬──────────────────────────────────────┘
+                                        │
+                                        ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│               SHARED PERIOD SESSION & ATTENDANCE ENGINE                      │
+│  Key: `${date}__${className}__${periodIndex}`                                │
+│  • sessionStatus: 'conducted' | 'not-held' | 'substituted'                   │
+│  • notHeldReason: string (e.g. 'Usthad on Leave', 'Official Duty', etc.)     │
+│  • markedNotHeldBy: string (Class Leader / Usthad / Principal)               │
+│  • substituteUsthad?: { id, name, assignedBy, assignedAt }                   │
+│  • records: Record<studentId, 'present' | 'absent' | 'leave'>                │
+└───────────────┬───────────────────────────────┬──────────────────────────────┘
+                │                               │
+                ▼                               ▼
+┌───────────────────────────────────┐ ┌────────────────────────────────────────┐
+│   CLASS LEADER / USTHAD VIEW      │ │      PRINCIPAL DASHBOARD (Tier 04)     │
+│ • Toggle "Class Conducted" vs     │ │ • Campus Live Monitor (All 11 Classes) │
+│   "Class Not Held" + Reason       │ │ • Unheld Period Alerts & Reason View   │
+│ • Locks student P/A/L buttons     │ │ • Assign Substitute Usthad & Unlock    │
+│   when sessionStatus = 'not-held' │ │ • Official Holidays & Notice Board     │
+│ • Unlocks when Substitute Usthad  │ │ • Usthad, Leader & Student Control     │
+│   is assigned by Principal        │ │ • Parent Reports & Digital Library     │
+└───────────────────────────────────┘ └────────────────────────────────────────┘
 ```
+
+- **Extended Period Session Schema:**
+  - `PeriodAttendanceSubmission` മോഡലിൽ നിലവിലുള്ള `records`, `reasons` എന്നിവയ്ക്കൊപ്പം `sessionStatus` (`'conducted' | 'not-held' | 'substituted'`), `notHeldReason`, `markedNotHeldBy`, `substituteUsthad` എന്നീ ഫീൽഡുകൾ ചേർക്കും.
+  - `sessionStatus === 'not-held'` ആയിരിക്കുമ്പോൾ `records` ശൂന്യമായി (`{}`) സൂക്ഷിക്കുകയും യു.ഐയിൽ ഹാജർ ബട്ടണുകൾ ലോക്ക് ചെയ്യുകയും ചെയ്യും; അതിനാൽ വിദ്യാർത്ഥികളുടെ വ്യക്തിഗത ഹാജർ രേഖകളിൽ തെറ്റായ എൻട്രികൾ വരില്ല.
+- **Principal Role & Credentials:**
+  - `ADM-001` (അല്ലെങ്കിൽ `PRINCIPAL`) എന്ന ഔദ്യോഗിക ഐഡിയും പാസ്‌വേഡും ഉപയോഗിച്ച് ലോഗിൻ ചെയ്യാം. പ്രിൻസിപ്പൽ ഡാഷ്‌ബോർഡിൽ നിന്ന് ഏത് ക്ലാസിന്റെയും (Batch 14 മുതൽ Batch 05 വരെ) ഹാജർ, ലീവ് രജിസ്റ്റർ, മന്ത്ലി അറ്റൻഡൻസ്, പേരന്റ് റിപ്പോർട്ട്, നോട്ടീസ് ബോർഡ്, ഡിജിറ്റൽ ലൈബ്രറി എന്നിവ നേരിട്ട് നിയന്ത്രിക്കാം.

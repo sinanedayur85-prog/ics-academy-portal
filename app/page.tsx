@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { DashboardShell } from '@/components/dashboard/dashboard-shell'
+import { PrincipalDashboard } from '@/components/dashboard/principal-dashboard'
 import { UsthadDashboard } from '@/components/dashboard/usthad-dashboard'
 import { Hero } from '@/components/hero'
 import { LoginPortal, dawaCollegeRoles, englishSchoolRoles } from '@/components/login-portal'
@@ -16,7 +17,9 @@ const AUTH_ROLE_STORAGE_KEY = 'authRole'
 export default function Page() {
   const [hasMounted, setHasMounted] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [authRole, setAuthRole] = useState<'student' | 'class-leader' | 'usthad'>('student')
+  const [authRole, setAuthRole] = useState<
+    'student' | 'class-leader' | 'usthad' | 'principal'
+  >('student')
   const [showEnglishPortal, setShowEnglishPortal] = useState(false)
 
   useEffect(() => {
@@ -24,11 +27,13 @@ export default function Page() {
     const storedRole = window.localStorage.getItem(AUTH_ROLE_STORAGE_KEY)
     setIsLoggedIn(authenticated)
     setAuthRole(
-      storedRole === 'usthad'
-        ? 'usthad'
-        : storedRole === 'class-leader'
-          ? 'class-leader'
-          : 'student',
+      storedRole === 'principal'
+        ? 'principal'
+        : storedRole === 'usthad'
+          ? 'usthad'
+          : storedRole === 'class-leader'
+            ? 'class-leader'
+            : 'student',
     )
     setHasMounted(true)
 
@@ -68,12 +73,23 @@ export default function Page() {
     window.scrollTo({ top: 0 })
   }
 
+  function handlePrincipalLogin() {
+    window.localStorage.setItem(AUTH_STORAGE_KEY, 'true')
+    window.localStorage.setItem(AUTH_ROLE_STORAGE_KEY, 'principal')
+    setAuthRole('principal')
+    setIsLoggedIn(true)
+    window.scrollTo({ top: 0 })
+  }
+
   // Wait for client mount before rendering persistent auth state to prevent hydration mismatch
   if (!hasMounted) {
     return <div className="min-h-svh bg-background" aria-hidden="true" />
   }
 
   if (isLoggedIn) {
+    if (authRole === 'principal') {
+      return <PrincipalDashboard />
+    }
     if (authRole === 'usthad') {
       return <UsthadDashboard />
     }
@@ -95,6 +111,7 @@ export default function Page() {
           onStudentLogin={handleStudentLogin}
           onClassLeaderLogin={handleClassLeaderLogin}
           onUsthadLogin={handleUsthadLogin}
+          onPrincipalLogin={handlePrincipalLogin}
         />
 
         {/* Toggle Divider Section between Da'wa College Portal and ICS English School Portal */}
@@ -152,6 +169,7 @@ export default function Page() {
               onStudentLogin={handleStudentLogin}
               onClassLeaderLogin={handleClassLeaderLogin}
               onUsthadLogin={handleUsthadLogin}
+              onPrincipalLogin={handlePrincipalLogin}
             />
           </div>
         </div>

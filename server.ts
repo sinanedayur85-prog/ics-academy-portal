@@ -33,9 +33,125 @@ interface ClientChatTurn {
 
 function isUrduScript(text: string): boolean {
   if (!text) return false
-  return /[\u0679\u067E\u0686\u0688\u0691\u0698\u06A9\u06AF\u06BA\u06BE\u06C1\u06C2\u06C3\u06CC\u06D2\u06D4]/.test(
-    text,
+  if (/[\u0D00-\u0D7F]{2,}/.test(text)) return false
+  return (
+    /[\u0679\u067E\u0686\u0688\u0691\u0698\u06AF\u06BA\u06BE\u06C1\u06C2\u06C3\u06D2\u06D4]/.test(
+      text,
+    ) ||
+    /(?:^|\s)(?:کیا|کیوں|کیسے|ہے|ہیں|میں|کو|سے|پر|اور|کا|کی|کے)(?:\s|$|[۔،؟!])/.test(text)
   )
+}
+
+function detectInputLanguage(
+  text: string,
+  fallbackLanguage: OutputLanguage,
+  history?: ClientChatTurn[],
+): OutputLanguage {
+  if (!text || !text.trim()) return fallbackLanguage
+  const clean = text.trim()
+
+  // 1. If the user writes any Malayalam characters, always respond in Malayalam ('ml')
+  if (/[\u0D00-\u0D7F]/.test(clean)) {
+    return 'ml'
+  }
+
+  // 2. If the user writes Urdu-specific script/words, respond in Urdu ('ur')
+  if (isUrduScript(clean)) {
+    return 'ur'
+  }
+
+  // 3. Check Arabic vs Latin character counts (ignoring quoted Arabic passages if outer question is in Latin script)
+  const stripped = clean.replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+  const withoutQuotes = stripped
+    .replace(/["“”«»'‘’][^"“”«»'‘’]{4,}["“”«»'‘’]/g, ' ')
+    .trim()
+  const targetForScriptCheck = withoutQuotes.length >= 4 ? withoutQuotes : stripped
+
+  const arabicChars = (
+    targetForScriptCheck.match(
+      /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g,
+    ) || []
+  ).length
+  const latinChars = (targetForScriptCheck.match(/[A-Za-z\u00C0-\u024F]/g) || []).length
+
+  if (arabicChars > 0 && arabicChars > latinChars) {
+    // If the student types an Arabic practice sentence/answer during an ongoing Malayalam/Urdu/English lesson
+    // (e.g. answering an Arabic translation prompt asked in Malayalam), keep the ongoing conversation language.
+    if (history && history.length > 0) {
+      const recentTurns = history.slice(-4)
+      for (let i = recentTurns.length - 1; i >= 0; i--) {
+        const turnText = recentTurns[i]?.text || ''
+        if (/[\u0D00-\u0D7F]{3,}/.test(turnText)) {
+          return 'ml'
+        }
+        if (isUrduScript(turnText)) {
+          return 'ur'
+        }
+        const turnLatin = (turnText.match(/[A-Za-z\u00C0-\u024F]/g) || []).length
+        const turnArabic = (
+          turnText.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) ||
+          []
+        ).length
+        if (turnLatin >= 12 && turnLatin > turnArabic * 2) {
+          if (fallbackLanguage === 'es' || fallbackLanguage === 'de' || fallbackLanguage === 'en') {
+            return fallbackLanguage
+          }
+          return 'en'
+        }
+      }
+    }
+    return 'ar'
+  }
+
+  // 4. If written in Latin script (English / Spanish / German / Manglish)
+  const totalLatinChars = (stripped.match(/[A-Za-z\u00C0-\u024F]/g) || []).length
+  if (totalLatinChars >= 2) {
+    if (
+      /\b(enthanu|enthokkeyanu|enthokke|parayamo|parayu|engane|enganeyanu|vishadeekarikamo|vishadeekarikkuka|artham|sharthukal|farzukal|sunnathukal|vivarikkuka|entha|manassilayilla|padippikkamo|chodyam|utharam)\b/i.test(
+        clean,
+      )
+    ) {
+      return 'ml'
+    }
+    if (
+      /[¿¡ñÑáéíóúÁÉÍÓÚ]/.test(clean) ||
+      /\b(qué|cómo|cuál|cuáles|explica|explicar|según|por\s+favor|hola|gracias|condiciones|diferencia)\b/i.test(
+        clean,
+      )
+    ) {
+      return 'es'
+    }
+    if (
+      /[äöüßÄÖÜ]/.test(clean) ||
+      /\b(erkläre|erklären|gemäß|was\s+ist|wie\s+sind|bitte|danke|bedingungen|unterschied)\b/i.test(
+        clean,
+      )
+    ) {
+      return 'de'
+    }
+    return 'en'
+  }
+
+  return fallbackLanguage
+}
+
+function isResponseValidForLanguage(text: string, language: OutputLanguage): boolean {
+  if (!text || !text.trim()) return false
+  if (language === 'ml') {
+    // Must contain Malayalam script and MUST NOT contain Urdu sentences/letters
+    const hasMalayalam = /[\u0D00-\u0D7F]{3,}/.test(text)
+    const hasUrduWords =
+      /[\u0679\u067E\u0686\u0688\u0691\u0698\u06AF\u06BA\u06D2\u06D4]/.test(text) ||
+      /(?:^|\s)(?:ہے|ہیں|میں|کو|سے|پر|اور|کا|کی|کے|آپ|نے|پکڑا|گہرائی)(?:\s|$|[۔،؟!])/.test(text)
+    return hasMalayalam && !hasUrduWords
+  }
+  if (language === 'en' || language === 'es' || language === 'de') {
+    const hasUrduWords =
+      /[\u0679\u067E\u0686\u0688\u0691\u0698\u06AF\u06BA\u06D2\u06D4]/.test(text) ||
+      /(?:^|\s)(?:ہے|ہیں|میں|کو|سے|پر|اور|کا|کی|کے)(?:\s|$|[۔،؟!])/.test(text)
+    return !hasUrduWords && !/[\u0D00-\u0D7F]{3,}/.test(text)
+  }
+  return true
 }
 
 function didStudentSaySalam(text: string): boolean {
@@ -61,22 +177,27 @@ function getTurnLanguageEnforcement(
   language: OutputLanguage,
   isFirstTurn = true,
   userSaidSalam = false,
+  isExplicitLanguage = false,
 ): string {
   const salamRule = getSalamTurnDirective(isFirstTurn, userSaidSalam)
+  const modePrefix = isExplicitLanguage
+    ? 'EXPLICIT RESPONSE LANGUAGE SELECTED BY USER (Even if the question above is written in another language, the user has explicitly selected this target language for the reply — you MUST answer in this selected language ONLY!): '
+    : 'AUTO-DETECTED QUESTION LANGUAGE (The user did not select a separate response language, so reply in the same language as their question): '
+
   switch (language) {
     case 'ur':
-      return `\n\n[LANGUAGE INSTRUCTION: ${salamRule} You MUST write your entire explanation in URDU (اردو) language ONLY — do NOT write the explanation, headings, or follow-up questions in Arabic or Malayalam! Always refer to the institution in Urdu as "آئی سی ایس اکیڈمی" (ICS Academy). Use authentic Urdu vocabulary, grammar, and verbs (e.g., ہے، ہیں، میں، کی، کے، کا، اس جملے کی نحوی ترکیب درج ذیل ہے، غور و فکر کے لیے سوال). Keep only the quoted Quranic Ayah, Hadith, Islamic greeting (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), or Kitab Ibarat in Arabic script, and explain everything else 100% in Urdu (اردو).]`
+      return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} You MUST write your entire explanation in URDU (اردو) language ONLY — do NOT write the explanation, headings, or follow-up questions in Arabic, English, or Malayalam! Always refer to the institution in Urdu as "آئی سی ایس اکیڈمی" (ICS Academy). Use authentic Urdu vocabulary, grammar, and verbs (e.g., ہے، ہیں، میں، کی، کے، کا، اس جملے کی نحوی ترکیب درج ذیل ہے، غور و فکر کے لیے سوال). Keep only the quoted Quranic Ayah, Hadith, Islamic greeting (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), or Kitab Ibarat in Arabic script, and explain everything else 100% in Urdu (اردو).]`
     case 'ml':
-      return `\n\n[LANGUAGE INSTRUCTION: ${salamRule} Respond primarily in Malayalam (മലയാളം). Keep Islamic greetings (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ) and quoted Kitab Ibarats in Arabic script, put a newline after the Arabic Salam, and refer to the institution in Malayalam as "ഐ.സി.എസ് അക്കാദമി".]`
+      return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} You MUST write your entire explanation, salutation, headings, and follow-up questions in MALAYALAM (മലയാളം) script ONLY! NEVER write in Urdu (اردو) or use Urdu words (such as ہے، ہیں، میں، کی، کے، کا، آپ) and NEVER write full sentences in Arabic or English! Keep ONLY Islamic greetings (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), quoted Quran/Hadith/Kitab Ibarats, and short Arabic Fiqh terms inside brackets in Arabic script. Put a newline after the Arabic Salam, and refer to the institution in Malayalam as "ഐ.സി.എസ് അക്കാദമി".]`
     case 'ar':
-      return `\n\n[LANGUAGE INSTRUCTION: ${salamRule} Respond entirely in clear Classical/Modern Standard Arabic (العربية الفصحى). Never mix Malayalam words. Refer to the institution as "أكاديمية ICS".]`
+      return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} Respond entirely in clear Classical/Modern Standard Arabic (العربية الفصحى). Even if the student's question was written in Malayalam or English, write your entire answer in Arabic! Never mix Malayalam or Urdu words. Refer to the institution as "أكاديمية ICS".]`
     case 'es':
-      return `\n\n[LANGUAGE INSTRUCTION: ${salamRule} Respond entirely in Spanish (Español). NEVER use Malayalam script or Malayalam words — always write "ICS Academy" in Latin script. Put a newline (\\n) after the Arabic Salam so the Spanish salutation starts on a new line.]`
+      return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} Respond entirely in Spanish (Español). Even if the student's question was written in Malayalam, Arabic, or English, write your entire explanation in Spanish! NEVER use Malayalam or Urdu script or words — always write "ICS Academy" in Latin script. Put a newline (\\n) after the Arabic Salam so the Spanish salutation starts on a new line.]`
     case 'de':
-      return `\n\n[LANGUAGE INSTRUCTION: ${salamRule} Respond entirely in German (Deutsch). NEVER use Malayalam script or Malayalam words — always write "ICS Academy" in Latin script. Put a newline (\\n) after the Arabic Salam so the German salutation starts on a new line.]`
+      return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} Respond entirely in German (Deutsch). Even if the student's question was written in Malayalam, Arabic, or English, write your entire explanation in German! NEVER use Malayalam or Urdu script or words — always write "ICS Academy" in Latin script. Put a newline (\\n) after the Arabic Salam so the German salutation starts on a new line.]`
     case 'en':
     default:
-      return `\n\n[LANGUAGE INSTRUCTION: ${salamRule} Respond in clear academic English. When explaining Islamic, Fiqh, Nahw/Sarf, or Kitab concepts in English, naturally present key Arabic terms and book/concept names with their original vocalized Arabic script inside brackets (...) right beside the English term — for example: Tayammum (التَّيَمُّم), Niyyah (النِّيَّة), Fard (فَرْض), Shart (شَرْط), Mubtada' (مُبْتَدَأ), Fathul Mueen (فَتْحُ الْمُعِينِ). NEVER use Malayalam script or Malayalam words anywhere in your response (always write "ICS Academy" in English, NEVER write "ഐ.സി.എസ് അക്കാദമി"). Always write the Salam itself in Arabic script (السَّلَامُ عَلَيْكُمْ or وَعَلَيْكُمُ السَّلَامُ) on its own line, followed by a newline (\\n), and write the English salutation (e.g., "My dear student...") on the next line.]`
+      return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} Respond entirely in clear academic English. Even if the student's question was written in Malayalam or another language, write your entire explanation in English! When explaining Islamic, Fiqh, Nahw/Sarf, or Kitab concepts in English, naturally present key Arabic terms and book/concept names with their original vocalized Arabic script inside brackets (...) right beside the English term — for example: Tayammum (التَّيَمُّم), Niyyah (النِّيَّة), Fard (فَرْض), Shart (شَرْط), Mubtada' (مُبْتَدَأ), Fathul Mueen (فَتْحُ الْمُعِينِ). NEVER use Malayalam or Urdu script or words anywhere in your response (always write "ICS Academy" in English, NEVER write "ഐ.സി.എസ് അക്കാദമി"). Always write the Salam itself in Arabic script (السَّلَامُ عَلَيْكُمْ or وَعَلَيْكُمُ السَّلَامُ) on its own line, followed by a newline (\\n), and write the English salutation (e.g., "My dear student...") on the next line.]`
   }
 }
 
@@ -236,13 +357,14 @@ function isTransientOrTimeoutError(error: unknown): boolean {
 async function generateWithFallback(
   contents: string,
   systemInstruction: string,
+  language: OutputLanguage = 'ml',
 ): Promise<string> {
   const models = [
-    'gemini-3.5-flash-lite',
-    'gemini-flash-lite-latest',
     'gemini-3.6-flash',
     'gemini-3.5-flash',
     'gemini-3-flash-preview',
+    'gemini-3.5-flash-lite',
+    'gemini-flash-lite-latest',
     'gemini-3.1-flash-lite',
     'gemini-3.8-flash',
   ] as const
@@ -266,6 +388,10 @@ async function generateWithFallback(
         modelName,
       )
       if (response.text) {
+        if (!isResponseValidForLanguage(response.text, language)) {
+          console.warn(`Model ${modelName} returned wrong script for ${language}, retrying next model...`)
+          continue
+        }
         return response.text
       }
     } catch (err) {
@@ -287,14 +413,15 @@ async function sendMultiTurnChatWithFallback(
   systemInstruction: string,
   preferredTier: ChatModelTier,
   language: OutputLanguage,
+  isExplicitLanguage = false,
 ): Promise<{ reply: string; modelUsed: string }> {
   const modelOrder =
     preferredTier === 'flash-lite'
       ? ([
-          'gemini-3.5-flash-lite',
-          'gemini-flash-lite-latest',
           'gemini-3.6-flash',
           'gemini-3.5-flash',
+          'gemini-3.5-flash-lite',
+          'gemini-flash-lite-latest',
           'gemini-3-flash-preview',
           'gemini-3.1-flash-lite',
           'gemini-3.8-flash',
@@ -309,17 +436,33 @@ async function sendMultiTurnChatWithFallback(
           'gemini-3.1-flash-lite',
         ] as const)
 
-  const formattedHistory = history
-    .filter((turn) => turn && typeof turn.text === 'string' && turn.text.trim().length > 0)
-    .slice(-24)
+  // Filter history so earlier turns in a different language (e.g. Urdu) never cause language drift
+  const sanitizedHistory = history
+    .filter((turn) => {
+      if (!turn || typeof turn.text !== 'string' || !turn.text.trim()) return false
+      const txt = turn.text.trim()
+      if (language !== 'ur' && turn.role === 'model' && isUrduScript(txt)) return false
+      if (language === 'ml' && turn.role === 'model' && !/[\u0D00-\u0D7F]{3,}/.test(txt)) {
+        return false
+      }
+      if (
+        (language === 'en' || language === 'es' || language === 'de') &&
+        turn.role === 'model' &&
+        /[\u0D00-\u0D7F]{3,}/.test(txt)
+      ) {
+        return false
+      }
+      return true
+    })
+    .slice(-20)
     .map((turn) => ({
       role: turn.role === 'model' ? ('model' as const) : ('user' as const),
       parts: [{ text: turn.text.trim().slice(0, 4000) }],
     }))
 
-  const isFirstTurn = formattedHistory.length === 0
+  const isFirstTurn = sanitizedHistory.length === 0
   const userSaidSalam = didStudentSaySalam(message)
-  const enforcedMessage = `${message}${getTurnLanguageEnforcement(language, isFirstTurn, userSaidSalam)}`
+  const enforcedMessage = `${message}${getTurnLanguageEnforcement(language, isFirstTurn, userSaidSalam, isExplicitLanguage)}`
 
   let lastError: unknown = null
 
@@ -328,7 +471,7 @@ async function sendMultiTurnChatWithFallback(
       const ai = getAiClient()
       const chat = ai.chats.create({
         model: modelName,
-        history: formattedHistory,
+        history: sanitizedHistory,
         config: {
           systemInstruction,
           ...(modelName === 'gemini-3.8-flash'
@@ -344,6 +487,12 @@ async function sendMultiTurnChatWithFallback(
       )
 
       if (response.text) {
+        if (!isResponseValidForLanguage(response.text, language)) {
+          console.warn(
+            `Chat model ${modelName} returned mismatched language script for '${language}', trying next model...`,
+          )
+          continue
+        }
         return {
           reply: response.text,
           modelUsed: modelName,
@@ -369,10 +518,27 @@ async function startServer() {
 
   app.use(express.json({ limit: '1mb' }))
 
+  app.use('/api', (req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    if (req.method === 'OPTIONS') {
+      res.status(204).end()
+      return
+    }
+    next()
+  })
+
   app.post('/api/ai/study-assistant', async (req, res) => {
     res.setHeader('Content-Type', 'application/json')
     try {
-      const { prompt, mode = 'kitab', language = 'ml', studentName } = req.body ?? {}
+      const {
+        prompt,
+        mode = 'kitab',
+        language = 'ml',
+        languageMode = 'auto',
+        studentName,
+      } = req.body ?? {}
 
       if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
         res.status(400).json({ error: 'Please enter a question or Kitab passage to analyze.' })
@@ -386,11 +552,17 @@ async function startServer() {
       const requestedLanguage: OutputLanguage = ['ml', 'en', 'ar', 'ur', 'es', 'de'].includes(language)
         ? language
         : 'ml'
-      const validLanguage: OutputLanguage = isUrduScript(trimmedPrompt) ? 'ur' : requestedLanguage
+      const isExplicitLanguage = languageMode === 'explicit'
+      // If the user explicitly selected a response language, strictly honor it.
+      // Otherwise ('auto'), detect the language of the user's question and reply in that language.
+      const validLanguage: OutputLanguage = isExplicitLanguage
+        ? requestedLanguage
+        : detectInputLanguage(trimmedPrompt, requestedLanguage)
 
       const text = await generateWithFallback(
-        `${trimmedPrompt}${getTurnLanguageEnforcement(validLanguage)}`,
+        `${trimmedPrompt}${getTurnLanguageEnforcement(validLanguage, true, didStudentSaySalam(trimmedPrompt), isExplicitLanguage)}`,
         buildSystemInstruction(validMode, validLanguage, studentName),
+        validLanguage,
       )
 
       res.json({
@@ -422,6 +594,7 @@ async function startServer() {
         history = [],
         role = 'usthad',
         language = 'ml',
+        languageMode = 'auto',
         modelTier = 'flash-lite',
         studentName,
         studentClass,
@@ -439,10 +612,15 @@ async function startServer() {
       const requestedLanguage: OutputLanguage = ['ml', 'en', 'ar', 'ur', 'es', 'de'].includes(language)
         ? language
         : 'ml'
-      // If the user's question itself is written in Urdu script, always respond in Urdu ('ur')
-      const validLanguage: OutputLanguage = isUrduScript(cleanMessage) ? 'ur' : requestedLanguage
+      const isExplicitLanguage = languageMode === 'explicit'
       const validTier: ChatModelTier = modelTier === 'flash' ? 'flash' : 'flash-lite'
       const safeHistory: ClientChatTurn[] = Array.isArray(history) ? history : []
+      // If user explicitly selected a response language, use it strictly.
+      // If user did NOT select a specific response language ('auto'), reply in the language of their question
+      // (while preserving the ongoing conversation language when typing Arabic practice answers in a Malayalam/English/Urdu lesson).
+      const validLanguage: OutputLanguage = isExplicitLanguage
+        ? requestedLanguage
+        : detectInputLanguage(cleanMessage, requestedLanguage, safeHistory)
 
       const systemInstruction = buildChatbotSystemInstruction(
         validRole,
@@ -457,6 +635,7 @@ async function startServer() {
         systemInstruction,
         validTier,
         validLanguage,
+        isExplicitLanguage,
       )
 
       res.json({
@@ -624,9 +803,24 @@ async function startServer() {
     })
   }
 
+  httpServer.on('error', (err) => {
+    console.error('HTTP server error:', err)
+  })
+
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`ICS Academy server running on http://localhost:${PORT}`)
   })
 }
 
-void startServer()
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err)
+})
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason)
+})
+
+startServer().catch((err) => {
+  console.error('Failed to start server:', err)
+})
+

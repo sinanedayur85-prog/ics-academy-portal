@@ -1,0 +1,9 @@
+{
+  "appId": "com.icsacademy.manhappatta",
+  "appName": "ICS-Academy-Manhappatta",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}

@@ -1611,6 +1611,22 @@ export function findClassLeaderByIdentifier(
 
 export type PeriodAttendanceStatus = 'present' | 'absent' | 'leave'
 
+export type PeriodSessionStatus = 'conducted' | 'not-held' | 'substituted'
+
+export const NOT_HELD_REASONS = [
+  'Usthad on Personal / Medical Leave (ഉസ്താദ് അവധിയിലാണ്)',
+  'Official Academy / Jamiathul Hind Duty (ഔദ്യോഗിക മീറ്റിംഗ് / ഡ്യൂട്ടി)',
+  'Combined Session / Special Lecture (സംയുക്ത ക്ലാസ് / സ്പെഷ്യൽ സെഷൻ)',
+  'Internal Exam / Study Revision Hour (പരീക്ഷ / റിവിഷൻ സമയം)',
+] as const
+
+export type SubstituteUsthadAssignment = {
+  usthadId: string
+  usthadName: string
+  assignedBy: string
+  assignedAt: string
+}
+
 export type PeriodAttendanceSubmission = {
   key: string // `${date}__${className}__${periodIndex}`
   date: string // YYYY-MM-DD
@@ -1625,6 +1641,50 @@ export type PeriodAttendanceSubmission = {
   submittedAt: string // ISO string
   records: Record<string, PeriodAttendanceStatus> // studentId -> status
   reasons?: Record<string, string> // studentId -> selected reason for absent or leave
+  sessionStatus?: PeriodSessionStatus // 'conducted' | 'not-held' | 'substituted'
+  notHeldReason?: string // why the regular usthad did not take the class
+  markedNotHeldBy?: string // role & name of who marked the period not held
+  substituteUsthad?: SubstituteUsthadAssignment
+}
+
+export type PrincipalProfile = {
+  id: string
+  staffId: string
+  name: string
+  shortName: string
+  designation: string
+  qualification: string
+  email: string
+  phone: string
+}
+
+export const ACADEMY_PRINCIPAL: PrincipalProfile = {
+  id: 'principal-1',
+  staffId: 'ADM-001',
+  name: 'Dr. Usthad Sayyid Muhammed Al-Qasimi',
+  shortName: 'Principal (ADM-001)',
+  designation: "Principal • ICS Academy & Da'wa College Manhappatta",
+  qualification: 'PhD in Islamic Jurisprudence & Educational Leadership (Jamiathul Hind)',
+  email: 'principal@icsacademy.edu.in',
+  phone: '+91 94470 00101',
+}
+
+export function findPrincipalByIdentifier(identifier: string): PrincipalProfile | undefined {
+  const cleaned = normalizeAdmissionKey(identifier)
+  if (!cleaned) return undefined
+  if (
+    cleaned === 'ADM001' ||
+    cleaned === 'ADM1' ||
+    cleaned === 'PRINCIPAL' ||
+    cleaned === 'ICSADMIN' ||
+    cleaned === 'ADMIN' ||
+    cleaned === 'PRN001' ||
+    cleaned.startsWith('ADM') ||
+    cleaned.startsWith('PRN')
+  ) {
+    return ACADEMY_PRINCIPAL
+  }
+  return undefined
 }
 
 export const PERIOD_ATTENDANCE_STORAGE_KEY = 'ics_period_attendance_v1'
@@ -1652,5 +1712,6 @@ export function savePeriodAttendanceSubmissions(
     // Ignore storage errors
   }
 }
+
 
 

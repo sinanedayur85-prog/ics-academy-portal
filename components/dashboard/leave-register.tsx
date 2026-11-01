@@ -256,7 +256,7 @@ export function LeaveRegister({
   }, [])
 
   useEffect(() => {
-    if (!authReady) return
+    if (!authReady || !firebaseUser) return
 
     const path = 'leaveRecords'
     const q = query(
@@ -290,16 +290,19 @@ export function LeaveRegister({
         setCloudEntries(items)
       },
       (error) => {
-        try {
-          handleFirestoreError(error, OperationType.LIST, path)
-        } catch {
-          // Logged by handleFirestoreError
+        const msg = error instanceof Error ? error.message : String(error)
+        if (msg.includes('permission') || msg.includes('insufficient')) {
+          try {
+            handleFirestoreError(error, OperationType.LIST, path)
+          } catch {
+            // Logged by handleFirestoreError
+          }
         }
       },
     )
 
     return () => unsubscribe()
-  }, [authReady, activeUid, safeStudentId, student.admissionNo, student.name])
+  }, [authReady, firebaseUser, activeUid, safeStudentId, student.admissionNo, student.name])
 
   async function recordLeaveEntry(
     entry: Omit<SavedLeaveEntry, 'id' | 'uid' | 'createdAtMs' | 'syncedToCloud'>,
@@ -310,10 +313,12 @@ export function LeaveRegister({
       id: recordId,
       uid: activeUid,
       createdAtMs: Date.now(),
-      syncedToCloud: true,
+      syncedToCloud: Boolean(firebaseUser),
     }
 
     setLocalEntries((prev) => [nextItem, ...prev])
+
+    if (!firebaseUser) return
 
     const path = `leaveRecords/${recordId}`
     try {
@@ -331,10 +336,13 @@ export function LeaveRegister({
         createdAt: serverTimestamp(),
       })
     } catch (error) {
-      try {
-        handleFirestoreError(error, OperationType.CREATE, path)
-      } catch {
-        // Logged by handleFirestoreError; local entry remains visible
+      const msg = error instanceof Error ? error.message : String(error)
+      if (msg.includes('permission') || msg.includes('insufficient')) {
+        try {
+          handleFirestoreError(error, OperationType.CREATE, path)
+        } catch {
+          // Logged by handleFirestoreError; local entry remains visible
+        }
       }
     }
   }

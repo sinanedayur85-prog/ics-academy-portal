@@ -40,9 +40,11 @@ import {
   signInWithGoogle,
 } from '@/src/lib/firebase'
 import { cn } from '@/lib/utils'
+import { detectInputLanguage, isUrduText } from '@/components/dashboard/study-note-pdf'
 
 export type StudyMode = 'kitab' | 'qa' | 'translation' | 'dawa'
 export type OutputLanguage = 'ml' | 'en' | 'ar' | 'ur' | 'es' | 'de'
+export type OutputLanguagePreference = 'auto' | OutputLanguage
 
 export interface SavedStudyNote {
   id: string
@@ -190,6 +192,8 @@ function sanitizeId(raw: string) {
 export function AiStudyAssistant({ student }: { student: Student }) {
   const [mode, setMode] = useState<StudyMode>('kitab')
   const [language, setLanguage] = useState<OutputLanguage>('ml')
+  const [languagePreference, setLanguagePreference] =
+    useState<OutputLanguagePreference>('auto')
   const [prompt, setPrompt] = useState('')
   const [response, setResponse] = useState<string>(DEFAULT_SAMPLE_NOTES[0].response)
   const [lastPrompt, setLastPrompt] = useState<string>(DEFAULT_SAMPLE_NOTES[0].prompt)
@@ -316,6 +320,14 @@ export function AiStudyAssistant({ student }: { student: Student }) {
       setPrompt(customPrompt)
     }
 
+    const isAutoLanguage = languagePreference === 'auto'
+    const effectiveLanguage: OutputLanguage = isAutoLanguage
+      ? detectInputLanguage(activePrompt, language)
+      : languagePreference
+    if (effectiveLanguage !== language) {
+      setLanguage(effectiveLanguage)
+    }
+
     setLoading(true)
     setErrorMessage(null)
     setJustSaved(false)
@@ -331,7 +343,8 @@ export function AiStudyAssistant({ student }: { student: Student }) {
         body: JSON.stringify({
           prompt: activePrompt.slice(0, 2000),
           mode,
-          language,
+          language: effectiveLanguage,
+          languageMode: isAutoLanguage ? 'auto' : 'explicit',
           studentName: student.name,
         }),
       })
@@ -558,7 +571,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
 
           {/* Language Selection & Quick Presets */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Label htmlFor="ai-output-language" className="text-xs text-muted-foreground whitespace-nowrap">
                 Output Language:
               </Label>
@@ -566,17 +579,35 @@ export function AiStudyAssistant({ student }: { student: Student }) {
                 id="ai-output-language"
                 role="group"
                 aria-label="Output language"
-                className="inline-flex rounded-lg border border-border bg-background/60 p-0.5"
+                className="inline-flex flex-wrap rounded-lg border border-border bg-background/60 p-0.5"
               >
+                <button
+                  type="button"
+                  onClick={() => setLanguagePreference('auto')}
+                  title="ചോദിക്കുന്ന ഭാഷയിൽ തന്നെ മറുപടി നൽകും"
+                  className={cn(
+                    'rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap shrink-0',
+                    languagePreference === 'auto'
+                      ? 'bg-lime text-primary-foreground font-semibold'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  Auto (ചോദിക്കുന്ന ഭാഷ)
+                </button>
                 {LANGUAGES.map((lang) => (
                   <button
                     key={lang.id}
                     type="button"
-                    onClick={() => setLanguage(lang.id)}
+                    onClick={() => {
+                      const nextPref: OutputLanguagePreference =
+                        languagePreference === lang.id ? 'auto' : lang.id
+                      setLanguagePreference(nextPref)
+                      setLanguage(lang.id)
+                    }}
                     className={cn(
                       'rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap shrink-0',
-                      language === lang.id
-                        ? 'bg-lime text-primary-foreground font-semibold'
+                      languagePreference === lang.id
+                        ? 'bg-primary text-primary-foreground font-semibold'
                         : 'text-muted-foreground hover:text-foreground',
                     )}
                   >

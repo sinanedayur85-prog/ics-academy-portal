@@ -44,6 +44,7 @@ import { cn } from '@/lib/utils'
 import {
   StudyNotePrintTemplate,
   exportStudyNoteDirectPdf,
+  detectInputLanguage,
   isArabicText,
   isArabicLine,
   isUrduText,
@@ -54,6 +55,7 @@ import { exportStudyNoteDirectDocx } from '@/components/dashboard/study-note-doc
 
 export type ChatRole = 'usthad' | 'academic' | 'language' | 'campus'
 export type ChatLanguage = 'ml' | 'en' | 'ar' | 'ur' | 'es' | 'de'
+export type ResponseLanguagePreference = 'auto' | ChatLanguage
 export type ChatModelTier = 'flash' | 'flash-lite'
 
 export interface ChatTurnMessage {
@@ -1198,9 +1200,11 @@ function buildDefaultThreads(lang: ChatLanguage = 'en'): Record<ChatRole, ChatTu
 
 export function GeminiChatbot({ student }: { student: Student }) {
   const [role, setRole] = useState<ChatRole>('usthad')
-  const [language, setLanguage] = useState<ChatLanguage>('en')
+  const [language, setLanguage] = useState<ChatLanguage>('ml')
+  const [responseLanguagePreference, setResponseLanguagePreference] =
+    useState<ResponseLanguagePreference>('auto')
   const [modelTier, setModelTier] = useState<ChatModelTier>('flash-lite')
-  const [threads, setThreads] = useState<Record<ChatRole, ChatTurnMessage[]>>(() => buildDefaultThreads('en'))
+  const [threads, setThreads] = useState<Record<ChatRole, ChatTurnMessage[]>>(() => buildDefaultThreads('ml'))
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -1273,20 +1277,31 @@ export function GeminiChatbot({ student }: { student: Student }) {
     return () => unsubscribe()
   }, [])
 
-  // Load saved threads from localStorage
+  // Load saved threads from localStorage and clean any mismatched Urdu replies to Malayalam questions
   useEffect(() => {
+    const cleanMismatchedTurns = (arr: ChatTurnMessage[] | undefined, fallback: ChatTurnMessage[]) => {
+      if (!Array.isArray(arr) || arr.length === 0) return fallback
+      return arr.filter((msg, idx) => {
+        if (msg.role === 'model' && !msg.id.startsWith('welcome-') && isUrduText(msg.text)) {
+          const prevUser = arr[idx - 1]
+          if (!prevUser || /[\u0D00-\u0D7F]/.test(prevUser.text) || !isUrduText(prevUser.text)) {
+            return false
+          }
+        }
+        return true
+      })
+    }
+
     try {
       const raw = window.localStorage.getItem(CHAT_STORAGE_KEY)
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<Record<ChatRole, ChatTurnMessage[]>>
         if (parsed && typeof parsed === 'object') {
           setThreads((prev) => ({
-            usthad: Array.isArray(parsed.usthad) && parsed.usthad.length > 0 ? parsed.usthad : prev.usthad,
-            academic:
-              Array.isArray(parsed.academic) && parsed.academic.length > 0 ? parsed.academic : prev.academic,
-            language:
-              Array.isArray(parsed.language) && parsed.language.length > 0 ? parsed.language : prev.language,
-            campus: Array.isArray(parsed.campus) && parsed.campus.length > 0 ? parsed.campus : prev.campus,
+            usthad: cleanMismatchedTurns(parsed.usthad, prev.usthad),
+            academic: cleanMismatchedTurns(parsed.academic, prev.academic),
+            language: cleanMismatchedTurns(parsed.language, prev.language),
+            campus: cleanMismatchedTurns(parsed.campus, prev.campus),
           }))
         }
       }
@@ -1331,8 +1346,21 @@ export function GeminiChatbot({ student }: { student: Student }) {
 
     setErrorMessage(null)
 
-    // Automatically switch to Urdu ('ur') if the user asks a question in Urdu script
-    const effectiveLanguage: ChatLanguage = isUrduText(textToSend) ? 'ur' : language
+    const previousHistory = currentMessages
+      .filter((m) => !m.id.startsWith('welcome-'))
+      .map((m) => ({
+        role: m.role,
+        text: m.text,
+      }))
+
+    // If user has NOT explicitly selected a response language ('auto'), reply in the language of the question
+    // (while preserving the ongoing conversation language if they type an Arabic practice answer during a Malayalam/English/Urdu lesson).
+    // If user HAS explicitly selected a response language, strictly reply in that selected language.
+    const isAutoLanguage = responseLanguagePreference === 'auto'
+    const effectiveLanguage: ChatLanguage = isAutoLanguage
+      ? detectInputLanguage(textToSend, language, previousHistory)
+      : responseLanguagePreference
+
     if (effectiveLanguage !== language) {
       setLanguage(effectiveLanguage)
     }
@@ -1344,13 +1372,6 @@ export function GeminiChatbot({ student }: { student: Student }) {
       timestamp: Date.now(),
       persona: role,
     }
-
-    const previousHistory = currentMessages
-      .filter((m) => !m.id.startsWith('welcome-'))
-      .map((m) => ({
-        role: m.role,
-        text: m.text,
-      }))
 
     setThreads((prev) => ({
       ...prev,
@@ -1372,6 +1393,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
           history: previousHistory,
           role,
           language: effectiveLanguage,
+          languageMode: isAutoLanguage ? 'auto' : 'explicit',
           modelTier,
           studentName: student.name,
           studentClass: student.className,
@@ -1453,7 +1475,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
     setErrorMessage(null)
   }
 
-  function handleSelectLanguage(newLang: ChatLanguage) {
+  function handleSelectLanguage(newPref: ResponseLanguagePreference) {
     if (isListening && recognitionRef.current) {
       try {
         recognitionRef.current.stop()
@@ -1462,29 +1484,38 @@ export function GeminiChatbot({ student }: { student: Student }) {
       }
       setIsListening(false)
     }
-    setLanguage(newLang)
-    setThreads((prev) => {
-      const updated = { ...prev }
-      ;(Object.keys(updated) as ChatRole[]).forEach((r) => {
-        const msgs = updated[r]
-        if (msgs && msgs.length > 0 && msgs[0].id.startsWith('welcome-')) {
-          const persona = PERSONAS.find((p) => p.id === r)
-          if (persona) {
-            updated[r] = [
-              {
-                ...msgs[0],
-                text: persona.welcomeMessage[newLang],
-              },
-              ...msgs.slice(1),
-            ]
+
+    // Clicking the currently active explicit language toggles back to 'auto'
+    const resolvedPref: ResponseLanguagePreference =
+      newPref !== 'auto' && responseLanguagePreference === newPref ? 'auto' : newPref
+
+    setResponseLanguagePreference(resolvedPref)
+
+    if (resolvedPref !== 'auto') {
+      setLanguage(resolvedPref)
+      setThreads((prev) => {
+        const updated = { ...prev }
+        ;(Object.keys(updated) as ChatRole[]).forEach((r) => {
+          const msgs = updated[r]
+          if (msgs && msgs.length > 0 && msgs[0].id.startsWith('welcome-')) {
+            const persona = PERSONAS.find((p) => p.id === r)
+            if (persona) {
+              updated[r] = [
+                {
+                  ...msgs[0],
+                  text: persona.welcomeMessage[resolvedPref],
+                },
+                ...msgs.slice(1),
+              ]
+            }
           }
-        }
+        })
+        return updated
       })
-      return updated
-    })
+    }
   }
 
-  async function toggleVoiceInput() {
+  function toggleVoiceInput() {
     if (isListening) {
       if (recognitionRef.current) {
         try {
@@ -1509,91 +1540,90 @@ export function GeminiChatbot({ student }: { student: Student }) {
     }
 
     const micDeniedMessages: Record<ChatLanguage, string> = {
-      ml: 'മൈക്രോഫോൺ അനുമതി നൽകിയിട്ടില്ല. ബ്രൗസർ സെറ്റിംഗ്സിൽ (അല്ലെങ്കിൽ അഡ്രസ് ബാറിലെ മൈക്ക് ഐക്കണിൽ) മൈക്ക് പെർമിഷൻ Allow ചെയ്യുക.',
-      ar: 'لم يتم السماح بالوصول إلى الميكروفون. يُرجى تفعيل إذن الميكروفون في المتصفح.',
-      ur: 'مائیکروفون کی اجازت نہیں دی گئی۔ براہِ کرم براؤزر سیٹنگز میں مائیکروفون کی اجازت (Allow) دیں۔',
+      ml: 'മൈക്രോഫോൺ അനുമതി ലഭ്യമല്ല. ബ്രൗസർ അഡ്രസ് ബാറിലെ സൈറ്റ് സെറ്റിംഗ്സിൽ (Lock/Tune ഐക്കൺ) മൈക്രോഫോൺ "Allow" ചെയ്യുക, അല്ലെങ്കിൽ പ്രിവ്യൂ പുതിയ ടാബിൽ തുറന്ന് ശ്രമിക്കുക.',
+      ar: 'لم يتم السماح بالوصول إلى الميكروفون. يُرجى تفعيل إذن الميكروفون في إعدادات المتصفح.',
+      ur: 'مائیکروفون کی اجازت دستیاب نہیں ہے۔ براہِ کرم براؤزر ایڈریس بار کی سیٹنگز میں مائیکروفون کو Allow کریں۔',
       es: 'Se denegó el acceso al micrófono. Por favor, permite el uso del micrófono en la configuración del navegador.',
       de: 'Der Mikrofonzugriff wurde verweigert. Bitte erlauben Sie den Mikrofonzugriff in den Browsereinstellungen.',
-      en: 'Microphone access was denied. Please allow microphone permissions in browser settings.',
+      en: 'Microphone access is blocked. Please allow microphone permission in your browser site settings (address bar icon) or open the app in a new tab.',
     }
 
-    // Explicitly request microphone access first so browser/iframe permission prompt triggers cleanly
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    const speechLangMap: Record<ChatLanguage, string> = {
+      ml: 'ml-IN',
+      ar: 'ar-SA',
+      ur: 'ur-PK',
+      es: 'es-ES',
+      de: 'de-DE',
+      en: 'en-IN',
+    }
+
+    const startRecognitionInstance = (hasRetriedAfterPrompt = false) => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        stream.getTracks().forEach((track) => track.stop())
-      } catch (permErr) {
-        console.warn('Microphone permission error:', permErr)
+        const recognition = new SpeechRecognitionClass()
+        recognition.continuous = true
+        recognition.interimResults = true
+        recognition.lang = speechLangMap[language] || 'ml-IN'
+
+        speechBaseTextRef.current = input.trim()
+
+        recognition.onstart = () => {
+          setIsListening(true)
+          setErrorMessage(null)
+        }
+
+        recognition.onresult = (event: any) => {
+          let transcript = ''
+          for (let i = 0; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript
+          }
+          const base = speechBaseTextRef.current
+          const cleanSpeech = transcript.trim()
+          if (cleanSpeech) {
+            setInput(base ? `${base} ${cleanSpeech}` : cleanSpeech)
+          }
+        }
+
+        recognition.onerror = async (event: any) => {
+          const errCode = event?.error
+          if (errCode === 'not-allowed' || errCode === 'service-not-allowed') {
+            if (!hasRetriedAfterPrompt && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+              try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+                stream.getTracks().forEach((track) => track.stop())
+                startRecognitionInstance(true)
+                return
+              } catch {
+                // Permission was denied or blocked by iframe/browser policy; show friendly UI notice without console error
+              }
+            }
+            setErrorMessage(micDeniedMessages[language])
+          } else if (errCode === 'no-speech' || errCode === 'aborted') {
+            // Normal timeout or user-initiated stop
+          } else if (errCode) {
+            setErrorMessage(
+              language === 'ml'
+                ? `വോയിസ് റെക്കഗ്നിഷൻ ലഭ്യമല്ല (${errCode}). ദയവായി ടൈപ്പ് ചെയ്ത് ചോദിക്കുക.`
+                : language === 'ur'
+                  ? `وائس ٹائپنگ دستیاب نہیں ہے (${errCode})۔`
+                  : `Voice typing unavailable (${errCode}).`,
+            )
+          }
+          setIsListening(false)
+        }
+
+        recognition.onend = () => {
+          setIsListening(false)
+        }
+
+        recognition.start()
+        recognitionRef.current = recognition
+      } catch {
+        setIsListening(false)
         setErrorMessage(micDeniedMessages[language])
-        setIsListening(false)
-        return
       }
     }
 
-    try {
-      const recognition = new SpeechRecognitionClass()
-      recognition.continuous = true
-      recognition.interimResults = true
-      const speechLangMap: Record<ChatLanguage, string> = {
-        ml: 'ml-IN',
-        ar: 'ar-SA',
-        ur: 'ur-PK',
-        es: 'es-ES',
-        de: 'de-DE',
-        en: 'en-IN',
-      }
-      recognition.lang = speechLangMap[language] || 'en-IN'
-
-      speechBaseTextRef.current = input.trim()
-
-      recognition.onstart = () => {
-        setIsListening(true)
-        setErrorMessage(null)
-      }
-
-      recognition.onresult = (event: any) => {
-        let transcript = ''
-        for (let i = 0; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript
-        }
-        const base = speechBaseTextRef.current
-        const cleanSpeech = transcript.trim()
-        if (cleanSpeech) {
-          setInput(base ? `${base} ${cleanSpeech}` : cleanSpeech)
-        }
-      }
-
-      recognition.onerror = (event: any) => {
-        console.warn('Speech recognition error:', event.error)
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          setErrorMessage(micDeniedMessages[language])
-        } else if (event.error === 'no-speech') {
-          // Normal timeout if user was silent
-        } else {
-          setErrorMessage(
-            language === 'ml'
-              ? `വോയിസ് റെക്കഗ്നിഷൻ: ${event.error}`
-              : language === 'ur'
-                ? `وائس ٹائپنگ خرابی: ${event.error}`
-                : `Voice typing error: ${event.error}`,
-          )
-        }
-        setIsListening(false)
-      }
-
-      recognition.onend = () => {
-        setIsListening(false)
-      }
-
-      recognition.start()
-      recognitionRef.current = recognition
-    } catch (err) {
-      console.error('Failed to start speech recognition:', err)
-      setIsListening(false)
-      setErrorMessage(
-        err instanceof Error ? err.message : 'Could not start voice recognition.',
-      )
-    }
+    startRecognitionInstance(false)
   }
 
   function handleCopyMessage(msg: ChatTurnMessage) {
@@ -1734,16 +1764,30 @@ export function GeminiChatbot({ student }: { student: Student }) {
           {/* Top Language Switcher */}
           <div
             role="group"
-            aria-label="Select chat language"
+            aria-label="Select chat response language"
             className="inline-flex max-w-full flex-wrap rounded-xl border border-border bg-background/70 p-1"
           >
+            <button
+              type="button"
+              onClick={() => handleSelectLanguage('auto')}
+              title="ചോദിക്കുന്ന ഭാഷയിൽ തന്നെ മറുപടി നൽകും (Reply in the language you ask)"
+              className={cn(
+                'rounded-lg px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap',
+                responseLanguagePreference === 'auto'
+                  ? 'bg-lime text-primary-foreground font-semibold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Auto (ചോദിക്കുന്ന ഭാഷ)
+            </button>
             {LANGUAGES.map((lang) => {
-              const active = language === lang.id
+              const active = responseLanguagePreference === lang.id
               return (
                 <button
                   key={lang.id}
                   type="button"
                   onClick={() => handleSelectLanguage(lang.id)}
+                  title={`മറുപടി ${lang.label} ഭാഷയിൽ ലഭിക്കാൻ ക്ലിക്ക് ചെയ്യുക`}
                   className={cn(
                     'rounded-lg px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap',
                     lang.id === 'ml' && 'font-malayalam',
@@ -1902,6 +1946,18 @@ export function GeminiChatbot({ student }: { student: Student }) {
                 aria-label="Chatbot output language"
                 className="inline-flex max-w-full flex-wrap rounded-lg border border-border bg-background p-0.5"
               >
+                <button
+                  type="button"
+                  onClick={() => handleSelectLanguage('auto')}
+                  className={cn(
+                    'rounded-md px-2 py-1 text-xs font-medium transition-colors whitespace-nowrap',
+                    responseLanguagePreference === 'auto'
+                      ? 'bg-lime text-primary-foreground font-semibold'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  Auto (ചോദിക്കുന്ന ഭാഷ)
+                </button>
                 {LANGUAGES.map((lang) => (
                   <button
                     key={lang.id}
@@ -1912,7 +1968,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
                       lang.id === 'ml' && 'font-malayalam',
                       lang.id === 'ar' && 'font-arabic',
                       lang.id === 'ur' && 'font-urdu text-sm leading-none',
-                      language === lang.id
+                      responseLanguagePreference === lang.id
                         ? 'bg-primary text-primary-foreground font-semibold'
                         : 'text-muted-foreground hover:text-foreground',
                     )}
@@ -1921,6 +1977,11 @@ export function GeminiChatbot({ student }: { student: Student }) {
                   </button>
                 ))}
               </div>
+              <p className="w-full text-[11px] text-lime/90 font-malayalam">
+                {responseLanguagePreference === 'auto'
+                  ? '✓ Auto Mode: നിങ്ങൾ ഏത് ഭാഷയിൽ ചോദിക്കുന്നുവോ ആ ഭാഷയിൽ തന്നെ മറുപടി നൽകും.'
+                  : `✓ തിരഞ്ഞെടുത്ത മറുപടി ഭാഷ (${LANGUAGES.find((l) => l.id === responseLanguagePreference)?.label}): ചോദ്യം ഏത് ഭാഷയിലായാലും മറുപടി ഈ ഭാഷയിൽ നൽകും.`}
+              </p>
             </div>
 
             <div
@@ -1972,7 +2033,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
             {currentMessages.map((msg, idx) => {
               const isUser = msg.role === 'user'
               const msgIsAr = isArabicText(msg.text)
-              const msgIsUr = msgIsAr && (isUrduText(msg.text) || language === 'ur')
+              const msgIsUr = msgIsAr && isUrduText(msg.text)
               return (
                 <div
                   key={msg.id}

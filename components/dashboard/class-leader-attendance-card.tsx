@@ -2,14 +2,19 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
+  AlertTriangle,
+  Ban,
   Check,
   CheckCircle2,
   Clock,
   FileText,
+  Lock,
   RotateCcw,
   Search,
   Send,
+  ShieldAlert,
   UserCheck,
+  UserCog,
   UserMinus,
   UserX,
   Users,
@@ -19,7 +24,9 @@ import { Input } from '@/components/ui/input'
 import {
   ABSENT_REASONS,
   ATTENDANCE_LEAVE_REASONS,
+  CLASS_USTHADS,
   CURRENT_SEMESTER,
+  NOT_HELD_REASONS,
   getClassLeadersForClass,
   getClassSemesterTimetable,
   loadPeriodAttendanceSubmissions,
@@ -27,6 +34,7 @@ import {
   students,
   type PeriodAttendanceStatus,
   type PeriodAttendanceSubmission,
+  type PeriodSessionStatus,
   type Student,
 } from '@/components/dashboard/data'
 import { Panel } from '@/components/dashboard/panel'
@@ -89,6 +97,9 @@ type ClassLeaderAttendanceCardProps = {
   eyebrowLabel?: string
   submittedByNameOverride?: string
   highlightLeaderBadge?: boolean
+  actorRoleLabel?: 'Class Leader' | 'Class Usthad' | 'Principal'
+  controlledDate?: string
+  onControlledDateChange?: (date: string) => void
 }
 
 export function ClassLeaderAttendanceCard({
@@ -97,16 +108,34 @@ export function ClassLeaderAttendanceCard({
   eyebrowLabel,
   submittedByNameOverride,
   highlightLeaderBadge = true,
+  actorRoleLabel,
+  controlledDate,
+  onControlledDateChange,
 }: ClassLeaderAttendanceCardProps) {
-  const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString)
+  const [internalDate, setInternalDate] = useState<string>(getTodayDateString)
+  const selectedDate = controlledDate ?? internalDate
+  const setSelectedDate = (nextDate: string) => {
+    const clean = nextDate || getTodayDateString()
+    setInternalDate(clean)
+    onControlledDateChange?.(clean)
+  }
+
   const [selectedPeriodIndex, setSelectedPeriodIndex] = useState<number>(1)
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [submissions, setSubmissions] = useState<Record<string, PeriodAttendanceSubmission>>({})
   const [draftRecords, setDraftRecords] = useState<Record<string, PeriodAttendanceStatus>>({})
   const [draftReasons, setDraftReasons] = useState<Record<string, string>>({})
+  const [draftSessionStatus, setDraftSessionStatus] = useState<PeriodSessionStatus>('conducted')
+  const [draftNotHeldReason, setDraftNotHeldReason] = useState<string>(NOT_HELD_REASONS[0])
+  const [draftSubstituteUsthadId, setDraftSubstituteUsthadId] = useState<string>(
+    () => CLASS_USTHADS[0]?.id ?? 'usthad-14',
+  )
   const [onLeaveStudentIds, setOnLeaveStudentIds] = useState<Set<string>>(new Set())
   const [justSubmittedMessage, setJustSubmittedMessage] = useState<string | null>(null)
   const [reportStudent, setReportStudent] = useState<Student | null>(null)
+
+  const effectiveRoleLabel =
+    actorRoleLabel ?? (highlightLeaderBadge ? 'Class Leader' : 'Class Usthad')
 
   const classStudents = useMemo(
     () => students.filter((s) => s.className === leader.className),
@@ -162,7 +191,18 @@ export function ClassLeaderAttendanceCard({
 
   useEffect(() => {
     const saved = submissions[currentSubmissionKey]
-    if (saved && saved.records) {
+    const statusFromSaved: PeriodSessionStatus = saved?.sessionStatus ?? 'conducted'
+    setDraftSessionStatus(statusFromSaved)
+    setDraftNotHeldReason(saved?.notHeldReason ?? NOT_HELD_REASONS[0])
+    if (saved?.substituteUsthad?.usthadId) {
+      setDraftSubstituteUsthadId(saved.substituteUsthad.usthadId)
+    } else {
+      const otherUsthad =
+        CLASS_USTHADS.find((u) => u.className !== leader.className) ?? CLASS_USTHADS[0]
+      if (otherUsthad) setDraftSubstituteUsthadId(otherUsthad.id)
+    }
+
+    if (saved && saved.records && Object.keys(saved.records).length > 0) {
       const nextDraft: Record<string, PeriodAttendanceStatus> = {}
       const nextReasons: Record<string, string> = {}
       for (const student of classStudents) {
@@ -190,7 +230,16 @@ export function ClassLeaderAttendanceCard({
       setDraftReasons(nextReasons)
     }
     setJustSubmittedMessage(null)
-  }, [currentSubmissionKey, submissions, classStudents, onLeaveStudentIds])
+  }, [currentSubmissionKey, submissions, classStudents, onLeaveStudentIds, leader.className])
+
+  const isSessionNotHeld = draftSessionStatus === 'not-held'
+  const isSessionSubstituted = draftSessionStatus === 'substituted'
+
+  const selectedSubstituteUsthad = useMemo(
+    () =>
+      CLASS_USTHADS.find((u) => u.id === draftSubstituteUsthadId) ?? CLASS_USTHADS[0],
+    [draftSubstituteUsthadId],
+  )
 
   const filteredStudents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -203,6 +252,14 @@ export function ClassLeaderAttendanceCard({
   }, [classStudents, searchQuery])
 
   const summaryCounts = useMemo(() => {
+    if (isSessionNotHeld) {
+      return {
+        total: classStudents.length,
+        present: 0,
+        absent: 0,
+        leave: 0,
+      }
+    }
     let present = 0
     let absent = 0
     let leave = 0
@@ -218,15 +275,29 @@ export function ClassLeaderAttendanceCard({
       absent,
       leave,
     }
-  }, [classStudents, draftRecords])
+  }, [classStudents, draftRecords, isSessionNotHeld])
 
-  const submittedPeriodsCountForDate = useMemo(() => {
-    return periods.filter(
-      (p) => Boolean(submissions[`${selectedDate}__${leader.className}__${p.index}`]),
-    ).length
+  const periodStatusCountsForDate = useMemo(() => {
+    let conducted = 0
+    let notHeld = 0
+    let substituted = 0
+    for (const p of periods) {
+      const sub = submissions[`${selectedDate}__${leader.className}__${p.index}`]
+      if (!sub) continue
+      if (sub.sessionStatus === 'not-held') notHeld += 1
+      else if (sub.sessionStatus === 'substituted') substituted += 1
+      else conducted += 1
+    }
+    return {
+      totalSubmitted: conducted + notHeld + substituted,
+      conducted,
+      notHeld,
+      substituted,
+    }
   }, [periods, submissions, selectedDate, leader.className])
 
   function handleStatusChange(studentId: string, status: PeriodAttendanceStatus) {
+    if (isSessionNotHeld) return
     setDraftRecords((prev) => ({
       ...prev,
       [studentId]: status,
@@ -250,6 +321,7 @@ export function ClassLeaderAttendanceCard({
   }
 
   function handleReasonChange(studentId: string, reason: string) {
+    if (isSessionNotHeld) return
     setDraftReasons((prev) => ({
       ...prev,
       [studentId]: reason,
@@ -258,6 +330,7 @@ export function ClassLeaderAttendanceCard({
   }
 
   function handleMarkAllPresent() {
+    if (isSessionNotHeld) return
     const next: Record<string, PeriodAttendanceStatus> = {}
     const nextReasons: Record<string, string> = {}
     for (const student of classStudents) {
@@ -273,26 +346,31 @@ export function ClassLeaderAttendanceCard({
   }
 
   function handleResetPeriod() {
-    if (existingSubmission) {
+    if (existingSubmission && Object.keys(existingSubmission.records ?? {}).length > 0) {
       setDraftRecords({ ...existingSubmission.records })
       setDraftReasons({ ...(existingSubmission.reasons ?? {}) })
+      setDraftSessionStatus(existingSubmission.sessionStatus ?? 'conducted')
+      setDraftNotHeldReason(existingSubmission.notHeldReason ?? NOT_HELD_REASONS[0])
     } else {
-      handleMarkAllPresent()
+      setDraftSessionStatus('conducted')
+      const next: Record<string, PeriodAttendanceStatus> = {}
+      const nextReasons: Record<string, string> = {}
+      for (const student of classStudents) {
+        const isLeave = onLeaveStudentIds.has(student.id)
+        next[student.id] = isLeave ? 'leave' : 'present'
+        if (isLeave) {
+          nextReasons[student.id] = ATTENDANCE_LEAVE_REASONS[0]
+        }
+      }
+      setDraftRecords(next)
+      setDraftReasons(nextReasons)
     }
     setJustSubmittedMessage(null)
   }
 
-  function handleSubmitPeriodAttendance() {
+  function handleSaveClassNotHeld() {
     const nowIso = new Date().toISOString()
-    const cleanReasons: Record<string, string> = {}
-    for (const student of classStudents) {
-      const stStatus = draftRecords[student.id] ?? 'present'
-      if (stStatus === 'absent') {
-        cleanReasons[student.id] = draftReasons[student.id] ?? ABSENT_REASONS[0]
-      } else if (stStatus === 'leave') {
-        cleanReasons[student.id] = draftReasons[student.id] ?? ATTENDANCE_LEAVE_REASONS[0]
-      }
-    }
+    const actorDisplay = `${effectiveRoleLabel} • ${submittedByNameOverride ?? leader.name} (${leaderId})`
 
     const submission: PeriodAttendanceSubmission = {
       key: currentSubmissionKey,
@@ -306,8 +384,76 @@ export function ClassLeaderAttendanceCard({
       submittedByLeaderId: leaderId,
       submittedByName: submittedByNameOverride ?? leader.name,
       submittedAt: nowIso,
+      records: {},
+      reasons: {},
+      sessionStatus: 'not-held',
+      notHeldReason: draftNotHeldReason,
+      markedNotHeldBy: actorDisplay,
+    }
+
+    const updated = {
+      ...submissions,
+      [currentSubmissionKey]: submission,
+    }
+    setDraftSessionStatus('not-held')
+    setSubmissions(updated)
+    savePeriodAttendanceSubmissions(updated)
+    setJustSubmittedMessage(
+      `${activePeriod.label} (${activePeriod.subject}) "ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ല (Class Not Held)" ആയി രേഖപ്പെടുത്തി. ഈ പിരീഡിൽ വിദ്യാർത്ഥികളുടെ ഹാജർ ലോക്ക് ചെയ്തിരിക്കുന്നു.`,
+    )
+  }
+
+  function handleSubmitPeriodAttendance() {
+    if (isSessionNotHeld) {
+      handleSaveClassNotHeld()
+      return
+    }
+
+    const nowIso = new Date().toISOString()
+    const cleanReasons: Record<string, string> = {}
+    for (const student of classStudents) {
+      const stStatus = draftRecords[student.id] ?? 'present'
+      if (stStatus === 'absent') {
+        cleanReasons[student.id] = draftReasons[student.id] ?? ABSENT_REASONS[0]
+      } else if (stStatus === 'leave') {
+        cleanReasons[student.id] = draftReasons[student.id] ?? ATTENDANCE_LEAVE_REASONS[0]
+      }
+    }
+
+    const effectiveTeacher =
+      isSessionSubstituted && selectedSubstituteUsthad
+        ? `${selectedSubstituteUsthad.shortName} (Substitute for ${activePeriod.teacher})`
+        : activePeriod.teacher
+
+    const submission: PeriodAttendanceSubmission = {
+      key: currentSubmissionKey,
+      date: selectedDate,
+      className: leader.className,
+      periodIndex: activePeriod.index,
+      periodLabel: activePeriod.label,
+      periodTime: activePeriod.time,
+      subject: activePeriod.subject,
+      teacher: effectiveTeacher,
+      submittedByLeaderId: leaderId,
+      submittedByName: submittedByNameOverride ?? leader.name,
+      submittedAt: nowIso,
       records: { ...draftRecords },
       reasons: cleanReasons,
+      sessionStatus: isSessionSubstituted ? 'substituted' : 'conducted',
+      ...(isSessionSubstituted
+        ? {
+            notHeldReason: draftNotHeldReason,
+            markedNotHeldBy:
+              existingSubmission?.markedNotHeldBy ??
+              `${effectiveRoleLabel} • ${submittedByNameOverride ?? leader.name}`,
+            substituteUsthad: {
+              usthadId: selectedSubstituteUsthad.id,
+              usthadName: selectedSubstituteUsthad.name,
+              assignedBy: `${effectiveRoleLabel} (${submittedByNameOverride ?? leader.name})`,
+              assignedAt: nowIso,
+            },
+          }
+        : {}),
     }
 
     const updated = {
@@ -317,7 +463,9 @@ export function ClassLeaderAttendanceCard({
     setSubmissions(updated)
     savePeriodAttendanceSubmissions(updated)
     setJustSubmittedMessage(
-      `${activePeriod.label} (${activePeriod.subject}) attendance submitted (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`,
+      isSessionSubstituted
+        ? `${activePeriod.label} (${activePeriod.subject}) പകരക്കാരൻ ഉസ്താദ് (${selectedSubstituteUsthad.shortName}) എടുത്ത ക്ലാസ്സായി ഹാജർ രേഖപ്പെടുത്തി (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`
+        : `${activePeriod.label} (${activePeriod.subject}) attendance submitted (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`,
     )
   }
 
@@ -325,13 +473,25 @@ export function ClassLeaderAttendanceCard({
     <Panel
       id="class-attendance"
       eyebrow={eyebrowLabel ?? `Class Leader Duty • ${leader.className}`}
-      title="Class Attendance Submission"
+      title="Class Period Session & Attendance Control"
       icon={UserCheck}
       action={
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan/40 bg-cyan/15 px-3 py-1 text-xs font-semibold text-cyan tabular-nums">
+          {periodStatusCountsForDate.notHeld > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/15 px-3 py-1 text-xs font-semibold text-red-600 dark:text-red-400 tabular-nums">
+              <Ban className="size-3.5" aria-hidden="true" />
+              {periodStatusCountsForDate.notHeld} Not Held
+            </span>
+          )}
+          {periodStatusCountsForDate.substituted > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan/40 bg-cyan/15 px-3 py-1 text-xs font-semibold text-cyan tabular-nums">
+              <UserCog className="size-3.5" aria-hidden="true" />
+              {periodStatusCountsForDate.substituted} Substituted
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-700 dark:border-lime/40 dark:bg-lime/15 dark:text-lime tabular-nums">
             <UserCheck className="size-3.5" aria-hidden="true" />
-            {submittedPeriodsCountForDate}/{periods.length} Periods Submitted
+            {periodStatusCountsForDate.totalSubmitted}/{periods.length} Periods Logged
           </span>
         </div>
       }
@@ -341,15 +501,18 @@ export function ClassLeaderAttendanceCard({
         <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-background/50 p-4 sm:flex-row sm:items-center">
           <div className="flex flex-col gap-1">
             <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-              Period-by-Period Attendance Register • Main & Assistant Class Leaders
+              Period-by-Period Session & Attendance Register • {leader.className}
             </p>
             <p className="text-sm text-foreground">
-              Select each period below, mark student status for{' '}
-              <span className="font-semibold text-lime">{leader.className}</span>, and choose a reason when marking Absent or Leave.
+              Select each period below. If the Usthad did not take the class, mark{' '}
+              <strong className="text-red-500 dark:text-red-400">
+                Class Not Held (ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ല)
+              </strong>{' '}
+              to lock student attendance and alert the Principal.
             </p>
             {classLeaders.length > 0 && (
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Authorized Leaders (Same Role & Permissions):{' '}
+                Authorized Class Leaders:{' '}
                 {classLeaders.map((cl, idx) => (
                   <span key={cl.leaderId}>
                     {idx > 0 ? '  •  ' : ''}
@@ -396,7 +559,9 @@ export function ClassLeaderAttendanceCard({
           >
             {periods.map((period) => {
               const periodKey = `${selectedDate}__${leader.className}__${period.index}`
-              const isSubmitted = Boolean(submissions[periodKey])
+              const sub = submissions[periodKey]
+              const isSubmitted = Boolean(sub)
+              const sessionState = sub?.sessionStatus ?? (isSubmitted ? 'conducted' : 'pending')
               const isSelected = period.index === activePeriod.index
 
               return (
@@ -409,23 +574,41 @@ export function ClassLeaderAttendanceCard({
                   className={cn(
                     'flex flex-col justify-between gap-2 rounded-2xl border p-3.5 text-left transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     isSelected
-                      ? 'border-lime bg-lime/10 shadow-[0_0_0_1px_var(--lime)]'
-                      : 'border-border bg-background/60 hover:border-foreground/30 hover:bg-background',
+                      ? sessionState === 'not-held'
+                        ? 'border-red-500 bg-red-500/10 shadow-[0_0_0_1px_rgba(239,68,68,0.6)]'
+                        : 'border-lime bg-lime/10 shadow-[0_0_0_1px_var(--lime)]'
+                      : sessionState === 'not-held'
+                        ? 'border-red-500/40 bg-red-500/[0.04] hover:border-red-500/70'
+                        : 'border-border bg-background/60 hover:border-foreground/30 hover:bg-background',
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span
                       className={cn(
                         'text-xs font-bold tracking-wider uppercase',
-                        isSelected ? 'text-lime' : 'text-foreground',
+                        isSelected
+                          ? sessionState === 'not-held'
+                            ? 'text-red-500 dark:text-red-400'
+                            : 'text-lime'
+                          : 'text-foreground',
                       )}
                     >
                       {period.label}
                     </span>
-                    {isSubmitted ? (
+                    {sessionState === 'not-held' ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 dark:text-red-400">
+                        <Ban className="size-3.5" aria-hidden="true" />
+                        Not Held
+                      </span>
+                    ) : sessionState === 'substituted' ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan">
+                        <UserCog className="size-3.5" aria-hidden="true" />
+                        Substituted
+                      </span>
+                    ) : isSubmitted ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-lime">
                         <CheckCircle2 className="size-3.5" aria-hidden="true" />
-                        Submitted
+                        Conducted
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
@@ -440,7 +623,9 @@ export function ClassLeaderAttendanceCard({
                       {period.subject}
                     </p>
                     <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                      {period.teacher}
+                      {sub?.substituteUsthad
+                        ? `Sub: ${sub.substituteUsthad.usthadName}`
+                        : period.teacher}
                     </p>
                   </div>
 
@@ -453,6 +638,189 @@ export function ClassLeaderAttendanceCard({
           </div>
         </div>
 
+        {/* Period Session Status Control Bar (Conducted vs Class Not Held vs Substitute Usthad) */}
+        <div
+          className={cn(
+            'flex flex-col gap-4 rounded-2xl border p-4 transition-colors',
+            isSessionNotHeld
+              ? 'border-red-500/50 bg-red-500/[0.06]'
+              : isSessionSubstituted
+                ? 'border-cyan/50 bg-cyan/[0.06]'
+                : 'border-border bg-background/60',
+          )}
+        >
+          <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
+            <div>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                {activePeriod.label} Session Control • ക്ലാസ് നടന്നോ എന്ന് തിരഞ്ഞെടുക്കുക
+              </p>
+              <p className="mt-0.5 text-sm text-foreground">
+                ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ലെങ്കിൽ{' '}
+                <strong className="text-red-600 dark:text-red-400">
+                  &ldquo;Class Not Held (ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ല)&rdquo;
+                </strong>{' '}
+                തിരഞ്ഞെടുക്കുക. അപ്പോൾ വിദ്യാർത്ഥികളുടെ ഹാജർ ലോക്ക് ആകും.
+              </p>
+            </div>
+
+            <div
+              role="radiogroup"
+              aria-label="Period session status"
+              className="flex flex-wrap items-center gap-2"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={draftSessionStatus === 'conducted'}
+                onClick={() => {
+                  setDraftSessionStatus('conducted')
+                  setJustSubmittedMessage(null)
+                }}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all',
+                  draftSessionStatus === 'conducted'
+                    ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:border-lime dark:bg-lime/20 dark:text-lime'
+                    : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <CheckCircle2 className="size-4" aria-hidden="true" />
+                Class Conducted (ക്ലാസ് നടന്നു)
+              </button>
+
+              <button
+                type="button"
+                role="radio"
+                aria-checked={draftSessionStatus === 'not-held'}
+                onClick={() => {
+                  setDraftSessionStatus('not-held')
+                  setJustSubmittedMessage(null)
+                }}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all',
+                  draftSessionStatus === 'not-held'
+                    ? 'border-red-500 bg-red-500/20 text-red-700 dark:border-red-400 dark:text-red-300'
+                    : 'border-border bg-background text-muted-foreground hover:border-red-500/40 hover:text-red-500',
+                )}
+              >
+                <Ban className="size-4" aria-hidden="true" />
+                Class Not Held (ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ല)
+              </button>
+
+              <button
+                type="button"
+                role="radio"
+                aria-checked={draftSessionStatus === 'substituted'}
+                onClick={() => {
+                  setDraftSessionStatus('substituted')
+                  setJustSubmittedMessage(null)
+                }}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all',
+                  draftSessionStatus === 'substituted'
+                    ? 'border-cyan bg-cyan/20 text-cyan'
+                    : 'border-border bg-background text-muted-foreground hover:border-cyan/40 hover:text-cyan',
+                )}
+              >
+                <UserCog className="size-4" aria-hidden="true" />
+                Substitute Usthad (പകരക്കാരൻ ഉസ്താദ്)
+              </button>
+            </div>
+          </div>
+
+          {/* Reason & Substitute Controls when Not Held or Substituted */}
+          {(isSessionNotHeld || isSessionSubstituted) && (
+            <div className="flex flex-col gap-3 border-t border-border/70 pt-3">
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                  ഉസ്താദ് ക്ലാസ് എടുക്കാത്തതിന്റെ കാരണം (Reason Why Regular Usthad Did Not Take Class):
+                </span>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {NOT_HELD_REASONS.map((reason) => {
+                    const isSelected = draftNotHeldReason === reason
+                    return (
+                      <button
+                        key={reason}
+                        type="button"
+                        onClick={() => {
+                          setDraftNotHeldReason(reason)
+                          setJustSubmittedMessage(null)
+                        }}
+                        className={cn(
+                          'flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs font-medium transition-all',
+                          isSelected
+                            ? isSessionNotHeld
+                              ? 'border-red-500 bg-red-500/15 font-semibold text-red-700 dark:border-red-400 dark:text-red-200'
+                              : 'border-cyan bg-cyan/15 font-semibold text-cyan'
+                            : 'border-border bg-background/80 text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        {isSelected ? (
+                          <Check className="size-3.5 shrink-0" aria-hidden="true" />
+                        ) : (
+                          <span className="size-3.5 shrink-0 rounded-full border border-muted-foreground/40" />
+                        )}
+                        <span className="line-clamp-1">{reason}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {isSessionSubstituted && (
+                <div className="flex flex-col justify-between gap-3 rounded-xl border border-cyan/30 bg-cyan/5 p-3 sm:flex-row sm:items-center">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs font-semibold text-cyan uppercase">
+                      Assign Substitute Usthad (പകരക്കാരൻ ഉസ്താദിനെ നിശ്ചയിക്കുക)
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      പകരക്കാരൻ ഉസ്താദ് ക്ലാസ് എടുക്കുമ്പോൾ വിദ്യാർത്ഥികളുടെ ഹാജർ രേഖപ്പെടുത്താവുന്നതാണ്.
+                    </span>
+                  </div>
+                  <select
+                    aria-label="Select Substitute Usthad"
+                    value={draftSubstituteUsthadId}
+                    onChange={(e) => {
+                      setDraftSubstituteUsthadId(e.target.value)
+                      setJustSubmittedMessage(null)
+                    }}
+                    className="h-10 rounded-xl border border-cyan/40 bg-background px-3 text-xs font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-cyan"
+                  >
+                    {CLASS_USTHADS.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.staffId} • {u.className})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {isSessionNotHeld && (
+                <div className="flex flex-col justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 sm:flex-row sm:items-center">
+                  <div className="flex items-start gap-2.5">
+                    <Lock className="mt-0.5 size-4 shrink-0 text-red-600 dark:text-red-400" aria-hidden="true" />
+                    <div className="flex flex-col gap-0.5">
+                      <p className="text-xs font-bold text-red-700 dark:text-red-300">
+                        Student Attendance Locked — ക്ലാസ് നടക്കാത്ത സമയത്ത് ഹാജർ രേഖപ്പെടുത്താൻ സാധിക്കില്ല
+                      </p>
+                      <p className="text-xs text-red-600/90 dark:text-red-300/90">
+                        ഈ പിരീഡിൽ ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ലാത്തതിനാൽ വിദ്യാർത്ഥികളുടെ Present / Absent / Leave ബട്ടണുകൾ ലോക്ക് ചെയ്തിരിക്കുന്നു. പ്രിൻസിപ്പൽ ഡാഷ്‌ബോർഡിൽ ഇത് നേരിട്ട് കാണാം.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleSaveClassNotHeld}
+                    className="h-10 rounded-xl bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-700 whitespace-nowrap shrink-0"
+                  >
+                    <ShieldAlert className="mr-1.5 size-4" aria-hidden="true" />
+                    Confirm Class Not Held
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Active Period Banner + Live Counters */}
         <div className="grid gap-4 rounded-2xl border border-border bg-background/60 p-4 lg:grid-cols-[1.2fr_1fr] lg:items-center">
           <div className="flex flex-col gap-1">
@@ -461,19 +829,46 @@ export function ClassLeaderAttendanceCard({
               <span aria-hidden="true">•</span>
               <span className="tabular-nums">{activePeriod.time}</span>
               <span aria-hidden="true">•</span>
-              <span>{activePeriod.teacher}</span>
+              <span>
+                {isSessionSubstituted && selectedSubstituteUsthad
+                  ? `Substitute: ${selectedSubstituteUsthad.name} (for ${activePeriod.teacher})`
+                  : activePeriod.teacher}
+              </span>
             </div>
-            <h3 className="font-display text-lg font-bold text-foreground sm:text-xl">
-              {activePeriod.subject}
-            </h3>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h3 className="font-display text-lg font-bold text-foreground sm:text-xl">
+                {activePeriod.subject}
+              </h3>
+              {isSessionNotHeld && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-red-500/40 bg-red-500/15 px-2.5 py-0.5 text-xs font-bold text-red-600 dark:text-red-400">
+                  <Ban className="size-3" aria-hidden="true" />
+                  Class Not Held • Attendance Locked
+                </span>
+              )}
+              {isSessionSubstituted && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-xs font-bold text-cyan">
+                  <UserCog className="size-3" aria-hidden="true" />
+                  Substitute Usthad Active
+                </span>
+              )}
+            </div>
             {existingSubmission ? (
-              <p className="text-xs text-emerald-600 dark:text-lime">
-                Last submitted by {existingSubmission.submittedByName} (
-                {existingSubmission.submittedByLeaderId}) at{' '}
-                {new Date(existingSubmission.submittedAt).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+              <p
+                className={cn(
+                  'text-xs',
+                  existingSubmission.sessionStatus === 'not-held'
+                    ? 'font-medium text-red-600 dark:text-red-400'
+                    : 'text-emerald-600 dark:text-lime',
+                )}
+              >
+                {existingSubmission.sessionStatus === 'not-held'
+                  ? `Marked as Class Not Held by ${existingSubmission.markedNotHeldBy ?? existingSubmission.submittedByName} • Reason: ${existingSubmission.notHeldReason ?? NOT_HELD_REASONS[0]}`
+                  : `Last submitted by ${existingSubmission.submittedByName} (${existingSubmission.submittedByLeaderId}) at ${new Date(
+                      existingSubmission.submittedAt,
+                    ).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}`}
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">
@@ -492,19 +887,19 @@ export function ClassLeaderAttendanceCard({
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-2">
               <p className="text-[11px] font-medium text-emerald-700 dark:text-lime">Present</p>
               <p className="mt-0.5 font-display text-lg font-bold text-emerald-700 dark:text-lime tabular-nums">
-                {summaryCounts.present}
+                {isSessionNotHeld ? '—' : summaryCounts.present}
               </p>
             </div>
             <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-2.5 py-2">
               <p className="text-[11px] font-medium text-red-600 dark:text-red-400">Absent</p>
               <p className="mt-0.5 font-display text-lg font-bold text-red-600 dark:text-red-400 tabular-nums">
-                {summaryCounts.absent}
+                {isSessionNotHeld ? '—' : summaryCounts.absent}
               </p>
             </div>
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-2.5 py-2">
               <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">Leave</p>
               <p className="mt-0.5 font-display text-lg font-bold text-amber-600 dark:text-amber-400 tabular-nums">
-                {summaryCounts.leave}
+                {isSessionNotHeld ? '—' : summaryCounts.leave}
               </p>
             </div>
           </div>
@@ -531,6 +926,7 @@ export function ClassLeaderAttendanceCard({
               type="button"
               variant="outline"
               size="sm"
+              disabled={isSessionNotHeld}
               onClick={handleMarkAllPresent}
               className="rounded-xl text-xs font-semibold"
             >
@@ -551,7 +947,25 @@ export function ClassLeaderAttendanceCard({
         </div>
 
         {/* Student Roster List for Selected Period */}
-        <div className="overflow-hidden rounded-2xl border border-border bg-background/50">
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-background/50">
+          {isSessionNotHeld && (
+            <div className="flex items-center justify-between gap-3 border-b border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-700 dark:text-red-300">
+              <div className="flex items-center gap-2 font-semibold">
+                <AlertTriangle className="size-4 shrink-0 text-red-600 dark:text-red-400" aria-hidden="true" />
+                <span>
+                  {activePeriod.label} ({activePeriod.subject}) ക്ലാസ് നടക്കാത്തതിനാൽ വിദ്യാർത്ഥികളുടെ ഹാജർ രേഖപ്പെടുത്തൽ ലോക്ക് ചെയ്തിരിക്കുന്നു.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDraftSessionStatus('substituted')}
+                className="rounded-lg border border-cyan/50 bg-cyan/15 px-2.5 py-1 text-[11px] font-bold text-cyan hover:bg-cyan/25 whitespace-nowrap shrink-0"
+              >
+                Assign Substitute Usthad to Unlock
+              </button>
+            </div>
+          )}
+
           <div className="hidden grid-cols-[2.5rem_1.5fr_1fr_1.4fr] items-center gap-4 border-b border-border bg-muted/40 px-4 py-2.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase sm:grid">
             <span>#</span>
             <span>Student Name</span>
@@ -559,14 +973,14 @@ export function ClassLeaderAttendanceCard({
             <span className="text-right">{activePeriod.label} Status</span>
           </div>
 
-          <div className="divide-y divide-border">
+          <div className={cn('divide-y divide-border', isSessionNotHeld && ' opacity-60')}>
             {filteredStudents.map((student, index) => {
               const status = draftRecords[student.id] ?? 'present'
               const isLiveOnLeave = onLeaveStudentIds.has(student.id)
               const reasonOptions =
-                status === 'absent'
+                !isSessionNotHeld && status === 'absent'
                   ? ABSENT_REASONS
-                  : status === 'leave'
+                  : !isSessionNotHeld && status === 'leave'
                     ? ATTENDANCE_LEAVE_REASONS
                     : null
               const selectedReason =
@@ -582,8 +996,8 @@ export function ClassLeaderAttendanceCard({
                   key={student.id}
                   className={cn(
                     'flex flex-col gap-2.5 px-4 py-3 transition-colors hover:bg-muted/25',
-                    status === 'absent' && 'bg-red-500/[0.03]',
-                    status === 'leave' && 'bg-amber-500/[0.03]',
+                    !isSessionNotHeld && status === 'absent' && 'bg-red-500/[0.03]',
+                    !isSessionNotHeld && status === 'leave' && 'bg-amber-500/[0.03]',
                   )}
                 >
                   <div className="flex flex-col justify-between gap-3 sm:grid sm:grid-cols-[2.5rem_1.5fr_1fr_1.4fr] sm:items-center sm:gap-4">
@@ -624,53 +1038,62 @@ export function ClassLeaderAttendanceCard({
                       aria-label={`Attendance status for ${student.name} in ${activePeriod.label}`}
                       className="flex items-center justify-end gap-1.5"
                     >
-                      <button
-                        type="button"
-                        role="radio"
-                        aria-checked={status === 'present'}
-                        onClick={() => handleStatusChange(student.id, 'present')}
-                        className={cn(
-                          'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-all',
-                          status === 'present'
-                            ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:border-lime dark:bg-lime/20 dark:text-lime'
-                            : 'border-border bg-background text-muted-foreground hover:text-foreground',
-                        )}
-                      >
-                        <UserCheck className="size-3.5" aria-hidden="true" />
-                        Present
-                      </button>
+                      {isSessionNotHeld ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400">
+                          <Lock className="size-3.5" aria-hidden="true" />
+                          Class Not Held (Locked)
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            role="radio"
+                            aria-checked={status === 'present'}
+                            onClick={() => handleStatusChange(student.id, 'present')}
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-all',
+                              status === 'present'
+                                ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:border-lime dark:bg-lime/20 dark:text-lime'
+                                : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                            )}
+                          >
+                            <UserCheck className="size-3.5" aria-hidden="true" />
+                            Present
+                          </button>
 
-                      <button
-                        type="button"
-                        role="radio"
-                        aria-checked={status === 'absent'}
-                        onClick={() => handleStatusChange(student.id, 'absent')}
-                        className={cn(
-                          'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-all',
-                          status === 'absent'
-                            ? 'border-red-500 bg-red-500/15 text-red-600 dark:border-red-400 dark:bg-red-500/20 dark:text-red-400'
-                            : 'border-border bg-background text-muted-foreground hover:text-foreground',
-                        )}
-                      >
-                        <UserX className="size-3.5" aria-hidden="true" />
-                        Absent
-                      </button>
+                          <button
+                            type="button"
+                            role="radio"
+                            aria-checked={status === 'absent'}
+                            onClick={() => handleStatusChange(student.id, 'absent')}
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-all',
+                              status === 'absent'
+                                ? 'border-red-500 bg-red-500/15 text-red-600 dark:border-red-400 dark:bg-red-500/20 dark:text-red-400'
+                                : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                            )}
+                          >
+                            <UserX className="size-3.5" aria-hidden="true" />
+                            Absent
+                          </button>
 
-                      <button
-                        type="button"
-                        role="radio"
-                        aria-checked={status === 'leave'}
-                        onClick={() => handleStatusChange(student.id, 'leave')}
-                        className={cn(
-                          'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-all',
-                          status === 'leave'
-                            ? 'border-amber-500 bg-amber-500/15 text-amber-700 dark:border-amber-400 dark:bg-amber-500/20 dark:text-amber-300'
-                            : 'border-border bg-background text-muted-foreground hover:text-foreground',
-                        )}
-                      >
-                        <UserMinus className="size-3.5" aria-hidden="true" />
-                        Leave
-                      </button>
+                          <button
+                            type="button"
+                            role="radio"
+                            aria-checked={status === 'leave'}
+                            onClick={() => handleStatusChange(student.id, 'leave')}
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-all',
+                              status === 'leave'
+                                ? 'border-amber-500 bg-amber-500/15 text-amber-700 dark:border-amber-400 dark:bg-amber-500/20 dark:text-amber-300'
+                                : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                            )}
+                          >
+                            <UserMinus className="size-3.5" aria-hidden="true" />
+                            Leave
+                          </button>
+                        </>
+                      )}
 
                       <button
                         type="button"
@@ -752,6 +1175,10 @@ export function ClassLeaderAttendanceCard({
                 <Check className="size-4 shrink-0" aria-hidden="true" />
                 {justSubmittedMessage}
               </p>
+            ) : isSessionNotHeld ? (
+              <p className="text-xs text-red-600 dark:text-red-400">
+                ഈ പിരീഡിൽ ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ലെങ്കിൽ &ldquo;Record Class Not Held&rdquo; അമർത്തുക. വിദ്യാർത്ഥികളുടെ ഹാജർ രേഖപ്പെടുത്തൽ ലോക്ക് ചെയ്യപ്പെടും.
+              </p>
             ) : (
               <p className="text-xs text-muted-foreground">
                 Submitting saves {activePeriod.label} ({activePeriod.subject}) attendance and selected Absent/Leave reasons for{' '}
@@ -763,12 +1190,24 @@ export function ClassLeaderAttendanceCard({
           <Button
             type="button"
             onClick={handleSubmitPeriodAttendance}
-            className="h-11 rounded-full px-6 text-sm font-semibold whitespace-nowrap shrink-0"
+            className={cn(
+              'h-11 rounded-full px-6 text-sm font-semibold whitespace-nowrap shrink-0',
+              isSessionNotHeld && 'bg-red-600 text-white hover:bg-red-700',
+            )}
           >
-            <Send className="mr-2 size-4" aria-hidden="true" />
-            {existingSubmission
-              ? `Update ${activePeriod.label} Attendance`
-              : `Submit ${activePeriod.label} Attendance`}
+            {isSessionNotHeld ? (
+              <>
+                <Ban className="mr-2 size-4" aria-hidden="true" />
+                Record {activePeriod.label} as Class Not Held
+              </>
+            ) : (
+              <>
+                <Send className="mr-2 size-4" aria-hidden="true" />
+                {existingSubmission
+                  ? `Update ${activePeriod.label} Attendance`
+                  : `Submit ${activePeriod.label} Attendance`}
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -777,11 +1216,11 @@ export function ClassLeaderAttendanceCard({
         student={reportStudent}
         onClose={() => setReportStudent(null)}
         initialDate={selectedDate}
-        preparedByRole={highlightLeaderBadge ? 'Class Leader' : 'Class Usthad'}
+        preparedByRole={effectiveRoleLabel}
         preparedByName={submittedByNameOverride ?? leader.name}
         preparedById={leaderId}
         livePeriodDraft={
-          reportStudent
+          reportStudent && !isSessionNotHeld
             ? {
                 periodIndex: activePeriod.index,
                 status: draftRecords[reportStudent.id] ?? 'present',

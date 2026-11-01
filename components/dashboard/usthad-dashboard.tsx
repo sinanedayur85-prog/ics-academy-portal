@@ -65,6 +65,11 @@ import {
 import { ClassLeaderAttendanceCard } from '@/components/dashboard/class-leader-attendance-card'
 import {
   CURATED_KITABS,
+  addKitabIdToBookmarksStorage,
+  deleteKitabPdfBlobLocally,
+  notifyDigitalLibraryUpdated,
+  saveKitabPdfBlobLocally,
+  withCloudTimeout,
   type DigitalKitabItem,
   type KitabCategory,
 } from '@/components/dashboard/digital-library'
@@ -565,19 +570,7 @@ export function UsthadDashboard() {
     const objectPath = `kitabs/${kitabCategory}/${slug}.pdf`
     const kitabId = sanitizeId(`kitab_${primaryStudentId}_${Date.now()}`)
     const parsedPages = Math.max(1, Math.min(5000, Number.parseInt(kitabPages, 10) || 180))
-
-    let downloadUrl = ''
-    try {
-      if (selectedPdfFile) {
-        const targetRef = storageRef(storage, objectPath)
-        await uploadBytes(targetRef, selectedPdfFile, {
-          contentType: 'application/pdf',
-        })
-        downloadUrl = await getDownloadURL(targetRef)
-      }
-    } catch {
-      // Storage rules fallback
-    }
+    const attachedFile = selectedPdfFile
 
     const newItem: DigitalKitabItem = {
       id: kitabId,
@@ -591,11 +584,15 @@ export function UsthadDashboard() {
       language: kitabLanguage.trim() || 'Arabic & Malayalam',
       pages: parsedPages,
       storagePath: objectPath,
-      pdfUrl: downloadUrl,
+      pdfUrl: '',
       summary: cleanSummary,
       createdAtMs: Date.now(),
       isCustomUpload: true,
-      syncedToCloud: true,
+      syncedToCloud: Boolean(firebaseUser),
+    }
+
+    if (attachedFile) {
+      void saveKitabPdfBlobLocally(kitabId, attachedFile)
     }
 
     setLocalKitabUploads((prev) => {
@@ -607,43 +604,72 @@ export function UsthadDashboard() {
       }
       return next
     })
+    addKitabIdToBookmarksStorage(kitabId)
+    notifyDigitalLibraryUpdated()
 
-    const firestorePath = `digitalKitabs/${kitabId}`
-    try {
-      await setDoc(doc(db, 'digitalKitabs', kitabId), {
-        uid: activeUid,
-        studentId: primaryStudentId,
-        title: newItem.title.slice(0, 160),
-        arabicTitle: newItem.arabicTitle.slice(0, 160),
-        author: newItem.author.slice(0, 120),
-        category: newItem.category,
-        classBatch: newItem.classBatch.slice(0, 40),
-        language: newItem.language.slice(0, 40),
-        pages: newItem.pages,
-        storagePath: newItem.storagePath.slice(0, 240),
-        pdfUrl: newItem.pdfUrl.slice(0, 1500),
-        summary: newItem.summary.slice(0, 1200),
-        createdAt: serverTimestamp(),
-      })
-      setKitabStatusMsg(`Uploaded & indexed "${newItem.title}" to Digital Library.`)
-    } catch (error) {
+    setUploadingKitab(false)
+    setKitabStatusMsg(`✅ "${newItem.title}" ഡിജിറ്റൽ ലൈബ്രറിയിലേക്ക് ഉടൻ ചേർത്തു!`)
+    setKitabTitle('')
+    setKitabArabicTitle('')
+    setKitabAuthor('')
+    setKitabSummary('')
+    setSelectedPdfFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+
+    if (!firebaseUser) return
+
+    void (async () => {
+      let downloadUrl = ''
       try {
-        handleFirestoreError(error, OperationType.CREATE, firestorePath)
+        if (attachedFile) {
+          const targetRef = storageRef(storage, objectPath)
+          await withCloudTimeout(
+            uploadBytes(targetRef, attachedFile, {
+              contentType: 'application/pdf',
+            }),
+            3500,
+          )
+          downloadUrl = await withCloudTimeout(getDownloadURL(targetRef), 2500)
+        }
       } catch {
-        setKitabStatusMsg(`Added "${newItem.title}" to Digital Library catalogue.`)
+        // Storage fallback
       }
-    } finally {
-      setUploadingKitab(false)
-      setKitabTitle('')
-      setKitabArabicTitle('')
-      setKitabAuthor('')
-      setKitabSummary('')
-      setSelectedPdfFile(null)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
+
+      const firestorePath = `digitalKitabs/${kitabId}`
+      try {
+        await withCloudTimeout(
+          setDoc(doc(db, 'digitalKitabs', kitabId), {
+            uid: activeUid,
+            studentId: primaryStudentId,
+            title: newItem.title.slice(0, 160),
+            arabicTitle: newItem.arabicTitle.slice(0, 160),
+            author: newItem.author.slice(0, 120),
+            category: newItem.category,
+            classBatch: newItem.classBatch.slice(0, 40),
+            language: newItem.language.slice(0, 40),
+            pages: newItem.pages,
+            storagePath: newItem.storagePath.slice(0, 240),
+            pdfUrl: downloadUrl.slice(0, 1500),
+            summary: newItem.summary.slice(0, 1200),
+            createdAt: serverTimestamp(),
+          }),
+          3500,
+        )
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error)
+        if (msg.includes('permission') || msg.includes('insufficient')) {
+          try {
+            handleFirestoreError(error, OperationType.CREATE, firestorePath)
+          } catch {
+            // Handled
+          }
+        }
+      }
+    })()
   }
 
   function handleDeleteUploadedKitab(kitabId: string) {
+    void deleteKitabPdfBlobLocally(kitabId)
     setLocalKitabUploads((prev) => {
       const next = prev.filter((k) => k.id !== kitabId)
       try {
@@ -653,6 +679,7 @@ export function UsthadDashboard() {
       }
       return next
     })
+    notifyDigitalLibraryUpdated()
   }
 
   const allNoticesCombined = useMemo(

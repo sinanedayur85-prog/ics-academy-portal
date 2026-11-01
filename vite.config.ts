@@ -24,9 +24,9 @@ export default defineConfig(() => {
     ],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
-        'next/image': path.resolve(__dirname, './shims/next-image.tsx'),
-        'next/link': path.resolve(__dirname, './shims/next-link.tsx'),
+        '@': path.resolve(import.meta.dirname, '.'),
+        'next/image': path.resolve(import.meta.dirname, './shims/next-image.tsx'),
+        'next/link': path.resolve(import.meta.dirname, './shims/next-link.tsx'),
       },
     },
     server: {

@@ -12,12 +12,116 @@ export interface StudyNoteExportData {
 
 export function isUrduText(text: string): boolean {
   if (!text) return false
-  return /[\u0679\u067E\u0686\u0688\u0691\u0698\u06A9\u06AF\u06BA\u06BE\u06C1\u06C2\u06C3\u06CC\u06D2\u06D4]/.test(text)
+  // If the text contains Malayalam script, it is not Urdu text
+  if (/[\u0D00-\u0D7F]{2,}/.test(text)) return false
+  // Match strictly Urdu-specific letters (ٹ پ چ ڈ ڑ ژ گ ں ھ ہ ۂ ۃ ے ۔) or common Urdu words
+  return (
+    /[\u0679\u067E\u0686\u0688\u0691\u0698\u06AF\u06BA\u06BE\u06C1\u06C2\u06C3\u06D2\u06D4]/.test(text) ||
+    /(?:^|\s)(?:کیا|کیوں|کیسے|ہے|ہیں|میں|کو|سے|پر|اور|کا|کی|کے)(?:\s|$|[۔،؟!])/.test(text)
+  )
 }
 
 export function isUrduLine(line: string): boolean {
   if (!line) return false
-  return /[\u0679\u067E\u0686\u0688\u0691\u0698\u06A9\u06AF\u06BA\u06BE\u06C1\u06C2\u06C3\u06CC\u06D2\u06D4]/.test(line)
+  if (/[\u0D00-\u0D7F]{2,}/.test(line)) return false
+  return (
+    /[\u0679\u067E\u0686\u0688\u0691\u0698\u06AF\u06BA\u06BE\u06C1\u06C2\u06C3\u06D2\u06D4]/.test(line) ||
+    /(?:^|\s)(?:کیا|کیوں|کیسے|ہے|ہیں|میں|کو|سے|پر|اور|کا|کی|کے)(?:\s|$|[۔،؟!])/.test(line)
+  )
+}
+
+export function detectInputLanguage<T extends 'ml' | 'en' | 'ar' | 'ur' | 'es' | 'de'>(
+  text: string,
+  fallbackLanguage: T,
+  history?: { role: 'user' | 'model'; text: string }[],
+): T {
+  if (!text || !text.trim()) return fallbackLanguage
+  const clean = text.trim()
+
+  // 1. If the user writes any Malayalam characters, always respond in Malayalam ('ml')
+  if (/[\u0D00-\u0D7F]/.test(clean)) {
+    return 'ml' as T
+  }
+
+  // 2. If the user writes Urdu-specific script/words, respond in Urdu ('ur')
+  if (isUrduText(clean)) {
+    return 'ur' as T
+  }
+
+  // 3. Check Arabic vs Latin character counts (ignoring quoted Arabic passages if outer question is in Latin script)
+  const stripped = clean.replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+  const withoutQuotes = stripped
+    .replace(/["“”«»'‘’][^"“”«»'‘’]{4,}["“”«»'‘’]/g, ' ')
+    .trim()
+  const targetForScriptCheck = withoutQuotes.length >= 4 ? withoutQuotes : stripped
+
+  const arabicChars = (
+    targetForScriptCheck.match(
+      /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g,
+    ) || []
+  ).length
+  const latinChars = (targetForScriptCheck.match(/[A-Za-z\u00C0-\u024F]/g) || []).length
+
+  if (arabicChars > 0 && arabicChars > latinChars) {
+    // If the student types an Arabic sentence/answer during an ongoing Malayalam/Urdu/English lesson
+    // (e.g. answering an Arabic translation question asked by the Usthad in Malayalam),
+    // preserve the ongoing conversation language rather than abruptly switching the explanation to Arabic.
+    if (history && history.length > 0) {
+      const recentTurns = history.slice(-4)
+      for (let i = recentTurns.length - 1; i >= 0; i--) {
+        const turnText = recentTurns[i]?.text || ''
+        if (/[\u0D00-\u0D7F]{3,}/.test(turnText)) {
+          return 'ml' as T
+        }
+        if (isUrduText(turnText)) {
+          return 'ur' as T
+        }
+        const turnLatin = (turnText.match(/[A-Za-z\u00C0-\u024F]/g) || []).length
+        const turnArabic = (
+          turnText.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) ||
+          []
+        ).length
+        if (turnLatin >= 12 && turnLatin > turnArabic * 2) {
+          if (fallbackLanguage === 'es' || fallbackLanguage === 'de' || fallbackLanguage === 'en') {
+            return fallbackLanguage
+          }
+          return 'en' as T
+        }
+      }
+    }
+    return 'ar' as T
+  }
+
+  // 4. If written in Latin script (English / Spanish / German / Manglish)
+  const totalLatinChars = (stripped.match(/[A-Za-z\u00C0-\u024F]/g) || []).length
+  if (totalLatinChars >= 2) {
+    if (
+      /\b(enthanu|enthokkeyanu|enthokke|parayamo|parayu|engane|enganeyanu|vishadeekarikamo|vishadeekarikkuka|artham|sharthukal|farzukal|sunnathukal|vivarikkuka|entha|manassilayilla|padippikkamo|chodyam|utharam)\b/i.test(
+        clean,
+      )
+    ) {
+      return 'ml' as T
+    }
+    if (
+      /[¿¡ñÑáéíóúÁÉÍÓÚ]/.test(clean) ||
+      /\b(qué|cómo|cuál|cuáles|explica|explicar|según|por\s+favor|hola|gracias|condiciones|diferencia)\b/i.test(
+        clean,
+      )
+    ) {
+      return 'es' as T
+    }
+    if (
+      /[äöüßÄÖÜ]/.test(clean) ||
+      /\b(erkläre|erklären|gemäß|was\s+ist|wie\s+sind|bitte|danke|bedingungen|unterschied)\b/i.test(
+        clean,
+      )
+    ) {
+      return 'de' as T
+    }
+    return 'en' as T
+  }
+
+  return fallbackLanguage
 }
 
 export function renderPrintScriptRuns(text: string, keyPrefix: string): React.ReactNode {
@@ -135,6 +239,7 @@ export function renderPrintInlineMarkdown(line: string, keyPrefix: string) {
 
 export function isArabicText(text: string): boolean {
   if (!text) return false
+  if (/[\u0D00-\u0D7F]{2,}/.test(text)) return false
   const stripped = text.replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
   const arabicChars = (
     stripped.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []
@@ -145,6 +250,7 @@ export function isArabicText(text: string): boolean {
 
 export function isArabicLine(line: string): boolean {
   if (!line) return false
+  if (/[\u0D00-\u0D7F]{2,}/.test(line)) return false
   const stripped = line.replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
   const arabicChars = (
     stripped.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []

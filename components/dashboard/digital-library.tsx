@@ -26,18 +26,24 @@ import {
   Check,
   CloudUpload,
   Download,
-  ExternalLink,
   FileText,
   FolderOpen,
   Library,
   Loader2,
+  Maximize2,
+  Minimize2,
   Plus,
   Search,
   SearchX,
   Trash2,
   X,
 } from 'lucide-react'
+import { jsPDF } from 'jspdf'
 import { ACADEMY_CLASSES, type Student } from '@/components/dashboard/data'
+import {
+  KitabPdfCanvasViewer,
+  getPdfBlobPageCount,
+} from '@/components/dashboard/kitab-pdf-viewer'
 import { Panel, fieldClassName } from '@/components/dashboard/panel'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -339,6 +345,126 @@ export const CURATED_KITABS: DigitalKitabItem[] = [
 
 const BOOKMARKS_STORAGE_KEY = 'ics_digital_library_bookmarks_v1'
 const LOCAL_UPLOADS_STORAGE_KEY = 'ics_digital_library_uploads_v1'
+const IDB_NAME = 'ics_digital_library_pdfs_v1'
+const IDB_STORE = 'kitab_pdfs'
+
+const memoryPdfBlobCache = new Map<string, Blob>()
+
+function openKitabPdfDb(): Promise<IDBDatabase | null> {
+  if (typeof window === 'undefined' || !('indexedDB' in window)) {
+    return Promise.resolve(null)
+  }
+  return new Promise((resolve) => {
+    try {
+      const req = window.indexedDB.open(IDB_NAME, 1)
+      req.onupgradeneeded = () => {
+        const dbInstance = req.result
+        if (!dbInstance.objectStoreNames.contains(IDB_STORE)) {
+          dbInstance.createObjectStore(IDB_STORE)
+        }
+      }
+      req.onsuccess = () => resolve(req.result)
+      req.onerror = () => resolve(null)
+    } catch {
+      resolve(null)
+    }
+  })
+}
+
+export async function saveKitabPdfBlobLocally(kitabId: string, blob: Blob): Promise<void> {
+  memoryPdfBlobCache.set(kitabId, blob)
+  const dbInstance = await openKitabPdfDb()
+  if (!dbInstance) return
+  return new Promise((resolve) => {
+    try {
+      const tx = dbInstance.transaction(IDB_STORE, 'readwrite')
+      tx.objectStore(IDB_STORE).put(blob, kitabId)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => resolve()
+    } catch {
+      resolve()
+    }
+  })
+}
+
+export async function loadKitabPdfBlobLocally(kitabId: string): Promise<Blob | null> {
+  const cached = memoryPdfBlobCache.get(kitabId)
+  if (cached) return cached
+  const dbInstance = await openKitabPdfDb()
+  if (!dbInstance) return null
+  return new Promise((resolve) => {
+    try {
+      const tx = dbInstance.transaction(IDB_STORE, 'readonly')
+      const req = tx.objectStore(IDB_STORE).get(kitabId)
+      req.onsuccess = () => {
+        const result = req.result
+        if (result instanceof Blob) {
+          memoryPdfBlobCache.set(kitabId, result)
+          resolve(result)
+        } else {
+          resolve(null)
+        }
+      }
+      req.onerror = () => resolve(null)
+    } catch {
+      resolve(null)
+    }
+  })
+}
+
+export async function deleteKitabPdfBlobLocally(kitabId: string): Promise<void> {
+  memoryPdfBlobCache.delete(kitabId)
+  const dbInstance = await openKitabPdfDb()
+  if (!dbInstance) return
+  return new Promise((resolve) => {
+    try {
+      const tx = dbInstance.transaction(IDB_STORE, 'readwrite')
+      tx.objectStore(IDB_STORE).delete(kitabId)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => resolve()
+    } catch {
+      resolve()
+    }
+  })
+}
+
+export function notifyDigitalLibraryUpdated(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('ics-digital-library-updated'))
+  }
+}
+
+export function addKitabIdToBookmarksStorage(kitabId: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    const raw = window.localStorage.getItem(BOOKMARKS_STORAGE_KEY)
+    const parsed = raw ? (JSON.parse(raw) as string[]) : ['kitab-fathul-mueen', 'kitab-riyad-as-salihin']
+    const list = Array.isArray(parsed) ? parsed : []
+    if (!list.includes(kitabId)) {
+      const next = [kitabId, ...list]
+      window.localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(next))
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function withCloudTimeout<T>(promise: Promise<T>, timeoutMs = 3000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Cloud operation timed out'))
+    }, timeoutMs)
+    promise
+      .then((val) => {
+        clearTimeout(timer)
+        resolve(val)
+      })
+      .catch((err) => {
+        clearTimeout(timer)
+        reject(err)
+      })
+  })
+}
 
 function sanitizeId(raw: string) {
   return raw.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 120) || `kitab_${Date.now()}`
@@ -371,71 +497,159 @@ function wrapAsciiLines(text: string, maxChars = 76): string[] {
 }
 
 /**
- * Generates a valid, multi-section standard %PDF-1.4 binary document Blob for a Kitab
- * when the Firebase Storage path is not yet populated in the bucket or for instant offline download.
+ * Generates a formatted, multi-section standard PDF binary document Blob for a Kitab
+ * when no custom PDF file was attached or for instant offline syllabus preview & download.
  */
-function buildKitabPdfBlob(kitab: DigitalKitabItem): Blob {
-  const headerLines = [
-    'ICS ACADEMY MANHAPPATTA - DAWA COLLEGE DIGITAL LIBRARY',
-    `Storage Path: ${kitab.storagePath}`,
-    `Category: ${CATEGORY_LABELS[kitab.category]} | Batch: ${kitab.classBatch} | Pages: ${kitab.pages}`,
-    '----------------------------------------------------------------------------',
-    `KITAB TITLE: ${kitab.title}`,
-    `AUTHOR: ${kitab.author}`,
-    `LANGUAGE: ${kitab.language}`,
-    '----------------------------------------------------------------------------',
-    'SYLLABUS OVERVIEW:',
-    ...wrapAsciiLines(kitab.summary, 74),
-    '',
-  ]
+export function buildKitabPdfBlob(kitab: DigitalKitabItem): Blob {
+  try {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+    const margin = 44
+    const contentWidth = pageWidth - margin * 2
+    const categoryLabel = (CATEGORY_LABELS[kitab.category] ?? 'Islamic Studies').replace(
+      /[^\x20-\x7E]/g,
+      '',
+    ).trim()
 
-  if (kitab.excerpt) {
-    headerLines.push(
-      `SELECTED CHAPTER: ${kitab.excerpt.chapterTitle}`,
-      '',
-      'TRANSLITERATED MATN (IBARAT):',
-      ...wrapAsciiLines(kitab.excerpt.transliteration, 74),
-      '',
-      'SCHOLARLY COMMENTARY & SHARH:',
-      ...wrapAsciiLines(kitab.excerpt.englishCommentary, 74),
+    // Outer academic border
+    doc.setDrawColor(16, 85, 62)
+    doc.setLineWidth(1.5)
+    doc.rect(24, 24, pageWidth - 48, pageHeight - 48)
+
+    // Top Header Banner
+    doc.setFillColor(12, 59, 46)
+    doc.rect(24, 24, pageWidth - 48, 76, 'F')
+
+    doc.setTextColor(182, 240, 116)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.text('ICS ACADEMY MANHAPPATTA • DAWA COLLEGE DIGITAL LIBRARY', margin, 50)
+
+    doc.setTextColor(255, 255, 255)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    const safeTitle = kitab.title.replace(/[^\x20-\x7E]/g, ' ').trim() || 'Academic Kitab Edition'
+    const titleLines = doc.splitTextToSize(safeTitle, contentWidth) as string[]
+    doc.text(titleLines.slice(0, 2), margin, 72)
+
+    let y = 124
+
+    // Metadata Box
+    doc.setFillColor(244, 248, 246)
+    doc.setDrawColor(205, 220, 212)
+    doc.setLineWidth(0.8)
+    doc.roundedRect(margin, y, contentWidth, 74, 6, 6, 'FD')
+
+    doc.setTextColor(20, 40, 32)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    const safeAuthor = kitab.author.replace(/[^\x20-\x7E]/g, ' ').trim() || 'ICS Academy Scholar'
+    doc.text(`Author / Scholar: ${safeAuthor}`, margin + 14, y + 22)
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9.5)
+    doc.setTextColor(60, 80, 72)
+    doc.text(
+      `Category: ${categoryLabel || kitab.category.toUpperCase()}   |   Batch: ${kitab.classBatch.replace(/[^\x20-\x7E]/g, '-')}   |   Pages: ${kitab.pages}`,
+      margin + 14,
+      y + 42,
     )
-  }
+    doc.text(
+      `Language: ${kitab.language.replace(/[^\x20-\x7E]/g, ' ')}   |   Storage Path: ${kitab.storagePath}`,
+      margin + 14,
+      y + 60,
+    )
 
-  const textOps: string[] = ['BT', '/F1 11 Tf', '50 760 Td', '15 TL']
-  headerLines.slice(0, 42).forEach((line, idx) => {
-    const safeLine = escapePdfString(line)
-    if (idx === 0) {
-      textOps.push(`(${safeLine}) Tj`)
-    } else {
-      textOps.push(`T* (${safeLine}) Tj`)
+    y += 98
+
+    // Syllabus Overview Section
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(12, 59, 46)
+    doc.text('SYLLABUS OVERVIEW & KITAB SUMMARY', margin, y)
+    y += 8
+    doc.setDrawColor(16, 85, 62)
+    doc.setLineWidth(0.75)
+    doc.line(margin, y, pageWidth - margin, y)
+    y += 18
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10.5)
+    doc.setTextColor(30, 41, 59)
+    const safeSummary =
+      kitab.summary.replace(/[^\x20-\x7E]/g, ' ').trim() ||
+      'Reference syllabus volume indexed in the ICS Academy Manhappatta Digital Library.'
+    const summaryLines = doc.splitTextToSize(safeSummary, contentWidth) as string[]
+    doc.text(summaryLines, margin, y)
+    y += summaryLines.length * 15 + 20
+
+    if (kitab.excerpt) {
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.setTextColor(12, 59, 46)
+      const safeChapter = kitab.excerpt.chapterTitle.replace(/[^\x20-\x7E]/g, '-').trim()
+      const chapterLines = doc.splitTextToSize(`SELECTED CHAPTER: ${safeChapter}`, contentWidth) as string[]
+      doc.text(chapterLines, margin, y)
+      y += chapterLines.length * 15 + 8
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(10)
+      doc.setTextColor(71, 85, 105)
+      doc.text('TRANSLITERATED MATN (IBARAT READING):', margin, y)
+      y += 15
+
+      doc.setFont('helvetica', 'italic')
+      doc.setFontSize(10)
+      doc.setTextColor(15, 23, 42)
+      const matnLines = doc.splitTextToSize(
+        kitab.excerpt.transliteration.replace(/[^\x20-\x7E]/g, "'"),
+        contentWidth,
+      ) as string[]
+      doc.text(matnLines, margin, y)
+      y += matnLines.length * 14 + 18
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(10)
+      doc.setTextColor(71, 85, 105)
+      doc.text('SCHOLARLY COMMENTARY & SHARH:', margin, y)
+      y += 15
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      doc.setTextColor(30, 41, 59)
+      const commLines = doc.splitTextToSize(
+        kitab.excerpt.englishCommentary.replace(/[^\x20-\x7E]/g, "'"),
+        contentWidth,
+      ) as string[]
+      doc.text(commLines, margin, y)
     }
-  })
-  textOps.push('ET')
 
-  const streamBody = textOps.join('\n')
-  const objects: string[] = [
-    '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
-    '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
-    '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n',
-    `4 0 obj\n<< /Length ${streamBody.length} >>\nstream\n${streamBody}\nendstream\nendobj\n`,
-    '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n',
-  ]
+    // Footer
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8.5)
+    doc.setTextColor(100, 116, 139)
+    doc.text(
+      'ICS Academy Manhappatta • Digital Library Repository • Verified Academic Edition',
+      margin,
+      pageHeight - 38,
+    )
+    doc.text('Page 1 of 1', pageWidth - margin - 48, pageHeight - 38)
 
-  let pdf = '%PDF-1.4\n'
-  const offsets: number[] = [0]
-  for (const obj of objects) {
-    offsets.push(pdf.length)
-    pdf += obj
+    return doc.output('blob')
+  } catch {
+    const fallbackPdf = `%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj
+4 0 obj << /Length 68 >> stream
+BT /F1 12 Tf 50 720 Td (ICS Academy Digital Library - Kitab PDF) Tj ET
+endstream endobj
+5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+trailer << /Root 1 0 R >>
+%%EOF`
+    return new Blob([fallbackPdf], { type: 'application/pdf' })
   }
-  const xrefStart = pdf.length
-  pdf += `xref\n0 ${objects.length + 1}\n`
-  pdf += '0000000000 65535 f \n'
-  for (let i = 1; i <= objects.length; i++) {
-    pdf += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`
-  }
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`
-
-  return new Blob([pdf], { type: 'application/pdf' })
 }
 
 export function DigitalLibrary({ student }: { student: Student }) {
@@ -471,6 +685,8 @@ export function DigitalLibrary({ student }: { student: Student }) {
   const [activeReaderKitab, setActiveReaderKitab] = useState<DigitalKitabItem | null>(null)
   const [readerTab, setReaderTab] = useState<'study' | 'pdf'>('study')
   const [activePdfObjectUrl, setActivePdfObjectUrl] = useState<string | null>(null)
+  const [activePdfBlob, setActivePdfBlob] = useState<Blob | null>(null)
+  const [isReaderFullScreen, setIsReaderFullScreen] = useState(false)
   const [storageSourceStatus, setStorageSourceStatus] = useState<'firebase-storage' | 'generated-pdf'>('generated-pdf')
 
   // Upload Drawer State
@@ -496,21 +712,36 @@ export function DigitalLibrary({ student }: { student: Student }) {
     [firebaseUser, safeStudentId],
   )
 
-  // Load saved bookmarks and custom uploads from localStorage
+  // Load saved bookmarks and custom uploads from localStorage & warm up IndexedDB PDF blobs
   useEffect(() => {
-    try {
-      const savedBookmarks = window.localStorage.getItem(BOOKMARKS_STORAGE_KEY)
-      if (savedBookmarks) {
-        const parsed = JSON.parse(savedBookmarks) as string[]
-        if (Array.isArray(parsed)) setBookmarkedIds(parsed)
+    function syncFromStorage() {
+      try {
+        const savedBookmarks = window.localStorage.getItem(BOOKMARKS_STORAGE_KEY)
+        if (savedBookmarks) {
+          const parsed = JSON.parse(savedBookmarks) as string[]
+          if (Array.isArray(parsed)) setBookmarkedIds(parsed)
+        }
+        const savedUploads = window.localStorage.getItem(LOCAL_UPLOADS_STORAGE_KEY)
+        if (savedUploads) {
+          const parsedUploads = JSON.parse(savedUploads) as DigitalKitabItem[]
+          if (Array.isArray(parsedUploads)) {
+            setLocalUploads(parsedUploads)
+            for (const item of parsedUploads) {
+              void loadKitabPdfBlobLocally(item.id)
+            }
+          }
+        }
+      } catch {
+        // Ignore storage errors
       }
-      const savedUploads = window.localStorage.getItem(LOCAL_UPLOADS_STORAGE_KEY)
-      if (savedUploads) {
-        const parsedUploads = JSON.parse(savedUploads) as DigitalKitabItem[]
-        if (Array.isArray(parsedUploads)) setLocalUploads(parsedUploads)
-      }
-    } catch {
-      // Ignore storage errors
+    }
+
+    syncFromStorage()
+    window.addEventListener('ics-digital-library-updated', syncFromStorage)
+    window.addEventListener('storage', syncFromStorage)
+    return () => {
+      window.removeEventListener('ics-digital-library-updated', syncFromStorage)
+      window.removeEventListener('storage', syncFromStorage)
     }
   }, [])
 
@@ -523,12 +754,13 @@ export function DigitalLibrary({ student }: { student: Student }) {
     return () => unsubscribe()
   }, [])
 
-  // Discover existing PDFs in Firebase Storage under kitabs/
+  // Discover existing PDFs in Firebase Storage under kitabs/ when signed in with Firebase Auth
   useEffect(() => {
+    if (!authReady || !firebaseUser) return
     let cancelled = false
     async function inspectStorageRoot() {
       try {
-        const rootList = await listAll(storageRef(storage, 'kitabs'))
+        const rootList = await withCloudTimeout(listAll(storageRef(storage, 'kitabs')), 3000)
         if (cancelled) return
         const foundPaths = rootList.items.map((item) => item.fullPath)
         setStorageBucketFiles(foundPaths)
@@ -540,11 +772,11 @@ export function DigitalLibrary({ student }: { student: Student }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [authReady, firebaseUser])
 
-  // Subscribe to Firestore /digitalKitabs for this student
+  // Subscribe to Firestore /digitalKitabs for this student when authenticated with Firebase
   useEffect(() => {
-    if (!authReady) return
+    if (!authReady || !firebaseUser) return
 
     const path = 'digitalKitabs'
     const q = query(
@@ -593,16 +825,19 @@ export function DigitalLibrary({ student }: { student: Student }) {
         setCloudKitabs(docs)
       },
       (error) => {
-        try {
-          handleFirestoreError(error, OperationType.LIST, path)
-        } catch {
-          // Handled and logged via handleFirestoreError
+        const msg = error instanceof Error ? error.message : String(error)
+        if (msg.includes('permission') || msg.includes('insufficient')) {
+          try {
+            handleFirestoreError(error, OperationType.LIST, path)
+          } catch {
+            // Handled and logged via handleFirestoreError
+          }
         }
       },
     )
 
     return () => unsubscribe()
-  }, [authReady, activeUid, safeStudentId, student.className])
+  }, [authReady, firebaseUser, activeUid, safeStudentId, student.className])
 
   // Cleanup Blob URLs on unmount or change
   useEffect(() => {
@@ -613,28 +848,16 @@ export function DigitalLibrary({ student }: { student: Student }) {
     }
   }, [activePdfObjectUrl])
 
-  // Merge Curated Kitabs + Cloud Kitabs + Local Uploads without duplicates, scoped to the logged-in student's class
+  // Merge Curated Kitabs + Cloud Kitabs + Local Uploads without duplicates
   const allKitabs = useMemo(() => {
     const map = new Map<string, DigitalKitabItem>()
-    for (const item of CURATED_KITABS) {
-      map.set(item.id, {
-        ...item,
-        classBatch: studentClassLabel,
-        pdfUrl: syncedStoragePaths[item.storagePath] || item.pdfUrl,
-      })
-    }
     for (const item of localUploads) {
-      if (
-        item.studentId &&
-        item.studentId !== safeStudentId &&
-        item.classBatch !== student.className &&
-        item.classBatch !== studentClassLabel
-      ) {
-        continue
-      }
+      const validCat: KitabCategory =
+        item.category in CATEGORY_LABELS ? item.category : 'fiqh'
       map.set(item.id, {
         ...item,
-        classBatch: studentClassLabel,
+        category: validCat,
+        classBatch: item.classBatch || studentClassLabel,
       })
     }
     for (const item of cloudKitabs) {
@@ -642,12 +865,19 @@ export function DigitalLibrary({ student }: { student: Student }) {
       map.set(item.id, {
         ...existing,
         ...item,
-        classBatch: studentClassLabel,
+        classBatch: item.classBatch || studentClassLabel,
         excerpt: existing?.excerpt ?? item.excerpt,
       })
     }
+    for (const item of CURATED_KITABS) {
+      map.set(item.id, {
+        ...item,
+        classBatch: studentClassLabel,
+        pdfUrl: syncedStoragePaths[item.storagePath] || item.pdfUrl,
+      })
+    }
     return Array.from(map.values())
-  }, [cloudKitabs, localUploads, safeStudentId, student.className, studentClassLabel, syncedStoragePaths])
+  }, [cloudKitabs, localUploads, studentClassLabel, syncedStoragePaths])
 
   // Category counts for tabs
   const categoryCounts = useMemo(() => {
@@ -676,7 +906,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
         kitab.title,
         kitab.arabicTitle,
         kitab.author,
-        CATEGORY_LABELS[kitab.category],
+        CATEGORY_LABELS[kitab.category] ?? '',
         kitab.classBatch,
         kitab.language,
         kitab.storagePath,
@@ -719,27 +949,50 @@ export function DigitalLibrary({ student }: { student: Student }) {
   }
 
   /**
-   * Synchronously creates a valid PDF Blob URL so downloads and previews
-   * happen immediately without hanging on network timeouts or losing browser user-gesture activation.
+   * Synchronously resolves a valid PDF Blob and URL (preferring the actual uploaded PDF file in memory/IndexedDB)
+   * so downloads and canvas previews happen immediately without hanging on network timeouts.
    */
-  function resolveKitabPdfUrlSync(kitab: DigitalKitabItem): {
+  function resolveKitabPdfSync(kitab: DigitalKitabItem): {
+    blob: Blob
     url: string
     source: 'firebase-storage' | 'generated-pdf'
   } {
+    const cachedUploadedBlob = memoryPdfBlobCache.get(kitab.id)
+    if (cachedUploadedBlob) {
+      return {
+        blob: cachedUploadedBlob,
+        url: URL.createObjectURL(cachedUploadedBlob),
+        source: 'firebase-storage',
+      }
+    }
     const blob = buildKitabPdfBlob(kitab)
     const blobUrl = URL.createObjectURL(blob)
-    return { url: blobUrl, source: 'generated-pdf' }
+    return { blob, url: blobUrl, source: 'generated-pdf' }
   }
 
   function handleOpenReader(kitab: DigitalKitabItem, initialTab: 'study' | 'pdf' = 'study') {
-    const resolved = resolveKitabPdfUrlSync(kitab)
+    const resolved = resolveKitabPdfSync(kitab)
     if (activePdfObjectUrl && activePdfObjectUrl.startsWith('blob:')) {
       URL.revokeObjectURL(activePdfObjectUrl)
     }
+    setActivePdfBlob(resolved.blob)
     setActivePdfObjectUrl(resolved.url)
     setStorageSourceStatus(resolved.source)
     setReaderTab(kitab.excerpt ? initialTab : 'pdf')
+    setIsReaderFullScreen(false)
     setActiveReaderKitab(kitab)
+
+    // If custom uploaded PDF is stored in IndexedDB and wasn't in memory cache yet, load it immediately
+    if (kitab.isCustomUpload && !memoryPdfBlobCache.has(kitab.id)) {
+      void loadKitabPdfBlobLocally(kitab.id).then((idbBlob) => {
+        if (idbBlob) {
+          const nextUrl = URL.createObjectURL(idbBlob)
+          setActivePdfBlob(idbBlob)
+          setActivePdfObjectUrl(nextUrl)
+          setStorageSourceStatus('firebase-storage')
+        }
+      })
+    }
   }
 
   function handleDownloadKitabPdf(kitab: DigitalKitabItem) {
@@ -747,7 +1000,8 @@ export function DigitalLibrary({ student }: { student: Student }) {
       kitab.storagePath.split('/').pop() ||
       `${kitab.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`
 
-    const blob = buildKitabPdfBlob(kitab)
+    const cachedUploadedBlob = memoryPdfBlobCache.get(kitab.id)
+    const blob = cachedUploadedBlob ?? buildKitabPdfBlob(kitab)
     const blobUrl = URL.createObjectURL(blob)
 
     const link = document.createElement('a')
@@ -764,7 +1018,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
 
   /**
    * Uploads/Syncs a Kitab PDF directly to Firebase Storage (`ref(storage, kitab.storagePath)`)
-   * and indexes its metadata in Firestore `/digitalKitabs/{kitabId}`.
+   * and indexes its metadata in Firestore `/digitalKitabs/{kitabId}` with fast timeout protection.
    */
   async function handleSyncKitabToStorage(kitab: DigitalKitabItem) {
     setSyncingStorageId(kitab.id)
@@ -772,18 +1026,32 @@ export function DigitalLibrary({ student }: { student: Student }) {
     const firestorePath = `digitalKitabs/${docId}`
     let resolvedDownloadUrl = kitab.pdfUrl
 
+    if (!firebaseUser) {
+      const pdfBlob = memoryPdfBlobCache.get(kitab.id) ?? buildKitabPdfBlob(kitab)
+      void saveKitabPdfBlobLocally(kitab.id, pdfBlob)
+      setSyncedStoragePaths((prev) => ({
+        ...prev,
+        [kitab.storagePath]: `local://${kitab.storagePath}`,
+      }))
+      setSyncingStorageId(null)
+      return
+    }
+
     try {
-      const pdfBlob = buildKitabPdfBlob(kitab)
+      const pdfBlob = memoryPdfBlobCache.get(kitab.id) ?? buildKitabPdfBlob(kitab)
       const fileRef = storageRef(storage, kitab.storagePath)
-      await uploadBytes(fileRef, pdfBlob, {
-        contentType: 'application/pdf',
-        customMetadata: {
-          title: kitab.title,
-          author: kitab.author,
-          category: kitab.category,
-        },
-      })
-      resolvedDownloadUrl = await getDownloadURL(fileRef)
+      await withCloudTimeout(
+        uploadBytes(fileRef, pdfBlob, {
+          contentType: 'application/pdf',
+          customMetadata: {
+            title: kitab.title,
+            author: kitab.author,
+            category: kitab.category,
+          },
+        }),
+        3000,
+      )
+      resolvedDownloadUrl = await withCloudTimeout(getDownloadURL(fileRef), 2500)
       setSyncedStoragePaths((prev) => ({
         ...prev,
         [kitab.storagePath]: resolvedDownloadUrl,
@@ -793,30 +1061,36 @@ export function DigitalLibrary({ student }: { student: Student }) {
         setStorageSourceStatus('firebase-storage')
       }
     } catch {
-      // If Firebase Storage bucket has strict write rules, still sync the metadata record to Firestore
+      // If Firebase Storage bucket has strict write rules or times out, still sync metadata record
     }
 
     try {
-      await setDoc(doc(db, 'digitalKitabs', docId), {
-        uid: activeUid,
-        studentId: safeStudentId,
-        title: kitab.title.slice(0, 160),
-        arabicTitle: kitab.arabicTitle.slice(0, 160),
-        author: kitab.author.slice(0, 120),
-        category: kitab.category,
-        classBatch: kitab.classBatch.slice(0, 40),
-        language: kitab.language.slice(0, 40),
-        pages: Math.max(1, Math.min(5000, Math.round(kitab.pages))),
-        storagePath: kitab.storagePath.slice(0, 240),
-        pdfUrl: resolvedDownloadUrl.slice(0, 1500),
-        summary: kitab.summary.slice(0, 1200),
-        createdAt: serverTimestamp(),
-      })
+      await withCloudTimeout(
+        setDoc(doc(db, 'digitalKitabs', docId), {
+          uid: activeUid,
+          studentId: safeStudentId,
+          title: kitab.title.slice(0, 160),
+          arabicTitle: kitab.arabicTitle.slice(0, 160),
+          author: kitab.author.slice(0, 120),
+          category: kitab.category,
+          classBatch: kitab.classBatch.slice(0, 40),
+          language: kitab.language.slice(0, 40),
+          pages: Math.max(1, Math.min(5000, Math.round(kitab.pages))),
+          storagePath: kitab.storagePath.slice(0, 240),
+          pdfUrl: resolvedDownloadUrl.slice(0, 1500),
+          summary: kitab.summary.slice(0, 1200),
+          createdAt: serverTimestamp(),
+        }),
+        3000,
+      )
     } catch (error) {
-      try {
-        handleFirestoreError(error, OperationType.CREATE, firestorePath)
-      } catch {
-        // Logged by handleFirestoreError
+      const msg = error instanceof Error ? error.message : String(error)
+      if (msg.includes('permission') || msg.includes('insufficient')) {
+        try {
+          handleFirestoreError(error, OperationType.CREATE, firestorePath)
+        } catch {
+          // Logged by handleFirestoreError
+        }
       }
     } finally {
       setSyncingStorageId(null)
@@ -833,19 +1107,19 @@ export function DigitalLibrary({ student }: { student: Student }) {
     setUploading(true)
     setUploadStatusMsg(null)
 
-    const slug = cleanTitle
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .slice(0, 48) || `kitab-${Date.now()}`
+    const slug =
+      cleanTitle
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 48) || `kitab-${Date.now()}`
 
     const objectPath = `kitabs/${uploadCategory}/${slug}.pdf`
     const kitabId = sanitizeId(`kitab_${safeStudentId}_${Date.now()}`)
     const parsedPages = Math.max(1, Math.min(5000, Number.parseInt(uploadPages, 10) || 120))
+    const attachedFile = selectedFile
 
-    let downloadUrl = ''
-
-    const draftItem: DigitalKitabItem = {
+    const finalItem: DigitalKitabItem = {
       id: kitabId,
       uid: activeUid,
       studentId: safeStudentId,
@@ -854,34 +1128,21 @@ export function DigitalLibrary({ student }: { student: Student }) {
       author: cleanAuthor,
       category: uploadCategory,
       classBatch: studentClassLabel,
-      language: uploadLanguage.trim() || 'Arabic',
+      language: uploadLanguage.trim() || 'Arabic & Malayalam',
       pages: parsedPages,
       storagePath: objectPath,
       pdfUrl: '',
       summary: cleanSummary,
       createdAtMs: Date.now(),
       isCustomUpload: true,
-      syncedToCloud: false,
+      syncedToCloud: Boolean(firebaseUser),
     }
 
-    try {
-      const fileToUpload = selectedFile ?? buildKitabPdfBlob(draftItem)
-      const targetRef = storageRef(storage, objectPath)
-      await uploadBytes(targetRef, fileToUpload, {
-        contentType: 'application/pdf',
-      })
-      downloadUrl = await getDownloadURL(targetRef)
-      setSyncedStoragePaths((prev) => ({ ...prev, [objectPath]: downloadUrl }))
-    } catch {
-      // Storage bucket may require admin storage rules; keep local/Firestore record ready
-    }
+    // 1. Save uploaded PDF file binary immediately in memory + IndexedDB
+    const pdfBlobToStore = attachedFile ?? buildKitabPdfBlob(finalItem)
+    void saveKitabPdfBlobLocally(kitabId, pdfBlobToStore)
 
-    const finalItem: DigitalKitabItem = {
-      ...draftItem,
-      pdfUrl: downloadUrl,
-      syncedToCloud: true,
-    }
-
+    // 2. Immediately persist metadata in localStorage & Saved Bookmarks so UI updates in <50ms
     setLocalUploads((prev) => {
       const next = [finalItem, ...prev]
       try {
@@ -891,43 +1152,76 @@ export function DigitalLibrary({ student }: { student: Student }) {
       }
       return next
     })
+    saveKitabToSaved(kitabId)
+    setBookmarkedOnly(true)
+    notifyDigitalLibraryUpdated()
 
-    const firestorePath = `digitalKitabs/${kitabId}`
-    try {
-      await setDoc(doc(db, 'digitalKitabs', kitabId), {
-        uid: activeUid,
-        studentId: safeStudentId,
-        title: finalItem.title.slice(0, 160),
-        arabicTitle: finalItem.arabicTitle.slice(0, 160),
-        author: finalItem.author.slice(0, 120),
-        category: finalItem.category,
-        classBatch: finalItem.classBatch.slice(0, 40),
-        language: finalItem.language.slice(0, 40),
-        pages: finalItem.pages,
-        storagePath: finalItem.storagePath.slice(0, 240),
-        pdfUrl: finalItem.pdfUrl.slice(0, 1500),
-        summary: finalItem.summary.slice(0, 1200),
-        createdAt: serverTimestamp(),
-      })
-      setUploadStatusMsg(`Indexed "${finalItem.title}" at ${objectPath}`)
-    } catch (error) {
+    // 3. Complete UI state immediately without waiting on network timeouts
+    setUploading(false)
+    setUploadStatusMsg(
+      `✅ "${finalItem.title}" ഡിജിറ്റൽ ലൈബ്രറിയിലേക്ക് ഉടൻ ചേർത്തു! (Saved ലിസ്റ്റിൽ ലഭ്യമാണ്)`,
+    )
+    setUploadTitle('')
+    setUploadArabicTitle('')
+    setUploadAuthor('')
+    setUploadSummary('')
+    setSelectedFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+
+    // 4. Sync with Firebase Storage & Firestore in background when authenticated with Firebase
+    if (!firebaseUser) return
+
+    void (async () => {
+      let downloadUrl = ''
       try {
-        handleFirestoreError(error, OperationType.CREATE, firestorePath)
+        const targetRef = storageRef(storage, objectPath)
+        await withCloudTimeout(
+          uploadBytes(targetRef, pdfBlobToStore, {
+            contentType: 'application/pdf',
+          }),
+          3500,
+        )
+        downloadUrl = await withCloudTimeout(getDownloadURL(targetRef), 2500)
+        setSyncedStoragePaths((prev) => ({ ...prev, [objectPath]: downloadUrl }))
       } catch {
-        setUploadStatusMsg(`Saved "${finalItem.title}" to library catalogue`)
+        // Local & IndexedDB PDF copy is already ready
       }
-    } finally {
-      setUploading(false)
-      setUploadTitle('')
-      setUploadArabicTitle('')
-      setUploadAuthor('')
-      setUploadSummary('')
-      setSelectedFile(null)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
+
+      const firestorePath = `digitalKitabs/${kitabId}`
+      try {
+        await withCloudTimeout(
+          setDoc(doc(db, 'digitalKitabs', kitabId), {
+            uid: activeUid,
+            studentId: safeStudentId,
+            title: finalItem.title.slice(0, 160),
+            arabicTitle: finalItem.arabicTitle.slice(0, 160),
+            author: finalItem.author.slice(0, 120),
+            category: finalItem.category,
+            classBatch: finalItem.classBatch.slice(0, 40),
+            language: finalItem.language.slice(0, 40),
+            pages: finalItem.pages,
+            storagePath: finalItem.storagePath.slice(0, 240),
+            pdfUrl: downloadUrl.slice(0, 1500),
+            summary: finalItem.summary.slice(0, 1200),
+            createdAt: serverTimestamp(),
+          }),
+          3500,
+        )
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error)
+        if (msg.includes('permission') || msg.includes('insufficient')) {
+          try {
+            handleFirestoreError(error, OperationType.CREATE, firestorePath)
+          } catch {
+            // Handled
+          }
+        }
+      }
+    })()
   }
 
   async function handleDeleteCustomKitab(kitab: DigitalKitabItem) {
+    void deleteKitabPdfBlobLocally(kitab.id)
     setLocalUploads((prev) => {
       const next = prev.filter((item) => item.id !== kitab.id)
       try {
@@ -937,18 +1231,31 @@ export function DigitalLibrary({ student }: { student: Student }) {
       }
       return next
     })
-
-    if (kitab.syncedToCloud) {
-      const path = `digitalKitabs/${kitab.id}`
+    setBookmarkedIds((prev) => {
+      if (!prev.includes(kitab.id)) return prev
+      const next = prev.filter((id) => id !== kitab.id)
       try {
-        await deleteDoc(doc(db, 'digitalKitabs', kitab.id))
-      } catch (error) {
-        try {
-          handleFirestoreError(error, OperationType.DELETE, path)
-        } catch {
-          // Logged by handleFirestoreError
-        }
+        window.localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(next))
+      } catch {
+        // Ignore
       }
+      return next
+    })
+    setCloudKitabs((prev) => prev.filter((item) => item.id !== kitab.id))
+    notifyDigitalLibraryUpdated()
+
+    if (firebaseUser && kitab.syncedToCloud) {
+      const path = `digitalKitabs/${kitab.id}`
+      void withCloudTimeout(deleteDoc(doc(db, 'digitalKitabs', kitab.id)), 3000).catch((error) => {
+        const msg = error instanceof Error ? error.message : String(error)
+        if (msg.includes('permission') || msg.includes('insufficient')) {
+          try {
+            handleFirestoreError(error, OperationType.DELETE, path)
+          } catch {
+            // Logged by handleFirestoreError
+          }
+        }
+      })
     }
   }
 
@@ -1136,7 +1443,15 @@ export function DigitalLibrary({ student }: { student: Student }) {
                   id="kitab-upload-file"
                   type="file"
                   accept="application/pdf,.pdf"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null
+                    setSelectedFile(file)
+                    if (file) {
+                      void getPdfBlobPageCount(file).then((count) => {
+                        if (count) setUploadPages(String(count))
+                      })
+                    }
+                  }}
                   className="flex h-11 w-full items-center rounded-lg border border-input bg-input/30 px-3 py-2 text-xs text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-foreground"
                 />
               </div>
@@ -1230,8 +1545,8 @@ export function DigitalLibrary({ student }: { student: Student }) {
           </div>
         </div>
 
-        {/* Categorized View Bar — shown while searching or viewing Saved */}
-        {normalisedQuery || bookmarkedOnly ? (
+        {/* Categorized View Bar — shown while searching, viewing Saved, or when custom Kitabs are uploaded */}
+        {normalisedQuery || bookmarkedOnly || localUploads.length > 0 ? (
           <div
             role="tablist"
             aria-label="Kitab subject categories"
@@ -1279,8 +1594,8 @@ export function DigitalLibrary({ student }: { student: Student }) {
         ) : null}
       </div>
 
-      {!normalisedQuery && !bookmarkedOnly ? (
-        /* Search-First Prompt — no Kitab names shown until student searches or opens Saved */
+      {!normalisedQuery && !bookmarkedOnly && localUploads.length === 0 ? (
+        /* Search-First Prompt — no Kitab names shown until student searches, opens Saved, or uploads a Kitab */
         <div
           id={searchResultsId}
           className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-background/40 px-4 py-8 text-center"
@@ -1517,9 +1832,19 @@ export function DigitalLibrary({ student }: { student: Student }) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="kitab-reader-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-xs sm:p-4"
+          className={cn(
+            'fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs',
+            isReaderFullScreen ? 'p-0' : 'p-2.5 sm:p-4',
+          )}
         >
-          <div className="flex max-h-[90svh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+          <div
+            className={cn(
+              'flex w-full flex-col overflow-hidden border border-border bg-card shadow-2xl transition-all',
+              isReaderFullScreen
+                ? 'h-svh max-h-svh max-w-none rounded-none border-0'
+                : 'max-h-[92svh] max-w-4xl rounded-2xl',
+            )}
+          >
             {/* Modal Header */}
             <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3.5 sm:px-5 sm:py-4 md:px-6">
               <div className="min-w-0 flex-1">
@@ -1549,7 +1874,10 @@ export function DigitalLibrary({ student }: { student: Student }) {
 
               <button
                 type="button"
-                onClick={() => setActiveReaderKitab(null)}
+                onClick={() => {
+                  setIsReaderFullScreen(false)
+                  setActiveReaderKitab(null)
+                }}
                 className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <X className="size-4" aria-hidden="true" />
@@ -1592,17 +1920,26 @@ export function DigitalLibrary({ student }: { student: Student }) {
               </div>
 
               <div className="flex w-full items-center gap-2 sm:w-auto">
-                {activePdfObjectUrl ? (
-                  <a
-                    href={activePdfObjectUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:border-lime/40 hover:bg-muted whitespace-nowrap sm:flex-initial"
-                  >
-                    <ExternalLink className="size-3.5 shrink-0 text-lime" aria-hidden="true" />
-                    Open in New Tab
-                  </a>
-                ) : null}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReaderTab('pdf')
+                    setIsReaderFullScreen((prev) => !prev)
+                  }}
+                  className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:border-lime/40 hover:bg-muted whitespace-nowrap sm:flex-initial"
+                >
+                  {isReaderFullScreen ? (
+                    <>
+                      <Minimize2 className="size-3.5 shrink-0 text-lime" aria-hidden="true" />
+                      <span>Exit Full Screen</span>
+                    </>
+                  ) : (
+                    <>
+                      <Maximize2 className="size-3.5 shrink-0 text-lime" aria-hidden="true" />
+                      <span>Full Screen View</span>
+                    </>
+                  )}
+                </button>
                 <button
                   type="button"
                   onClick={() => void handleDownloadKitabPdf(activeReaderKitab)}
@@ -1615,7 +1952,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
             </div>
 
             {/* Modal Content Area */}
-            <div className="flex-1 overflow-y-auto p-5 md:p-6">
+            <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 md:p-6">
               {readerTab === 'study' && activeReaderKitab.excerpt ? (
                 <div className="flex flex-col gap-5">
                   <div className="rounded-xl border border-border bg-background/60 p-4">
@@ -1663,19 +2000,20 @@ export function DigitalLibrary({ student }: { student: Student }) {
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col gap-3">
-                  {activePdfObjectUrl ? (
-                    <iframe
-                      title={`${activeReaderKitab.title} PDF Preview`}
-                      src={activePdfObjectUrl}
-                      className="h-[58svh] w-full rounded-xl border border-border bg-white"
-                    />
-                  ) : (
-                    <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-background/50">
-                      <Loader2 className="size-6 animate-spin text-lime" aria-hidden="true" />
-                    </div>
-                  )}
-                </div>
+                <KitabPdfCanvasViewer
+                  blob={activePdfBlob}
+                  title={activeReaderKitab.title}
+                  arabicTitle={activeReaderKitab.arabicTitle}
+                  author={activeReaderKitab.author}
+                  categoryLabel={CATEGORY_LABELS[activeReaderKitab.category]}
+                  classBatch={activeReaderKitab.classBatch}
+                  storagePath={activeReaderKitab.storagePath}
+                  summary={activeReaderKitab.summary}
+                  excerpt={activeReaderKitab.excerpt}
+                  isFullScreen={isReaderFullScreen}
+                  onToggleFullScreen={() => setIsReaderFullScreen((prev) => !prev)}
+                  onDownloadPdf={() => handleDownloadKitabPdf(activeReaderKitab)}
+                />
               )}
             </div>
           </div>
