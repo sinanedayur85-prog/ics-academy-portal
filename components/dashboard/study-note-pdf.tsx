@@ -2,6 +2,7 @@ import * as React from 'react'
 import { jsPDF } from 'jspdf'
 import { toCanvas } from 'html-to-image'
 import type { Student } from '@/components/dashboard/data'
+import { downloadBlobOnDevice, printPdfBlobOnDevice } from '@/lib/mobile-pdf'
 
 export interface StudyNoteExportData {
   msgId: string
@@ -978,9 +979,11 @@ function findCleanSlicePoint(
 export async function exportStudyNoteDirectPdf({
   element,
   fileName,
+  action = 'download',
 }: {
   element: HTMLElement
   fileName: string
+  action?: 'download' | 'print'
 }): Promise<void> {
   // 1. Ensure web fonts are completely loaded
   if (typeof document !== 'undefined' && document.fonts && typeof document.fonts.ready !== 'undefined') {
@@ -1186,5 +1189,10 @@ export async function exportStudyNoteDirectPdf({
       .replace(/^-|-$/g, '')
       .slice(0, 70) || 'ics-academy-study-note'
 
-  pdf.save(`${safeFilename}.pdf`)
+  const pdfBlob = pdf.output('blob')
+  if (action === 'print') {
+    await printPdfBlobOnDevice(pdfBlob, `${safeFilename}.pdf`)
+  } else {
+    await downloadBlobOnDevice(pdfBlob, `${safeFilename}.pdf`, 'application/pdf')
+  }
 }

@@ -12,11 +12,13 @@ import {
   Loader2,
   Maximize2,
   Minimize2,
+  Printer,
   RotateCcw,
   Share2,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react'
+import { downloadBlobOnDevice, printPdfBlobOnDevice } from '@/lib/mobile-pdf'
 import { cn } from '@/lib/utils'
 
 // Configure PDF.js worker using Vite asset URL so it works offline & inside sandboxed iframes
@@ -265,25 +267,25 @@ export function KitabPdfCanvasViewer({
   }, [blob])
 
   async function handleShareOrDownloadPdf() {
-    if (blob && typeof navigator !== 'undefined' && 'share' in navigator && 'canShare' in navigator) {
-      try {
-        const safeName =
-          storagePath.split('/').pop() ||
-          `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'kitab'}.pdf`
-        const pdfFile = new File([blob], safeName, { type: 'application/pdf' })
-        if (navigator.canShare({ files: [pdfFile] })) {
-          await navigator.share({
-            title,
-            text: `${title} — ${author}`,
-            files: [pdfFile],
-          })
-          return
-        }
-      } catch {
-        // User cancelled or share not supported, fallback to download
-      }
+    const safeName =
+      storagePath.split('/').pop() ||
+      `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'kitab'}.pdf`
+    if (blob) {
+      await downloadBlobOnDevice(blob, safeName, 'application/pdf')
+      return
     }
     onDownloadPdf?.()
+  }
+
+  async function handlePrintPdf() {
+    if (!blob) {
+      onDownloadPdf?.()
+      return
+    }
+    const safeName =
+      storagePath.split('/').pop() ||
+      `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'kitab'}.pdf`
+    await printPdfBlobOnDevice(blob, safeName)
   }
 
   const pagesToRenderInScroll = Math.min(numPages, maxRenderedScrollPages)
@@ -414,12 +416,22 @@ export function KitabPdfCanvasViewer({
 
           <button
             type="button"
+            onClick={() => void handlePrintPdf()}
+            title="Print Kitab PDF"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[11px] font-medium text-foreground transition-colors hover:border-lime/40 hover:bg-muted"
+          >
+            <Printer className="size-3.5 text-lime" aria-hidden="true" />
+            <span className="hidden sm:inline">Print</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => void handleShareOrDownloadPdf()}
-            title="Share or Open in External PDF App"
+            title="Download or Open in External PDF App"
             className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[11px] font-medium text-foreground transition-colors hover:border-lime/40 hover:bg-muted"
           >
             <Share2 className="size-3.5 text-lime" aria-hidden="true" />
-            <span className="hidden sm:inline">Share / Open</span>
+            <span className="hidden sm:inline">Save / Open</span>
           </button>
         </div>
       </div>
@@ -437,7 +449,7 @@ export function KitabPdfCanvasViewer({
             <Loader2 className="size-7 animate-spin text-lime" aria-hidden="true" />
             <div>
               <p className="text-sm font-semibold text-foreground">
-                PDF പേജുകൾ തയ്യാറാക്കുന്നു... (Loading PDF Preview)
+                Loading PDF Preview...
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">{title}</p>
             </div>
@@ -517,7 +529,7 @@ export function KitabPdfCanvasViewer({
                   </div>
                   <div>
                     <p className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-                      മലയാളം വിവരണം (Malayalam Meaning)
+                      Malayalam Meaning
                     </p>
                     <p className="font-malayalam mt-1 text-slate-800">{excerpt.malayalamMeaning}</p>
                   </div>

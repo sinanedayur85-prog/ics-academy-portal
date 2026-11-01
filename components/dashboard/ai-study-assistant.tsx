@@ -40,6 +40,7 @@ import {
   signInWithGoogle,
 } from '@/src/lib/firebase'
 import { cn } from '@/lib/utils'
+import { fetchAiStudyAssistantReply } from '@/lib/ai-chat-client'
 import { detectInputLanguage, isUrduText } from '@/components/dashboard/study-note-pdf'
 
 export type StudyMode = 'kitab' | 'qa' | 'translation' | 'dawa'
@@ -69,23 +70,23 @@ const MODES: {
   {
     id: 'kitab',
     label: 'Kitab & Ibarat',
-    malayalamLabel: 'കിതാബ് / ഇബാറത്ത് വിശകലനം',
+    malayalamLabel: 'Kitab & Ibarat Analysis',
     icon: BookOpen,
     placeholder:
-      'അറബിക് ഇബാറത്തോ കിതാബിലെ ഭാഗമോ ഇവിടെ പേസ്റ്റ് ചെയ്യുക (ഉദാ: ഫത്ഹുൽ മുഈൻ, മഹല്ലി, ജലാലൈനി, അൽഫിയ്യ)...',
+      'Paste an Arabic Ibarat or Kitab passage here (e.g., Fathul Mueen, Mahalli, Jalalayn, Alfiyyah)...',
     presets: [
       {
-        title: 'ഫത്ഹുൽ മുഈൻ — നിയ്യത്തിന്റെ വ്യവസ്ഥകൾ',
+        title: 'Fathul Mueen — Conditions of Niyyah',
         prompt:
           'Explain the following Ibarat from Fathul Mueen with full Harakat (Tashkeel), word-by-word meaning, Nahw/Sarf breakdown, and Shafi\'i Fiqh commentary: "وَشُرِطَ لِفَرْضِ الصَّوْمِ تَبْيِيتُ النِّيَّةِ وَتَعْيِينُهُ"',
       },
       {
-        title: 'അൽഫിയ്യ ഇബ്നു മാലിക് — കലാം നിർവചനം',
+        title: 'Alfiyyah Ibn Malik — Definition of Kalam',
         prompt:
           'Analyze the classic Alfiyyah couplet with I\'rab and grammatical explanation: "كَلَامُنَا لَفْظٌ مُفِيدٌ كَاسْتَقِمْ وَاسْمٌ وَفِعْلٌ ثُمَّ حَرْفٌ الْكَلِمْ"',
       },
       {
-        title: 'തഫ്സീറുൽ ജലാലൈനി — സൂറത്തുൽ അസ്ർ',
+        title: 'Tafsir al-Jalalayn — Surah Al-Asr',
         prompt:
           'Provide a scholarly Kitab explanation (Tafsir & I\'rab) of Surah Al-Asr ("وَالْعَصْرِ إِنَّ الْإِنسَانَ لَفِي خُسْرٍ") based on Tafsir al-Jalalayn.',
       },
@@ -94,65 +95,65 @@ const MODES: {
   {
     id: 'qa',
     label: 'Subject Q&A',
-    malayalamLabel: 'ഇസ്‌ലാമിക - ഭൗതിക വിഷയങ്ങൾ',
+    malayalamLabel: 'Islamic & Academic Subjects',
     icon: Sparkles,
     placeholder:
-      'ഫിഖ്ഹ്, ഹദീസ്, തഫ്സീർ, ചരിത്രം അല്ലെങ്കിൽ അക്കാദമിക് വിഷയങ്ങളിലെ സംശയങ്ങൾ ചോദിക്കാം...',
+      'Ask questions on Fiqh, Hadith, Tafsir, History, or academic subjects...',
     presets: [
       {
-        title: 'ശാഫിഈ മദ്ഹബിൽ ജംഅ് - ഖസ്ർ നിബന്ധനകൾ',
+        title: 'Shafi\'i Fiqh — Jam\' & Qasr Conditions',
         prompt:
-          'യാത്രക്കാരന് നമസ്കാരം ജംഉം ഖസ്റുമായി നിർവഹിക്കുന്നതിനുള്ള ശാഫിഈ മദ്ഹബിലെ പ്രധാന നിബന്ധനകൾ പരീക്ഷയ്ക്ക് പഠിക്കാൻ സഹായിക്കുന്ന പോയിന്റുകളായി വിശദീകരിക്കാമോ?',
+          'What are the key conditions for combining (Jam\') and shortening (Qasr) prayers for a traveler in the Shafi\'i school? Explain in clear exam-ready bullet points.',
       },
       {
-        title: 'ഉസൂലുൽ ഫിഖ്ഹ് — ഇജ്മാഉം ഖിയാസും',
+        title: 'Usul al-Fiqh — Ijma\' & Qiyas',
         prompt:
-          'ഉസൂലുൽ ഫിഖ്ഹിൽ ഇജ്മാഅ് (Ijma), ഖിയാസ് (Qiyas) എന്നിവയുടെ നിർവചനവും ഘടകങ്ങളും (Arkan) ഉദാഹരണസഹിതം വിശദീകരിക്കുക.',
+          'Explain the definition and pillars (Arkan) of Ijma\' and Qiyas in Usul al-Fiqh with classical examples.',
       },
       {
-        title: 'കേരളത്തിലെ ഇസ്‌ലാമിക വൈജ്ഞാനിക പാരമ്പര്യം',
+        title: 'Islamic Scholarly Heritage of Kerala',
         prompt:
-          'മഖ്ദൂമീ പണ്ഡിതന്മാരും പൊന്നാനി ദർസ് സംവിധാനവും കേരളത്തിലെ ഇസ്‌ലാമിക വൈജ്ഞാനിക മുന്നേറ്റത്തിൽ വഹിച്ച പങ്ക് വിശകലനം ചെയ്യുക.',
+          'Analyze the role of the Makhdoom scholars and the Ponnani Dars system in the advancement of Islamic scholarship in Kerala.',
       },
     ],
   },
   {
     id: 'translation',
     label: 'Translator',
-    malayalamLabel: 'അറബിക് - മലയാളം - ഇംഗ്ലീഷ്',
+    malayalamLabel: 'Arabic · Malayalam · English',
     icon: Globe2,
     placeholder:
-      'പരിഭാഷപ്പെടുത്തേണ്ട അറബിക്, മലയാളം അല്ലെങ്കിൽ ഇംഗ്ലീഷ് വാചകങ്ങൾ ഇവിടെ നൽകുക...',
+      'Enter Arabic, English, or Malayalam sentences to translate...',
     presets: [
       {
-        title: 'ഹദീസ് വാചകം ത്രിഭാഷാ വിവർത്തനം',
+        title: 'Hadith Trilingual Translation',
         prompt:
-          'Translate and explain key vocabulary (Mufradat) in Arabic, Malayalam, and English: "مَنْ سَلَكَ طَرِيقًا يَلْتَمِسُ فِيهِ عِلْمًا سَهَّلَ اللَّهُ لَهُ بِهِ طَرِيقًا إِلَى الْجَنَّةِ"',
+          'Translate and explain key vocabulary (Mufradat) in Arabic and English: "مَنْ سَلَكَ طَرِيقًا يَلْتَمِسُ فِيهِ عِلْمًا سَهَّلَ اللَّهُ لَهُ بِهِ طَرِيقًا إِلَى الْجَنَّةِ"',
       },
       {
-        title: 'മലയാളം → ക്ലാസിക്കൽ അറബിക് & ഇംഗ്ലീഷ്',
+        title: 'English → Classical Arabic (Fusha)',
         prompt:
-          'Translate into formal Arabic (Fusha with Harakat) and academic English with vocabulary notes: "അറിവ് നേടലും അത് സമൂഹത്തിന് പകർന്നുനൽകലും ഓരോ വിദ്യാർത്ഥിയുടെയും പവിത്രമായ കടമയാണ്."',
+          'Translate into formal Arabic (Fusha with Harakat) with grammatical and vocabulary notes: "Seeking knowledge and sharing it with society is the noble duty of every scholar."',
       },
     ],
   },
   {
     id: 'dawa',
     label: 'Da\'wa Speech',
-    malayalamLabel: 'പ്രസംഗം & ലേഖന രൂപരേഖ',
+    malayalamLabel: 'Speech & Essay Outlines',
     icon: Mic2,
     placeholder:
-      'പ്രസംഗത്തിനോ ലേഖനത്തിനോ വേണ്ട വിഷയം നൽകുക (ഖുർആൻ-ഹദീസ് ഉദ്ധരണികളോടെ രൂപരേഖ ലഭിക്കും)...',
+      'Enter a topic for a Da\'wa speech or article (includes Quran & Hadith references)...',
     presets: [
       {
-        title: 'ആധുനിക യുഗത്തിൽ ധാർമ്മിക മൂല്യങ്ങൾ',
+        title: 'Moral Values in the Digital Age',
         prompt:
-          'ഡിജിറ്റൽ യുഗത്തിൽ യുവതലമുറ കാത്തുസൂക്ഷിക്കേണ്ട ധാർമ്മിക മൂല്യങ്ങളെക്കുറിച്ച് 5 മിനിറ്റ് ദൈർഘ്യമുള്ള ഒരു പ്രസംഗ രൂപരേഖ (ഖുർആൻ ആയത്തുകളും ഹദീസും സഹിതം) തയ്യാറാക്കുക.',
+          'Prepare a 5-minute speech outline (with Quranic verses and Hadith) on the moral values youth should uphold in the digital era.',
       },
       {
-        title: 'വായനയും വൈജ്ഞാനിക അന്വേഷണവും',
+        title: 'Reading & Scholarly Inquiry',
         prompt:
-          '"വായനയാണ് മനുഷ്യനെ പൂർണ്ണനാക്കുന്നത്" എന്ന വിഷയത്തിൽ ദഅ്‌വ കോളേജ് സാഹിത്യ സമാജത്തിൽ അവതരിപ്പിക്കാനുള്ള പ്രബന്ധ രൂപരേഖ തയ്യാറാക്കുക.',
+          'Prepare an essay outline on "Reading Completes the Scholar" for the Da\'wa College Literary Association.',
       },
     ],
   },
@@ -175,11 +176,11 @@ const DEFAULT_SAMPLE_NOTES: SavedStudyNote[] = [
     uid: 'local',
     studentId: 'st-101',
     mode: 'kitab',
-    language: 'ml',
+    language: 'en',
     prompt:
       'Explain the Ibarat from Alfiyyah Ibn Malik: "كَلَامُنَا لَفْظٌ مُفِيدٌ كَاسْتَقِمْ وَاسْمٌ وَفِعْلٌ ثُمَّ حَرْفٌ الْكَلِمْ"',
     response:
-      '1. ഇബാറത്ത് (Vocalized Text):\nكَلَامُنَا لَفْظٌ مُفِيدٌ كَاسْتَقِمْ — وَاسْمٌ وَفِعْلٌ ثُمَّ حَرْفٌ الْكَلِمْ\n\n2. പദാനുപദ അർത്ഥം (Word-by-Word):\n• كَلَامُنَا (നഹ്‌വിലെ നമ്മുടെ കലാം എന്നത്)\n• لَفْظٌ مُفِيدٌ (പൂർണ്ണമായ അർത്ഥം നൽകുന്ന ശബ്ദമാണ്)\n• كَاسْتَقِمْ ("ഇസ്തഖിം" - നീ ചൊവ്വായി നിലകൊള്ളുക - എന്നതുപോലെ)\n• الْكَلِمْ (കലിമത്തുകൾ മൂന്ന് വിധമാണ്): اسْمٌ (ഇസ്മ്), فِعْلٌ (ഫിഅ്ൽ), حَرْفٌ (ഹർഫ്).\n\n3. നഹ്‌വ് വിശകലനം (Grammatical Takeaway):\nകലാം ആകണമെങ്കിൽ ലഫ്ള് (ശബ്ദം) ആയിരിക്കുകയും കേൾക്കുന്നവന് പൂർണ്ണമായ ആശയം (ഇഫാദത്ത്) ലഭിക്കുകയും വേണം.',
+      '1. Vocalized Text (Ibarat):\nكَلَامُنَا لَفْظٌ مُفِيدٌ كَاسْتَقِمْ — وَاسْمٌ وَفِعْلٌ ثُمَّ حَرْفٌ الْكَلِمْ\n\n2. Word-by-Word Meaning:\n• كَلَامُنَا (Our speech in the terminology of Nahw)\n• لَفْظٌ مُفِيدٌ (is a beneficial utterance that conveys a complete meaning)\n• كَاسْتَقِمْ (like "Istaqim" — "Be steadfast!")\n• الْكَلِمْ (And words are of three types): اسْمٌ (Noun / Ism), فِعْلٌ (Verb / Fi\'l), ثُمَّ حَرْفٌ (and Particle / Harf).\n\n3. Grammatical Takeaway (Nahw):\nFor an expression to qualify as Kalam (كَلَام) in Arabic grammar, it must be both a vocalized utterance (لَفْظ) and convey a complete, self-sufficient benefit (إِفَادَة) to the listener.',
     createdAtMs: Date.now() - 3600_000 * 12,
     syncedToCloud: false,
   },
@@ -191,7 +192,7 @@ function sanitizeId(raw: string) {
 
 export function AiStudyAssistant({ student }: { student: Student }) {
   const [mode, setMode] = useState<StudyMode>('kitab')
-  const [language, setLanguage] = useState<OutputLanguage>('ml')
+  const [language, setLanguage] = useState<OutputLanguage>('en')
   const [languagePreference, setLanguagePreference] =
     useState<OutputLanguagePreference>('auto')
   const [prompt, setPrompt] = useState('')
@@ -212,6 +213,10 @@ export function AiStudyAssistant({ student }: { student: Student }) {
   const [cloudConnected, setCloudConnected] = useState(true)
 
   const safeStudentId = useMemo(() => sanitizeId(student.id), [student.id])
+  const userNotesStorageKey = useMemo(
+    () => `${LOCAL_STORAGE_KEY}_${safeStudentId}`,
+    [safeStudentId],
+  )
   const activeUid = useMemo(
     () => (firebaseUser ? firebaseUser.uid : `portal_${safeStudentId}`),
     [firebaseUser, safeStudentId],
@@ -222,20 +227,22 @@ export function AiStudyAssistant({ student }: { student: Student }) {
     [mode],
   )
 
-  // Load local fallback notes on mount
+  // Load local fallback notes per student on mount / student switch
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY)
+      const raw = window.localStorage.getItem(userNotesStorageKey)
       if (raw) {
         const parsed = JSON.parse(raw) as SavedStudyNote[]
         if (Array.isArray(parsed) && parsed.length > 0) {
           setLocalNotes(parsed)
+          return
         }
       }
+      setLocalNotes(DEFAULT_SAMPLE_NOTES)
     } catch {
-      // Ignore storage read errors
+      setLocalNotes(DEFAULT_SAMPLE_NOTES)
     }
-  }, [])
+  }, [userNotesStorageKey])
 
   // Subscribe to Firebase Auth state
   useEffect(() => {
@@ -332,74 +339,24 @@ export function AiStudyAssistant({ student }: { student: Student }) {
     setErrorMessage(null)
     setJustSaved(false)
 
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 45000)
-
     try {
-      const res = await fetch('/api/ai/study-assistant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          prompt: activePrompt.slice(0, 2000),
-          mode,
-          language: effectiveLanguage,
-          languageMode: isAutoLanguage ? 'auto' : 'explicit',
-          studentName: student.name,
-        }),
+      const data = await fetchAiStudyAssistantReply({
+        prompt: activePrompt.slice(0, 2000),
+        mode,
+        language: effectiveLanguage,
+        languageMode: isAutoLanguage ? 'auto' : 'explicit',
+        studentName: student.name,
       })
-
-      clearTimeout(timeoutId)
-
-      const contentType = res.headers.get('content-type') || ''
-      let data: { response?: string; error?: string } | null = null
-
-      if (contentType.includes('application/json')) {
-        try {
-          data = await res.json()
-        } catch {
-          data = null
-        }
-      }
-
-      if (!res.ok) {
-        const errorMsg =
-          data?.error ||
-          (res.status === 504 || res.status === 502
-            ? 'AI സെർവറിൽ മറുപടി തയ്യാറാക്കാൻ സമയമെടുത്തതിനാൽ കണക്ഷൻ തടസ്സപ്പെട്ടു (Gateway Timeout). ദയവായി വീണ്ടും ശ്രമിക്കുക.'
-            : res.status === 503
-              ? 'AI സെർവറിൽ ഇപ്പോൾ തിരക്ക് കൂടുതലാണ് (503). ദയവായി അല്പം കഴിഞ്ഞ് വീണ്ടും ശ്രമിക്കുക.'
-              : `സെർവറിൽ നിന്ന് മറുപടി ലഭിക്കുന്നതിൽ തടസ്സം നേരിട്ടു (${res.status}). ദയവായി വീണ്ടും ശ്രമിക്കുക.`)
-        throw new Error(errorMsg)
-      }
-
-      if (!data || typeof data.response !== 'string') {
-        throw new Error('AI സെർവറിൽ നിന്ന് സാധുവായ മറുപടി ലഭിച്ചില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.')
-      }
 
       setLastPrompt(activePrompt)
       setResponse(data.response)
     } catch (err) {
-      let rawMsg =
+      const rawMsg =
         err instanceof Error
-          ? err.name === 'AbortError'
-            ? 'മറുപടി തയ്യാറാക്കാൻ അനുവദിച്ച സമയം കഴിഞ്ഞു (45s Timeout). ചോദ്യം ചെറുതാക്കി വീണ്ടും ശ്രമിക്കുക.'
-            : err.message
-          : 'ഇന്റർനെറ്റ് കണക്ഷൻ അല്ലെങ്കിൽ സെർവർ തകരാർ മൂലം ഉത്തരം ലഭ്യമായില്ല. വീണ്ടും ശ്രമിക്കുക.'
-
-      if (
-        rawMsg.includes('<!doctype') ||
-        rawMsg.includes('Unexpected token') ||
-        rawMsg.includes('is not valid JSON') ||
-        rawMsg.includes('JSON.parse')
-      ) {
-        rawMsg =
-          'AI സെർവറിൽ മറുപടി തയ്യാറാക്കാൻ സമയമെടുത്തതിനാൽ കണക്ഷൻ തടസ്സപ്പെട്ടു. ദയവായി വീണ്ടും ശ്രമിക്കുക.'
-      }
-
+          ? err.message
+          : 'Could not retrieve a response right now. Please try again.'
       setErrorMessage(rawMsg)
     } finally {
-      clearTimeout(timeoutId)
       setLoading(false)
     }
   }
@@ -426,7 +383,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
     const updatedLocal = [newLocalNote, ...localNotes.filter((n) => n.id !== noteId)]
     setLocalNotes(updatedLocal)
     try {
-      window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedLocal))
+      window.localStorage.setItem(userNotesStorageKey, JSON.stringify(updatedLocal))
     } catch {
       // Ignore localStorage quota issues
     }
@@ -459,7 +416,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
     const nextLocal = localNotes.filter((n) => n.id !== note.id)
     setLocalNotes(nextLocal)
     try {
-      window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextLocal))
+      window.localStorage.setItem(userNotesStorageKey, JSON.stringify(nextLocal))
     } catch {
       // Ignore localStorage errors
     }
@@ -584,7 +541,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
                 <button
                   type="button"
                   onClick={() => setLanguagePreference('auto')}
-                  title="ചോദിക്കുന്ന ഭാഷയിൽ തന്നെ മറുപടി നൽകും"
+                  title="Reply in the language you ask"
                   className={cn(
                     'rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap shrink-0',
                     languagePreference === 'auto'
@@ -592,7 +549,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  Auto (ചോദിക്കുന്ന ഭാഷ)
+                  Auto
                 </button>
                 {LANGUAGES.map((lang) => (
                   <button
@@ -624,7 +581,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
           {/* Curated Da'wa College Quick Prompts */}
           <div className="flex flex-col gap-2">
             <span className="text-xs font-medium text-muted-foreground">
-              മാതൃകാ ചോദ്യങ്ങൾ (Quick Study Topics):
+              Quick Study Topics:
             </span>
             <div className="flex flex-wrap gap-2">
               {currentModeConfig.presets.map((preset) => (
@@ -709,7 +666,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
                 disabled={loading || !prompt.trim()}
                 className="h-7 rounded-lg border-destructive/40 px-3 text-xs text-destructive hover:bg-destructive/20 whitespace-nowrap shrink-0"
               >
-                വീണ്ടും ശ്രമിക്കുക (Retry)
+                Retry
               </Button>
             </div>
           ) : null}

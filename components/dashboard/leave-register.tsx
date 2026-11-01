@@ -618,7 +618,7 @@ export function LeaveRegister({
                     : 'bg-emerald-500/20 text-emerald-800 dark:bg-lime/20 dark:text-lime',
                 )}
               >
-                {isOnLeave ? 'Currently On Leave (ലീവിലാണ്)' : 'Present At Academy (ക്യാമ്പസിലുണ്ട്)'}
+                {isOnLeave ? 'Currently On Leave' : 'Present At Academy'}
               </span>
             </div>
 

@@ -42,6 +42,7 @@ import {
   Users,
   X,
 } from 'lucide-react'
+import { AppUpdateButton } from '@/components/app-update-manager'
 import { BrandWordmark } from '@/components/brand-wordmark'
 import {
   ABSENT_REASONS,
@@ -77,6 +78,7 @@ import { ExamResultCard } from '@/components/dashboard/exam-result-card'
 import type { SavedLeaveEntry } from '@/components/dashboard/leave-register'
 import { Panel, fieldClassName } from '@/components/dashboard/panel'
 import { ParentReportModal } from '@/components/dashboard/parent-report-modal'
+import { UsthadSwitcher } from '@/components/dashboard/student-switcher'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -608,7 +610,7 @@ export function UsthadDashboard() {
     notifyDigitalLibraryUpdated()
 
     setUploadingKitab(false)
-    setKitabStatusMsg(`✅ "${newItem.title}" ഡിജിറ്റൽ ലൈബ്രറിയിലേക്ക് ഉടൻ ചേർത്തു!`)
+    setKitabStatusMsg(`✅ "${newItem.title}" added to Digital Library!`)
     setKitabTitle('')
     setKitabArabicTitle('')
     setKitabAuthor('')
@@ -698,7 +700,7 @@ export function UsthadDashboard() {
   return (
     <div className="min-h-svh bg-background transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] lg:pl-64">
       {/* Desktop Sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-background transition-colors duration-300 lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-background pt-[var(--safe-top)] transition-colors duration-300 lg:flex">
         <Link
           href="/"
           className="flex h-20 items-center gap-3 border-b border-border px-6"
@@ -754,11 +756,11 @@ export function UsthadDashboard() {
       </aside>
 
       {/* Top Sticky Header */}
-      <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md transition-colors duration-300">
-        <div className="flex h-20 items-center justify-between gap-4 px-5 md:px-8">
+      <header className="sticky top-0 z-40 border-b border-border bg-background/85 pt-[var(--safe-top)] backdrop-blur-md transition-colors duration-300">
+        <div className="flex h-16 sm:h-20 items-center justify-between gap-2 px-3.5 sm:gap-4 sm:px-5 md:px-8">
           <Link
             href="/"
-            className="flex items-center gap-3 lg:hidden"
+            className="flex min-w-0 items-center gap-2.5 sm:gap-3 lg:hidden"
             aria-label="ICS Academy Manhappatta home"
           >
             <Image
@@ -766,12 +768,12 @@ export function UsthadDashboard() {
               alt="ICS Academy logo"
               width={381}
               height={512}
-              className="h-10 w-auto object-contain"
+              className="h-9 sm:h-10 w-auto shrink-0 object-contain"
             />
             <BrandWordmark
               gapClassName="gap-0"
-              topClassName="text-lg font-bold text-foreground leading-none"
-              bottomClassName="-mt-[2px] text-[10px] font-semibold text-lime leading-none"
+              topClassName="text-base sm:text-lg font-bold text-foreground leading-none"
+              bottomClassName="-mt-[2px] text-[9.5px] sm:text-[10px] font-semibold text-lime leading-none"
             />
           </Link>
 
@@ -784,41 +786,15 @@ export function UsthadDashboard() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+            <AppUpdateButton />
             <ThemeToggle className="text-foreground/85 hover:text-foreground dark:text-white/90 dark:hover:text-white" />
-
-            <div className="flex items-center gap-2.5 rounded-full border border-border bg-card/80 py-1.5 pr-3.5 pl-2 text-left">
-              <span className="flex size-8 items-center justify-center rounded-full bg-lime/15 text-xs font-bold text-lime">
-                <BookOpen className="size-4" aria-hidden="true" />
-              </span>
-              <div className="hidden sm:block">
-                <p className="text-xs font-semibold leading-tight text-foreground">
-                  {usthad.shortName}
-                </p>
-                <p className="text-[11px] font-mono tabular-nums text-muted-foreground">
-                  {usthad.staffId} · {usthad.className}
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                window.localStorage.removeItem('isAuthenticated')
-                window.localStorage.removeItem('authRole')
-                window.localStorage.removeItem('loggedInUsthadId')
-                window.dispatchEvent(new CustomEvent('ics-logout'))
-              }}
-              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-background/70 px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
-            >
-              <LogOut className="size-3.5" aria-hidden="true" />
-              <span>Logout</span>
-            </button>
+            <UsthadSwitcher usthad={usthad} />
           </div>
         </div>
 
         <nav aria-label="Usthad sections" className="border-t border-border lg:hidden">
-          <ul className="flex gap-1 overflow-x-auto px-3 py-2">
+          <ul className="flex gap-1 overflow-x-auto px-3 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {usthadNavItems.map((item) => (
               <li key={item.href} className="shrink-0">
                 <a
@@ -1930,7 +1906,7 @@ export function UsthadDashboard() {
 
                     <div className="flex flex-col gap-1">
                       <Label htmlFor="holiday-dep-date" className="text-[11px]">
-                        Departure Date & Day (എന്നാണ് പോകേണ്ടതെന്ന്)
+                        Departure Date & Day
                       </Label>
                       <input
                         id="holiday-dep-date"
@@ -1944,7 +1920,7 @@ export function UsthadDashboard() {
 
                     <div className="flex flex-col gap-1">
                       <Label htmlFor="holiday-dep-time" className="text-[11px]">
-                        Departure Time (രാവിലെ / ഉച്ചയ്ക്ക്)
+                        Departure Time
                       </Label>
                       <input
                         id="holiday-dep-time"
@@ -1958,7 +1934,7 @@ export function UsthadDashboard() {
 
                     <div className="flex flex-col gap-1">
                       <Label htmlFor="holiday-ret-date" className="text-[11px]">
-                        Return Date & Day (എന്നാണ് വരേണ്ടതെന്ന്)
+                        Return Date & Day
                       </Label>
                       <input
                         id="holiday-ret-date"

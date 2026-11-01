@@ -104,11 +104,11 @@ export function Timetable({ student }: { student: Student }) {
                   <div className="mt-1.5 flex flex-col gap-1 rounded-lg border border-red-500/30 bg-red-500/10 p-2">
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 dark:text-red-400">
                       <Ban className="size-3 shrink-0" aria-hidden="true" />
-                      ക്ലാസ് നടന്നിട്ടില്ല (Class Not Held)
+                      Class Not Held
                     </span>
                     <span className="inline-flex items-center gap-1 text-[10px] text-red-600/85 dark:text-red-300/85">
                       <Lock className="size-2.5 shrink-0" aria-hidden="true" />
-                      ഹാജർ ലോക്ക് ചെയ്തിരിക്കുന്നു
+                      Attendance Locked
                     </span>
                   </div>
                 ) : isSubstituted ? (

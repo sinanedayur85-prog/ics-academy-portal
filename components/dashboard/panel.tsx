@@ -21,23 +21,26 @@ export function Panel({ id, title, eyebrow, icon: Icon, action, className, child
         className,
       )}
     >
-      <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div className="flex min-w-0 items-center gap-3">
+      <header className="mb-5 flex flex-wrap items-start justify-between gap-3 sm:items-center sm:gap-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-lime">
             <Icon className="size-5" aria-hidden="true" />
           </span>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             {eyebrow ? (
-              <p className="break-words text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="break-words text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground sm:text-[0.7rem] sm:tracking-[0.18em]">
                 {eyebrow}
               </p>
             ) : null}
-            <h2 id={`${id}-title`} className="font-display text-xl font-semibold leading-tight text-foreground">
+            <h2
+              id={`${id}-title`}
+              className="break-words font-display text-lg font-semibold leading-tight text-foreground sm:text-xl"
+            >
               {title}
             </h2>
           </div>
         </div>
-        {action ? <div className="w-full min-w-0 sm:w-auto sm:shrink-0">{action}</div> : null}
+        {action ? <div className="w-full min-w-0 max-w-full sm:w-auto">{action}</div> : null}
       </header>
       {children}
     </section>

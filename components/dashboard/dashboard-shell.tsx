@@ -15,6 +15,7 @@ import {
   MessageSquareText,
   UserCheck,
 } from 'lucide-react'
+import { AppUpdateButton } from '@/components/app-update-manager'
 import { BrandWordmark } from '@/components/brand-wordmark'
 import { AttendanceCard } from '@/components/dashboard/attendance-card'
 import { ClassLeaderAttendanceCard } from '@/components/dashboard/class-leader-attendance-card'
@@ -85,8 +86,8 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
   const navItems = isClassLeader ? classLeaderNavItems : studentNavItems
 
   return (
-    <div className="min-h-svh bg-background transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] lg:pl-64">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-background transition-colors duration-300 lg:flex">
+    <div className="min-h-svh overflow-x-hidden bg-background transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] lg:pl-64">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-background pt-[var(--safe-top)] transition-colors duration-300 lg:flex">
         <Link href="/" className="flex h-20 items-center gap-3 border-b border-border px-6" aria-label="ICS Academy Manhappatta home">
           <Image
             src="/images/ics-mark-transparent.png"
@@ -139,20 +140,20 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
         </div>
       </aside>
 
-      <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md transition-colors duration-300">
-        <div className="flex h-20 items-center justify-between gap-4 px-5 md:px-8">
-          <Link href="/" className="flex items-center gap-3 lg:hidden" aria-label="ICS Academy Manhappatta home">
+      <header className="sticky top-0 z-40 border-b border-border bg-background/85 pt-[var(--safe-top)] backdrop-blur-md transition-colors duration-300">
+        <div className="flex h-16 sm:h-20 items-center justify-between gap-2 px-3.5 sm:gap-4 sm:px-5 md:px-8">
+          <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3 lg:hidden" aria-label="ICS Academy Manhappatta home">
             <Image
               src="/images/ics-mark-transparent.png"
               alt="ICS Academy logo"
               width={381}
               height={512}
-              className="h-10 w-auto object-contain"
+              className="h-9 sm:h-10 w-auto shrink-0 object-contain"
             />
             <BrandWordmark
               gapClassName="gap-0"
-              topClassName="text-lg font-bold text-foreground leading-none"
-              bottomClassName="-mt-[2px] text-[10px] font-semibold text-lime leading-none"
+              topClassName="text-base sm:text-lg font-bold text-foreground leading-none"
+              bottomClassName="-mt-[2px] text-[9.5px] sm:text-[10px] font-semibold text-lime leading-none"
             />
           </Link>
           <div className="hidden lg:block">
@@ -161,14 +162,15 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
             </p>
             <p className="text-sm text-foreground">Academic year 2026–27</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+            <AppUpdateButton />
             <ThemeToggle className="text-foreground/85 hover:text-foreground dark:text-white/90 dark:hover:text-white" />
             <StudentSwitcher student={student} />
           </div>
         </div>
 
         <nav aria-label="Dashboard sections" className="border-t border-border lg:hidden">
-          <ul className="flex gap-1 overflow-x-auto px-3 py-2">
+          <ul className="flex gap-1 overflow-x-auto px-3 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {navItems.map((item) => (
               <li key={item.href} className="shrink-0">
                 <a
@@ -184,7 +186,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
         </nav>
       </header>
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-8 md:px-8 md:py-10">
+      <main className="mx-auto flex max-w-7xl flex-col gap-5 px-3.5 py-6 sm:gap-6 sm:px-5 sm:py-8 md:px-8 md:py-10">
         <div
           key={student.id}
           className="flex flex-col justify-between gap-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 md:flex-row md:items-end"

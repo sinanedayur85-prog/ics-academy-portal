@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { AppUpdateButton } from '@/components/app-update-manager'
 import { BrandWordmark } from '@/components/brand-wordmark'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
@@ -12,21 +13,21 @@ const navLinks = [
 
 export function SiteHeader() {
   return (
-    <header className="absolute top-0 z-50 w-full border-b border-black/15 bg-transparent transition-colors duration-300 dark:border-white/20">
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-6 px-6">
-        <Link href="/" className="flex items-center gap-3" aria-label="ICS Academy Manhappatta home">
+    <header className="absolute top-0 z-40 w-full border-b border-black/15 bg-transparent pt-[var(--safe-top)] transition-colors duration-300 dark:border-white/20">
+      <div className="mx-auto flex h-16 sm:h-20 max-w-7xl items-center justify-between gap-2 px-3.5 sm:gap-6 sm:px-6">
+        <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3" aria-label="ICS Academy Manhappatta home">
           <Image
             src="/images/ics-mark-transparent.png"
             alt="ICS Academy logo"
             width={381}
             height={512}
-            className="h-11 w-auto bg-transparent object-contain md:h-12"
+            className="h-9 sm:h-11 w-auto shrink-0 bg-transparent object-contain md:h-12"
             priority
           />
           <BrandWordmark
             gapClassName="gap-0"
-            topClassName="text-lg font-bold text-black transition-colors duration-300 dark:text-white md:text-[19px] leading-none"
-            bottomClassName="-mt-[2px] text-[10px] font-semibold text-emerald-900 transition-colors duration-300 dark:text-emerald-400 md:text-[10.5px] leading-none"
+            topClassName="text-base sm:text-lg font-bold text-black transition-colors duration-300 dark:text-white md:text-[19px] leading-none"
+            bottomClassName="-mt-[2px] text-[9.5px] sm:text-[10px] font-semibold text-emerald-900 transition-colors duration-300 dark:text-emerald-400 md:text-[10.5px] leading-none"
           />
         </Link>
 
@@ -42,12 +43,13 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+          <AppUpdateButton />
           <ThemeToggle />
           <Button
             nativeButton={false}
             render={<a href="#portal" />}
-            className="h-10 rounded-full px-5 font-semibold"
+            className="h-9 sm:h-10 rounded-full px-3.5 sm:px-5 text-xs sm:text-sm font-semibold"
           >
             Log in
           </Button>

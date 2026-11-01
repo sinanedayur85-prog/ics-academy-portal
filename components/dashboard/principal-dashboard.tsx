@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Image from 'next/image'
+import Link from 'next/link'
 import {
   AlertTriangle,
   Award,
@@ -51,6 +53,7 @@ import {
   ref as storageRef,
   uploadBytes,
 } from 'firebase/storage'
+import { AppUpdateButton } from '@/components/app-update-manager'
 import { BrandWordmark } from '@/components/brand-wordmark'
 import { ClassLeaderAttendanceCard } from '@/components/dashboard/class-leader-attendance-card'
 import {
@@ -97,6 +100,7 @@ import { LibraryBooks } from '@/components/dashboard/library-books'
 import { NoticeBoard } from '@/components/dashboard/notice-board'
 import { Panel } from '@/components/dashboard/panel'
 import { ParentReportModal } from '@/components/dashboard/parent-report-modal'
+import { PrincipalSwitcher } from '@/components/dashboard/student-switcher'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -568,7 +572,7 @@ export function PrincipalDashboard() {
       setPeriodSubmissions(nextMap)
       savePeriodAttendanceSubmissions(nextMap)
       setSessionActionToast(
-        `${targetRow.className} • ${targetCell.label} (${targetCell.subject}) "ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ല (Class Not Held)" ആയി രേഖപ്പെടുത്തി. വിദ്യാർത്ഥികളുടെ ഹാജർ ലോക്ക് ചെയ്തു.`,
+        `${targetRow.className} • ${targetCell.label} (${targetCell.subject}) marked as "Class Not Held". Student attendance is locked.`,
       )
       window.setTimeout(() => setSessionActionToast(null), 5000)
       return
@@ -618,7 +622,7 @@ export function PrincipalDashboard() {
       setPeriodSubmissions(nextMap)
       savePeriodAttendanceSubmissions(nextMap)
       setSessionActionToast(
-        `${targetRow.className} • ${targetCell.label}-ൽ പകരക്കാരൻ ഉസ്താദായി ${subUsthad.name}-നെ നിശ്ചയിച്ചു. ഹാജർ രേഖപ്പെടുത്തൽ അൺലോക്ക് ചെയ്തു.`,
+        `Assigned ${subUsthad.name} as Substitute Usthad for ${targetRow.className} • ${targetCell.label}. Attendance unlocked.`,
       )
       window.setTimeout(() => setSessionActionToast(null), 5000)
       return
@@ -682,7 +686,7 @@ export function PrincipalDashboard() {
     setPeriodSubmissions(nextMap)
     savePeriodAttendanceSubmissions(nextMap)
     setSessionActionToast(
-      `${className} • ${targetCell.label}-ൽ പകരക്കാരൻ ഉസ്താദായി ${subUsthad.name}-നെ ചുമതലപ്പെടുത്തി. വിദ്യാർത്ഥികളുടെ ഹാജർ അൺലോക്ക് ചെയ്തു.`,
+      `Assigned ${subUsthad.name} as Substitute Usthad for ${className} • ${targetCell.label}. Student attendance unlocked.`,
     )
     window.setTimeout(() => setSessionActionToast(null), 5000)
   }
@@ -723,7 +727,7 @@ export function PrincipalDashboard() {
     setPeriodSubmissions(nextMap)
     savePeriodAttendanceSubmissions(nextMap)
     setSessionActionToast(
-      `${className} • ${targetCell.label} സാധാരണ ക്ലാസ്സായി (Conducted) പുനഃസ്ഥാപിച്ചു.`,
+      `${className} • ${targetCell.label} restored to normal status (Conducted).`,
     )
     window.setTimeout(() => setSessionActionToast(null), 4000)
   }
@@ -748,7 +752,7 @@ export function PrincipalDashboard() {
     setAttendanceOverrides(nextOverrides)
     saveAttendanceOverrides(nextOverrides)
     setAttendanceSavedToast(
-      `${selectedStudent.name} (${selectedStudent.className}) — ${selectedMonthRecord.month} ${selectedMonthRecord.year} ഹാജർ പ്രിൻസിപ്പൽ അപ്ഡേറ്റ് ചെയ്തു.`,
+      `Updated ${selectedMonthRecord.month} ${selectedMonthRecord.year} attendance for ${selectedStudent.name} (${selectedStudent.className}).`,
     )
     window.setTimeout(() => setAttendanceSavedToast(null), 4000)
   }
@@ -790,8 +794,8 @@ export function PrincipalDashboard() {
 
     setLeaveSavedToast(
       recordType === 'return'
-        ? `${targetStudent.name} (${targetStudent.className}) ക്യാമ്പസിൽ തിരിച്ചെത്തിയതായി രേഖപ്പെടുത്തി.`
-        : `${targetStudent.name} (${targetStudent.className}) ലീവ് രേഖപ്പെടുത്തി (${reasonText}).`,
+        ? `Recorded campus return for ${targetStudent.name} (${targetStudent.className}).`
+        : `Recorded leave for ${targetStudent.name} (${targetStudent.className}) (${reasonText}).`,
     )
     window.setTimeout(() => setLeaveSavedToast(null), 4000)
 
@@ -870,8 +874,8 @@ export function PrincipalDashboard() {
     setNoticeBody('')
     setNoticeToast(
       isHolidayNotice
-        ? `ഔദ്യോഗിക അവധി നോട്ടീസ് "${cleanTitle}" പ്രസിദ്ധീകരിച്ചു — 11 ക്ലാസുകളിലെയും ${holidayMonthId} മാസത്തെ പ്രവൃത്തിദിനങ്ങളിൽ നിന്ന് ${parsedDeduct} ദിവസം കുറച്ചു.`
-        : `"${cleanTitle}" എന്ന നോട്ടീസ് മുഴുവൻ ക്യാമ്പസിനുമായി പ്രസിദ്ധീകരിച്ചു.`,
+        ? `Published official holiday notice "${cleanTitle}" — deducted ${parsedDeduct} days from ${holidayMonthId} working days across all 11 classes.`
+        : `Published notice "${cleanTitle}" for the entire campus.`,
     )
     window.setTimeout(() => setNoticeToast(null), 5000)
   }
@@ -949,7 +953,7 @@ export function PrincipalDashboard() {
     notifyDigitalLibraryUpdated()
 
     setUploadingKitab(false)
-    setKitabStatusMsg(`✅ "${newItem.title}" ഡിജിറ്റൽ ലൈബ്രറിയിലേക്ക് ഉടൻ ചേർത്തു!`)
+    setKitabStatusMsg(`✅ "${newItem.title}" added to Digital Library!`)
     setKitabTitle('')
     setKitabArabicTitle('')
     setKitabAuthor('')
@@ -1032,141 +1036,190 @@ export function PrincipalDashboard() {
     window.dispatchEvent(new Event('ics-logout'))
   }
 
+  const principalNavItems: {
+    id: 'monitor' | 'people' | 'notices' | 'library'
+    label: string
+    shortLabel: string
+    icon: typeof Building2
+  }[] = [
+    {
+      id: 'monitor',
+      label: 'Campus Live Monitor',
+      shortLabel: '1. Campus Live Monitor (11 Classes & Unheld Periods)',
+      icon: Building2,
+    },
+    {
+      id: 'people',
+      label: 'Usthads, Leaders & Students',
+      shortLabel: '2. Usthads, Leaders & Students',
+      icon: Users,
+    },
+    {
+      id: 'notices',
+      label: 'Official Holidays & Notices',
+      shortLabel: '3. Official Holidays & Notices',
+      icon: Megaphone,
+    },
+    {
+      id: 'library',
+      label: 'Digital Library & Portal',
+      shortLabel: '4. Digital Library & Portal',
+      icon: Library,
+    },
+  ]
+
   return (
-    <div className="min-h-svh bg-background text-foreground">
-      {/* Top Executive Navigation Header */}
-      <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
-          <div className="flex items-center gap-3">
-            <a href="#" className="flex items-center gap-3">
-              <BrandWordmark />
-            </a>
-            <span className="hidden rounded-full border border-lime/40 bg-lime/15 px-3 py-1 text-xs font-bold tracking-wider text-lime uppercase md:inline-flex items-center gap-1.5">
-              <ShieldCheck className="size-3.5" aria-hidden="true" />
-              Tier 04 • Principal Command Portal
-            </span>
+    <div className="min-h-svh bg-background text-foreground transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] lg:pl-64">
+      {/* Desktop Sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-background pt-[var(--safe-top)] transition-colors duration-300 lg:flex">
+        <Link
+          href="/"
+          className="flex h-20 items-center gap-3 border-b border-border px-6"
+          aria-label="ICS Academy Manhappatta home"
+        >
+          <Image
+            src="/images/ics-mark-transparent.png"
+            alt="ICS Academy logo"
+            width={381}
+            height={512}
+            className="h-10 w-auto object-contain"
+            priority
+          />
+          <BrandWordmark
+            gapClassName="gap-0"
+            topClassName="text-lg font-bold text-foreground leading-none"
+            bottomClassName="-mt-[2px] text-[10px] font-semibold text-lime leading-none"
+          />
+        </Link>
+
+        <nav aria-label="Principal Dashboard" className="flex flex-1 flex-col gap-1 p-4">
+          <p className="px-3 pb-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Principal Command
+          </p>
+          {principalNavItems.map((item) => {
+            const isActive = activeTab === item.id
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActiveTab(item.id)}
+                className={cn(
+                  'group flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-sm transition-all duration-200',
+                  isActive
+                    ? 'bg-lime/15 font-semibold text-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                <span className="flex items-center gap-3">
+                  <item.icon
+                    className={cn(
+                      'size-4 transition-colors',
+                      isActive ? 'text-lime' : 'group-hover:text-lime',
+                    )}
+                    aria-hidden="true"
+                  />
+                  <span>{item.label}</span>
+                </span>
+                {item.id === 'monitor' && campusMetrics.periodsNotHeld > 0 && (
+                  <span className="rounded-full bg-red-500/20 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-red-500">
+                    {campusMetrics.periodsNotHeld}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </nav>
+
+        <div className="border-t border-border p-4">
+          <Link
+            href="/"
+            onClick={(event) => {
+              event.preventDefault()
+              handleSignOut()
+            }}
+            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <LogOut className="size-4" aria-hidden="true" />
+            Log out
+          </Link>
+        </div>
+      </aside>
+
+      {/* Top Sticky Header (Matches Student & Usthad Header with Profile Switcher) */}
+      <header className="sticky top-0 z-40 border-b border-border bg-background/85 pt-[var(--safe-top)] backdrop-blur-md transition-colors duration-300">
+        <div className="flex h-16 sm:h-20 items-center justify-between gap-2 px-3.5 sm:gap-4 sm:px-5 md:px-8">
+          <Link
+            href="/"
+            className="flex min-w-0 items-center gap-2.5 sm:gap-3 lg:hidden"
+            aria-label="ICS Academy Manhappatta home"
+          >
+            <Image
+              src="/images/ics-mark-transparent.png"
+              alt="ICS Academy logo"
+              width={381}
+              height={512}
+              className="h-9 sm:h-10 w-auto shrink-0 object-contain"
+            />
+            <BrandWordmark
+              gapClassName="gap-0"
+              topClassName="text-base sm:text-lg font-bold text-foreground leading-none"
+              bottomClassName="-mt-[2px] text-[9.5px] sm:text-[10px] font-semibold text-lime leading-none"
+            />
+          </Link>
+
+          <div className="hidden lg:block">
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Principal Dashboard
+            </p>
+            <p className="text-sm font-medium text-foreground">
+              Academic Year 2026–27 · All 11 Classes
+            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
-            <div className="flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1.5">
-              <CalendarClock className="size-3.5 text-lime" aria-hidden="true" />
-              <label htmlFor="principal-global-date" className="sr-only">
-                Monitor Date
-              </label>
-              <input
-                id="principal-global-date"
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value || getTodayDateString())}
-                className="bg-transparent text-xs font-semibold text-foreground tabular-nums outline-none"
-              />
-            </div>
-
-            <div className="hidden items-center gap-2.5 rounded-full border border-border bg-card/75 py-1.5 pr-4 pl-2 sm:flex">
-              <span className="flex size-8 items-center justify-center rounded-full bg-lime/20 font-display text-xs font-bold text-lime">
-                PR
-              </span>
-              <div className="leading-tight">
-                <p className="text-xs font-bold text-foreground">{principal.name}</p>
-                <p className="text-[11px] font-medium text-lime">
-                  {principal.staffId} • All 11 Batches Oversight
-                </p>
-              </div>
-            </div>
-
-            <ThemeToggle />
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleSignOut}
-              className="h-9 rounded-full px-3.5 text-xs font-semibold"
-            >
-              <LogOut className="mr-1.5 size-3.5" aria-hidden="true" />
-              Sign out
-            </Button>
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+            <AppUpdateButton />
+            <ThemeToggle className="text-foreground/85 hover:text-foreground dark:text-white/90 dark:hover:text-white" />
+            <PrincipalSwitcher principal={principal} />
           </div>
         </div>
 
         {/* Executive Section Switcher Bar */}
-        <div className="border-t border-border/60 bg-card/30">
-          <nav
-            aria-label="Principal control sections"
-            className="mx-auto flex max-w-7xl items-center gap-2 overflow-x-auto px-4 py-2.5 sm:px-6"
-          >
-            <button
-              type="button"
-              onClick={() => setActiveTab('monitor')}
-              className={cn(
-                'inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all',
-                activeTab === 'monitor'
-                  ? 'border-lime bg-lime text-background shadow-sm'
-                  : 'border-border bg-background/70 text-muted-foreground hover:border-foreground/30 hover:text-foreground',
-              )}
-            >
-              <Building2 className="size-3.5" aria-hidden="true" />
-              <span>1. Campus Live Monitor (11 ക്ലാസുകൾ & നടക്കാത്ത പിരീഡുകൾ)</span>
-              {campusMetrics.periodsNotHeld > 0 && (
-                <span
+        <nav aria-label="Principal control sections" className="border-t border-border">
+          <ul className="flex gap-1.5 overflow-x-auto px-3 py-2 md:px-8 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            {principalNavItems.map((item) => (
+              <li key={item.id} className="shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(item.id)}
                   className={cn(
-                    'rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums',
-                    activeTab === 'monitor'
-                      ? 'bg-red-600 text-white'
-                      : 'bg-red-500/20 text-red-500',
+                    'flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0',
+                    activeTab === item.id
+                      ? 'bg-lime text-background font-semibold shadow-sm'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                 >
-                  {campusMetrics.periodsNotHeld} Not Held
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('people')}
-              className={cn(
-                'inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all',
-                activeTab === 'people'
-                  ? 'border-lime bg-lime text-background shadow-sm'
-                  : 'border-border bg-background/70 text-muted-foreground hover:border-foreground/30 hover:text-foreground',
-              )}
-            >
-              <Users className="size-3.5" aria-hidden="true" />
-              <span>2. Usthads, Leaders & Students (ഉസ്താദുമാർ & വിദ്യാർത്ഥികൾ)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('notices')}
-              className={cn(
-                'inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all',
-                activeTab === 'notices'
-                  ? 'border-lime bg-lime text-background shadow-sm'
-                  : 'border-border bg-background/70 text-muted-foreground hover:border-foreground/30 hover:text-foreground',
-              )}
-            >
-              <Megaphone className="size-3.5" aria-hidden="true" />
-              <span>3. Official Holidays & Notices (ഔദ്യോഗിക അവധികളും നോട്ടീസും)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('library')}
-              className={cn(
-                'inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all',
-                activeTab === 'library'
-                  ? 'border-lime bg-lime text-background shadow-sm'
-                  : 'border-border bg-background/70 text-muted-foreground hover:border-foreground/30 hover:text-foreground',
-              )}
-            >
-              <Library className="size-3.5" aria-hidden="true" />
-              <span>4. Digital Library & Portal (ഡിജിറ്റൽ ലൈബ്രറി & റിസൾട്ട്)</span>
-            </button>
-          </nav>
-        </div>
+                  <item.icon className="size-3.5" aria-hidden="true" />
+                  <span>{item.shortLabel}</span>
+                  {item.id === 'monitor' && campusMetrics.periodsNotHeld > 0 && (
+                    <span
+                      className={cn(
+                        'rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums',
+                        activeTab === 'monitor'
+                          ? 'bg-red-600 text-white'
+                          : 'bg-red-500/20 text-red-500',
+                      )}
+                    >
+                      {campusMetrics.periodsNotHeld} Not Held
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </header>
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-8 md:px-8 md:py-10">
         {/* Executive Banner & 6 Live Campus Telemetry KPIs */}
         <section className="relative overflow-hidden rounded-2xl border border-border bg-card/65 p-5 sm:p-6">
           <div className="flex flex-col justify-between gap-4 border-b border-border/70 pb-5 lg:flex-row lg:items-center">
@@ -1184,11 +1237,24 @@ export function PrincipalDashboard() {
                 {principal.name}
               </h1>
               <p className="text-xs text-muted-foreground sm:text-sm">
-                {principal.designation} • മുഴുവൻ 11 ക്ലാസുകളുടെയും ഉസ്താദുമാരുടെയും ക്ലാസ് ലീഡർമാരുടെയും വിദ്യാർത്ഥികളുടെയും സമ്പൂർണ്ണ നിയന്ത്രണം.
+                {principal.designation} • Full administrative oversight of all 11 classes, Usthads, Class Leaders, and students.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <div className="flex h-8 items-center gap-2 rounded-xl border border-border bg-background/80 px-3">
+                <CalendarClock className="size-3.5 text-lime" aria-hidden="true" />
+                <label htmlFor="principal-global-date" className="sr-only">
+                  Monitor Date
+                </label>
+                <input
+                  id="principal-global-date"
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value || getTodayDateString())}
+                  className="bg-transparent text-xs font-semibold text-foreground tabular-nums outline-none"
+                />
+              </div>
               <Button
                 type="button"
                 size="sm"
@@ -1293,7 +1359,7 @@ export function PrincipalDashboard() {
                 {campusMetrics.periodsNotHeld}
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                ഉസ്താദ് എടുക്കാത്ത പിരീഡുകൾ
+                Periods not taken by Usthad
               </p>
             </div>
 
@@ -1305,7 +1371,7 @@ export function PrincipalDashboard() {
                 {campusMetrics.periodsSubstituted}
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                പകരക്കാരൻ ഉസ്താദ് എടുത്തവ
+                Taken by Substitute Usthad
               </p>
             </div>
           </div>
@@ -1317,7 +1383,7 @@ export function PrincipalDashboard() {
             {/* A. Unheld Periods & Substitute Usthad Control Center */}
             <Panel
               id="unheld-periods-monitor"
-              eyebrow="Usthad Class Session Governance • ഉസ്താദ് ക്ലാസ് എടുക്കാത്ത പിരീഡുകളുടെ നിയന്ത്രണം"
+              eyebrow="Usthad Class Session Governance • Unheld Period Control"
               title="Unheld Periods & Substitute Usthad Command Center"
               icon={ShieldAlert}
               action={
@@ -1332,10 +1398,10 @@ export function PrincipalDashboard() {
                 <div className="rounded-2xl border border-border bg-background/60 p-4">
                   <div className="mb-3 flex flex-col gap-1">
                     <h3 className="text-xs font-bold tracking-wider text-foreground uppercase">
-                      Quick Period Session Override (ക്ലാസ് നടന്നില്ല എന്ന് രേഖപ്പെടുത്താം / പകരക്കാരൻ ഉസ്താദിനെ നിശ്ചയിക്കാം)
+                      Quick Period Session Override
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      ഏതെങ്കിലും ക്ലാസിൽ ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ലെങ്കിൽ അത് ഇവിടെ രേഖപ്പെടുത്താം. ക്ലാസ് നടക്കാത്ത പിരീഡിൽ വിദ്യാർത്ഥികളുടെ ഹാജർ രേഖപ്പെടുത്തൽ ഓട്ടോമാറ്റിക്കായി ലോക്ക് ആകും.
+                      Record if a regular Usthad did not take a period or assign a substitute Usthad. Student attendance is automatically locked for periods marked as Class Not Held.
                     </p>
                   </div>
 
@@ -1378,7 +1444,7 @@ export function PrincipalDashboard() {
 
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="quick-reason-select" className="text-xs">
-                        Reason (ഉസ്താദ് ക്ലാസ് എടുക്കാത്തതിന്റെ കാരണം)
+                        Reason
                       </Label>
                       <select
                         id="quick-reason-select"
@@ -1396,7 +1462,7 @@ export function PrincipalDashboard() {
 
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="quick-sub-select" className="text-xs">
-                        Substitute Usthad (പകരക്കാരൻ ഉസ്താദ് — Optional)
+                        Substitute Usthad (Optional)
                       </Label>
                       <select
                         id="quick-sub-select"
@@ -1456,10 +1522,10 @@ export function PrincipalDashboard() {
                   <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-background/40 px-6 py-8 text-center">
                     <CheckCircle2 className="size-8 text-emerald-500 dark:text-lime" aria-hidden="true" />
                     <p className="text-sm font-semibold text-foreground">
-                      {selectedDate} തീയതിയിൽ നിലവിൽ മുടങ്ങിയ പിരീഡുകൾ (Class Not Held) ഒന്നും റിപ്പോർട്ട് ചെയ്തിട്ടില്ല.
+                      No unheld periods (Class Not Held) reported for {selectedDate}.
                     </p>
                     <p className="max-w-xl text-xs text-muted-foreground">
-                      ഏതെങ്കിലും ക്ലാസിൽ ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ലെങ്കിൽ ക്ലാസ് ലീഡർക്കോ ഉസ്താദിനോ പ്രിൻസിപ്പലിനോ അത് രേഖപ്പെടുത്താം; അപ്പോൾ ആ പിരീഡ് ഇവിടെ തത്സമയം കാണാനും പകരക്കാരൻ ഉസ്താദിനെ നിശ്ചയിക്കാനും സാധിക്കും.
+                      If a regular Usthad does not take a class, the Class Leader, Usthad, or Principal can record it; the period will appear here in real time so a Substitute Usthad can be assigned.
                     </p>
                   </div>
                 ) : (
@@ -1803,7 +1869,7 @@ export function PrincipalDashboard() {
                   )}
                 >
                   <GraduationCap className="size-4" aria-hidden="true" />
-                  11 Class Usthads (ഉസ്താദുമാർ)
+                  11 Class Usthads
                 </button>
 
                 <button
@@ -1817,7 +1883,7 @@ export function PrincipalDashboard() {
                   )}
                 >
                   <UserCheck className="size-4" aria-hidden="true" />
-                  22 Class Leaders (CL & ACL ലീഡർമാർ)
+                  22 Class Leaders (CL & ACL)
                 </button>
 
                 <button
@@ -2220,8 +2286,8 @@ export function PrincipalDashboard() {
                             }
                             className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
                           >
-                            <option value="application">Grant Leave Departure (ലീവ് നൽകുക)</option>
-                            <option value="return">Verify Campus Return (തിരിച്ചെത്തി)</option>
+                            <option value="application">Grant Leave Departure</option>
+                            <option value="return">Verify Campus Return</option>
                           </select>
                         </div>
                       </div>
@@ -2426,10 +2492,10 @@ export function PrincipalDashboard() {
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-lime/30 bg-lime/10 p-3.5">
                   <div className="flex flex-col gap-0.5">
                     <span className="text-xs font-bold text-foreground">
-                      Declare Official Academy Holiday (മാസത്തിലെ രണ്ടാം ശനിയാഴ്ച / വിശേഷാവധി)
+                      Declare Official Academy Holiday (Monthly 2nd Saturday / Festival Holiday)
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      ഇത് ഓൺ ചെയ്താൽ തിരഞ്ഞെടുക്കുന്ന മാസത്തെ {students.length} വിദ്യാർത്ഥികളുടെയും പ്രവൃത്തിദിനങ്ങളിൽ (Working Days) നിന്ന് അവധി ദിനങ്ങൾ ഓട്ടോമാറ്റിക്കായി കുറയും.
+                      When enabled, official holiday days are automatically deducted from the working days of all {students.length} students for the selected month.
                     </span>
                   </div>
                   <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-lime">
@@ -2444,7 +2510,7 @@ export function PrincipalDashboard() {
                             'Official Monthly 2nd Saturday Holiday — Departure & Return Schedule',
                           )
                           setNoticeBody(
-                            'ഇസ്‌ലാമിക് സെന്റർ അക്കാദമി മഞ്ഞപ്പറ്റയിലെ പ്രതിമാസ രണ്ടാം ശനിയാഴ്ച അവധി പ്രമാണിച്ച് വെള്ളിയാഴ്ച ജുമുഅക്ക് ശേഷം ഉച്ചയ്ക്ക് 12:45-ന് വിദ്യാർത്ഥികൾക്ക് വീട്ടിലേക്ക് പോകാവുന്നതാണ്. തിങ്കളാഴ്ച രാവിലെ 07:30-ന് മുമ്പായി ക്യാമ്പസിൽ തിരിച്ചെത്തേണ്ടതാണ്.',
+                            'In observance of the monthly Second Saturday holiday at ICS Academy Manhappatta, students may depart for home on Friday at 12:45 PM after Jumu\'ah prayers and must return to campus before 07:30 AM on Monday.',
                           )
                         }
                       }}
@@ -2593,7 +2659,7 @@ export function PrincipalDashboard() {
 
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="pr-notice-body" className="text-xs">
-                    Announcement Details (Malayalam / English)
+                    Announcement Details
                   </Label>
                   <textarea
                     id="pr-notice-body"
@@ -2692,7 +2758,7 @@ export function PrincipalDashboard() {
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="pr-kitab-title" className="text-xs">
-                      Kitab Title (English / Malayalam)
+                      Kitab Title
                     </Label>
                     <Input
                       id="pr-kitab-title"

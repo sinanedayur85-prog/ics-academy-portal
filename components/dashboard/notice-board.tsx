@@ -118,7 +118,7 @@ export function NoticeBoard() {
                   <div className="mt-2.5 grid gap-2.5 rounded-xl border border-lime/30 bg-lime/[0.06] p-3 text-xs sm:grid-cols-3">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                        Departure (പോകേണ്ട ദിവസം & സമയം)
+                        Departure Date & Time
                       </span>
                       <span className="font-semibold text-foreground">
                         {hMeta.departureDate}
@@ -130,7 +130,7 @@ export function NoticeBoard() {
 
                     <div className="flex flex-col gap-0.5">
                       <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                        Return to Campus (തിരിച്ചെത്തേണ്ട സമയം)
+                        Return to Campus
                       </span>
                       <span className="font-semibold text-foreground">
                         {hMeta.returnDate}

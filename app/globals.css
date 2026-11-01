@@ -62,6 +62,7 @@
   --lime: #8cc63f;
   --cyan: #00aeef;
   --radius: 0.75rem;
+  --safe-top: max(env(safe-area-inset-top, 0px), var(--android-status-bar-height, 0px));
 }
 
 .dark {
@@ -87,6 +88,7 @@
   --lime: #8cc63f;
   --cyan: #00aeef;
   --radius: 0.75rem;
+  --safe-top: max(env(safe-area-inset-top, 0px), var(--android-status-bar-height, 0px));
 }
 
 @keyframes fadeInUp {

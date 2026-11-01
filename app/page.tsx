@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { AppUpdateBanner } from '@/components/app-update-manager'
 import { DashboardShell } from '@/components/dashboard/dashboard-shell'
 import { PrincipalDashboard } from '@/components/dashboard/principal-dashboard'
 import { UsthadDashboard } from '@/components/dashboard/usthad-dashboard'
@@ -88,16 +89,32 @@ export default function Page() {
 
   if (isLoggedIn) {
     if (authRole === 'principal') {
-      return <PrincipalDashboard />
+      return (
+        <>
+          <AppUpdateBanner />
+          <PrincipalDashboard />
+        </>
+      )
     }
     if (authRole === 'usthad') {
-      return <UsthadDashboard />
+      return (
+        <>
+          <AppUpdateBanner />
+          <UsthadDashboard />
+        </>
+      )
     }
-    return <DashboardShell isClassLeader={authRole === 'class-leader'} />
+    return (
+      <>
+        <AppUpdateBanner />
+        <DashboardShell isClassLeader={authRole === 'class-leader'} />
+      </>
+    )
   }
 
   return (
     <>
+      <AppUpdateBanner />
       <SiteHeader />
       <main>
         <Hero />

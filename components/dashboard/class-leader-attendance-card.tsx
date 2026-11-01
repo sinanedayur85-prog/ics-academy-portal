@@ -399,7 +399,7 @@ export function ClassLeaderAttendanceCard({
     setSubmissions(updated)
     savePeriodAttendanceSubmissions(updated)
     setJustSubmittedMessage(
-      `${activePeriod.label} (${activePeriod.subject}) "ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ല (Class Not Held)" ആയി രേഖപ്പെടുത്തി. ഈ പിരീഡിൽ വിദ്യാർത്ഥികളുടെ ഹാജർ ലോക്ക് ചെയ്തിരിക്കുന്നു.`,
+      `${activePeriod.label} (${activePeriod.subject}) marked as "Class Not Held". Student attendance is locked for this period.`,
     )
   }
 
@@ -464,7 +464,7 @@ export function ClassLeaderAttendanceCard({
     savePeriodAttendanceSubmissions(updated)
     setJustSubmittedMessage(
       isSessionSubstituted
-        ? `${activePeriod.label} (${activePeriod.subject}) പകരക്കാരൻ ഉസ്താദ് (${selectedSubstituteUsthad.shortName}) എടുത്ത ക്ലാസ്സായി ഹാജർ രേഖപ്പെടുത്തി (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`
+        ? `${activePeriod.label} (${activePeriod.subject}) attendance recorded under Substitute Usthad (${selectedSubstituteUsthad.shortName}) (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`
         : `${activePeriod.label} (${activePeriod.subject}) attendance submitted (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`,
     )
   }
@@ -506,7 +506,7 @@ export function ClassLeaderAttendanceCard({
             <p className="text-sm text-foreground">
               Select each period below. If the Usthad did not take the class, mark{' '}
               <strong className="text-red-500 dark:text-red-400">
-                Class Not Held (ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ല)
+                Class Not Held
               </strong>{' '}
               to lock student attendance and alert the Principal.
             </p>
@@ -652,14 +652,14 @@ export function ClassLeaderAttendanceCard({
           <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
             <div>
               <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                {activePeriod.label} Session Control • ക്ലാസ് നടന്നോ എന്ന് തിരഞ്ഞെടുക്കുക
+                {activePeriod.label} Session Control • Select Session Status
               </p>
               <p className="mt-0.5 text-sm text-foreground">
-                ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ലെങ്കിൽ{' '}
+                If the regular Usthad did not take the class, select{' '}
                 <strong className="text-red-600 dark:text-red-400">
-                  &ldquo;Class Not Held (ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ല)&rdquo;
+                  &ldquo;Class Not Held&rdquo;
                 </strong>{' '}
-                തിരഞ്ഞെടുക്കുക. അപ്പോൾ വിദ്യാർത്ഥികളുടെ ഹാജർ ലോക്ക് ആകും.
+                to lock student attendance.
               </p>
             </div>
 
@@ -684,7 +684,7 @@ export function ClassLeaderAttendanceCard({
                 )}
               >
                 <CheckCircle2 className="size-4" aria-hidden="true" />
-                Class Conducted (ക്ലാസ് നടന്നു)
+                Class Conducted
               </button>
 
               <button
@@ -703,7 +703,7 @@ export function ClassLeaderAttendanceCard({
                 )}
               >
                 <Ban className="size-4" aria-hidden="true" />
-                Class Not Held (ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ല)
+                Class Not Held
               </button>
 
               <button
@@ -722,7 +722,7 @@ export function ClassLeaderAttendanceCard({
                 )}
               >
                 <UserCog className="size-4" aria-hidden="true" />
-                Substitute Usthad (പകരക്കാരൻ ഉസ്താദ്)
+                Substitute Usthad
               </button>
             </div>
           </div>
@@ -732,7 +732,7 @@ export function ClassLeaderAttendanceCard({
             <div className="flex flex-col gap-3 border-t border-border/70 pt-3">
               <div className="flex flex-col gap-2">
                 <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                  ഉസ്താദ് ക്ലാസ് എടുക്കാത്തതിന്റെ കാരണം (Reason Why Regular Usthad Did Not Take Class):
+                  Reason Why Regular Usthad Did Not Take Class:
                 </span>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {NOT_HELD_REASONS.map((reason) => {
@@ -770,10 +770,10 @@ export function ClassLeaderAttendanceCard({
                 <div className="flex flex-col justify-between gap-3 rounded-xl border border-cyan/30 bg-cyan/5 p-3 sm:flex-row sm:items-center">
                   <div className="flex flex-col gap-0.5">
                     <span className="text-xs font-semibold text-cyan uppercase">
-                      Assign Substitute Usthad (പകരക്കാരൻ ഉസ്താദിനെ നിശ്ചയിക്കുക)
+                      Assign Substitute Usthad
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      പകരക്കാരൻ ഉസ്താദ് ക്ലാസ് എടുക്കുമ്പോൾ വിദ്യാർത്ഥികളുടെ ഹാജർ രേഖപ്പെടുത്താവുന്നതാണ്.
+                      Student attendance can be recorded normally when a substitute Usthad conducts the class.
                     </span>
                   </div>
                   <select
@@ -800,10 +800,10 @@ export function ClassLeaderAttendanceCard({
                     <Lock className="mt-0.5 size-4 shrink-0 text-red-600 dark:text-red-400" aria-hidden="true" />
                     <div className="flex flex-col gap-0.5">
                       <p className="text-xs font-bold text-red-700 dark:text-red-300">
-                        Student Attendance Locked — ക്ലാസ് നടക്കാത്ത സമയത്ത് ഹാജർ രേഖപ്പെടുത്താൻ സാധിക്കില്ല
+                        Student Attendance Locked — Cannot record attendance when class is not held
                       </p>
                       <p className="text-xs text-red-600/90 dark:text-red-300/90">
-                        ഈ പിരീഡിൽ ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ലാത്തതിനാൽ വിദ്യാർത്ഥികളുടെ Present / Absent / Leave ബട്ടണുകൾ ലോക്ക് ചെയ്തിരിക്കുന്നു. പ്രിൻസിപ്പൽ ഡാഷ്‌ബോർഡിൽ ഇത് നേരിട്ട് കാണാം.
+                        Present / Absent / Leave controls are locked because the Usthad did not take this period. This status is visible on the Principal Dashboard.
                       </p>
                     </div>
                   </div>
@@ -953,7 +953,7 @@ export function ClassLeaderAttendanceCard({
               <div className="flex items-center gap-2 font-semibold">
                 <AlertTriangle className="size-4 shrink-0 text-red-600 dark:text-red-400" aria-hidden="true" />
                 <span>
-                  {activePeriod.label} ({activePeriod.subject}) ക്ലാസ് നടക്കാത്തതിനാൽ വിദ്യാർത്ഥികളുടെ ഹാജർ രേഖപ്പെടുത്തൽ ലോക്ക് ചെയ്തിരിക്കുന്നു.
+                  Student attendance is locked because {activePeriod.label} ({activePeriod.subject}) was not held.
                 </span>
               </div>
               <button
@@ -1177,7 +1177,7 @@ export function ClassLeaderAttendanceCard({
               </p>
             ) : isSessionNotHeld ? (
               <p className="text-xs text-red-600 dark:text-red-400">
-                ഈ പിരീഡിൽ ഉസ്താദ് ക്ലാസ് എടുത്തിട്ടില്ലെങ്കിൽ &ldquo;Record Class Not Held&rdquo; അമർത്തുക. വിദ്യാർത്ഥികളുടെ ഹാജർ രേഖപ്പെടുത്തൽ ലോക്ക് ചെയ്യപ്പെടും.
+                Click &ldquo;Record Class Not Held&rdquo; if the Usthad did not conduct this period. Student attendance will be locked.
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">

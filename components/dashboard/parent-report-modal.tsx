@@ -32,6 +32,12 @@ import {
   type Student,
 } from '@/components/dashboard/data'
 import type { SavedLeaveEntry } from '@/components/dashboard/leave-register'
+import {
+  downloadBlobOnDevice,
+  isAndroidNativeApp,
+  isMobileDevice,
+  printPdfBlobOnDevice,
+} from '@/lib/mobile-pdf'
 import { cn } from '@/lib/utils'
 
 type CachedPdfAssets = {
@@ -297,19 +303,19 @@ export function ParentReportModal({
     year: 'numeric',
   })
 
-  async function handleDownloadPdf() {
-    if (!student || !effectiveAttendance) return
-    setDownloading(true)
-    setDownloadedToast(null)
-
-    try {
-      const assets = await loadPdfAssets()
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true,
-      })
+  async function buildParentReportPdfBlob(): Promise<{
+    blob: Blob
+    safeFileName: string
+    totalPages: number
+  } | null> {
+    if (!student || !effectiveAttendance) return null
+    const assets = await loadPdfAssets()
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+      compress: true,
+    })
 
       // Register embedded Poppins TrueType fonts for 100% vector text at any zoom level
       pdf.addFileToVFS('Poppins-Regular.ttf', assets.regularB64)
@@ -909,9 +915,21 @@ export function ParentReportModal({
       })
 
       const safeFileName = `ICS_Report_${student.admissionNo}_${student.name.replace(/\s+/g, '_')}.pdf`
-      pdf.save(safeFileName)
+      const blob = pdf.output('blob')
+      return { blob, safeFileName, totalPages }
+    }
+
+  async function handleDownloadPdf() {
+    if (!student || !effectiveAttendance) return
+    setDownloading(true)
+    setDownloadedToast(null)
+
+    try {
+      const built = await buildParentReportPdfBlob()
+      if (!built) return
+      await downloadBlobOnDevice(built.blob, built.safeFileName, 'application/pdf')
       setDownloadedToast(
-        `Downloaded ${safeFileName} (${totalPages} A4 Vector Pages)`,
+        `Downloaded ${built.safeFileName} (${built.totalPages} A4 Vector Pages)`,
       )
     } catch (err) {
       console.error('Failed to generate PDF:', err)
@@ -920,7 +938,26 @@ export function ParentReportModal({
     }
   }
 
-  function handlePrintReport() {
+  async function handlePrintReport() {
+    if (isAndroidNativeApp() || isMobileDevice()) {
+      if (!student || !effectiveAttendance) return
+      setDownloading(true)
+      setDownloadedToast(null)
+      try {
+        const built = await buildParentReportPdfBlob()
+        if (!built) return
+        await printPdfBlobOnDevice(built.blob, built.safeFileName, () => window.print())
+        setDownloadedToast(
+          `Opened print spooler for ${built.safeFileName} (${built.totalPages} A4 Pages)`,
+        )
+      } catch (err) {
+        console.error('Failed to print PDF on mobile:', err)
+        window.print()
+      } finally {
+        setDownloading(false)
+      }
+      return
+    }
     window.print()
   }
 

@@ -30,7 +30,11 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Prepare package.json for CI
+      - name: Prepare package.json & version.json for CI
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+          COMMIT_SHA: ${{ github.sha }}
+          REPO_NAME: ${{ github.repository }}
         run: |
           node -e '
             const fs = require("fs");
@@ -39,6 +43,20 @@ jobs:
               delete pkg.devDependencies["@firebase/eslint-plugin-security-rules"];
             }
             fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
+
+            const runNum = Number(process.env.RUN_NUMBER || 1);
+            const repo = process.env.REPO_NAME || "sinanedayur85-prog/ics-academy-portal";
+            const sha = (process.env.COMMIT_SHA || "ci").slice(0, 7);
+            const versionInfo = {
+              version: "1.0." + runNum,
+              buildNumber: runNum,
+              commitSha: sha,
+              builtAt: new Date().toISOString(),
+              repo: repo,
+              apkDownloadUrl: "https://github.com/" + repo + "/releases/download/latest-apk/ICS-Academy-Manhappatta.apk"
+            };
+            fs.mkdirSync("public", { recursive: true });
+            fs.writeFileSync("public/version.json", JSON.stringify(versionInfo, null, 2));
           '
 
       - name: Install NPM dependencies
@@ -56,6 +74,517 @@ jobs:
             npx cap add android
           fi
           npx cap sync android
+
+      - name: Configure Persistent Signing Key, Edge-to-Edge Status Bar & Native PDF/Print/OTA Bridge
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          cat << 'EOF' > configure-android.cjs
+          const fs = require('fs');
+          const path = require('path');
+          const os = require('os');
+
+          // 0. Install consistent debug.keystore so future APKs update seamlessly in-place without uninstalling
+          const FIXED_KEYSTORE_BASE64 = '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';
+          const keystoreBuf = Buffer.from(FIXED_KEYSTORE_BASE64, 'base64');
+          const dotAndroidDir = path.join(os.homedir(), '.android');
+          fs.mkdirSync(dotAndroidDir, { recursive: true });
+          fs.writeFileSync(path.join(dotAndroidDir, 'debug.keystore'), keystoreBuf);
+          if (fs.existsSync('android/app')) {
+            fs.writeFileSync('android/app/debug.keystore', keystoreBuf);
+          }
+
+          // Update versionCode and versionName in android/app/build.gradle
+          const runNum = Number(process.env.RUN_NUMBER || 1);
+          const buildGradlePath = 'android/app/build.gradle';
+          if (fs.existsSync(buildGradlePath)) {
+            let gradleContent = fs.readFileSync(buildGradlePath, 'utf8');
+            gradleContent = gradleContent.replace(/versionCode\s+\d+/, 'versionCode ' + (100 + runNum));
+            gradleContent = gradleContent.replace(/versionName\s+"[^"]*"/, 'versionName "1.0.' + runNum + '"');
+            fs.writeFileSync(buildGradlePath, gradleContent, 'utf8');
+          }
+
+          // 1. Set Android app display name to "ICS Academy" in strings.xml
+          const stringsPath = 'android/app/src/main/res/values/strings.xml';
+          if (fs.existsSync(stringsPath)) {
+            const stringsXml = `<?xml version='1.0' encoding='utf-8'?>
+          <resources>
+              <string name="app_name">ICS Academy</string>
+              <string name="title_activity_main">ICS Academy</string>
+              <string name="package_name">com.icsacademy.manhappatta</string>
+              <string name="custom_url_scheme">com.icsacademy.manhappatta</string>
+          </resources>`;
+            fs.writeFileSync(stringsPath, stringsXml, 'utf8');
+          }
+
+          // 1b. Replace Capacitor default icons with Official ICS Academy Launcher Icons & Branded Launch Splash
+          const resDir = 'android/app/src/main/res';
+          if (fs.existsSync(resDir)) {
+            // Remove any default Capacitor vector drawables that override mipmap PNGs
+            const vectorDrawablesToRemove = [
+              path.join(resDir, 'drawable', 'ic_launcher_foreground.xml'),
+              path.join(resDir, 'drawable-v24', 'ic_launcher_foreground.xml'),
+              path.join(resDir, 'drawable', 'ic_launcher_background.xml'),
+            ];
+            for (const vecPath of vectorDrawablesToRemove) {
+              if (fs.existsSync(vecPath)) {
+                fs.unlinkSync(vecPath);
+              }
+            }
+
+            // Set adaptive icon background color to #081E21
+            const valuesDir = path.join(resDir, 'values');
+            fs.mkdirSync(valuesDir, { recursive: true });
+            fs.writeFileSync(
+              path.join(valuesDir, 'ic_launcher_background.xml'),
+              `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#081E21</color>\n</resources>\n`,
+              'utf8'
+            );
+
+            // Configure adaptive icon XMLs in mipmap-anydpi-v26
+            const anydpiDir = path.join(resDir, 'mipmap-anydpi-v26');
+            fs.mkdirSync(anydpiDir, { recursive: true });
+            const adaptiveIconXml = `<?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/ic_launcher_background"/>
+              <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+          </adaptive-icon>`;
+            fs.writeFileSync(path.join(anydpiDir, 'ic_launcher.xml'), adaptiveIconXml, 'utf8');
+            fs.writeFileSync(path.join(anydpiDir, 'ic_launcher_round.xml'), adaptiveIconXml, 'utf8');
+
+            // Copy official ICS Academy PNG icons into all mipmap-* directories
+            const squareIconBuf = fs.readFileSync('public/icons/icon-512.png');
+            const roundIconBuf = fs.readFileSync('public/icons/ic_launcher_round.png');
+            const fgIconBuf = fs.readFileSync('public/icons/ic_launcher_foreground.png');
+
+            const mipmapDirs = ['mipmap-mdpi', 'mipmap-hdpi', 'mipmap-xhdpi', 'mipmap-xxhdpi', 'mipmap-xxxhdpi'];
+            for (const dirName of mipmapDirs) {
+              const targetDir = path.join(resDir, dirName);
+              fs.mkdirSync(targetDir, { recursive: true });
+              fs.writeFileSync(path.join(targetDir, 'ic_launcher.png'), squareIconBuf);
+              fs.writeFileSync(path.join(targetDir, 'ic_launcher_round.png'), roundIconBuf);
+              fs.writeFileSync(path.join(targetDir, 'ic_launcher_foreground.png'), fgIconBuf);
+            }
+
+            // Replace any default Capacitor splash.png files and create branded launch_splash.xml
+            const resEntries = fs.readdirSync(resDir, { withFileTypes: true });
+            for (const entry of resEntries) {
+              if (entry.isDirectory() && entry.name.startsWith('drawable')) {
+                const splashFile = path.join(resDir, entry.name, 'splash.png');
+                if (fs.existsSync(splashFile)) {
+                  fs.writeFileSync(splashFile, squareIconBuf);
+                }
+              }
+            }
+
+            const drawableDir = path.join(resDir, 'drawable');
+            fs.mkdirSync(drawableDir, { recursive: true });
+            fs.writeFileSync(path.join(drawableDir, 'ics_splash_logo.png'), fgIconBuf);
+            const launchSplashXml = `<?xml version="1.0" encoding="utf-8"?>
+          <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+              <item>
+                  <color android:color="#081E21" />
+              </item>
+              <item
+                  android:width="180dp"
+                  android:height="180dp"
+                  android:drawable="@drawable/ics_splash_logo"
+                  android:gravity="center" />
+          </layer-list>`;
+            fs.writeFileSync(path.join(drawableDir, 'launch_splash.xml'), launchSplashXml, 'utf8');
+          }
+
+          // 1c. Update styles.xml for edge-to-edge transparent status & navigation bars + branded ICS launch splash
+          const stylesPath = 'android/app/src/main/res/values/styles.xml';
+          if (fs.existsSync(stylesPath)) {
+            const stylesXml = `<?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+                  <item name="colorPrimary">#081E21</item>
+                  <item name="colorPrimaryDark">#081E21</item>
+                  <item name="colorAccent">#8CC63F</item>
+                  <item name="android:statusBarColor">@android:color/transparent</item>
+                  <item name="android:navigationBarColor">#081E21</item>
+                  <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+                  <item name="android:windowTranslucentStatus">false</item>
+              </style>
+              <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+                  <item name="windowActionBar">false</item>
+                  <item name="windowNoTitle">true</item>
+                  <item name="android:background">@null</item>
+                  <item name="android:statusBarColor">@android:color/transparent</item>
+                  <item name="android:navigationBarColor">#081E21</item>
+                  <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+                  <item name="android:windowTranslucentStatus">false</item>
+                  <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+              </style>
+              <style name="AppTheme.NoActionBarLaunch" parent="AppTheme.NoActionBar">
+                  <item name="android:background">@drawable/launch_splash</item>
+                  <item name="android:windowBackground">@drawable/launch_splash</item>
+              </style>
+          </resources>`;
+            fs.writeFileSync(stylesPath, stylesXml, 'utf8');
+          }
+
+          // 2. Ensure AndroidManifest.xml has storage & in-app APK update permissions
+          const manifestPath = 'android/app/src/main/AndroidManifest.xml';
+          if (fs.existsSync(manifestPath)) {
+            let manifest = fs.readFileSync(manifestPath, 'utf8');
+            if (!manifest.includes('REQUEST_INSTALL_PACKAGES')) {
+              manifest = manifest.replace(
+                '<uses-permission android:name="android.permission.INTERNET" />',
+                '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />'
+              );
+              fs.writeFileSync(manifestPath, manifest, 'utf8');
+            }
+          }
+
+          // 3. Write MainActivity.java with Edge-to-Edge Status Bar + Native PDF/Print + One-Click APK Auto-Updater Bridge
+          const mainActivityDir = 'android/app/src/main/java/com/icsacademy/manhappatta';
+          fs.mkdirSync(mainActivityDir, { recursive: true });
+          const mainActivityPath = path.join(mainActivityDir, 'MainActivity.java');
+
+          const mainActivityJava = `package com.icsacademy.manhappatta;
+
+          import android.content.ContentResolver;
+          import android.content.ContentValues;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.graphics.Color;
+          import android.net.Uri;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.os.CancellationSignal;
+          import android.os.Environment;
+          import android.os.ParcelFileDescriptor;
+          import android.print.PageRange;
+          import android.print.PrintAttributes;
+          import android.print.PrintDocumentAdapter;
+          import android.print.PrintDocumentInfo;
+          import android.print.PrintManager;
+          import android.provider.MediaStore;
+          import android.util.Base64;
+          import android.view.View;
+          import android.view.Window;
+          import android.view.WindowManager;
+          import android.webkit.JavascriptInterface;
+          import android.webkit.WebView;
+          import android.widget.Toast;
+
+          import androidx.core.content.FileProvider;
+          import androidx.core.graphics.Insets;
+          import androidx.core.view.ViewCompat;
+          import androidx.core.view.WindowCompat;
+          import androidx.core.view.WindowInsetsCompat;
+          import androidx.core.view.WindowInsetsControllerCompat;
+
+          import com.getcapacitor.BridgeActivity;
+
+          import java.io.File;
+          import java.io.FileInputStream;
+          import java.io.FileOutputStream;
+          import java.io.InputStream;
+          import java.io.OutputStream;
+          import java.net.HttpURLConnection;
+          import java.net.URL;
+
+          public class MainActivity extends BridgeActivity {
+              private int lastStatusBarHeightDp = 28;
+
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  Window window = getWindow();
+                  WindowCompat.setDecorFitsSystemWindows(window, false);
+                  window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+                  window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+                  window.setStatusBarColor(Color.TRANSPARENT);
+                  window.setNavigationBarColor(Color.parseColor("#081E21"));
+
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                      WindowManager.LayoutParams lp = window.getAttributes();
+                      lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+                      window.setAttributes(lp);
+                  }
+
+                  WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, window.getDecorView());
+                  if (controller != null) {
+                      controller.setAppearanceLightStatusBars(false);
+                  }
+
+                  if (this.bridge != null && this.bridge.getWebView() != null) {
+                      final WebView webView = this.bridge.getWebView();
+                      webView.setBackgroundColor(Color.parseColor("#081E21"));
+                      webView.getSettings().setJavaScriptEnabled(true);
+                      webView.getSettings().setDomStorageEnabled(true);
+                      webView.addJavascriptInterface(new ICSNativeBridge(), "ICSNativeBridge");
+
+                      ViewCompat.setOnApplyWindowInsetsListener(webView, (v, windowInsets) -> {
+                          Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+                          float density = getResources().getDisplayMetrics().density;
+                          int topDp = Math.max(24, Math.round(insets.top / (density > 0 ? density : 1f)));
+                          lastStatusBarHeightDp = topDp;
+                          injectStatusBarHeight(webView, topDp);
+                          return WindowInsetsCompat.CONSUMED;
+                      });
+
+                      webView.postDelayed(() -> injectStatusBarHeight(webView, lastStatusBarHeightDp), 600);
+                      webView.postDelayed(() -> injectStatusBarHeight(webView, lastStatusBarHeightDp), 1800);
+                  }
+              }
+
+              private void injectStatusBarHeight(final WebView webView, final int topDp) {
+                  if (webView == null) return;
+                  final String js = "try{document.documentElement.style.setProperty('--android-status-bar-height','" + topDp + "px');}catch(e){}";
+                  webView.post(() -> webView.evaluateJavascript(js, null));
+              }
+
+              public class ICSNativeBridge {
+                  @JavascriptInterface
+                  public void setStatusBarTheme(final boolean isDark) {
+                      runOnUiThread(() -> {
+                          Window window = getWindow();
+                          WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, window.getDecorView());
+                          if (controller != null) {
+                              controller.setAppearanceLightStatusBars(!isDark);
+                          }
+                      });
+                  }
+
+                  @JavascriptInterface
+                  public void clearWebCacheAndReload() {
+                      runOnUiThread(() -> {
+                          if (bridge != null && bridge.getWebView() != null) {
+                              WebView webView = bridge.getWebView();
+                              webView.clearCache(true);
+                              webView.reload();
+                          }
+                      });
+                  }
+
+                  @JavascriptInterface
+                  public void downloadAndInstallApk(final String apkUrl) {
+                      runOnUiThread(() -> {
+                          Toast.makeText(MainActivity.this, "Downloading app update... Please wait.", Toast.LENGTH_LONG).show();
+                      });
+                      new Thread(() -> {
+                          try {
+                              String currentUrl = apkUrl;
+                              HttpURLConnection conn = null;
+                              for (int redirectCount = 0; redirectCount < 6; redirectCount++) {
+                                  URL url = new URL(currentUrl);
+                                  conn = (HttpURLConnection) url.openConnection();
+                                  conn.setInstanceFollowRedirects(false);
+                                  conn.setConnectTimeout(15000);
+                                  conn.setReadTimeout(45000);
+                                  conn.setRequestProperty("User-Agent", "ICS-Academy-Android-Updater");
+                                  conn.connect();
+
+                                  int status = conn.getResponseCode();
+                                  if (status == HttpURLConnection.HTTP_MOVED_TEMP
+                                      || status == HttpURLConnection.HTTP_MOVED_PERM
+                                      || status == HttpURLConnection.HTTP_SEE_OTHER
+                                      || status == 307 || status == 308) {
+                                      String location = conn.getHeaderField("Location");
+                                      conn.disconnect();
+                                      if (location == null) break;
+                                      currentUrl = location;
+                                  } else {
+                                      break;
+                                  }
+                              }
+
+                              if (conn == null || conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                                  final int code = (conn != null) ? conn.getResponseCode() : -1;
+                                  runOnUiThread(() -> {
+                                      Toast.makeText(MainActivity.this, "Update download failed (HTTP " + code + "). Ensure GitHub repository is Public.", Toast.LENGTH_LONG).show();
+                                  });
+                                  return;
+                              }
+
+                              File updateDir = new File(getCacheDir(), "shared_pdfs");
+                              if (!updateDir.exists()) updateDir.mkdirs();
+                              final File apkFile = new File(updateDir, "ICS-Academy-Manhappatta-Update.apk");
+
+                              try (InputStream in = conn.getInputStream();
+                                   FileOutputStream out = new FileOutputStream(apkFile)) {
+                                  byte[] buffer = new byte[8192];
+                                  int bytesRead;
+                                  while ((bytesRead = in.read(buffer)) != -1) {
+                                      out.write(buffer, 0, bytesRead);
+                                  }
+                                  out.flush();
+                              }
+
+                              runOnUiThread(() -> {
+                                  try {
+                                      Toast.makeText(MainActivity.this, "Update downloaded! Opening installer...", Toast.LENGTH_SHORT).show();
+                                      Uri apkUri = FileProvider.getUriForFile(
+                                          MainActivity.this,
+                                          getPackageName() + ".fileprovider",
+                                          apkFile
+                                      );
+                                      Intent installIntent = new Intent(Intent.ACTION_VIEW);
+                                      installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                                      installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                                      startActivity(installIntent);
+                                  } catch (Exception e) {
+                                      Toast.makeText(MainActivity.this, "Installer error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                                  }
+                              });
+                          } catch (Exception e) {
+                              runOnUiThread(() -> {
+                                  Toast.makeText(MainActivity.this, "Update failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                              });
+                          }
+                      }).start();
+                  }
+
+                  @JavascriptInterface
+                  public void printCurrentPage(final String jobName) {
+                      runOnUiThread(() -> {
+                          if (bridge == null || bridge.getWebView() == null) return;
+                          WebView webView = bridge.getWebView();
+                          PrintManager printManager = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                          if (printManager != null) {
+                              String safeJob = (jobName != null && !jobName.isEmpty()) ? jobName : "ICS_Academy_Document";
+                              PrintDocumentAdapter adapter = webView.createPrintDocumentAdapter(safeJob);
+                              printManager.print(safeJob, adapter, new PrintAttributes.Builder().build());
+                          }
+                      });
+                  }
+
+                  @JavascriptInterface
+                  public void saveAndOpenFile(final String base64Data, final String fileName, final String mimeType, final String action) {
+                      runOnUiThread(() -> {
+                          try {
+                              String cleanBase64 = base64Data;
+                              if (cleanBase64.contains(",")) {
+                                  cleanBase64 = cleanBase64.substring(cleanBase64.indexOf(",") + 1);
+                              }
+                              byte[] bytes = Base64.decode(cleanBase64, Base64.DEFAULT);
+                              String safeName = (fileName != null && !fileName.trim().isEmpty())
+                                  ? fileName.replaceAll("[^a-zA-Z0-9._-]", "_")
+                                  : ("ICS_Academy_" + System.currentTimeMillis() + ".pdf");
+                              String resolvedMime = (mimeType != null && !mimeType.trim().isEmpty())
+                                  ? mimeType
+                                  : "application/pdf";
+
+                              File cacheDir = new File(getCacheDir(), "shared_pdfs");
+                              if (!cacheDir.exists()) cacheDir.mkdirs();
+                              final File cacheFile = new File(cacheDir, safeName);
+                              try (FileOutputStream fos = new FileOutputStream(cacheFile)) {
+                                  fos.write(bytes);
+                                  fos.flush();
+                              }
+
+                              if ("print".equalsIgnoreCase(action) && resolvedMime.contains("pdf")) {
+                                  printPdfFile(cacheFile, safeName);
+                                  return;
+                              }
+
+                              Uri publicDownloadUri = null;
+                              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                  ContentValues values = new ContentValues();
+                                  values.put(MediaStore.Downloads.DISPLAY_NAME, safeName);
+                                  values.put(MediaStore.Downloads.MIME_TYPE, resolvedMime);
+                                  values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/ICS-Academy");
+                                  ContentResolver resolver = getContentResolver();
+                                  publicDownloadUri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                                  if (publicDownloadUri != null) {
+                                      try (OutputStream os = resolver.openOutputStream(publicDownloadUri)) {
+                                          if (os != null) {
+                                              os.write(bytes);
+                                              os.flush();
+                                          }
+                                      }
+                                  }
+                              } else {
+                                  File dlDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                                  if (!dlDir.exists()) dlDir.mkdirs();
+                                  File outFile = new File(dlDir, safeName);
+                                  try (FileOutputStream fos = new FileOutputStream(outFile)) {
+                                      fos.write(bytes);
+                                      fos.flush();
+                                  }
+                              }
+
+                              Toast.makeText(MainActivity.this, "Saved to Downloads: " + safeName, Toast.LENGTH_LONG).show();
+
+                              Uri shareUri = FileProvider.getUriForFile(
+                                  MainActivity.this,
+                                  getPackageName() + ".fileprovider",
+                                  cacheFile
+                              );
+
+                              Intent viewIntent = new Intent(Intent.ACTION_VIEW);
+                              viewIntent.setDataAndType(shareUri, resolvedMime);
+                              viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                              if (viewIntent.resolveActivity(getPackageName() != null ? getPackageManager() : null) != null) {
+                                  startActivity(Intent.createChooser(viewIntent, safeName));
+                              } else {
+                                  Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                                  shareIntent.setType(resolvedMime);
+                                  shareIntent.putExtra(Intent.EXTRA_STREAM, shareUri);
+                                  shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                                  startActivity(Intent.createChooser(shareIntent, safeName));
+                              }
+                          } catch (Exception e) {
+                              Toast.makeText(MainActivity.this, "File error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                          }
+                      });
+                  }
+
+                  private void printPdfFile(final File pdfFile, final String jobName) {
+                      PrintManager printManager = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                      if (printManager == null) return;
+
+                      PrintDocumentAdapter adapter = new PrintDocumentAdapter() {
+                          @Override
+                          public void onLayout(PrintAttributes oldAttributes, PrintAttributes newAttributes, CancellationSignal cancellationSignal, LayoutResultCallback callback, Bundle extras) {
+                              if (cancellationSignal.isCanceled()) {
+                                  callback.onLayoutCancelled();
+                                  return;
+                              }
+                              PrintDocumentInfo info = new PrintDocumentInfo.Builder(jobName)
+                                  .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+                                  .setPageCount(PrintDocumentInfo.PAGE_COUNT_UNKNOWN)
+                                  .build();
+                              callback.onLayoutFinished(info, true);
+                          }
+
+                          @Override
+                          public void onWrite(PageRange[] pages, ParcelFileDescriptor destination, CancellationSignal cancellationSignal, WriteResultCallback callback) {
+                              try (InputStream in = new FileInputStream(pdfFile);
+                                   OutputStream out = new FileOutputStream(destination.getFileDescriptor())) {
+                                  byte[] buf = new byte[8192];
+                                  int len;
+                                  while ((len = in.read(buf)) > 0) {
+                                      if (cancellationSignal.isCanceled()) {
+                                          callback.onWriteCancelled();
+                                          return;
+                                      }
+                                      out.write(buf, 0, len);
+                                  }
+                                  callback.onWriteFinished(new PageRange[]{PageRange.ALL_PAGES});
+                              } catch (Exception e) {
+                                  callback.onWriteFailed(e.getMessage());
+                              }
+                          }
+                      };
+
+                      printManager.print(jobName, adapter, new PrintAttributes.Builder().build());
+                  }
+              }
+          }
+          `;
+          fs.writeFileSync(mainActivityPath, mainActivityJava, 'utf8');
+          console.log('Successfully configured Android MainActivity, styles.xml, and persistent signing key');
+          EOF
+          node configure-android.cjs
+          rm configure-android.cjs
 
       - name: Accept Android SDK Licenses & Build Debug APK
         working-directory: ./android
@@ -81,8 +610,13 @@ jobs:
         continue-on-error: true
         with:
           tag_name: latest-apk
-          name: ICS-Academy-Manhappatta Android APK
-          body: "Download **ICS-Academy-Manhappatta.apk** below and install it directly on your Android phone."
-          files: ICS-Academy-Manhappatta.apk
+          name: ICS-Academy-Manhappatta Android APK (v1.0.${{ github.run_number }})
+          body: |
+            Version: 1.0.${{ github.run_number }}
+            Build #${{ github.run_number }}
+            Download **ICS-Academy-Manhappatta.apk** below or tap **Update App** directly inside the installed Android app.
+          files: |
+            ICS-Academy-Manhappatta.apk
+            public/version.json
           prerelease: false
           make_latest: true

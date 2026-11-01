@@ -360,13 +360,11 @@ async function generateWithFallback(
   language: OutputLanguage = 'ml',
 ): Promise<string> {
   const models = [
-    'gemini-3.6-flash',
-    'gemini-3.5-flash',
     'gemini-3-flash-preview',
-    'gemini-3.5-flash-lite',
+    'gemini-3.1-flash-lite-preview',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
     'gemini-flash-lite-latest',
-    'gemini-3.1-flash-lite',
-    'gemini-3.8-flash',
   ] as const
   let lastError: unknown = null
 
@@ -418,22 +416,18 @@ async function sendMultiTurnChatWithFallback(
   const modelOrder =
     preferredTier === 'flash-lite'
       ? ([
-          'gemini-3.6-flash',
-          'gemini-3.5-flash',
-          'gemini-3.5-flash-lite',
-          'gemini-flash-lite-latest',
+          'gemini-3.1-flash-lite-preview',
           'gemini-3-flash-preview',
-          'gemini-3.1-flash-lite',
-          'gemini-3.8-flash',
+          'gemini-2.5-flash-lite',
+          'gemini-2.5-flash',
+          'gemini-flash-lite-latest',
         ] as const)
       : ([
-          'gemini-3.6-flash',
-          'gemini-3.5-flash',
           'gemini-3-flash-preview',
-          'gemini-3.5-flash-lite',
+          'gemini-3.1-flash-lite-preview',
+          'gemini-2.5-flash',
+          'gemini-2.5-flash-lite',
           'gemini-flash-lite-latest',
-          'gemini-3.8-flash',
-          'gemini-3.1-flash-lite',
         ] as const)
 
   // Filter history so earlier turns in a different language (e.g. Urdu) never cause language drift
@@ -519,9 +513,15 @@ async function startServer() {
   app.use(express.json({ limit: '1mb' }))
 
   app.use('/api', (req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*')
+    const origin = req.headers.origin
+    res.setHeader('Access-Control-Allow-Origin', origin || '*')
+    res.setHeader('Vary', 'Origin')
+    res.setHeader('Access-Control-Allow-Credentials', 'true')
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization, Accept, X-Requested-With',
+    )
     if (req.method === 'OPTIONS') {
       res.status(204).end()
       return
@@ -535,7 +535,7 @@ async function startServer() {
       const {
         prompt,
         mode = 'kitab',
-        language = 'ml',
+        language = 'en',
         languageMode = 'auto',
         studentName,
       } = req.body ?? {}
@@ -551,7 +551,7 @@ async function startServer() {
         : 'kitab'
       const requestedLanguage: OutputLanguage = ['ml', 'en', 'ar', 'ur', 'es', 'de'].includes(language)
         ? language
-        : 'ml'
+        : 'en'
       const isExplicitLanguage = languageMode === 'explicit'
       // If the user explicitly selected a response language, strictly honor it.
       // Otherwise ('auto'), detect the language of the user's question and reply in that language.
@@ -576,7 +576,7 @@ async function startServer() {
         // Use HTTP 429 instead of 503 because Nginx proxy_intercept_errors replaces 502/503/504 with warmup.html
         res.status(429).json({
           error:
-            'AI സെർവറിൽ ഇപ്പോൾ തിരക്ക് കൂടുതലാണ്. ദയവായി ഏതാനും നിമിഷങ്ങൾക്ക് ശേഷം വീണ്ടും ശ്രമിക്കുക.',
+            'The AI server is currently busy. Please try again in a few moments.',
         })
         return
       }
@@ -593,7 +593,7 @@ async function startServer() {
         message,
         history = [],
         role = 'usthad',
-        language = 'ml',
+        language = 'en',
         languageMode = 'auto',
         modelTier = 'flash-lite',
         studentName,
@@ -611,7 +611,7 @@ async function startServer() {
         : 'usthad'
       const requestedLanguage: OutputLanguage = ['ml', 'en', 'ar', 'ur', 'es', 'de'].includes(language)
         ? language
-        : 'ml'
+        : 'en'
       const isExplicitLanguage = languageMode === 'explicit'
       const validTier: ChatModelTier = modelTier === 'flash' ? 'flash' : 'flash-lite'
       const safeHistory: ClientChatTurn[] = Array.isArray(history) ? history : []
@@ -650,7 +650,7 @@ async function startServer() {
         // Use HTTP 429 instead of 503 because Nginx proxy_intercept_errors replaces 502/503/504 with warmup.html
         res.status(429).json({
           error:
-            'AI സെർവറിൽ ഇപ്പോൾ തിരക്ക് കൂടുതലാണ് അല്ലെങ്കിൽ മറുപടി തയ്യാറാക്കാൻ സമയമെടുത്തു. ദയവായി ഏതാനും നിമിഷങ്ങൾക്ക് ശേഷം വീണ്ടും ശ്രമിക്കുക.',
+            'The AI server is currently busy or timed out. Please try again in a few moments.',
         })
         return
       }

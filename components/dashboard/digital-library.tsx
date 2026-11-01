@@ -40,6 +40,7 @@ import {
 } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import { ACADEMY_CLASSES, type Student } from '@/components/dashboard/data'
+import { downloadBlobOnDevice } from '@/lib/mobile-pdf'
 import {
   KitabPdfCanvasViewer,
   getPdfBlobPageCount,
@@ -995,22 +996,16 @@ export function DigitalLibrary({ student }: { student: Student }) {
     }
   }
 
-  function handleDownloadKitabPdf(kitab: DigitalKitabItem) {
+  async function handleDownloadKitabPdf(kitab: DigitalKitabItem) {
     const safeFilename =
       kitab.storagePath.split('/').pop() ||
       `${kitab.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`
 
-    const cachedUploadedBlob = memoryPdfBlobCache.get(kitab.id)
+    const cachedUploadedBlob =
+      memoryPdfBlobCache.get(kitab.id) ?? (await loadKitabPdfBlobLocally(kitab.id))
     const blob = cachedUploadedBlob ?? buildKitabPdfBlob(kitab)
-    const blobUrl = URL.createObjectURL(blob)
 
-    const link = document.createElement('a')
-    link.href = blobUrl
-    link.download = safeFilename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 10000)
+    await downloadBlobOnDevice(blob, safeFilename, 'application/pdf')
 
     // Automatically add downloaded Kitab to the Saved column/tab
     saveKitabToSaved(kitab.id)
@@ -1159,7 +1154,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
     // 3. Complete UI state immediately without waiting on network timeouts
     setUploading(false)
     setUploadStatusMsg(
-      `✅ "${finalItem.title}" ഡിജിറ്റൽ ലൈബ്രറിയിലേക്ക് ഉടൻ ചേർത്തു! (Saved ലിസ്റ്റിൽ ലഭ്യമാണ്)`,
+      `✅ "${finalItem.title}" added to Digital Library! (Available in Saved list)`,
     )
     setUploadTitle('')
     setUploadArabicTitle('')
@@ -1978,8 +1973,8 @@ export function DigitalLibrary({ student }: { student: Student }) {
                     </div>
 
                     <div className="rounded-xl border border-border bg-background/40 p-4">
-                      <p className="font-malayalam text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        മലയാളം വിവരണം (Malayalam Meaning)
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Malayalam Meaning
                       </p>
                       <p className="font-malayalam mt-2 text-sm leading-relaxed text-foreground/90">
                         {activeReaderKitab.excerpt.malayalamMeaning}

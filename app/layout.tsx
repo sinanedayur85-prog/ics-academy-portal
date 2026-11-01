@@ -22,9 +22,10 @@ export const metadata: Metadata = {
   description:
     'A unified digital campus for ICS Academy Manhappatta. Students, class leaders, teachers and the principal sign in to one secure portal.',
   generator: 'v0.app',
+  applicationName: 'ICS Academy',
   icons: {
-    icon: '/images/ics-mark-transparent.png',
-    apple: '/images/ics-mark-transparent.png',
+    icon: '/icons/icon-192.png',
+    apple: '/icons/apple-touch-icon.png',
   },
 }
 

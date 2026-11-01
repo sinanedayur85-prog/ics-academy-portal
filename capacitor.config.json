@@ -1,8 +1,16 @@
 {
   "appId": "com.icsacademy.manhappatta",
-  "appName": "ICS-Academy-Manhappatta",
+  "appName": "ICS Academy",
   "webDir": "dist",
+  "backgroundColor": "#081E21",
   "server": {
     "androidScheme": "https"
+  },
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": true,
+      "style": "DARK",
+      "backgroundColor": "#00000000"
+    }
   }
 }

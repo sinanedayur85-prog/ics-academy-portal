@@ -6,6 +6,22 @@ import { cn } from '@/lib/utils'
 
 const THEME_STORAGE_KEY = 'ics-theme'
 
+function syncSystemStatusBar(dark: boolean) {
+  if (typeof document !== 'undefined') {
+    const metaTheme = document.querySelector('meta[name="theme-color"]')
+    if (metaTheme) {
+      metaTheme.setAttribute('content', dark ? '#081E21' : '#FFFFFF')
+    }
+  }
+  if (typeof window !== 'undefined' && window.ICSNativeBridge?.setStatusBarTheme) {
+    try {
+      window.ICSNativeBridge.setStatusBarTheme(dark)
+    } catch {
+      // Ignore bridge error
+    }
+  }
+}
+
 export function ThemeToggle({ className }: { className?: string }) {
   const [isDark, setIsDark] = useState(true)
   const [mounted, setMounted] = useState(false)
@@ -17,11 +33,13 @@ export function ThemeToggle({ className }: { className?: string }) {
     root.classList.toggle('dark', initialDark)
     setIsDark(initialDark)
     setMounted(true)
+    syncSystemStatusBar(initialDark)
 
     function handleThemeSync(e: Event) {
       const customEvent = e as CustomEvent<{ isDark: boolean }>
       if (customEvent.detail) {
         setIsDark(customEvent.detail.isDark)
+        syncSystemStatusBar(customEvent.detail.isDark)
       }
     }
     window.addEventListener('ics-theme-change', handleThemeSync)
@@ -34,6 +52,7 @@ export function ThemeToggle({ className }: { className?: string }) {
     root.classList.toggle('dark', nextDark)
     window.localStorage.setItem(THEME_STORAGE_KEY, nextDark ? 'dark' : 'light')
     setIsDark(nextDark)
+    syncSystemStatusBar(nextDark)
     window.dispatchEvent(new CustomEvent('ics-theme-change', { detail: { isDark: nextDark } }))
   }
 

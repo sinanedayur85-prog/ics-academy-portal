@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth'
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { jsPDF } from 'jspdf'
@@ -23,13 +24,16 @@ import {
   MessageSquareText,
   Mic,
   MicOff,
+  Printer,
   RotateCcw,
   Send,
   Sparkles,
+  Trash2,
   User,
   X,
   Zap,
 } from 'lucide-react'
+import { fetchAiChatReply } from '@/lib/ai-chat-client'
 import type { Student } from '@/components/dashboard/data'
 import { Panel, fieldClassName } from '@/components/dashboard/panel'
 import { Button } from '@/components/ui/button'
@@ -571,7 +575,7 @@ const UI_TEXT: Record<
     analyzing: 'Preparing answer · Analyzing conversation history',
     selectPersona: 'Select Chatbot Persona',
     responseLang: 'Response Language:',
-    newChat: 'New Chat',
+    newChat: 'Clear Chat',
     turnSingular: 'turn',
     turnPlural: 'turns',
     activeRole: 'Active System Role:',
@@ -583,23 +587,23 @@ const UI_TEXT: Record<
       'Speech recognition is not supported in this browser. Please use Chrome, Safari, or Edge.',
   },
   ml: {
-    tryAsking: 'ചോദിച്ചു നോക്കൂ:',
-    placeholder: (personaTitle) => `${personaTitle}-യോട് ചോദിക്കൂ...`,
-    send: 'അയക്കുക',
-    thinking: (personaTitle) => `${personaTitle} ചിന്തിക്കുന്നു...`,
-    analyzing: 'മറുപടി തയ്യാറാക്കുന്നു · സംഭാഷണ ചരിത്രം വിശകലനം ചെയ്യുന്നു',
-    selectPersona: 'അസിസ്റ്റന്റിനെ തിരഞ്ഞെടുക്കുക',
-    responseLang: 'മറുപടി ഭാഷ:',
-    newChat: 'പുതിയ സംഭാഷണം',
-    turnSingular: 'ചോദ്യം',
-    turnPlural: 'ചോദ്യങ്ങൾ',
-    activeRole: 'നിലവിലെ റോൾ:',
-    maintainsMemory: 'സംഭാഷണത്തിലെ മുൻ ചോദ്യോത്തരങ്ങൾ ഓർത്തു വെച്ച് മറുപടി നൽകുന്നു.',
-    voiceTyping: 'വോയിസ് ടൈപ്പിംഗ്',
-    voiceListening: 'കേൾക്കുന്നു... നിങ്ങളുടെ ചോദ്യം മലയാളത്തിൽ വ്യക്തമായി സംസാരിക്കൂ',
-    voiceStop: 'വോയിസ് നിർത്തുക',
+    tryAsking: 'Try asking:',
+    placeholder: (personaTitle) => `Ask ${personaTitle}...`,
+    send: 'Send',
+    thinking: (personaTitle) => `${personaTitle} is thinking...`,
+    analyzing: 'Preparing answer · Analyzing conversation history',
+    selectPersona: 'Select Chatbot Persona',
+    responseLang: 'Response Language:',
+    newChat: 'Clear Chat',
+    turnSingular: 'turn',
+    turnPlural: 'turns',
+    activeRole: 'Active System Role:',
+    maintainsMemory: 'Maintains multi-turn memory across your conversation.',
+    voiceTyping: 'Voice Typing',
+    voiceListening: 'Listening... Speak clearly',
+    voiceStop: 'Stop Voice',
     voiceNotSupported:
-      'ഈ ബ്രൗസറിൽ സ്പീച്ച് റെക്കഗ്നിഷൻ ലഭ്യമല്ല. ദയവായി Google Chrome അല്ലെങ്കിൽ Microsoft Edge ഉപയോഗിക്കുക.',
+      'Speech recognition is not supported in this browser. Please use Chrome, Safari, or Edge.',
   },
   ar: {
     tryAsking: 'جرّب السؤال:',
@@ -702,7 +706,8 @@ const MODEL_TIERS: {
   },
 ]
 
-const CHAT_STORAGE_KEY = 'ics_gemini_chat_threads_v2'
+const LEGACY_SHARED_CHAT_KEY = 'ics_gemini_chat_threads_v3'
+const USER_CHAT_KEY_PREFIX = 'ics_gemini_chat_threads_v4_'
 
 function sanitizeId(raw: string) {
   return raw.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 120) || `chat_${Date.now()}`
@@ -1200,11 +1205,11 @@ function buildDefaultThreads(lang: ChatLanguage = 'en'): Record<ChatRole, ChatTu
 
 export function GeminiChatbot({ student }: { student: Student }) {
   const [role, setRole] = useState<ChatRole>('usthad')
-  const [language, setLanguage] = useState<ChatLanguage>('ml')
+  const [language, setLanguage] = useState<ChatLanguage>('en')
   const [responseLanguagePreference, setResponseLanguagePreference] =
     useState<ResponseLanguagePreference>('auto')
   const [modelTier, setModelTier] = useState<ChatModelTier>('flash-lite')
-  const [threads, setThreads] = useState<Record<ChatRole, ChatTurnMessage[]>>(() => buildDefaultThreads('ml'))
+  const [threads, setThreads] = useState<Record<ChatRole, ChatTurnMessage[]>>(() => buildDefaultThreads('en'))
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -1257,9 +1262,17 @@ export function GeminiChatbot({ student }: { student: Student }) {
     [role],
   )
 
-  const currentMessages = useMemo(() => threads[role] ?? [], [threads, role])
+  const currentMessages = useMemo(
+    () => (threads[role] ?? []).filter((m) => m && typeof m.text === 'string' && m.text.trim().length > 0),
+    [threads, role],
+  )
 
   const safeStudentId = useMemo(() => sanitizeId(student.id), [student.id])
+  const userChatStorageKey = useMemo(() => {
+    const uniqueKey = sanitizeId(`${student.id}_${student.admissionNo || ''}`)
+    return `${USER_CHAT_KEY_PREFIX}${uniqueKey}`
+  }, [student.id, student.admissionNo])
+
   const activeUid = useMemo(
     () => (firebaseUser ? firebaseUser.uid : `portal_${safeStudentId}`),
     [firebaseUser, safeStudentId],
@@ -1277,11 +1290,12 @@ export function GeminiChatbot({ student }: { student: Student }) {
     return () => unsubscribe()
   }, [])
 
-  // Load saved threads from localStorage and clean any mismatched Urdu replies to Malayalam questions
+  // Load saved threads strictly isolated per logged-in student ID (and purge old shared global storage key)
   useEffect(() => {
     const cleanMismatchedTurns = (arr: ChatTurnMessage[] | undefined, fallback: ChatTurnMessage[]) => {
       if (!Array.isArray(arr) || arr.length === 0) return fallback
-      return arr.filter((msg, idx) => {
+      const filtered = arr.filter((msg, idx) => {
+        if (!msg || typeof msg.text !== 'string' || !msg.text.trim()) return false
         if (msg.role === 'model' && !msg.id.startsWith('welcome-') && isUrduText(msg.text)) {
           const prevUser = arr[idx - 1]
           if (!prevUser || /[\u0D00-\u0D7F]/.test(prevUser.text) || !isUrduText(prevUser.text)) {
@@ -1290,41 +1304,51 @@ export function GeminiChatbot({ student }: { student: Student }) {
         }
         return true
       })
+      return filtered.length > 0 ? filtered : fallback
     }
 
     try {
-      const raw = window.localStorage.getItem(CHAT_STORAGE_KEY)
+      // Remove legacy shared chat key so no user ever sees another user's messages
+      window.localStorage.removeItem(LEGACY_SHARED_CHAT_KEY)
+
+      const defaults = buildDefaultThreads(language)
+      const raw = window.localStorage.getItem(userChatStorageKey)
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<Record<ChatRole, ChatTurnMessage[]>>
         if (parsed && typeof parsed === 'object') {
-          setThreads((prev) => ({
-            usthad: cleanMismatchedTurns(parsed.usthad, prev.usthad),
-            academic: cleanMismatchedTurns(parsed.academic, prev.academic),
-            language: cleanMismatchedTurns(parsed.language, prev.language),
-            campus: cleanMismatchedTurns(parsed.campus, prev.campus),
-          }))
+          setThreads({
+            usthad: cleanMismatchedTurns(parsed.usthad, defaults.usthad),
+            academic: cleanMismatchedTurns(parsed.academic, defaults.academic),
+            language: cleanMismatchedTurns(parsed.language, defaults.language),
+            campus: cleanMismatchedTurns(parsed.campus, defaults.campus),
+          })
+          return
         }
       }
+      setThreads(defaults)
     } catch {
-      // Ignore storage errors
+      setThreads(buildDefaultThreads(language))
     }
-  }, [])
+  }, [userChatStorageKey])
 
-  // Persist threads on update
+  // Persist threads under the current user's isolated key
   useEffect(() => {
     try {
-      window.localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(threads))
+      window.localStorage.setItem(userChatStorageKey, JSON.stringify(threads))
     } catch {
       // Ignore quota errors
     }
-  }, [threads])
+  }, [threads, userChatStorageKey])
 
-  // Scroll thread container to bottom when messages change
+  // Scroll thread container cleanly when messages change
   useEffect(() => {
     const el = threadContainerRef.current
-    if (el) {
-      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    if (!el) return
+    if (currentMessages.length <= 1 && !sending) {
+      el.scrollTo({ top: 0, behavior: 'smooth' })
+      return
     }
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }, [currentMessages, sending])
 
   async function handleSendMessage(customText?: string) {
@@ -1347,15 +1371,12 @@ export function GeminiChatbot({ student }: { student: Student }) {
     setErrorMessage(null)
 
     const previousHistory = currentMessages
-      .filter((m) => !m.id.startsWith('welcome-'))
+      .filter((m) => !m.id.startsWith('welcome-') && m.text.trim().length > 0)
       .map((m) => ({
         role: m.role,
         text: m.text,
       }))
 
-    // If user has NOT explicitly selected a response language ('auto'), reply in the language of the question
-    // (while preserving the ongoing conversation language if they type an Arabic practice answer during a Malayalam/English/Urdu lesson).
-    // If user HAS explicitly selected a response language, strictly reply in that selected language.
     const isAutoLanguage = responseLanguagePreference === 'auto'
     const effectiveLanguage: ChatLanguage = isAutoLanguage
       ? detectInputLanguage(textToSend, language, previousHistory)
@@ -1380,60 +1401,27 @@ export function GeminiChatbot({ student }: { student: Student }) {
 
     setSending(true)
 
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 45000)
-
     try {
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          message: textToSend.slice(0, 2000),
-          history: previousHistory,
-          role,
-          language: effectiveLanguage,
-          languageMode: isAutoLanguage ? 'auto' : 'explicit',
-          modelTier,
-          studentName: student.name,
-          studentClass: student.className,
-        }),
+      const data = await fetchAiChatReply({
+        message: textToSend.slice(0, 2000),
+        history: previousHistory,
+        role,
+        language: effectiveLanguage,
+        languageMode: isAutoLanguage ? 'auto' : 'explicit',
+        modelTier,
+        studentName: student.name,
+        studentClass: student.className,
       })
-
-      clearTimeout(timeoutId)
-
-      const contentType = res.headers.get('content-type') || ''
-      let data: { reply?: string; modelUsed?: string; error?: string } | null = null
-
-      if (contentType.includes('application/json')) {
-        try {
-          data = await res.json()
-        } catch {
-          data = null
-        }
-      }
-
-      if (!res.ok) {
-        const errorMsg =
-          data?.error ||
-          (res.status === 504 || res.status === 502
-            ? 'AI സെർവറിൽ മറുപടി തയ്യാറാക്കാൻ സമയമെടുത്തതിനാൽ കണക്ഷൻ തടസ്സപ്പെട്ടു (Gateway Timeout). ദയവായി വീണ്ടും ശ്രമിക്കുക.'
-            : res.status === 503
-              ? 'AI സെർവറിൽ ഇപ്പോൾ തിരക്ക് കൂടുതലാണ് (503). ദയവായി ഏതാനും നിമിഷങ്ങൾക്ക് ശേഷം വീണ്ടും ശ്രമിക്കുക.'
-              : `സെർവറിൽ നിന്ന് മറുപടി ലഭിക്കുന്നതിൽ തടസ്സം നേരിട്ടു (${res.status}). ദയവായി വീണ്ടും ശ്രമിക്കുക.`)
-        throw new Error(errorMsg)
-      }
-
-      if (!data || typeof data.reply !== 'string') {
-        throw new Error('AI സെർവറിൽ നിന്ന് സാധുവായ മറുപടി ലഭിച്ചില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.')
-      }
 
       const botMsg: ChatTurnMessage = {
         id: `model-${Date.now()}`,
         role: 'model',
-        text: String(data.reply ?? ''),
+        text: String(data.reply ?? '').trim(),
         timestamp: Date.now(),
-        modelUsed: String(data.modelUsed ?? (modelTier === 'flash-lite' ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash')),
+        modelUsed: String(
+          data.modelUsed ??
+            (modelTier === 'flash-lite' ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash'),
+        ),
         persona: role,
       }
 
@@ -1442,36 +1430,30 @@ export function GeminiChatbot({ student }: { student: Student }) {
         [role]: [...(prev[role] ?? []), botMsg],
       }))
     } catch (err) {
-      let rawMsg =
+      const rawMsg =
         err instanceof Error
-          ? err.name === 'AbortError'
-            ? 'മറുപടി തയ്യാറാക്കാൻ അനുവദിച്ച സമയം കഴിഞ്ഞു (45s Timeout). ചോദ്യം ചെറുതാക്കി വീണ്ടും ശ്രമിക്കുക.'
-            : err.message
-          : 'Server busy. Could not get a response. Please try again.'
-
-      if (
-        rawMsg.includes('<!doctype') ||
-        rawMsg.includes('Unexpected token') ||
-        rawMsg.includes('is not valid JSON') ||
-        rawMsg.includes('JSON.parse')
-      ) {
-        rawMsg =
-          'AI സെർവറിൽ മറുപടി തയ്യാറാക്കാൻ സമയമെടുത്തതിനാൽ കണക്ഷൻ തടസ്സപ്പെട്ടു. ദയവായി വീണ്ടും ശ്രമിക്കുക.'
-      }
-
+          ? err.message
+          : 'Could not receive a response right now. Please try again.'
       setErrorMessage(rawMsg)
     } finally {
-      clearTimeout(timeoutId)
       setSending(false)
     }
   }
 
   function handleResetThread() {
     const defaultForRole = buildDefaultThreads(language)[role]
-    setThreads((prev) => ({
-      ...prev,
-      [role]: defaultForRole,
-    }))
+    setThreads((prev) => {
+      const updated = {
+        ...prev,
+        [role]: defaultForRole,
+      }
+      try {
+        window.localStorage.setItem(userChatStorageKey, JSON.stringify(updated))
+      } catch {
+        // Ignore storage errors
+      }
+      return updated
+    })
     setErrorMessage(null)
   }
 
@@ -1540,7 +1522,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
     }
 
     const micDeniedMessages: Record<ChatLanguage, string> = {
-      ml: 'മൈക്രോഫോൺ അനുമതി ലഭ്യമല്ല. ബ്രൗസർ അഡ്രസ് ബാറിലെ സൈറ്റ് സെറ്റിംഗ്സിൽ (Lock/Tune ഐക്കൺ) മൈക്രോഫോൺ "Allow" ചെയ്യുക, അല്ലെങ്കിൽ പ്രിവ്യൂ പുതിയ ടാബിൽ തുറന്ന് ശ്രമിക്കുക.',
+      ml: 'Microphone access is blocked. Please allow microphone permission in your browser site settings or open the app in a new tab.',
       ar: 'لم يتم السماح بالوصول إلى الميكروفون. يُرجى تفعيل إذن الميكروفون في إعدادات المتصفح.',
       ur: 'مائیکروفون کی اجازت دستیاب نہیں ہے۔ براہِ کرم براؤزر ایڈریس بار کی سیٹنگز میں مائیکروفون کو Allow کریں۔',
       es: 'Se denegó el acceso al micrófono. Por favor, permite el uso del micrófono en la configuración del navegador.',
@@ -1562,7 +1544,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
         const recognition = new SpeechRecognitionClass()
         recognition.continuous = true
         recognition.interimResults = true
-        recognition.lang = speechLangMap[language] || 'ml-IN'
+        recognition.lang = speechLangMap[language] || 'en-IN'
 
         speechBaseTextRef.current = input.trim()
 
@@ -1601,11 +1583,9 @@ export function GeminiChatbot({ student }: { student: Student }) {
             // Normal timeout or user-initiated stop
           } else if (errCode) {
             setErrorMessage(
-              language === 'ml'
-                ? `വോയിസ് റെക്കഗ്നിഷൻ ലഭ്യമല്ല (${errCode}). ദയവായി ടൈപ്പ് ചെയ്ത് ചോദിക്കുക.`
-                : language === 'ur'
-                  ? `وائس ٹائپنگ دستیاب نہیں ہے (${errCode})۔`
-                  : `Voice typing unavailable (${errCode}).`,
+              language === 'ur'
+                ? `وائس ٹائپنگ دستیاب نہیں ہے (${errCode})۔`
+                : `Voice typing unavailable (${errCode}).`,
             )
           }
           setIsListening(false)
@@ -1689,7 +1669,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
     }
   }
 
-  async function handleDirectPdfDownload() {
+  async function handleDirectPdfDownload(action: 'download' | 'print' = 'download') {
     if (!activeExportNote || isGeneratingDirectPdf) return
     const el = printTemplateRef.current
     if (!el) {
@@ -1705,6 +1685,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
       await exportStudyNoteDirectPdf({
         element: el,
         fileName: docTitleInput.trim() || 'ics-academy-study-note',
+        action,
       })
       setDirectPdfSuccess(true)
       window.setTimeout(() => setDirectPdfSuccess(false), 5000)
@@ -1760,7 +1741,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
       icon={MessageSquareText}
       className="border-lime/30"
       action={
-        <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           {/* Top Language Switcher */}
           <div
             role="group"
@@ -1770,7 +1751,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
             <button
               type="button"
               onClick={() => handleSelectLanguage('auto')}
-              title="ചോദിക്കുന്ന ഭാഷയിൽ തന്നെ മറുപടി നൽകും (Reply in the language you ask)"
+              title="Reply in the language you ask"
               className={cn(
                 'rounded-lg px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap',
                 responseLanguagePreference === 'auto'
@@ -1778,7 +1759,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              Auto (ചോദിക്കുന്ന ഭാഷ)
+              Auto
             </button>
             {LANGUAGES.map((lang) => {
               const active = responseLanguagePreference === lang.id
@@ -1787,7 +1768,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
                   key={lang.id}
                   type="button"
                   onClick={() => handleSelectLanguage(lang.id)}
-                  title={`മറുപടി ${lang.label} ഭാഷയിൽ ലഭിക്കാൻ ക്ലിക്ക് ചെയ്യുക`}
+                  title={`Reply in ${lang.label}`}
                   className={cn(
                     'rounded-lg px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap',
                     lang.id === 'ml' && 'font-malayalam',
@@ -1956,7 +1937,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  Auto (ചോദിക്കുന്ന ഭാഷ)
+                  Auto
                 </button>
                 {LANGUAGES.map((lang) => (
                   <button
@@ -1977,10 +1958,10 @@ export function GeminiChatbot({ student }: { student: Student }) {
                   </button>
                 ))}
               </div>
-              <p className="w-full text-[11px] text-lime/90 font-malayalam">
+              <p className="w-full text-[11px] text-lime/90">
                 {responseLanguagePreference === 'auto'
-                  ? '✓ Auto Mode: നിങ്ങൾ ഏത് ഭാഷയിൽ ചോദിക്കുന്നുവോ ആ ഭാഷയിൽ തന്നെ മറുപടി നൽകും.'
-                  : `✓ തിരഞ്ഞെടുത്ത മറുപടി ഭാഷ (${LANGUAGES.find((l) => l.id === responseLanguagePreference)?.label}): ചോദ്യം ഏത് ഭാഷയിലായാലും മറുപടി ഈ ഭാഷയിൽ നൽകും.`}
+                  ? '✓ Auto Mode: Replies automatically in the language you ask.'
+                  : `✓ Selected Response Language (${LANGUAGES.find((l) => l.id === responseLanguagePreference)?.label}): Replies will be in this language regardless of question language.`}
               </p>
             </div>
 
@@ -2001,33 +1982,45 @@ export function GeminiChatbot({ student }: { student: Student }) {
         {/* Right Column: Scrollable Conversation Thread & Composer */}
         <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-background/60 lg:col-span-8">
           {/* Thread Header */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-            <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3.5 py-3 sm:px-4">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
               <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-lime/15 text-lime">
                 <currentPersona.icon className="size-4" aria-hidden="true" />
               </div>
-              <div className="min-w-0">
-                <h3 className="break-words text-sm font-semibold text-foreground">
+              <div className="min-w-0 flex-1">
+                <h3 className="break-words text-xs font-semibold text-foreground sm:text-sm">
                   {currentPersona.title}{' '}
                   <span className="font-normal text-muted-foreground">
                     · {currentPersona.subTitle}
                   </span>
                 </h3>
-                <p className="text-[11px] text-muted-foreground">
-                  Multi-turn thread · Context preserved across messages
+                <p className="truncate text-[11px] text-muted-foreground">
+                  Private chat for {student.firstName} ({student.admissionNo})
                 </p>
               </div>
             </div>
 
-            <span className="font-mono text-[11px] text-lime">
-              {modelTier === 'flash-lite' ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash'}
-            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="hidden sm:inline font-mono text-[11px] text-lime">
+                {modelTier === 'flash-lite' ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash'}
+              </span>
+              <button
+                type="button"
+                onClick={handleResetThread}
+                disabled={sending || currentMessages.length <= 1}
+                title="Clear your chat history"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card/90 px-2.5 text-xs font-semibold text-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive disabled:opacity-45"
+              >
+                <Trash2 className="size-3.5 shrink-0" aria-hidden="true" />
+                <span>Clear Chat</span>
+              </button>
+            </div>
           </div>
 
           {/* Scrollable Messages Container */}
           <div
             ref={threadContainerRef}
-            className="flex h-[420px] flex-col gap-4 overflow-y-auto p-4 md:p-5"
+            className="relative flex h-[390px] sm:h-[430px] flex-col gap-4 overflow-y-auto p-3.5 sm:p-4 md:p-5"
             aria-live="polite"
           >
             {currentMessages.map((msg, idx) => {
@@ -2037,6 +2030,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
               return (
                 <div
                   key={msg.id}
+                  data-chat-turn={msg.role}
                   className={cn(
                     'flex gap-3',
                     isUser ? 'flex-row-reverse' : 'flex-row',
@@ -2366,14 +2360,15 @@ export function GeminiChatbot({ student }: { student: Student }) {
       </div>
 
       {/* Save Note -> Direct DOCX & PDF Download Modal */}
-      {activeExportNote ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="study-note-export-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-xs sm:p-4"
-        >
-          <div className="flex max-h-[92svh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+      {activeExportNote && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="study-note-export-title"
+              className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/75 p-3 pt-[max(0.75rem,var(--safe-top))] backdrop-blur-xs sm:p-4"
+            >
+              <div className="my-auto flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
             <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
               <div>
                 <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-lime">
@@ -2563,7 +2558,7 @@ export function GeminiChatbot({ student }: { student: Student }) {
                 Close
               </button>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   disabled={isGeneratingDirectDocx}
@@ -2576,7 +2571,16 @@ export function GeminiChatbot({ student }: { student: Student }) {
                 <button
                   type="button"
                   disabled={isGeneratingDirectPdf}
-                  onClick={() => void handleDirectPdfDownload()}
+                  onClick={() => void handleDirectPdfDownload('print')}
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 text-xs font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+                >
+                  <Printer className="size-3.5" aria-hidden="true" />
+                  <span>Print</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={isGeneratingDirectPdf}
+                  onClick={() => void handleDirectPdfDownload('download')}
                   className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-lime/30 bg-lime/10 px-3.5 text-xs font-semibold text-lime transition-colors hover:bg-lime/20 disabled:opacity-50"
                 >
                   <Download className="size-3.5" aria-hidden="true" />
@@ -2585,7 +2589,8 @@ export function GeminiChatbot({ student }: { student: Student }) {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       ) : null}
 
       {/* Off-screen high-fidelity template for direct Malayalam and Arabic PDF rendering */}

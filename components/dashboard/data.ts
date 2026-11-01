@@ -1614,10 +1614,10 @@ export type PeriodAttendanceStatus = 'present' | 'absent' | 'leave'
 export type PeriodSessionStatus = 'conducted' | 'not-held' | 'substituted'
 
 export const NOT_HELD_REASONS = [
-  'Usthad on Personal / Medical Leave (ഉസ്താദ് അവധിയിലാണ്)',
-  'Official Academy / Jamiathul Hind Duty (ഔദ്യോഗിക മീറ്റിംഗ് / ഡ്യൂട്ടി)',
-  'Combined Session / Special Lecture (സംയുക്ത ക്ലാസ് / സ്പെഷ്യൽ സെഷൻ)',
-  'Internal Exam / Study Revision Hour (പരീക്ഷ / റിവിഷൻ സമയം)',
+  'Usthad on Personal / Medical Leave',
+  'Official Academy / Jamiathul Hind Duty',
+  'Combined Session / Special Lecture',
+  'Internal Exam / Study Revision Hour',
 ] as const
 
 export type SubstituteUsthadAssignment = {

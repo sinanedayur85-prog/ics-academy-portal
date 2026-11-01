@@ -11,6 +11,7 @@ import {
   PageNumber,
   UnderlineType,
 } from 'docx'
+import { downloadBlobOnDevice } from '@/lib/mobile-pdf'
 
 export interface StudyNoteDocxData {
   title: string
@@ -442,12 +443,9 @@ export async function exportStudyNoteDirectDocx(data: StudyNoteDocxData): Promis
       .replace(/^-|-$/g, '')
       .slice(0, 60) || 'ics-academy-study-note'
 
-  const blobUrl = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = blobUrl
-  link.download = `${safeFilename}.docx`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  window.setTimeout(() => URL.revokeObjectURL(blobUrl), 10000)
+  await downloadBlobOnDevice(
+    blob,
+    `${safeFilename}.docx`,
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  )
 }
