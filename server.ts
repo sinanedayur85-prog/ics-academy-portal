@@ -785,6 +785,108 @@ async function startServer() {
     }
   })
 
+  // Real-time Campus Sync & Notifications State (Notices, Attendance, Period Attendance, Notifications)
+  interface ServerCampusNotification {
+    id: string
+    type: 'notice' | 'attendance' | 'period-attendance' | 'leave'
+    title: string
+    message: string
+    category?: string
+    targetClass?: string
+    targetStudentId?: string
+    actorName?: string
+    href?: string
+    createdAt: string
+    createdAtMs: number
+  }
+
+  interface ServerCampusState {
+    updatedAtMs: number
+    customNotices: unknown[] | null
+    attendanceOverrides: Record<string, unknown> | null
+    periodSubmissions: Record<string, unknown> | null
+    notifications: ServerCampusNotification[]
+  }
+
+  const campusState: ServerCampusState = {
+    updatedAtMs: Date.now(),
+    customNotices: null,
+    attendanceOverrides: null,
+    periodSubmissions: null,
+    notifications: [],
+  }
+
+  app.get('/api/campus/state', (_req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    res.setHeader('Cache-Control', 'no-store')
+    res.json(campusState)
+  })
+
+  app.post('/api/campus/sync', (req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    try {
+      const {
+        customNotices,
+        attendanceOverrides,
+        periodSubmissions,
+        notification,
+      } = req.body ?? {}
+
+      if (Array.isArray(customNotices)) {
+        campusState.customNotices = customNotices.slice(0, 100)
+        campusState.updatedAtMs = Date.now()
+      }
+
+      if (attendanceOverrides && typeof attendanceOverrides === 'object') {
+        campusState.attendanceOverrides = {
+          ...(campusState.attendanceOverrides || {}),
+          ...(attendanceOverrides as Record<string, unknown>),
+        }
+        campusState.updatedAtMs = Date.now()
+      }
+
+      if (periodSubmissions && typeof periodSubmissions === 'object') {
+        campusState.periodSubmissions = {
+          ...(campusState.periodSubmissions || {}),
+          ...(periodSubmissions as Record<string, unknown>),
+        }
+        campusState.updatedAtMs = Date.now()
+      }
+
+      if (notification && typeof notification === 'object' && notification.title) {
+        const incomingNotif = notification as ServerCampusNotification
+        const safeId =
+          typeof incomingNotif.id === 'string' && incomingNotif.id
+            ? incomingNotif.id
+            : `notif_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+        const exists = campusState.notifications.some((n) => n.id === safeId)
+        if (!exists) {
+          campusState.notifications = [
+            {
+              id: safeId,
+              type: incomingNotif.type || 'notice',
+              title: String(incomingNotif.title).slice(0, 180),
+              message: String(incomingNotif.message || '').slice(0, 500),
+              category: incomingNotif.category,
+              targetClass: incomingNotif.targetClass,
+              targetStudentId: incomingNotif.targetStudentId,
+              actorName: incomingNotif.actorName,
+              href: incomingNotif.href || '#notices',
+              createdAt: incomingNotif.createdAt || new Date().toISOString(),
+              createdAtMs: Number(incomingNotif.createdAtMs) || Date.now(),
+            },
+            ...campusState.notifications,
+          ].slice(0, 60)
+          campusState.updatedAtMs = Date.now()
+        }
+      }
+
+      res.json({ ok: true, state: campusState })
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Sync failed' })
+    }
+  })
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: {

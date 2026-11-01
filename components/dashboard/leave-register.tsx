@@ -32,6 +32,7 @@ import {
   leaveReasons,
   loadAttendanceOverrides,
   loadPeriodAttendanceSubmissions,
+  publishCampusNotification,
   type AttendanceOverrideMap,
   type PeriodAttendanceSubmission,
   type Student,
@@ -317,6 +318,22 @@ export function LeaveRegister({
     }
 
     setLocalEntries((prev) => [nextItem, ...prev])
+
+    publishCampusNotification({
+      type: 'leave',
+      title:
+        entry.recordType === 'return'
+          ? `Campus Return Registered • ${student.name}`
+          : `Leave Application Registered • ${student.name}`,
+      message:
+        entry.recordType === 'return'
+          ? `${student.name} (${student.className}) registered return on ${entry.dateString} at ${entry.timeString}.`
+          : `${student.name} (${student.className}) registered leave (${entry.reason}) on ${entry.dateString} at ${entry.timeString}.`,
+      targetStudentId: student.id,
+      targetClass: student.className,
+      actorName: student.name,
+      href: '#leave',
+    })
 
     if (!firebaseUser) return
 

@@ -1269,8 +1269,51 @@ export function loadAttendanceOverrides(): AttendanceOverrideMap {
 export function saveAttendanceOverrides(map: AttendanceOverrideMap): void {
   if (typeof window === 'undefined') return
   try {
+    const prev = loadAttendanceOverrides()
     window.localStorage.setItem(ATTENDANCE_OVERRIDES_STORAGE_KEY, JSON.stringify(map))
     window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
+
+    // Find changed student+month entry to emit a live notification
+    let changedKey: string | null = null
+    for (const k of Object.keys(map)) {
+      const cur = map[k]
+      const old = prev[k]
+      if (
+        !old ||
+        old.present !== cur.present ||
+        old.absent !== cur.absent ||
+        old.leave !== cur.leave ||
+        old.absentReason !== cur.absentReason ||
+        old.leaveReason !== cur.leaveReason
+      ) {
+        changedKey = k
+        break
+      }
+    }
+
+    let notif: CampusNotification | undefined
+    if (changedKey) {
+      const [stId, mId] = changedKey.split('__')
+      const st = students.find((s) => s.id === stId)
+      const mMeta = MONTHS_META.find((m) => m.id === mId)
+      const entry = map[changedKey]
+      if (st && entry) {
+        const monthText = mMeta ? `${mMeta.shortMonth} ${mMeta.year}` : mId
+        notif = createAndStoreCampusNotification({
+          type: 'attendance',
+          title: `Attendance Updated • ${st.name}`,
+          message: `${monthText} (${st.className}): Present ${entry.present}d, Absent ${entry.absent}d, Leave ${entry.leave}d.`,
+          targetStudentId: st.id,
+          targetClass: st.className,
+          href: '#attendance',
+        })
+      }
+    }
+
+    pushCampusSyncToServer({
+      attendanceOverrides: map,
+      ...(notif ? { notification: notif } : {}),
+    })
   } catch {
     // Ignore storage errors
   }
@@ -1291,9 +1334,32 @@ export function loadCustomNotices(): Notice[] {
 export function saveCustomNotices(customList: Notice[]): void {
   if (typeof window === 'undefined') return
   try {
+    const prev = loadCustomNotices()
+    const prevIds = new Set(prev.map((n) => n.id))
     window.localStorage.setItem(CUSTOM_NOTICES_STORAGE_KEY, JSON.stringify(customList))
     window.dispatchEvent(new CustomEvent('ics-notices-updated'))
     window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
+
+    const newlyAdded = customList.find((n) => !prevIds.has(n.id))
+    let notif: CampusNotification | undefined
+    if (newlyAdded) {
+      const isHoliday = Boolean(newlyAdded.holidayMeta?.isOfficialHoliday)
+      notif = createAndStoreCampusNotification({
+        type: 'notice',
+        title: isHoliday
+          ? `Official Holiday Notice: ${newlyAdded.title}`
+          : `New Announcement: ${newlyAdded.title}`,
+        message: newlyAdded.body,
+        category: newlyAdded.category,
+        actorName: newlyAdded.holidayMeta?.announcedBy || 'Usthad / Principal',
+        href: '#notices',
+      })
+    }
+
+    pushCampusSyncToServer({
+      customNotices: customList,
+      ...(notif ? { notification: notif } : {}),
+    })
   } catch {
     // Ignore storage errors
   }
@@ -1706,12 +1772,305 @@ export function savePeriodAttendanceSubmissions(
 ): void {
   if (typeof window === 'undefined') return
   try {
+    const prev = loadPeriodAttendanceSubmissions()
     window.localStorage.setItem(PERIOD_ATTENDANCE_STORAGE_KEY, JSON.stringify(map))
     window.dispatchEvent(new CustomEvent('ics-period-attendance-updated'))
+
+    let changedSub: PeriodAttendanceSubmission | null = null
+    for (const k of Object.keys(map)) {
+      const cur = map[k]
+      const old = prev[k]
+      if (!old || old.submittedAt !== cur.submittedAt || old.sessionStatus !== cur.sessionStatus) {
+        changedSub = cur
+        break
+      }
+    }
+
+    let notif: CampusNotification | undefined
+    if (changedSub) {
+      const statusText =
+        changedSub.sessionStatus === 'not-held'
+          ? `Marked Not Held (${changedSub.notHeldReason || 'Usthad Leave'})`
+          : changedSub.sessionStatus === 'substituted'
+            ? `Substitute Assigned: ${changedSub.substituteUsthad?.usthadName || 'Usthad'}`
+            : `Attendance Marked by ${changedSub.submittedByName}`
+
+      notif = createAndStoreCampusNotification({
+        type: 'period-attendance',
+        title: `${changedSub.periodLabel} • ${changedSub.className}`,
+        message: `${changedSub.subject}: ${statusText} (${changedSub.date})`,
+        targetClass: changedSub.className,
+        actorName: changedSub.submittedByName,
+        href: '#attendance',
+      })
+    }
+
+    pushCampusSyncToServer({
+      periodSubmissions: map,
+      ...(notif ? { notification: notif } : {}),
+    })
   } catch {
     // Ignore storage errors
   }
 }
+
+export type CampusNotificationType =
+  | 'notice'
+  | 'attendance'
+  | 'period-attendance'
+  | 'leave'
+
+export type CampusNotification = {
+  id: string
+  type: CampusNotificationType
+  title: string
+  message: string
+  category?: string
+  targetClass?: string
+  targetStudentId?: string
+  actorName?: string
+  href?: string
+  createdAt: string
+  createdAtMs: number
+}
+
+export const CAMPUS_NOTIFICATIONS_STORAGE_KEY = 'ics_campus_notifications_v1'
+
+const CLOUD_SYNC_ENDPOINTS = [
+  '/api/campus',
+  'https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app/api/campus',
+  'https://ais-dev-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app/api/campus',
+]
+
+function getOrderedSyncBases(): string[] {
+  if (typeof window === 'undefined') return ['/api/campus']
+  const isCapacitorOrLocal =
+    Boolean((window as unknown as { ICSNativeBridge?: unknown }).ICSNativeBridge) ||
+    window.location.protocol === 'capacitor:' ||
+    (window.location.hostname === 'localhost' && /Android/i.test(navigator.userAgent))
+
+  if (isCapacitorOrLocal) {
+    return [
+      'https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app/api/campus',
+      'https://ais-dev-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app/api/campus',
+      '/api/campus',
+    ]
+  }
+  return CLOUD_SYNC_ENDPOINTS
+}
+
+export function loadCampusNotifications(): CampusNotification[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(CAMPUS_NOTIFICATIONS_STORAGE_KEY)
+    if (!raw) return getInitialSeedNotifications()
+    const parsed = JSON.parse(raw) as CampusNotification[]
+    return Array.isArray(parsed) && parsed.length > 0
+      ? parsed
+      : getInitialSeedNotifications()
+  } catch {
+    return getInitialSeedNotifications()
+  }
+}
+
+function getInitialSeedNotifications(): CampusNotification[] {
+  return [
+    {
+      id: 'seed-nt-holiday-monthly',
+      type: 'notice',
+      title: 'Official Second-Saturday Monthly Holiday Schedule',
+      message:
+        'Official monthly academy leave is scheduled around the Second Saturday and is excluded from Academy Working Days.',
+      category: 'Hostel',
+      actorName: 'Principal & Academic Council',
+      href: '#notices',
+      createdAt: '2026-10-30T09:00:00.000Z',
+      createdAtMs: 1793350800000,
+    },
+    {
+      id: 'seed-nt-exam',
+      type: 'notice',
+      title: 'Jamia Hind Odd Semester Examination Schedule Published',
+      message:
+        'Hall tickets and seating arrangements for all Da’wa batches (Batch 05 – Batch 14) are now available at the academic office.',
+      category: 'Exam',
+      actorName: 'Academic Office',
+      href: '#notices',
+      createdAt: '2026-10-28T10:00:00.000Z',
+      createdAtMs: 1793181600000,
+    },
+  ]
+}
+
+export function createAndStoreCampusNotification(input: {
+  id?: string
+  type: CampusNotificationType
+  title: string
+  message: string
+  category?: string
+  targetClass?: string
+  targetStudentId?: string
+  actorName?: string
+  href?: string
+}): CampusNotification {
+  const now = new Date()
+  const notif: CampusNotification = {
+    id: input.id || `notif_${now.getTime()}_${Math.random().toString(36).slice(2, 7)}`,
+    type: input.type,
+    title: input.title,
+    message: input.message,
+    category: input.category,
+    targetClass: input.targetClass,
+    targetStudentId: input.targetStudentId,
+    actorName: input.actorName,
+    href: input.href || '#notices',
+    createdAt: now.toISOString(),
+    createdAtMs: now.getTime(),
+  }
+
+  if (typeof window !== 'undefined') {
+    try {
+      const existing = loadCampusNotifications()
+      if (!existing.some((n) => n.id === notif.id)) {
+        const updated = [notif, ...existing].slice(0, 60)
+        window.localStorage.setItem(
+          CAMPUS_NOTIFICATIONS_STORAGE_KEY,
+          JSON.stringify(updated),
+        )
+      }
+      window.dispatchEvent(
+        new CustomEvent('ics-campus-notification', { detail: notif }),
+      )
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  return notif
+}
+
+export function publishCampusNotification(input: {
+  type: CampusNotificationType
+  title: string
+  message: string
+  category?: string
+  targetClass?: string
+  targetStudentId?: string
+  actorName?: string
+  href?: string
+}): CampusNotification {
+  const notif = createAndStoreCampusNotification(input)
+  pushCampusSyncToServer({ notification: notif })
+  return notif
+}
+
+export async function pushCampusSyncToServer(payload: {
+  customNotices?: Notice[]
+  attendanceOverrides?: AttendanceOverrideMap
+  periodSubmissions?: Record<string, PeriodAttendanceSubmission>
+  notification?: CampusNotification
+}): Promise<void> {
+  if (typeof window === 'undefined') return
+  const bases = getOrderedSyncBases()
+  for (const base of bases) {
+    try {
+      const res = await fetch(`${base}/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (res.ok) return
+    } catch {
+      // Try next endpoint
+    }
+  }
+}
+
+export async function pullCampusStateFromServer(): Promise<void> {
+  if (typeof window === 'undefined') return
+  const bases = getOrderedSyncBases()
+  for (const base of bases) {
+    try {
+      const res = await fetch(`${base}/state?t=${Date.now()}`, {
+        method: 'GET',
+        cache: 'no-store',
+      })
+      if (!res.ok) continue
+      const data = (await res.json()) as {
+        customNotices?: Notice[] | null
+        attendanceOverrides?: AttendanceOverrideMap | null
+        periodSubmissions?: Record<string, PeriodAttendanceSubmission> | null
+        notifications?: CampusNotification[]
+      }
+
+      // 1. Merge custom notices
+      if (Array.isArray(data.customNotices) && data.customNotices.length > 0) {
+        const localNotices = loadCustomNotices()
+        const localIds = new Set(localNotices.map((n) => n.id))
+        const hasNewNotice = data.customNotices.some((n) => !localIds.has(n.id))
+        if (hasNewNotice || data.customNotices.length !== localNotices.length) {
+          window.localStorage.setItem(
+            CUSTOM_NOTICES_STORAGE_KEY,
+            JSON.stringify(data.customNotices),
+          )
+          window.dispatchEvent(new CustomEvent('ics-notices-updated'))
+          window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
+        }
+      }
+
+      // 2. Merge attendance overrides
+      if (data.attendanceOverrides && typeof data.attendanceOverrides === 'object') {
+        const localOverrides = loadAttendanceOverrides()
+        const mergedOverrides = { ...localOverrides, ...data.attendanceOverrides }
+        if (JSON.stringify(mergedOverrides) !== JSON.stringify(localOverrides)) {
+          window.localStorage.setItem(
+            ATTENDANCE_OVERRIDES_STORAGE_KEY,
+            JSON.stringify(mergedOverrides),
+          )
+          window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
+        }
+      }
+
+      // 3. Merge period attendance submissions
+      if (data.periodSubmissions && typeof data.periodSubmissions === 'object') {
+        const localSubs = loadPeriodAttendanceSubmissions()
+        const mergedSubs = { ...localSubs, ...data.periodSubmissions }
+        if (JSON.stringify(mergedSubs) !== JSON.stringify(localSubs)) {
+          window.localStorage.setItem(
+            PERIOD_ATTENDANCE_STORAGE_KEY,
+            JSON.stringify(mergedSubs),
+          )
+          window.dispatchEvent(new CustomEvent('ics-period-attendance-updated'))
+        }
+      }
+
+      // 4. Merge notifications and emit banner for brand-new ones
+      if (Array.isArray(data.notifications) && data.notifications.length > 0) {
+        const localNotifs = loadCampusNotifications()
+        const localIds = new Set(localNotifs.map((n) => n.id))
+        const brandNew = data.notifications.filter((n) => !localIds.has(n.id))
+        if (brandNew.length > 0) {
+          const combined = [...brandNew, ...localNotifs]
+            .sort((a, b) => b.createdAtMs - a.createdAtMs)
+            .slice(0, 60)
+          window.localStorage.setItem(
+            CAMPUS_NOTIFICATIONS_STORAGE_KEY,
+            JSON.stringify(combined),
+          )
+          window.dispatchEvent(
+            new CustomEvent('ics-campus-notification', {
+              detail: brandNew[0],
+            }),
+          )
+        }
+      }
+      return
+    } catch {
+      // Try next endpoint
+    }
+  }
+}
+
 
 
 

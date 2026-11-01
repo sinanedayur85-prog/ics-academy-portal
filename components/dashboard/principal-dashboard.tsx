@@ -55,6 +55,10 @@ import {
 } from 'firebase/storage'
 import { AppUpdateButton } from '@/components/app-update-manager'
 import { BrandWordmark } from '@/components/brand-wordmark'
+import {
+  CampusNotificationBar,
+  CampusNotificationBell,
+} from '@/components/campus-notifications'
 import { ClassLeaderAttendanceCard } from '@/components/dashboard/class-leader-attendance-card'
 import {
   ABSENT_REASONS,
@@ -71,6 +75,7 @@ import {
   loadAttendanceOverrides,
   loadCustomNotices,
   loadPeriodAttendanceSubmissions,
+  publishCampusNotification,
   saveAttendanceOverrides,
   saveCustomNotices,
   savePeriodAttendanceSubmissions,
@@ -792,6 +797,22 @@ export function PrincipalDashboard() {
     saveStudentLeaveEntriesToStorage(targetStudent.id, updated)
     refreshAllCampusData()
 
+    publishCampusNotification({
+      type: 'leave',
+      title:
+        recordType === 'return'
+          ? `Campus Return Verified • ${targetStudent.name}`
+          : `Leave Approved by Principal • ${targetStudent.name}`,
+      message:
+        recordType === 'return'
+          ? `${targetStudent.name} (${targetStudent.className}) returned to campus on ${dateString} at ${timeString}.`
+          : `${targetStudent.name} (${targetStudent.className}) leave recorded by Principal: ${reasonText} (${dateString}).`,
+      targetStudentId: targetStudent.id,
+      targetClass: targetStudent.className,
+      actorName: principal.name,
+      href: '#leave',
+    })
+
     setLeaveSavedToast(
       recordType === 'return'
         ? `Recorded campus return for ${targetStudent.name} (${targetStudent.className}).`
@@ -1178,6 +1199,7 @@ export function PrincipalDashboard() {
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
             <AppUpdateButton />
+            <CampusNotificationBell />
             <ThemeToggle className="text-foreground/85 hover:text-foreground dark:text-white/90 dark:hover:text-white" />
             <PrincipalSwitcher principal={principal} />
           </div>
@@ -1218,6 +1240,8 @@ export function PrincipalDashboard() {
           </ul>
         </nav>
       </header>
+
+      <CampusNotificationBar />
 
       <main className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-8 md:px-8 md:py-10">
         {/* Executive Banner & 6 Live Campus Telemetry KPIs */}

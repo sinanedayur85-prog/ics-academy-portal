@@ -17,6 +17,10 @@ import {
 } from 'lucide-react'
 import { AppUpdateButton } from '@/components/app-update-manager'
 import { BrandWordmark } from '@/components/brand-wordmark'
+import {
+  CampusNotificationBar,
+  CampusNotificationBell,
+} from '@/components/campus-notifications'
 import { AttendanceCard } from '@/components/dashboard/attendance-card'
 import { ClassLeaderAttendanceCard } from '@/components/dashboard/class-leader-attendance-card'
 import {
@@ -164,6 +168,10 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
           </div>
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
             <AppUpdateButton />
+            <CampusNotificationBell
+              studentId={student.id}
+              classNameFilter={student.className}
+            />
             <ThemeToggle className="text-foreground/85 hover:text-foreground dark:text-white/90 dark:hover:text-white" />
             <StudentSwitcher student={student} />
           </div>
@@ -185,6 +193,11 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
           </ul>
         </nav>
       </header>
+
+      <CampusNotificationBar
+        studentId={student.id}
+        classNameFilter={student.className}
+      />
 
       <main className="mx-auto flex max-w-7xl flex-col gap-5 px-3.5 py-6 sm:gap-6 sm:px-5 sm:py-8 md:px-8 md:py-10">
         <div

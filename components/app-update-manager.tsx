@@ -10,7 +10,11 @@ import {
   Sparkles,
   X,
 } from 'lucide-react'
-import { isAndroidNativeApp } from '@/lib/mobile-pdf'
+import {
+  isAndroidNativeApp,
+  isInstalledApp,
+  triggerSystemNotification,
+} from '@/lib/mobile-pdf'
 import { cn } from '@/lib/utils'
 
 export interface AppVersionInfo {
@@ -42,8 +46,10 @@ const DEFAULT_VERSION_INFO: AppVersionInfo = {
 
 const AUTO_UPDATE_STORAGE_KEY = 'ics_auto_check_updates'
 const DISMISSED_BUILD_STORAGE_KEY = 'ics_dismissed_update_build'
+const NOTIFIED_BUILD_STORAGE_KEY = 'ics_notified_update_build'
 
 export function useAppUpdater() {
+  const [isAppEnv, setIsAppEnv] = useState(false)
   const [installed, setInstalled] = useState<AppVersionInfo>(DEFAULT_VERSION_INFO)
   const [remote, setRemote] = useState<RemoteReleaseInfo | null>(null)
   const [updateAvailable, setUpdateAvailable] = useState(false)
@@ -56,8 +62,15 @@ export function useAppUpdater() {
     return stored === null ? true : stored === 'true'
   })
 
+  useEffect(() => {
+    setIsAppEnv(isInstalledApp())
+  }, [])
+
   const checkForUpdates = useCallback(
     async (manual = false) => {
+      if (typeof window !== 'undefined' && !isInstalledApp() && !manual) {
+        return
+      }
       setIsChecking(true)
       if (manual) {
         setStatusMessage('Checking GitHub Releases for the latest APK version...')
@@ -151,6 +164,17 @@ export function useAppUpdater() {
 
         setUpdateAvailable(isNewerBuild)
 
+        if (isNewerBuild && typeof window !== 'undefined' && isInstalledApp()) {
+          const lastNotified = window.localStorage.getItem(NOTIFIED_BUILD_STORAGE_KEY)
+          if (lastNotified !== String(remoteBuildNum)) {
+            window.localStorage.setItem(NOTIFIED_BUILD_STORAGE_KEY, String(remoteBuildNum))
+            triggerSystemNotification(
+              `ICS Academy Update (v${remoteVersion})`,
+              'A new version of the ICS Academy app is available. Tap Update Now inside the app to install the latest features.',
+            )
+          }
+        }
+
         if (manual) {
           if (isNewerBuild) {
             setStatusMessage(
@@ -176,13 +200,13 @@ export function useAppUpdater() {
   )
 
   useEffect(() => {
-    if (!autoCheckEnabled) return
+    if (!isAppEnv || !autoCheckEnabled) return
     checkForUpdates(false)
     const interval = window.setInterval(() => {
       checkForUpdates(false)
     }, 180_000)
     return () => window.clearInterval(interval)
-  }, [autoCheckEnabled, checkForUpdates])
+  }, [isAppEnv, autoCheckEnabled, checkForUpdates])
 
   const triggerAppUpdate = useCallback(() => {
     const targetUrl = remote?.apkDownloadUrl || installed.apkDownloadUrl
@@ -193,16 +217,16 @@ export function useAppUpdater() {
       window.ICSNativeBridge?.downloadAndInstallApk
     ) {
       setStatusMessage(
-        'Downloading update in background... Android installer will open automatically.',
+        'Opening browser to download the latest APK update...',
       )
       window.ICSNativeBridge.downloadAndInstallApk(targetUrl)
       window.setTimeout(() => {
         setIsUpdating(false)
-      }, 6000)
+      }, 4000)
       return
     }
 
-    // Fallback for mobile/desktop browsers or older APK builds without downloadAndInstallApk
+    // Fallback for standalone apps or older APK builds
     setStatusMessage('Starting APK download...')
     const link = document.createElement('a')
     link.href = targetUrl
@@ -226,6 +250,7 @@ export function useAppUpdater() {
   }, [])
 
   return {
+    isAppEnv,
     installed,
     remote,
     updateAvailable,
@@ -242,6 +267,7 @@ export function useAppUpdater() {
 
 export function AppUpdateBanner() {
   const {
+    isAppEnv,
     installed,
     remote,
     updateAvailable,
@@ -263,33 +289,40 @@ export function AppUpdateBanner() {
     }
   }, [remote?.buildNumber])
 
-  if (!updateAvailable || dismissed) return null
+  // NEVER show update banner on regular websites — only inside installed mobile/tablet apps
+  if (!isAppEnv || !updateAvailable || dismissed) return null
+  if (typeof document === 'undefined') return null
 
-  return (
-    <div className="sticky top-0 z-50 border-b border-lime/40 bg-emerald-950/95 px-4 py-2.5 text-white backdrop-blur-md">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5 text-xs sm:text-sm">
-          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-lime/20 text-lime">
-            <Sparkles className="size-3.5" />
+  return createPortal(
+    <div
+      role="region"
+      aria-label="App Update Available"
+      className="fixed inset-x-3 bottom-4 z-[95] mx-auto max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300 sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-full"
+    >
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-lime/50 bg-[#081E21]/95 p-3.5 text-white shadow-2xl backdrop-blur-md">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-lime/20 text-lime">
+            <Sparkles className="size-4" />
           </span>
-          <span>
-            <strong className="font-semibold text-lime">
-              New App Update Available
-            </strong>{' '}
-            (v{remote?.version || installed.version}) — Tap update to install the
-            latest features.
-          </span>
+          <div className="min-w-0">
+            <p className="truncate text-xs font-bold text-lime sm:text-sm">
+              New App Update (v{remote?.version || installed.version})
+            </p>
+            <p className="line-clamp-1 text-[11px] text-white/80">
+              Tap Update Now to install the latest features.
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
             onClick={triggerAppUpdate}
             disabled={isUpdating}
-            className="inline-flex items-center gap-1.5 rounded-full bg-lime px-3.5 py-1 text-xs font-bold text-slate-950 transition hover:bg-lime/90 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-lime px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-lime/90 disabled:opacity-60"
           >
-            <Download className="size-3.5" />
-            {isUpdating ? 'Updating...' : 'Update Now'}
+            <Download className="size-3.5 shrink-0" />
+            <span>{isUpdating ? 'Updating...' : 'Update Now'}</span>
           </button>
           <button
             type="button"
@@ -302,20 +335,22 @@ export function AppUpdateBanner() {
                 )
               }
             }}
-            className="rounded-full p-1 text-white/70 transition hover:bg-white/10 hover:text-white"
+            className="flex size-8 items-center justify-center rounded-xl text-white/70 transition hover:bg-white/10 hover:text-white"
             aria-label="Dismiss update notification"
           >
             <X className="size-4" />
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
 export function AppUpdateButton({ className }: { className?: string }) {
   const [open, setOpen] = useState(false)
   const {
+    isAppEnv,
     installed,
     remote,
     updateAvailable,
@@ -329,6 +364,9 @@ export function AppUpdateButton({ className }: { className?: string }) {
   } = useAppUpdater()
 
   const isNative = typeof window !== 'undefined' && isAndroidNativeApp()
+
+  // NEVER show the App Update button on regular websites — only inside installed mobile/tablet apps
+  if (!isAppEnv) return null
 
   return (
     <>

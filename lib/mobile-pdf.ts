@@ -11,11 +11,15 @@ export interface ICSNativeBridgeInterface {
   setStatusBarTheme?: (isDark: boolean) => void;
   downloadAndInstallApk?: (apkUrl: string) => void;
   clearWebCacheAndReload?: () => void;
+  showNotification?: (title: string, message: string) => void;
 }
 
 declare global {
   interface Window {
     ICSNativeBridge?: ICSNativeBridgeInterface;
+    Capacitor?: {
+      isNativePlatform?: () => boolean;
+    };
   }
 }
 
@@ -26,6 +30,78 @@ export function isAndroidNativeApp(): boolean {
 export function isMobileDevice(): boolean {
   if (typeof navigator === 'undefined') return false;
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+/**
+ * Returns true ONLY when the portal is opened inside an installed mobile/tablet app
+ * (Android APK, Capacitor native runtime, Android WebView, or installed standalone PWA on mobile/tablet).
+ * Returns false on regular websites opened in a desktop or mobile browser.
+ */
+export function isInstalledApp(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (Boolean(window.ICSNativeBridge)) return true;
+  if (Boolean(window.Capacitor?.isNativePlatform?.())) return true;
+
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+  const isAndroidWebView = /;\s*wv\)/i.test(ua) || (/Android/i.test(ua) && /Version\/[\d.]+/i.test(ua) && !/Chrome\/[\d.]+\s+Mobile\s+Safari/i.test(ua));
+  if (isAndroidWebView) return true;
+
+  const isStandalone =
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    window.matchMedia?.('(display-mode: fullscreen)').matches ||
+    (typeof navigator !== 'undefined' && (navigator as unknown as { standalone?: boolean }).standalone === true);
+
+  if (isStandalone && isMobileDevice()) return true;
+
+  // Capacitor Android local server uses https://localhost on an Android device
+  if (window.location.hostname === 'localhost' && /Android/i.test(ua)) {
+    return true;
+  }
+
+  return false;
+}
+
+export function triggerSystemNotification(title: string, message: string): void {
+  if (typeof window === 'undefined') return;
+
+  // 1. Native Android APK status-bar notification
+  if (window.ICSNativeBridge?.showNotification) {
+    try {
+      window.ICSNativeBridge.showNotification(title, message);
+      return;
+    } catch {
+      // Fallback below
+    }
+  }
+
+  // 2. Web Notification API / Service Worker notification
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready
+          .then((reg) => {
+            reg.showNotification(title, {
+              body: message,
+              icon: '/icons/icon-192.png',
+              badge: '/icons/icon-192.png',
+            });
+          })
+          .catch(() => {
+            new Notification(title, {
+              body: message,
+              icon: '/icons/icon-192.png',
+            });
+          });
+      } else {
+        new Notification(title, {
+          body: message,
+          icon: '/icons/icon-192.png',
+        });
+      }
+    } catch {
+      // Ignore notification errors
+    }
+  }
 }
 
 export function blobToBase64(blob: Blob): Promise<string> {

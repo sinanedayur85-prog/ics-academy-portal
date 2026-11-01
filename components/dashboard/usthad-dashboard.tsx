@@ -45,6 +45,10 @@ import {
 import { AppUpdateButton } from '@/components/app-update-manager'
 import { BrandWordmark } from '@/components/brand-wordmark'
 import {
+  CampusNotificationBar,
+  CampusNotificationBell,
+} from '@/components/campus-notifications'
+import {
   ABSENT_REASONS,
   ATTENDANCE_LEAVE_REASONS,
   CLASS_USTHADS,
@@ -54,6 +58,7 @@ import {
   loadAttendanceOverrides,
   loadCustomNotices,
   notices as defaultNotices,
+  publishCampusNotification,
   saveAttendanceOverrides,
   saveCustomNotices,
   students,
@@ -432,6 +437,22 @@ export function UsthadDashboard() {
     saveStudentLeaveEntriesToStorage(targetStudent.id, updated)
     refreshClassLeaves()
 
+    publishCampusNotification({
+      type: 'leave',
+      title:
+        recordType === 'return'
+          ? `Campus Return Verified • ${targetStudent.name}`
+          : `Leave Recorded • ${targetStudent.name}`,
+      message:
+        recordType === 'return'
+          ? `${targetStudent.name} (${targetStudent.className}) returned to campus on ${dateString} at ${timeString}.`
+          : `${targetStudent.name} (${targetStudent.className}) leave recorded: ${reasonText} (${dateString}).`,
+      targetStudentId: targetStudent.id,
+      targetClass: targetStudent.className,
+      actorName: usthad.name,
+      href: '#leave',
+    })
+
     setLeaveSavedToast(
       recordType === 'return'
         ? `Marked ${targetStudent.name} as Returned to Academy.`
@@ -788,6 +809,7 @@ export function UsthadDashboard() {
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
             <AppUpdateButton />
+            <CampusNotificationBell classNameFilter={usthad.className} />
             <ThemeToggle className="text-foreground/85 hover:text-foreground dark:text-white/90 dark:hover:text-white" />
             <UsthadSwitcher usthad={usthad} />
           </div>
@@ -809,6 +831,8 @@ export function UsthadDashboard() {
           </ul>
         </nav>
       </header>
+
+      <CampusNotificationBar classNameFilter={usthad.className} />
 
       <main className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-8 md:px-8 md:py-10">
         {/* Usthad Welcome & Class Summary Header */}
