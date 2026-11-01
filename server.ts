@@ -887,6 +887,74 @@ async function startServer() {
     }
   })
 
+  app.get('/api/app/version', async (_req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    res.setHeader('Cache-Control', 'no-store')
+    try {
+      let version = '1.0.6'
+      let buildNumber = 6
+      let publishedAt = new Date().toISOString()
+
+      try {
+        const fs = await import('fs')
+        const versionFilePath = path.join(__dirname, 'public', 'version.json')
+        if (fs.existsSync(versionFilePath)) {
+          const parsed = JSON.parse(fs.readFileSync(versionFilePath, 'utf8'))
+          if (parsed.version) version = String(parsed.version)
+          if (parsed.buildNumber) buildNumber = Number(parsed.buildNumber)
+          if (parsed.builtAt) publishedAt = String(parsed.builtAt)
+        }
+      } catch {
+        // Ignore local read error
+      }
+
+      try {
+        const ghOwner = ['sinanedayur85', 'prog'].join('-')
+        const ghRepo = 'ics-academy-portal'
+        const ghRes = await fetch(
+          `https://api.github.com/repos/${ghOwner}/${ghRepo}/releases/tags/latest-apk`,
+          {
+            headers: {
+              Accept: 'application/vnd.github+json',
+              'User-Agent': 'ics-academy-portal',
+            },
+          },
+        )
+        if (ghRes.ok) {
+          const releaseData = (await ghRes.json()) as {
+            body?: string
+            published_at?: string
+          }
+          const bodyText = releaseData?.body || ''
+          const buildMatch = bodyText.match(/Build\s*#(\d+)/i)
+          const versionMatch = bodyText.match(/Version:\s*([0-9.]+)/i)
+          if (buildMatch) {
+            const remoteBuild = Number(buildMatch[1])
+            if (remoteBuild >= buildNumber) {
+              buildNumber = remoteBuild
+              version = versionMatch ? versionMatch[1] : `1.0.${remoteBuild}`
+              publishedAt = releaseData?.published_at || publishedAt
+            }
+          }
+        }
+      } catch {
+        // Return local server version if offline
+      }
+
+      res.json({
+        version,
+        buildNumber,
+        publishedAt,
+      })
+    } catch {
+      res.json({
+        version: '1.0.6',
+        buildNumber: 6,
+        publishedAt: new Date().toISOString(),
+      })
+    }
+  })
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: {

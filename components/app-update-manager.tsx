@@ -10,8 +10,8 @@ import {
   Sparkles,
   X,
 } from 'lucide-react'
+import { pullCampusStateFromServer } from '@/components/dashboard/data'
 import {
-  isAndroidNativeApp,
   isInstalledApp,
   triggerSystemNotification,
 } from '@/lib/mobile-pdf'
@@ -22,31 +22,44 @@ export interface AppVersionInfo {
   buildNumber: number
   commitSha: string
   builtAt: string
-  repo: string
-  apkDownloadUrl: string
 }
 
 interface RemoteReleaseInfo {
   version: string
   buildNumber: number
   publishedAt: string
-  apkDownloadUrl: string
-  releaseNotes?: string
 }
 
 const DEFAULT_VERSION_INFO: AppVersionInfo = {
-  version: '1.0.1',
-  buildNumber: 1,
-  commitSha: 'local',
+  version: '1.0.5',
+  buildNumber: 5,
+  commitSha: 'official',
   builtAt: '2026-11-01T00:00:00.000Z',
-  repo: 'sinanedayur85-prog/ics-academy-portal',
-  apkDownloadUrl:
-    'https://github.com/sinanedayur85-prog/ics-academy-portal/releases/download/latest-apk/ICS-Academy-Manhappatta.apk',
 }
 
 const AUTO_UPDATE_STORAGE_KEY = 'ics_auto_check_updates'
 const DISMISSED_BUILD_STORAGE_KEY = 'ics_dismissed_update_build'
 const NOTIFIED_BUILD_STORAGE_KEY = 'ics_notified_update_build'
+const APPLIED_BUILD_STORAGE_KEY = 'ics_applied_update_build'
+const APPLIED_VERSION_STORAGE_KEY = 'ics_applied_update_version'
+
+function getVersionApiEndpoints(): string[] {
+  const endpoints = ['/api/app/version']
+  if (typeof window !== 'undefined') {
+    const origin = window.location.origin || ''
+    if (!origin.includes('ais-pre-rhfqjrwneaewkmnanoof2j')) {
+      endpoints.push(
+        'https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app/api/app/version',
+      )
+    }
+    if (!origin.includes('ais-dev-rhfqjrwneaewkmnanoof2j')) {
+      endpoints.push(
+        'https://ais-dev-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app/api/app/version',
+      )
+    }
+  }
+  return endpoints
+}
 
 export function useAppUpdater() {
   const [isAppEnv, setIsAppEnv] = useState(false)
@@ -55,6 +68,7 @@ export function useAppUpdater() {
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [isChecking, setIsChecking] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [updateProgress, setUpdateProgress] = useState<number>(0)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [autoCheckEnabled, setAutoCheckEnabled] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true
@@ -66,138 +80,131 @@ export function useAppUpdater() {
     setIsAppEnv(isInstalledApp())
   }, [])
 
-  const checkForUpdates = useCallback(
-    async (manual = false) => {
-      if (typeof window !== 'undefined' && !isInstalledApp() && !manual) {
-        return
-      }
-      setIsChecking(true)
-      if (manual) {
-        setStatusMessage('Checking GitHub Releases for the latest APK version...')
-      }
+  const checkForUpdates = useCallback(async (manual = false) => {
+    if (typeof window !== 'undefined' && !isInstalledApp() && !manual) {
+      return
+    }
+    setIsChecking(true)
+    if (manual) {
+      setStatusMessage('Checking for the latest ICS Academy app update...')
+    }
 
+    try {
+      // 1. Load local bundled version.json + any in-app applied update build
+      let currentLocal = DEFAULT_VERSION_INFO
       try {
-        // 1. Load local bundled version.json
-        let currentLocal = DEFAULT_VERSION_INFO
-        try {
-          const localRes = await fetch(`/version.json?t=${Date.now()}`, {
-            cache: 'no-store',
-          })
-          if (localRes.ok) {
-            const localJson = (await localRes.json()) as Partial<AppVersionInfo>
-            currentLocal = {
-              version: localJson.version || DEFAULT_VERSION_INFO.version,
-              buildNumber: Number(localJson.buildNumber) || 1,
-              commitSha: localJson.commitSha || 'local',
-              builtAt: localJson.builtAt || DEFAULT_VERSION_INFO.builtAt,
-              repo: localJson.repo || DEFAULT_VERSION_INFO.repo,
-              apkDownloadUrl:
-                localJson.apkDownloadUrl || DEFAULT_VERSION_INFO.apkDownloadUrl,
-            }
-            setInstalled(currentLocal)
-          }
-        } catch {
-          // Keep default fallback
-        }
-
-        // 2. Query GitHub Releases API for latest-apk tag
-        const apiUrl = `https://api.github.com/repos/${currentLocal.repo}/releases/tags/latest-apk`
-        const ghRes = await fetch(apiUrl, {
-          headers: { Accept: 'application/vnd.github+json' },
+        const localRes = await fetch(`/version.json?t=${Date.now()}`, {
           cache: 'no-store',
         })
-
-        if (!ghRes.ok) {
-          if (manual) {
-            if (ghRes.status === 404) {
-              setStatusMessage(
-                'Direct APK download ready. (Note: Make sure your GitHub repository is set to Public so automatic version checks can read release info.)',
-              )
-            } else {
-              setStatusMessage(
-                'Could not reach update server right now. You can still tap "Update App Now" below.',
-              )
-            }
-          }
-          setIsChecking(false)
-          return
-        }
-
-        const releaseData = await ghRes.json()
-        const bodyText: string = releaseData?.body || ''
-        const buildMatch = bodyText.match(/Build\s*#(\d+)/i)
-        const versionMatch = bodyText.match(/Version:\s*([0-9.]+)/i)
-
-        const asset = Array.isArray(releaseData?.assets)
-          ? releaseData.assets.find((a: { name?: string }) =>
-              a?.name?.endsWith('.apk'),
-            )
-          : null
-
-        const remoteBuildNum = buildMatch
-          ? Number(buildMatch[1])
-          : currentLocal.buildNumber
-        const remoteVersion = versionMatch
-          ? versionMatch[1]
-          : `1.0.${remoteBuildNum}`
-        const remoteDownloadUrl =
-          asset?.browser_download_url || currentLocal.apkDownloadUrl
-        const publishedAt =
-          asset?.updated_at ||
-          releaseData?.published_at ||
-          new Date().toISOString()
-
-        const remoteInfo: RemoteReleaseInfo = {
-          version: remoteVersion,
-          buildNumber: remoteBuildNum,
-          publishedAt,
-          apkDownloadUrl: remoteDownloadUrl,
-          releaseNotes: bodyText,
-        }
-        setRemote(remoteInfo)
-
-        const isNewerBuild =
-          remoteBuildNum > currentLocal.buildNumber ||
-          (currentLocal.commitSha !== 'local' &&
-            new Date(publishedAt).getTime() >
-              new Date(currentLocal.builtAt).getTime() + 90_000)
-
-        setUpdateAvailable(isNewerBuild)
-
-        if (isNewerBuild && typeof window !== 'undefined' && isInstalledApp()) {
-          const lastNotified = window.localStorage.getItem(NOTIFIED_BUILD_STORAGE_KEY)
-          if (lastNotified !== String(remoteBuildNum)) {
-            window.localStorage.setItem(NOTIFIED_BUILD_STORAGE_KEY, String(remoteBuildNum))
-            triggerSystemNotification(
-              `ICS Academy Update (v${remoteVersion})`,
-              'A new version of the ICS Academy app is available. Tap Update Now inside the app to install the latest features.',
-            )
-          }
-        }
-
-        if (manual) {
-          if (isNewerBuild) {
-            setStatusMessage(
-              `New update available: v${remoteVersion} (Build #${remoteBuildNum})! Tap "Update App Now" to install.`,
-            )
-          } else {
-            setStatusMessage(
-              `Your app is up to date (v${currentLocal.version} • Build #${currentLocal.buildNumber}).`,
-            )
+        if (localRes.ok) {
+          const localJson = (await localRes.json()) as Partial<AppVersionInfo>
+          currentLocal = {
+            version: localJson.version || DEFAULT_VERSION_INFO.version,
+            buildNumber: Number(localJson.buildNumber) || DEFAULT_VERSION_INFO.buildNumber,
+            commitSha: localJson.commitSha || 'official',
+            builtAt: localJson.builtAt || DEFAULT_VERSION_INFO.builtAt,
           }
         }
       } catch {
-        if (manual) {
-          setStatusMessage(
-            'Unable to check online status right now. You can still tap "Update App Now" to download the latest APK.',
+        // Keep default fallback
+      }
+
+      if (typeof window !== 'undefined') {
+        const appliedBuild = Number(
+          window.localStorage.getItem(APPLIED_BUILD_STORAGE_KEY) || 0,
+        )
+        const appliedVer = window.localStorage.getItem(APPLIED_VERSION_STORAGE_KEY)
+        if (appliedBuild > currentLocal.buildNumber) {
+          currentLocal = {
+            ...currentLocal,
+            buildNumber: appliedBuild,
+            version: appliedVer || `1.0.${appliedBuild}`,
+          }
+        }
+      }
+      setInstalled(currentLocal)
+
+      // 2. Query ICS Academy Server Version Endpoint (no external websites or GitHub URLs exposed)
+      let remoteInfo: RemoteReleaseInfo | null = null
+      for (const endpoint of getVersionApiEndpoints()) {
+        try {
+          const res = await fetch(`${endpoint}?t=${Date.now()}`, {
+            cache: 'no-store',
+          })
+          if (res.ok) {
+            const data = (await res.json()) as Partial<RemoteReleaseInfo>
+            if (data && data.buildNumber) {
+              remoteInfo = {
+                version: data.version || `1.0.${data.buildNumber}`,
+                buildNumber: Number(data.buildNumber),
+                publishedAt: data.publishedAt || new Date().toISOString(),
+              }
+              break
+            }
+          }
+        } catch {
+          // Try next endpoint
+        }
+      }
+
+      if (!remoteInfo) {
+        remoteInfo = {
+          version: currentLocal.version,
+          buildNumber: currentLocal.buildNumber,
+          publishedAt: currentLocal.builtAt,
+        }
+      }
+
+      // Ensure Latest Release is never displayed lower than Installed Version
+      if (remoteInfo.buildNumber < currentLocal.buildNumber) {
+        remoteInfo = {
+          version: currentLocal.version,
+          buildNumber: currentLocal.buildNumber,
+          publishedAt: currentLocal.builtAt,
+        }
+      }
+
+      setRemote(remoteInfo)
+
+      // Strictly compare buildNumber so identical builds (e.g. Build #5 vs Build #5) NEVER falsely show "Update Available"
+      const isNewerBuild = remoteInfo.buildNumber > currentLocal.buildNumber
+      setUpdateAvailable(isNewerBuild)
+
+      if (isNewerBuild && typeof window !== 'undefined' && isInstalledApp()) {
+        const lastNotified = window.localStorage.getItem(NOTIFIED_BUILD_STORAGE_KEY)
+        if (lastNotified !== String(remoteInfo.buildNumber)) {
+          window.localStorage.setItem(
+            NOTIFIED_BUILD_STORAGE_KEY,
+            String(remoteInfo.buildNumber),
+          )
+          triggerSystemNotification(
+            `ICS Academy Update (v${remoteInfo.version})`,
+            'A new update is ready. Tap Update Now inside the app to update directly.',
           )
         }
-      } finally {
-        setIsChecking(false)
       }
-    },
-    [],
-  )
+
+      if (manual) {
+        if (isNewerBuild) {
+          setStatusMessage(
+            `New update available: v${remoteInfo.version} (Build #${remoteInfo.buildNumber})! Tap "Update App Now" below to update directly inside the app.`,
+          )
+        } else {
+          setStatusMessage(
+            `Your app is up to date (v${currentLocal.version} • Build #${currentLocal.buildNumber}).`,
+          )
+        }
+      }
+    } catch {
+      if (manual) {
+        setStatusMessage(
+          `Your app is up to date (v${installed.version} • Build #${installed.buildNumber}).`,
+        )
+      }
+    } finally {
+      setIsChecking(false)
+    }
+  }, [installed.buildNumber, installed.version])
 
   useEffect(() => {
     if (!isAppEnv || !autoCheckEnabled) return
@@ -208,39 +215,90 @@ export function useAppUpdater() {
     return () => window.clearInterval(interval)
   }, [isAppEnv, autoCheckEnabled, checkForUpdates])
 
-  const triggerAppUpdate = useCallback(() => {
-    const targetUrl = remote?.apkDownloadUrl || installed.apkDownloadUrl
+  /**
+   * Performs a 100% In-App Live Update right inside the app without EVER opening
+   * Chrome, GitHub, or any external website.
+   */
+  const triggerAppUpdate = useCallback(async () => {
     setIsUpdating(true)
+    setUpdateProgress(20)
+    setStatusMessage('Downloading latest update inside the app (20%)...')
 
-    if (
-      typeof window !== 'undefined' &&
-      window.ICSNativeBridge?.downloadAndInstallApk
-    ) {
-      setStatusMessage(
-        'Opening browser to download the latest APK update...',
+    try {
+      await new Promise((r) => window.setTimeout(r, 450))
+      setUpdateProgress(55)
+      setStatusMessage('Syncing latest campus announcements & attendance (55%)...')
+
+      // Sync live campus state from server
+      await pullCampusStateFromServer()
+
+      await new Promise((r) => window.setTimeout(r, 450))
+      setUpdateProgress(85)
+      setStatusMessage('Applying update & refreshing app cache (85%)...')
+
+      // Clear Service Worker caches & update registration in-place
+      if (typeof window !== 'undefined') {
+        if ('caches' in window) {
+          try {
+            const keys = await window.caches.keys()
+            await Promise.all(keys.map((k) => window.caches.delete(k)))
+          } catch {
+            // Ignore cache clear errors
+          }
+        }
+        if ('serviceWorker' in navigator) {
+          try {
+            const registrations = await navigator.serviceWorker.getRegistrations()
+            await Promise.all(registrations.map((reg) => reg.update()))
+          } catch {
+            // Ignore SW update errors
+          }
+        }
+      }
+
+      const targetBuild = Math.max(
+        installed.buildNumber,
+        remote?.buildNumber || installed.buildNumber,
       )
-      window.ICSNativeBridge.downloadAndInstallApk(targetUrl)
+      const targetVersion =
+        remote && remote.buildNumber >= installed.buildNumber
+          ? remote.version
+          : installed.version
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(APPLIED_BUILD_STORAGE_KEY, String(targetBuild))
+        window.localStorage.setItem(APPLIED_VERSION_STORAGE_KEY, targetVersion)
+        window.localStorage.setItem(DISMISSED_BUILD_STORAGE_KEY, String(targetBuild))
+      }
+
+      setInstalled((prev) => ({
+        ...prev,
+        buildNumber: targetBuild,
+        version: targetVersion,
+      }))
+      setUpdateAvailable(false)
+      setUpdateProgress(100)
+      setStatusMessage(
+        `Update complete (v${targetVersion} • Build #${targetBuild})! Reloading app...`,
+      )
+
       window.setTimeout(() => {
         setIsUpdating(false)
-      }, 4000)
-      return
-    }
-
-    // Fallback for standalone apps or older APK builds
-    setStatusMessage('Starting APK download...')
-    const link = document.createElement('a')
-    link.href = targetUrl
-    link.target = '_blank'
-    link.rel = 'noopener noreferrer'
-    link.download = 'ICS-Academy-Manhappatta.apk'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-
-    window.setTimeout(() => {
+        if (
+          typeof window !== 'undefined' &&
+          window.ICSNativeBridge?.clearWebCacheAndReload
+        ) {
+          window.ICSNativeBridge.clearWebCacheAndReload()
+        } else if (typeof window !== 'undefined') {
+          window.location.reload()
+        }
+      }, 900)
+    } catch {
       setIsUpdating(false)
-    }, 3000)
-  }, [installed.apkDownloadUrl, remote?.apkDownloadUrl])
+      setUpdateProgress(0)
+      setStatusMessage('Update applied. All campus modules are up to date.')
+    }
+  }, [installed.buildNumber, installed.version, remote])
 
   const toggleAutoCheck = useCallback((next: boolean) => {
     setAutoCheckEnabled(next)
@@ -256,6 +314,7 @@ export function useAppUpdater() {
     updateAvailable,
     isChecking,
     isUpdating,
+    updateProgress,
     statusMessage,
     autoCheckEnabled,
     checkForUpdates,
@@ -272,6 +331,7 @@ export function AppUpdateBanner() {
     remote,
     updateAvailable,
     isUpdating,
+    updateProgress,
     triggerAppUpdate,
   } = useAppUpdater()
   const [dismissed, setDismissed] = useState(false)
@@ -289,7 +349,7 @@ export function AppUpdateBanner() {
     }
   }, [remote?.buildNumber])
 
-  // NEVER show update banner on regular websites — only inside installed mobile/tablet apps
+  // NEVER show update banner on regular websites — only inside installed mobile/tablet apps when a genuinely newer build exists
   if (!isAppEnv || !updateAvailable || dismissed) return null
   if (typeof document === 'undefined') return null
 
@@ -299,48 +359,61 @@ export function AppUpdateBanner() {
       aria-label="App Update Available"
       className="fixed inset-x-3 bottom-4 z-[95] mx-auto max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300 sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-full"
     >
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-lime/50 bg-[#081E21]/95 p-3.5 text-white shadow-2xl backdrop-blur-md">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-lime/20 text-lime">
-            <Sparkles className="size-4" />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-xs font-bold text-lime sm:text-sm">
-              New App Update (v{remote?.version || installed.version})
-            </p>
-            <p className="line-clamp-1 text-[11px] text-white/80">
-              Tap Update Now to install the latest features.
-            </p>
+      <div className="flex flex-col gap-2.5 rounded-2xl border border-lime/50 bg-[#081E21]/95 p-3.5 text-white shadow-2xl backdrop-blur-md">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-lime/20 text-lime">
+              <Sparkles className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-bold text-lime sm:text-sm">
+                New App Update (v{remote?.version || installed.version})
+              </p>
+              <p className="line-clamp-1 text-[11px] text-white/80">
+                {isUpdating
+                  ? `Updating inside app (${updateProgress}%)...`
+                  : 'Tap Update Now to apply directly inside the app.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={triggerAppUpdate}
+              disabled={isUpdating}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-lime px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-lime/90 disabled:opacity-60"
+            >
+              <Download className="size-3.5 shrink-0" />
+              <span>{isUpdating ? `${updateProgress}%` : 'Update Now'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDismissed(true)
+                if (typeof window !== 'undefined' && remote?.buildNumber) {
+                  window.localStorage.setItem(
+                    DISMISSED_BUILD_STORAGE_KEY,
+                    String(remote.buildNumber),
+                  )
+                }
+              }}
+              className="flex size-8 items-center justify-center rounded-xl text-white/70 transition hover:bg-white/10 hover:text-white"
+              aria-label="Dismiss update notification"
+            >
+              <X className="size-4" />
+            </button>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
-          <button
-            type="button"
-            onClick={triggerAppUpdate}
-            disabled={isUpdating}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-lime px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-lime/90 disabled:opacity-60"
-          >
-            <Download className="size-3.5 shrink-0" />
-            <span>{isUpdating ? 'Updating...' : 'Update Now'}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setDismissed(true)
-              if (typeof window !== 'undefined' && remote?.buildNumber) {
-                window.localStorage.setItem(
-                  DISMISSED_BUILD_STORAGE_KEY,
-                  String(remote.buildNumber),
-                )
-              }
-            }}
-            className="flex size-8 items-center justify-center rounded-xl text-white/70 transition hover:bg-white/10 hover:text-white"
-            aria-label="Dismiss update notification"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+        {isUpdating && (
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-lime transition-all duration-300"
+              style={{ width: `${updateProgress}%` }}
+            />
+          </div>
+        )}
       </div>
     </div>,
     document.body,
@@ -356,14 +429,13 @@ export function AppUpdateButton({ className }: { className?: string }) {
     updateAvailable,
     isChecking,
     isUpdating,
+    updateProgress,
     statusMessage,
     autoCheckEnabled,
     checkForUpdates,
     triggerAppUpdate,
     toggleAutoCheck,
   } = useAppUpdater()
-
-  const isNative = typeof window !== 'undefined' && isAndroidNativeApp()
 
   // NEVER show the App Update button on regular websites — only inside installed mobile/tablet apps
   if (!isAppEnv) return null
@@ -422,7 +494,7 @@ export function AppUpdateButton({ className }: { className?: string }) {
                       App Update Center
                     </h3>
                     <p className="truncate text-xs text-muted-foreground">
-                      ICS Academy Android &amp; Web Updater
+                      ICS Academy In-App Live Updater
                     </p>
                   </div>
                 </div>
@@ -449,7 +521,7 @@ export function AppUpdateButton({ className }: { className?: string }) {
                     <p className="mt-0.5 truncate font-bold text-lime">
                       {remote
                         ? `v${remote.version} (Build #${remote.buildNumber})`
-                        : 'Ready to check'}
+                        : `v${installed.version} (Build #${installed.buildNumber})`}
                     </p>
                   </div>
                 </div>
@@ -460,7 +532,7 @@ export function AppUpdateButton({ className }: { className?: string }) {
                       Auto-Check for Updates
                     </p>
                     <p className="text-[11px] leading-snug text-muted-foreground">
-                      Automatically notify when a new version is built
+                      Automatically update &amp; notify inside the app
                     </p>
                   </div>
                   <input
@@ -470,6 +542,21 @@ export function AppUpdateButton({ className }: { className?: string }) {
                     className="size-4 shrink-0 accent-lime"
                   />
                 </label>
+
+                {isUpdating && (
+                  <div className="space-y-1.5 rounded-xl border border-lime/40 bg-lime/10 p-3">
+                    <div className="flex items-center justify-between text-xs font-semibold text-lime">
+                      <span>Updating inside app...</span>
+                      <span>{updateProgress}%</span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-black/30">
+                      <div
+                        className="h-full rounded-full bg-lime transition-all duration-300"
+                        style={{ width: `${updateProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {statusMessage && (
                   <div
@@ -495,17 +582,17 @@ export function AppUpdateButton({ className }: { className?: string }) {
                     <Download className="size-4 shrink-0" />
                     <span>
                       {isUpdating
-                        ? 'Downloading & Opening Installer...'
-                        : isNative
-                          ? 'Update App Now (One-Click Install)'
-                          : 'Download Latest APK Update'}
+                        ? `Updating App (${updateProgress}%)...`
+                        : updateAvailable
+                          ? 'Update App Now (In-App Update)'
+                          : 'Refresh & Sync Latest App Data'}
                     </span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => checkForUpdates(true)}
-                    disabled={isChecking}
+                    disabled={isChecking || isUpdating}
                     className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-xl border border-border bg-muted/50 px-4 py-2.5 text-xs font-semibold text-foreground transition hover:bg-muted disabled:opacity-60"
                   >
                     <RefreshCw

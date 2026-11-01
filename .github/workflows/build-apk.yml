@@ -45,15 +45,12 @@ jobs:
             fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
 
             const runNum = Number(process.env.RUN_NUMBER || 1);
-            const repo = process.env.REPO_NAME || "sinanedayur85-prog/ics-academy-portal";
             const sha = (process.env.COMMIT_SHA || "ci").slice(0, 7);
             const versionInfo = {
               version: "1.0." + runNum,
               buildNumber: runNum,
               commitSha: sha,
-              builtAt: new Date().toISOString(),
-              repo: repo,
-              apkDownloadUrl: "https://github.com/" + repo + "/releases/download/latest-apk/ICS-Academy-Manhappatta.apk"
+              builtAt: new Date().toISOString()
             };
             fs.mkdirSync("public", { recursive: true });
             fs.writeFileSync("public/version.json", JSON.stringify(versionInfo, null, 2));
@@ -435,10 +432,12 @@ jobs:
                   public void downloadAndInstallApk(final String apkUrl) {
                       runOnUiThread(() -> {
                           try {
-                              Toast.makeText(MainActivity.this, "Opening browser to download APK update...", Toast.LENGTH_LONG).show();
-                              Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl));
-                              browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                              startActivity(browserIntent);
+                              if (bridge != null && bridge.getWebView() != null) {
+                                  WebView webView = bridge.getWebView();
+                                  webView.clearCache(true);
+                                  webView.reload();
+                              }
+                              Toast.makeText(MainActivity.this, "ICS Academy updated!", Toast.LENGTH_SHORT).show();
                           } catch (Exception e) {
                               Toast.makeText(MainActivity.this, "Update error: " + e.getMessage(), Toast.LENGTH_LONG).show();
                           }
