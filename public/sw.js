@@ -37,10 +37,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first for HTML navigation so fresh index.html is always loaded
+  // Network-first (no-store) for HTML navigation so fresh index.html is always loaded immediately after a push
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match('/'))
+      fetch(event.request, { cache: 'no-store' }).catch(() => caches.match('/'))
     );
     return;
   }
