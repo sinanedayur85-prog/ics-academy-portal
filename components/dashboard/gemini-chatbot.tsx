@@ -1247,7 +1247,6 @@ export function GeminiChatbot({
   const [isListening, setIsListening] = useState(false)
   const [isTranscribingVoice, setIsTranscribingVoice] = useState(false)
   const [voiceLevel, setVoiceLevel] = useState(0)
-  const [micFallbackMode, setMicFallbackMode] = useState(false)
   const recognitionRef = useRef<any>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
@@ -1263,7 +1262,12 @@ export function GeminiChatbot({
   const [isProcessingAttachment, setIsProcessingAttachment] = useState(false)
   const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null)
   const studyImageInputRef = useRef<HTMLInputElement | null>(null)
-  const studyCameraInputRef = useRef<HTMLInputElement | null>(null)
+
+  // Live In-App Camera Viewfinder State
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false)
+  const [cameraError, setCameraError] = useState<string | null>(null)
+  const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
+  const cameraStreamRef = useRef<MediaStream | null>(null)
 
   // Direct DOCX & PDF Export State when "Save Note" is clicked
   const [activeExportNote, setActiveExportNote] = useState<StudyNoteExportData | null>(null)
@@ -1277,7 +1281,6 @@ export function GeminiChatbot({
   const threadContainerRef = useRef<HTMLDivElement | null>(null)
   const printTemplateRef = useRef<HTMLDivElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const audioFileInputRef = useRef<HTMLInputElement | null>(null)
 
   // Listen for native Android voice recognition results if triggered via ICSNativeBridge
   useEffect(() => {
@@ -1304,7 +1307,7 @@ export function GeminiChatbot({
     el.style.height = `${nextHeight}px`
   }, [input, language])
 
-  // Clean up voice recognition and audio streams on unmount
+  // Clean up voice recognition, audio streams, and camera streams on unmount
   useEffect(() => {
     return () => {
       if (stopVoiceCaptureRef.current) {
@@ -1313,6 +1316,13 @@ export function GeminiChatbot({
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop()
+        } catch {
+          // Ignore
+        }
+      }
+      if (cameraStreamRef.current) {
+        try {
+          cameraStreamRef.current.getTracks().forEach((t) => t.stop())
         } catch {
           // Ignore
         }
@@ -1834,13 +1844,277 @@ export function GeminiChatbot({
     }
   }
 
-  async function handleAudioFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    setMicFallbackMode(false)
-    speechBaseTextRef.current = input.trim()
-    await transcribeAudioBlob(file, file.type || 'audio/mp4')
+  function closeLiveCameraModal() {
+    if (cameraStreamRef.current) {
+      try {
+        cameraStreamRef.current.getTracks().forEach((t) => t.stop())
+      } catch {
+        // Ignore
+      }
+      cameraStreamRef.current = null
+    }
+    setIsCameraModalOpen(false)
+    setCameraError(null)
+  }
+
+  async function openLiveCameraModal() {
+    if (pendingAttachments.length >= 3) {
+      setErrorMessage('You can attach up to 3 study images per message.')
+      return
+    }
+    setErrorMessage(null)
+    setCameraError(null)
+    setIsCameraModalOpen(true)
+
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+      setCameraError('Live camera is not supported in this browser. Please use the Photo (+) button to select an image.')
+      return
+    }
+
+    try {
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1600 }, height: { ideal: 1200 } },
+          audio: false,
+        })
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      }
+      cameraStreamRef.current = stream
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = stream
+        void cameraVideoRef.current.play().catch(() => {})
+      }
+    } catch (err: any) {
+      const errName = String(err?.name || '')
+      if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError') {
+        setCameraError('No camera hardware found on this device. Use the Photo (+) button to attach an image file.')
+      } else {
+        setCameraError('Camera permission is blocked in this window. Please allow Camera access or use the Photo (+) button.')
+      }
+    }
+  }
+
+  function handleCapturePhotoFromVideo() {
+    const video = cameraVideoRef.current
+    if (!video || !video.videoWidth || !video.videoHeight) return
+
+    const maxDim = 1500
+    let targetW = video.videoWidth
+    let targetH = video.videoHeight
+    if (targetW > maxDim || targetH > maxDim) {
+      const ratio = Math.min(maxDim / targetW, maxDim / targetH)
+      targetW = Math.max(1, Math.round(targetW * ratio))
+      targetH = Math.max(1, Math.round(targetH * ratio))
+    }
+
+    const canvas = document.createElement('canvas')
+    canvas.width = targetW
+    canvas.height = targetH
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, targetW, targetH)
+    }
+
+    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.86)
+    const commaIdx = compressedDataUrl.indexOf(',')
+    const base64Data = commaIdx >= 0 ? compressedDataUrl.slice(commaIdx + 1) : compressedDataUrl
+
+    const thumbCanvas = document.createElement('canvas')
+    const r = Math.min(420 / targetW, 420 / targetH, 1)
+    thumbCanvas.width = Math.max(1, Math.round(targetW * r))
+    thumbCanvas.height = Math.max(1, Math.round(targetH * r))
+    const tCtx = thumbCanvas.getContext('2d')
+    if (tCtx) {
+      tCtx.drawImage(canvas, 0, 0, thumbCanvas.width, thumbCanvas.height)
+    }
+    const previewUrl = thumbCanvas.toDataURL('image/jpeg', 0.75)
+
+    const newItem: ChatAttachmentItem = {
+      id: `att-${Date.now()}`,
+      name: `Kitab-Capture-${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}.jpg`,
+      mimeType: 'image/jpeg',
+      previewUrl,
+      base64Data,
+    }
+
+    setPendingAttachments((prev) => [...prev, newItem].slice(0, 3))
+    closeLiveCameraModal()
+  }
+
+  async function startMediaRecorderVoiceCapture(): Promise<boolean> {
+    if (
+      !navigator.mediaDevices ||
+      typeof navigator.mediaDevices.getUserMedia !== 'function' ||
+      typeof window.MediaRecorder === 'undefined'
+    ) {
+      return false
+    }
+
+    try {
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        })
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      }
+      mediaStreamRef.current = stream
+
+      const preferredMimeTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+        'audio/aac',
+      ]
+      let chosenMimeType = ''
+      for (const candidate of preferredMimeTypes) {
+        if (
+          typeof MediaRecorder.isTypeSupported === 'function' &&
+          MediaRecorder.isTypeSupported(candidate)
+        ) {
+          chosenMimeType = candidate
+          break
+        }
+      }
+
+      const recorder = chosenMimeType
+        ? new MediaRecorder(stream, { mimeType: chosenMimeType })
+        : new MediaRecorder(stream)
+      mediaRecorderRef.current = recorder
+
+      recorder.ondataavailable = (ev: BlobEvent) => {
+        if (ev.data && ev.data.size > 0) {
+          audioChunksRef.current.push(ev.data)
+        }
+      }
+
+      const stopVoiceCapture = () => {
+        stopVoiceCaptureRef.current = null
+        if (
+          mediaRecorderRef.current &&
+          mediaRecorderRef.current.state !== 'inactive'
+        ) {
+          try {
+            mediaRecorderRef.current.stop()
+          } catch {
+            cleanupAudioResources()
+            setIsListening(false)
+          }
+        } else {
+          cleanupAudioResources()
+          setIsListening(false)
+        }
+      }
+
+      stopVoiceCaptureRef.current = stopVoiceCapture
+
+      recorder.onstop = async () => {
+        const recordedMime = recorder.mimeType || chosenMimeType || 'audio/webm'
+        const chunks = [...audioChunksRef.current]
+        audioChunksRef.current = []
+        cleanupAudioResources()
+        setIsListening(false)
+
+        if (chunks.length === 0) return
+        const blob = new Blob(chunks, { type: recordedMime })
+        await transcribeAudioBlob(blob, recordedMime)
+      }
+
+      try {
+        recorder.start(250)
+      } catch {
+        recorder.start()
+      }
+      setIsListening(true)
+      setErrorMessage(null)
+
+      // Live audio level meter + smart silence detection (ignores initial 900ms finger-tap pop on phones)
+      try {
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext?: typeof AudioContext })
+            .webkitAudioContext
+        if (AudioCtx) {
+          const audioCtx = new AudioCtx()
+          audioContextRef.current = audioCtx
+          if (audioCtx.state === 'suspended') {
+            void audioCtx.resume().catch(() => {})
+          }
+          const source = audioCtx.createMediaStreamSource(stream)
+          const analyser = audioCtx.createAnalyser()
+          analyser.fftSize = 512
+          source.connect(analyser)
+          const dataArray = new Uint8Array(analyser.frequencyBinCount)
+          let hasDetectedSpeech = false
+          let sustainedSpeechFrames = 0
+          let silenceStartMs = 0
+          const startedAtMs = Date.now()
+
+          silenceTimerRef.current = window.setInterval(() => {
+            analyser.getByteTimeDomainData(dataArray)
+            let sumSquares = 0
+            for (let i = 0; i < dataArray.length; i++) {
+              const normalized = (dataArray[i] - 128) / 128
+              sumSquares += normalized * normalized
+            }
+            const rms = Math.sqrt(sumSquares / dataArray.length)
+            const now = Date.now()
+            const elapsedMs = now - startedAtMs
+
+            setVoiceLevel(Math.min(100, Math.round(rms * 420)))
+
+            if (elapsedMs > 900) {
+              if (rms > 0.024) {
+                sustainedSpeechFrames += 1
+                if (sustainedSpeechFrames >= 2) {
+                  hasDetectedSpeech = true
+                }
+                silenceStartMs = 0
+              } else if (hasDetectedSpeech) {
+                if (!silenceStartMs) {
+                  silenceStartMs = now
+                } else if (now - silenceStartMs > 2600) {
+                  stopVoiceCapture()
+                }
+              }
+            }
+
+            if (elapsedMs > 45000) {
+              stopVoiceCapture()
+            }
+          }, 150)
+        }
+      } catch {
+        // Silence detection is optional; manual Done button remains available
+      }
+
+      return true
+    } catch (err: any) {
+      cleanupAudioResources()
+      const errName = String(err?.name || '')
+      if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError') {
+        setErrorMessage(
+          'No microphone found on this device. Please connect a microphone or headset and try again.',
+        )
+      } else if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
+        setErrorMessage(
+          'Microphone permission is blocked by this browser/preview window. Please allow Microphone access in the address bar or open the live app URL in a full browser tab.',
+        )
+      } else {
+        setErrorMessage(
+          'Could not access the microphone. Please ensure no other app is using the microphone.',
+        )
+      }
+      return false
+    }
   }
 
   async function toggleVoiceInput() {
@@ -1864,7 +2138,6 @@ export function GeminiChatbot({
     if (typeof window === 'undefined' || isTranscribingVoice) return
 
     setErrorMessage(null)
-    setMicFallbackMode(false)
     speechBaseTextRef.current = input.trim()
     speechGotTranscriptRef.current = false
     audioChunksRef.current = []
@@ -1890,173 +2163,9 @@ export function GeminiChatbot({
       }
     ).ICSNativeBridge
 
-    // Ask Android Native Bridge to ensure runtime RECORD_AUDIO permission if inside APK
+    // 1. If inside the Android APK, ask Android Native Bridge for runtime RECORD_AUDIO permission or native speech recognizer
     try {
       nativeBridge?.requestMicrophonePermission?.()
-    } catch {
-      // Ignore
-    }
-
-    // Primary Engine: MediaRecorder + Server Audio Transcription
-    if (
-      navigator.mediaDevices &&
-      typeof navigator.mediaDevices.getUserMedia === 'function' &&
-      typeof window.MediaRecorder !== 'undefined'
-    ) {
-      try {
-        let stream: MediaStream
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-            },
-          })
-        } catch {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        }
-        mediaStreamRef.current = stream
-
-        const preferredMimeTypes = [
-          'audio/webm;codecs=opus',
-          'audio/webm',
-          'audio/mp4',
-          'audio/ogg;codecs=opus',
-          'audio/aac',
-        ]
-        let chosenMimeType = ''
-        for (const candidate of preferredMimeTypes) {
-          if (
-            typeof MediaRecorder.isTypeSupported === 'function' &&
-            MediaRecorder.isTypeSupported(candidate)
-          ) {
-            chosenMimeType = candidate
-            break
-          }
-        }
-
-        const recorder = chosenMimeType
-          ? new MediaRecorder(stream, { mimeType: chosenMimeType })
-          : new MediaRecorder(stream)
-        mediaRecorderRef.current = recorder
-
-        recorder.ondataavailable = (ev: BlobEvent) => {
-          if (ev.data && ev.data.size > 0) {
-            audioChunksRef.current.push(ev.data)
-          }
-        }
-
-        const stopVoiceCapture = () => {
-          stopVoiceCaptureRef.current = null
-          if (
-            mediaRecorderRef.current &&
-            mediaRecorderRef.current.state !== 'inactive'
-          ) {
-            try {
-              mediaRecorderRef.current.stop()
-            } catch {
-              cleanupAudioResources()
-              setIsListening(false)
-            }
-          } else {
-            cleanupAudioResources()
-            setIsListening(false)
-          }
-        }
-
-        stopVoiceCaptureRef.current = stopVoiceCapture
-
-        recorder.onstop = async () => {
-          const recordedMime = recorder.mimeType || chosenMimeType || 'audio/webm'
-          const chunks = [...audioChunksRef.current]
-          audioChunksRef.current = []
-          cleanupAudioResources()
-          setIsListening(false)
-
-          if (chunks.length === 0) return
-          const blob = new Blob(chunks, { type: recordedMime })
-          await transcribeAudioBlob(blob, recordedMime)
-        }
-
-        try {
-          recorder.start(250)
-        } catch {
-          recorder.start()
-        }
-        setIsListening(true)
-        setErrorMessage(null)
-
-        // Live audio level meter + smart silence detection (ignores initial 900ms finger-tap pop on phones)
-        try {
-          const AudioCtx =
-            window.AudioContext ||
-            (window as unknown as { webkitAudioContext?: typeof AudioContext })
-              .webkitAudioContext
-          if (AudioCtx) {
-            const audioCtx = new AudioCtx()
-            audioContextRef.current = audioCtx
-            if (audioCtx.state === 'suspended') {
-              void audioCtx.resume().catch(() => {})
-            }
-            const source = audioCtx.createMediaStreamSource(stream)
-            const analyser = audioCtx.createAnalyser()
-            analyser.fftSize = 512
-            source.connect(analyser)
-            const dataArray = new Uint8Array(analyser.frequencyBinCount)
-            let hasDetectedSpeech = false
-            let sustainedSpeechFrames = 0
-            let silenceStartMs = 0
-            const startedAtMs = Date.now()
-
-            silenceTimerRef.current = window.setInterval(() => {
-              analyser.getByteTimeDomainData(dataArray)
-              let sumSquares = 0
-              for (let i = 0; i < dataArray.length; i++) {
-                const normalized = (dataArray[i] - 128) / 128
-                sumSquares += normalized * normalized
-              }
-              const rms = Math.sqrt(sumSquares / dataArray.length)
-              const now = Date.now()
-              const elapsedMs = now - startedAtMs
-
-              setVoiceLevel(Math.min(100, Math.round(rms * 420)))
-
-              // Ignore the first 900ms so the finger tap on the phone screen doesn't count as speech
-              if (elapsedMs > 900) {
-                if (rms > 0.024) {
-                  sustainedSpeechFrames += 1
-                  if (sustainedSpeechFrames >= 2) {
-                    hasDetectedSpeech = true
-                  }
-                  silenceStartMs = 0
-                } else if (hasDetectedSpeech) {
-                  if (!silenceStartMs) {
-                    silenceStartMs = now
-                  } else if (now - silenceStartMs > 2600) {
-                    stopVoiceCapture()
-                  }
-                }
-              }
-
-              // Safety max duration: 45 seconds
-              if (elapsedMs > 45000) {
-                stopVoiceCapture()
-              }
-            }, 150)
-          }
-        } catch {
-          // Silence detection is optional; manual Done button remains available
-        }
-
-        return
-      } catch {
-        cleanupAudioResources()
-      }
-    }
-
-    // Secondary Engine: Android Native Speech Recognizer Bridge (if available in APK)
-    try {
       if (nativeBridge && typeof nativeBridge.startVoiceInput === 'function') {
         const started = nativeBridge.startVoiceInput(targetBcp47)
         if (started) {
@@ -2065,10 +2174,10 @@ export function GeminiChatbot({
         }
       }
     } catch {
-      // Ignore and continue to Web Speech API fallback
+      // Continue to browser voice engines
     }
 
-    // Tertiary Engine: Browser Web Speech API
+    // 2. Primary Browser Engine: Real-Time Web Speech API (streams spoken words live into the input box like Google Gemini)
     const SpeechRecognitionClass =
       (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any })
         .SpeechRecognition ||
@@ -2095,17 +2204,21 @@ export function GeminiChatbot({
           const base = speechBaseTextRef.current
           const cleanSpeech = transcript.trim()
           if (cleanSpeech) {
+            speechGotTranscriptRef.current = true
             setInput(base ? `${base} ${cleanSpeech}` : cleanSpeech)
           }
         }
 
         recognition.onerror = (event: any) => {
-          const errCode = event?.error
+          const errCode = String(event?.error || '')
           setIsListening(false)
-          if (errCode === 'not-allowed' || errCode === 'service-not-allowed') {
-            setMicFallbackMode(true)
-          } else if (errCode !== 'no-speech' && errCode !== 'aborted' && errCode) {
-            setMicFallbackMode(true)
+          if (errCode === 'audio-capture') {
+            setErrorMessage(
+              'No microphone hardware detected on this device. Please connect a microphone or headset.',
+            )
+          } else if (errCode === 'not-allowed' || errCode === 'service-not-allowed' || errCode === 'network') {
+            // Fall back to MediaRecorder + Gemini Audio Transcription
+            void startMediaRecorderVoiceCapture()
           }
         }
 
@@ -2121,8 +2234,8 @@ export function GeminiChatbot({
       }
     }
 
-    // Universal Fallback: Enable 1-tap synchronous <label> voice recorder bar
-    setMicFallbackMode(true)
+    // 3. Fallback Engine: MediaRecorder + Gemini Server Audio Transcription
+    await startMediaRecorderVoiceCapture()
   }
 
   function handleCopyMessage(msg: ChatTurnMessage) {
@@ -3048,34 +3161,6 @@ export function GeminiChatbot({
               </div>
             ) : null}
 
-            {/* Fallback Device Voice Recorder Bar (Shown when browser/iframe restricts live mic stream) */}
-            {micFallbackMode && !isListening && !isTranscribingVoice ? (
-              <div
-                dir="ltr"
-                className="flex items-center justify-between gap-2 border-t border-cyan/35 bg-cyan/10 px-3.5 py-2 text-left text-xs text-cyan"
-              >
-                <span className="text-[11.5px] font-medium text-foreground">
-                  Tap to record voice with your device microphone &amp; transcribe automatically:
-                </span>
-                <div className="flex shrink-0 items-center gap-2">
-                  <label
-                    htmlFor="chatbot-voice-recorder-input"
-                    className="cursor-pointer inline-flex items-center gap-1.5 rounded-full bg-cyan px-3 py-1 text-[11px] font-semibold text-[#081e21] shadow-xs transition-transform active:scale-95"
-                  >
-                    <Mic className="size-3.5" aria-hidden="true" />
-                    <span>Record Voice</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setMicFallbackMode(false)}
-                    className="text-[11px] font-semibold text-muted-foreground hover:text-foreground"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
             {/* Active Voice Listening / Transcribing Banner with Live Audio Meter */}
             {isListening || isTranscribingVoice ? (
               <div
@@ -3134,7 +3219,7 @@ export function GeminiChatbot({
                 Type your message to the Da&apos;wa College Chatbot
               </label>
 
-              {/* Hidden file inputs for Photo/PDF, Camera, and Voice Recorder */}
+              {/* Hidden file input ONLY for Photo/PDF Attachment (+) button */}
               <input
                 ref={studyImageInputRef}
                 id="chatbot-study-image-input"
@@ -3151,33 +3236,6 @@ export function GeminiChatbot({
                 aria-hidden="true"
                 tabIndex={-1}
               />
-              <input
-                ref={studyCameraInputRef}
-                id="chatbot-study-camera-input"
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={(e) => {
-                  if (e.target.files && e.target.files.length > 0) {
-                    void processSelectedStudyFiles(e.target.files)
-                  }
-                  e.target.value = ''
-                }}
-                className="hidden"
-                aria-hidden="true"
-                tabIndex={-1}
-              />
-              <input
-                ref={audioFileInputRef}
-                id="chatbot-voice-recorder-input"
-                type="file"
-                accept="audio/*"
-                capture="user"
-                onChange={(e) => void handleAudioFilePicked(e)}
-                className="hidden"
-                aria-hidden="true"
-                tabIndex={-1}
-              />
 
               <div
                 dir="ltr"
@@ -3190,7 +3248,7 @@ export function GeminiChatbot({
                       : 'border-border/90 focus-within:border-lime/60 focus-within:ring-2 focus-within:ring-lime/15',
                 )}
               >
-                {/* Left Multimodal Attachment Cluster (Photo/PDF + Camera like Gemini App) */}
+                {/* Left Multimodal Attachment Cluster (Photo/PDF + Live Camera like Gemini App) */}
                 <div className="flex shrink-0 items-center gap-0.5 self-end pb-0.5">
                   <button
                     type="button"
@@ -3205,9 +3263,9 @@ export function GeminiChatbot({
                   <button
                     type="button"
                     disabled={sending || pendingAttachments.length >= 3}
-                    onClick={() => studyCameraInputRef.current?.click()}
-                    title="Take photo of Kitab or notes with camera"
-                    aria-label="Take photo with camera"
+                    onClick={() => void openLiveCameraModal()}
+                    title="Open live camera to snap a photo of a Kitab or textbook page"
+                    aria-label="Open live camera"
                     className="flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-lime/15 hover:text-lime disabled:opacity-40"
                   >
                     <Camera className="size-4" aria-hidden="true" />
@@ -3246,42 +3304,31 @@ export function GeminiChatbot({
                   )}
                 />
 
-                {/* Compact Right Action Cluster (Voice + Send Icons) */}
+                {/* Compact Right Action Cluster (Live Voice Button + Send Button — NEVER opens a file picker) */}
                 <div className="flex shrink-0 items-center gap-1 self-end pb-0.5">
-                  {micFallbackMode && !isListening && !isTranscribingVoice ? (
-                    <label
-                      htmlFor="chatbot-voice-recorder-input"
-                      title="Record voice audio"
-                      aria-label="Record voice audio"
-                      className="cursor-pointer flex size-9 shrink-0 items-center justify-center rounded-full bg-cyan/20 text-cyan transition-all hover:bg-cyan hover:text-[#081e21]"
-                    >
+                  <button
+                    type="button"
+                    onClick={() => void toggleVoiceInput()}
+                    disabled={sending || isTranscribingVoice}
+                    title={isListening ? UI_TEXT.en.voiceStop : UI_TEXT.en.voiceTyping}
+                    aria-label={isListening ? UI_TEXT.en.voiceStop : UI_TEXT.en.voiceTyping}
+                    className={cn(
+                      'flex size-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan disabled:opacity-40',
+                      isListening
+                        ? 'bg-cyan text-[#081e21] shadow-md shadow-cyan/35 ring-2 ring-cyan/40 animate-pulse hover:bg-cyan/90'
+                        : isTranscribingVoice
+                          ? 'bg-cyan/20 text-cyan'
+                          : 'text-muted-foreground hover:bg-cyan/15 hover:text-cyan active:bg-cyan active:text-[#081e21]',
+                    )}
+                  >
+                    {isTranscribingVoice ? (
+                      <Loader2 className="size-4 animate-spin text-cyan" aria-hidden="true" />
+                    ) : isListening ? (
+                      <MicOff className="size-4 text-[#081e21]" aria-hidden="true" />
+                    ) : (
                       <Mic className="size-4" aria-hidden="true" />
-                    </label>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => void toggleVoiceInput()}
-                      disabled={sending || isTranscribingVoice}
-                      title={isListening ? UI_TEXT.en.voiceStop : UI_TEXT.en.voiceTyping}
-                      aria-label={isListening ? UI_TEXT.en.voiceStop : UI_TEXT.en.voiceTyping}
-                      className={cn(
-                        'flex size-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan disabled:opacity-40',
-                        isListening
-                          ? 'bg-cyan text-[#081e21] shadow-md shadow-cyan/35 ring-2 ring-cyan/40 animate-pulse hover:bg-cyan/90'
-                          : isTranscribingVoice
-                            ? 'bg-cyan/20 text-cyan'
-                            : 'text-muted-foreground hover:bg-cyan/15 hover:text-cyan active:bg-cyan active:text-[#081e21]',
-                      )}
-                    >
-                      {isTranscribingVoice ? (
-                        <Loader2 className="size-4 animate-spin text-cyan" aria-hidden="true" />
-                      ) : isListening ? (
-                        <MicOff className="size-4 text-[#081e21]" aria-hidden="true" />
-                      ) : (
-                        <Mic className="size-4" aria-hidden="true" />
-                      )}
-                    </button>
-                  )}
+                    )}
+                  </button>
 
                   {/* Send Icon Button */}
                   <button
@@ -3308,6 +3355,85 @@ export function GeminiChatbot({
           </div>
         </div>
       </div>
+
+      {/* In-App Live Camera Viewfinder Modal for Snapping Kitab / Study Pages */}
+      {isCameraModalOpen && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="fixed inset-0 z-[115] flex items-center justify-center bg-black/85 p-4 backdrop-blur-xs"
+            >
+              <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+                <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Camera className="size-4 text-lime" aria-hidden="true" />
+                    <span className="text-sm font-semibold text-foreground">
+                      Capture Kitab / Study Page
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeLiveCameraModal}
+                    className="flex size-7 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                  </button>
+                </div>
+
+                <div className="flex flex-col items-center justify-center bg-black/90 p-3">
+                  {cameraError ? (
+                    <div className="flex flex-col items-center gap-3 py-8 text-center">
+                      <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
+                        {cameraError}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closeLiveCameraModal()
+                          studyImageInputRef.current?.click()
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-lime px-4 py-2 text-xs font-semibold text-primary-foreground"
+                      >
+                        <ImagePlus className="size-4" aria-hidden="true" />
+                        <span>Select Image from Device Instead</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <video
+                      ref={cameraVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="max-h-[60dvh] w-full rounded-xl object-contain"
+                    />
+                  )}
+                </div>
+
+                {!cameraError ? (
+                  <div className="flex items-center justify-between border-t border-border bg-card px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={closeLiveCameraModal}
+                      className="rounded-xl border border-border px-3.5 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCapturePhotoFromVideo}
+                      className="inline-flex items-center gap-2 rounded-xl bg-lime px-5 py-2 text-xs font-bold text-primary-foreground shadow-sm transition-transform active:scale-95"
+                    >
+                      <Camera className="size-4" aria-hidden="true" />
+                      <span>Capture Page Photo</span>
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {/* Lightbox Modal for Viewing Attached Study Photos */}
       {lightboxImage && typeof document !== 'undefined'
