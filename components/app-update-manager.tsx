@@ -335,6 +335,7 @@ export function AppUpdateBanner() {
     triggerAppUpdate,
   } = useAppUpdater()
   const [dismissed, setDismissed] = useState(false)
+  const [showIosInstall, setShowIosInstall] = useState(false)
 
   useEffect(() => {
     if (typeof window !== 'undefined' && remote?.buildNumber) {
@@ -349,9 +350,70 @@ export function AppUpdateBanner() {
     }
   }, [remote?.buildNumber])
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return
+    const ua = navigator.userAgent || ''
+    const isIos =
+      /iPhone|iPad|iPod/i.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    const isStandalone =
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+      (navigator as unknown as { standalone?: boolean }).standalone === true
+    const iosDismissed =
+      window.sessionStorage.getItem('ics_ios_install_dismissed') === 'true'
+    if (isIos && !isStandalone && !iosDismissed) {
+      setShowIosInstall(true)
+    }
+  }, [])
+
+  if (typeof document === 'undefined') return null
+
+  if (showIosInstall && !isAppEnv) {
+    return createPortal(
+      <div
+        role="region"
+        aria-label="Install ICS Academy on iPhone"
+        className="fixed inset-x-3 bottom-4 z-[95] mx-auto max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300"
+      >
+        <div className="flex items-start justify-between gap-3 rounded-2xl border border-lime/50 bg-[#081E21]/95 p-3.5 text-white shadow-2xl backdrop-blur-md">
+          <div className="flex min-w-0 items-start gap-3">
+            <img
+              src="/icons/apple-touch-icon.png"
+              alt="ICS Academy App Icon"
+              className="size-11 shrink-0 rounded-xl border border-white/15 bg-white object-contain shadow-sm"
+            />
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-lime sm:text-sm">
+                Install ICS Academy on iPhone
+              </p>
+              <p className="mt-0.5 text-[11px] leading-snug text-white/85">
+                Tap the Safari <strong>Share</strong> button below and select{' '}
+                <strong>&ldquo;Add to Home Screen&rdquo;</strong> to install the
+                app.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setShowIosInstall(false)
+              if (typeof window !== 'undefined') {
+                window.sessionStorage.setItem('ics_ios_install_dismissed', 'true')
+              }
+            }}
+            className="flex size-7 shrink-0 items-center justify-center rounded-lg text-white/70 transition hover:bg-white/10 hover:text-white"
+            aria-label="Close iPhone install guide"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      </div>,
+      document.body,
+    )
+  }
+
   // NEVER show update banner on regular websites — only inside installed mobile/tablet apps when a genuinely newer build exists
   if (!isAppEnv || !updateAvailable || dismissed) return null
-  if (typeof document === 'undefined') return null
 
   return createPortal(
     <div

@@ -109,11 +109,32 @@ export function CampusNotificationBar({
   const [activeToast, setActiveToast] = useState<CampusNotification | null>(null)
 
   useEffect(() => {
-    // Poll cloud sync every 7 seconds for live Usthad notices & attendance updates
+    // Request system notification permission on first user tap if not yet granted
+    function requestPermissionOnce() {
+      if (
+        typeof window !== 'undefined' &&
+        'Notification' in window &&
+        Notification.permission === 'default'
+      ) {
+        Notification.requestPermission().catch(() => {})
+      }
+      window.removeEventListener('pointerdown', requestPermissionOnce)
+    }
+    window.addEventListener('pointerdown', requestPermissionOnce, { once: true })
+
+    // Poll cloud sync every 4 seconds + immediately when phone/tablet wakes or tab focuses
     pullCampusStateFromServer()
     const timer = window.setInterval(() => {
       pullCampusStateFromServer()
-    }, 7000)
+    }, 4000)
+
+    function handleWakeOrFocus() {
+      if (document.visibilityState === 'visible') {
+        pullCampusStateFromServer()
+      }
+    }
+    window.addEventListener('focus', handleWakeOrFocus)
+    document.addEventListener('visibilitychange', handleWakeOrFocus)
 
     function handleIncoming(e: Event) {
       const custom = e as CustomEvent<CampusNotification>
@@ -148,6 +169,9 @@ export function CampusNotificationBar({
     window.addEventListener('ics-campus-notification', handleIncoming)
     return () => {
       window.clearInterval(timer)
+      window.removeEventListener('pointerdown', requestPermissionOnce)
+      window.removeEventListener('focus', handleWakeOrFocus)
+      document.removeEventListener('visibilitychange', handleWakeOrFocus)
       window.removeEventListener('ics-campus-notification', handleIncoming)
     }
   }, [studentId, classNameFilter])
