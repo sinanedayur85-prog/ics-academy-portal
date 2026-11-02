@@ -10,6 +10,9 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   build-apk:
     name: Build ICS-Academy-Manhappatta APK
@@ -25,7 +28,7 @@ jobs:
           node-version: '22'
 
       - name: Set up Java JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -223,14 +226,14 @@ jobs:
             fs.writeFileSync(stylesPath, stylesXml, 'utf8');
           }
 
-          // 2. Ensure AndroidManifest.xml has notification, microphone & legacy storage permissions (without REQUEST_INSTALL_PACKAGES so Play Protect does not flag the app)
+          // 2. Ensure AndroidManifest.xml has notification, microphone, camera & legacy storage permissions (without REQUEST_INSTALL_PACKAGES so Play Protect does not flag the app)
           const manifestPath = 'android/app/src/main/AndroidManifest.xml';
           if (fs.existsSync(manifestPath)) {
             let manifest = fs.readFileSync(manifestPath, 'utf8');
             if (!manifest.includes('POST_NOTIFICATIONS')) {
               manifest = manifest.replace(
                 '<uses-permission android:name="android.permission.INTERNET" />',
-                '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />'
+                '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />'
               );
               fs.writeFileSync(manifestPath, manifest, 'utf8');
             }
@@ -333,17 +336,25 @@ jobs:
                       webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
                       webView.addJavascriptInterface(new ICSNativeBridge(), "ICSNativeBridge");
 
-                      // Ensure WebView grants getUserMedia microphone requests when app permission is granted
+                      // Ensure WebView grants getUserMedia microphone and camera requests when app permission is granted
                       webView.setWebChromeClient(new BridgeWebChromeClient(this.bridge) {
                           @Override
                           public void onPermissionRequest(final PermissionRequest request) {
                               runOnUiThread(() -> {
                                   try {
+                                      ArrayList<String> missingPerms = new ArrayList<>();
                                       if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO)
                                           != PackageManager.PERMISSION_GRANTED) {
+                                          missingPerms.add(Manifest.permission.RECORD_AUDIO);
+                                      }
+                                      if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA)
+                                          != PackageManager.PERMISSION_GRANTED) {
+                                          missingPerms.add(Manifest.permission.CAMERA);
+                                      }
+                                      if (!missingPerms.isEmpty()) {
                                           ActivityCompat.requestPermissions(
                                               MainActivity.this,
-                                              new String[]{Manifest.permission.RECORD_AUDIO},
+                                              missingPerms.toArray(new String[0]),
                                               1002
                                           );
                                       }
@@ -398,6 +409,10 @@ jobs:
                   if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                       != PackageManager.PERMISSION_GRANTED) {
                       permsToRequest.add(Manifest.permission.RECORD_AUDIO);
+                  }
+                  if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                      != PackageManager.PERMISSION_GRANTED) {
+                      permsToRequest.add(Manifest.permission.CAMERA);
                   }
                   if (!permsToRequest.isEmpty()) {
                       ActivityCompat.requestPermissions(
