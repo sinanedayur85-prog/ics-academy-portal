@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
@@ -13,6 +13,7 @@ import {
   LogOut,
   Megaphone,
   MessageSquareText,
+  Sparkles,
   UserCheck,
 } from 'lucide-react'
 import { AppUpdateButton } from '@/components/app-update-manager'
@@ -62,6 +63,10 @@ const classLeaderNavItems = [
   { label: 'University Portal', href: '#university-portal', icon: Globe },
 ]
 
+type MobileTabId = 'home' | 'attendance' | 'chatbot' | 'leave' | 'library'
+type MobileAttendanceSubTab = 'personal' | 'class-leader'
+type MobileResourceSubTab = 'digital-library' | 'library' | 'timetable' | 'university-portal'
+
 type DashboardShellProps = {
   isClassLeader?: boolean
 }
@@ -77,6 +82,11 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
     return students[0].id
   })
   const [isOnLeave, setIsOnLeave] = useState(false)
+  const [mobileTab, setMobileTab] = useState<MobileTabId>('home')
+  const [mobileAttendanceSubTab, setMobileAttendanceSubTab] =
+    useState<MobileAttendanceSubTab>('personal')
+  const [mobileResourceSubTab, setMobileResourceSubTab] =
+    useState<MobileResourceSubTab>('digital-library')
 
   const student = students.find((s) => s.id === selectedStudentId) ?? students[0]
   const leaderInfo = getLeaderInfoForStudent(student)
@@ -89,8 +99,49 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
     leaderInfo.roleTitle
   const navItems = isClassLeader ? classLeaderNavItems : studentNavItems
 
+  // Automatically sync hash navigation (from notification banners or badges) to mobile tabs
+  useEffect(() => {
+    const syncHashToMobileTab = () => {
+      if (typeof window === 'undefined') return
+      const hash = window.location.hash.replace('#', '')
+      if (!hash) return
+      if (hash === 'notices') {
+        setMobileTab('home')
+      } else if (hash === 'attendance') {
+        setMobileTab('attendance')
+        setMobileAttendanceSubTab('personal')
+      } else if (hash === 'class-attendance') {
+        setMobileTab('attendance')
+        setMobileAttendanceSubTab('class-leader')
+      } else if (hash === 'gemini-chatbot') {
+        setMobileTab('chatbot')
+      } else if (hash === 'leave') {
+        setMobileTab('leave')
+      } else if (
+        hash === 'digital-library' ||
+        hash === 'library' ||
+        hash === 'timetable' ||
+        hash === 'university-portal'
+      ) {
+        setMobileTab('library')
+        setMobileResourceSubTab(hash)
+      }
+    }
+
+    syncHashToMobileTab()
+    window.addEventListener('hashchange', syncHashToMobileTab)
+    return () => window.removeEventListener('hashchange', syncHashToMobileTab)
+  }, [])
+
+  const selectMobileTab = (tab: MobileTabId) => {
+    setMobileTab(tab)
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
   return (
-    <div className="min-h-svh overflow-x-hidden bg-background transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] lg:pl-64">
+    <div className="min-h-svh overflow-x-hidden bg-background pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] lg:pb-0 lg:pl-64">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-background pt-[var(--safe-top)] transition-colors duration-300 lg:flex">
         <Link href="/" className="flex h-20 items-center gap-3 border-b border-border px-6" aria-label="ICS Academy Manhappatta home">
           <Image
@@ -176,33 +227,29 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
             <StudentSwitcher student={student} />
           </div>
         </div>
-
-        <nav aria-label="Dashboard sections" className="border-t border-border lg:hidden">
-          <ul className="flex gap-1 overflow-x-auto px-3 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            {navItems.map((item) => (
-              <li key={item.href} className="shrink-0">
-                <a
-                  href={item.href}
-                  className="flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground whitespace-nowrap shrink-0"
-                >
-                  <item.icon className="size-3.5" aria-hidden="true" />
-                  {item.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
       </header>
 
-      <CampusNotificationBar
-        studentId={student.id}
-        classNameFilter={student.className}
-      />
+      <div className={cn(mobileTab === 'chatbot' && 'hidden lg:block')}>
+        <CampusNotificationBar
+          studentId={student.id}
+          classNameFilter={student.className}
+        />
+      </div>
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-5 px-3.5 py-6 sm:gap-6 sm:px-5 sm:py-8 md:px-8 md:py-10">
+      <main
+        className={cn(
+          'mx-auto flex max-w-7xl flex-col gap-5 px-3.5 py-5 sm:gap-6 sm:px-5 sm:py-7 md:px-8 md:py-10',
+          mobileTab === 'chatbot' &&
+            'gap-0 px-0 py-0 sm:gap-0 sm:px-0 sm:py-0 md:px-0 md:py-0 lg:gap-6 lg:px-8 lg:py-10',
+        )}
+      >
+        {/* Welcome Student Header — Shown on Home Tab on Phone/Tablet, Always Shown on Desktop */}
         <div
           key={student.id}
-          className="flex flex-col justify-between gap-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 md:flex-row md:items-end"
+          className={cn(
+            'flex flex-col justify-between gap-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 md:flex-row md:items-end',
+            mobileTab !== 'home' && 'hidden lg:flex',
+          )}
         >
           <div>
             <div className="flex flex-wrap items-center gap-2.5">
@@ -212,6 +259,13 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
               {isClassLeader && (
                 <a
                   href="#class-attendance"
+                  onClick={(e) => {
+                    if (window.innerWidth < 1024) {
+                      e.preventDefault()
+                      setMobileTab('attendance')
+                      setMobileAttendanceSubTab('class-leader')
+                    }
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-full border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-xs font-bold tracking-wide text-cyan transition-colors hover:bg-cyan/25"
                 >
                   <UserCheck className="size-3.5" aria-hidden="true" />
@@ -220,6 +274,12 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
               )}
               <a
                 href="#leave"
+                onClick={(e) => {
+                  if (window.innerWidth < 1024) {
+                    e.preventDefault()
+                    setMobileTab('leave')
+                  }
+                }}
                 role="status"
                 aria-live="polite"
                 className={cn(
@@ -272,26 +332,280 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
           </div>
         </div>
 
-        <NoticeBoard />
+        {/* 1. HOME / NOTICE BOARD TAB */}
+        <div className={cn(mobileTab === 'home' ? 'block' : 'hidden lg:block')}>
+          <NoticeBoard />
+        </div>
 
-        <AttendanceCard student={student} />
+        {/* 2. ATTENDANCE TAB (With Class Leader Sub-Switcher on Phone/Tablet) */}
+        {isClassLeader && mobileTab === 'attendance' ? (
+          <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-border bg-card/85 p-1.5 shadow-xs lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileAttendanceSubTab('personal')}
+              className={cn(
+                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all',
+                mobileAttendanceSubTab === 'personal'
+                  ? 'bg-lime text-primary-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <CalendarCheck className="size-4" aria-hidden="true" />
+              <span>My Attendance</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileAttendanceSubTab('class-leader')}
+              className={cn(
+                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all',
+                mobileAttendanceSubTab === 'class-leader'
+                  ? 'bg-cyan text-[#062023] shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <UserCheck className="size-4" aria-hidden="true" />
+              <span>Class Attendance</span>
+            </button>
+          </div>
+        ) : null}
+
+        <div
+          className={cn(
+            mobileTab === 'attendance' &&
+              (!isClassLeader || mobileAttendanceSubTab === 'personal')
+              ? 'block'
+              : 'hidden lg:block',
+          )}
+        >
+          <AttendanceCard student={student} />
+        </div>
 
         {isClassLeader && (
-          <ClassLeaderAttendanceCard leader={student} leaderId={leaderId} />
+          <div
+            className={cn(
+              mobileTab === 'attendance' && mobileAttendanceSubTab === 'class-leader'
+                ? 'block'
+                : 'hidden lg:block',
+            )}
+          >
+            <ClassLeaderAttendanceCard leader={student} leaderId={leaderId} />
+          </div>
         )}
 
-        <LeaveRegister student={student} onLeaveStatusChange={setIsOnLeave} />
+        {/* 3. LEAVE REGISTER TAB (Always mounted so onLeaveStatusChange stays active) */}
+        <div className={cn(mobileTab === 'leave' ? 'block' : 'hidden lg:block')}>
+          <LeaveRegister student={student} onLeaveStatusChange={setIsOnLeave} />
+        </div>
 
-        <GeminiChatbot student={student} />
+        {/* 4. FULL-SCREEN GEMINI AI CHATBOT TAB */}
+        <div className={cn(mobileTab === 'chatbot' ? 'block' : 'hidden lg:block')}>
+          <GeminiChatbot student={student} mobileFullScreen />
+        </div>
 
-        <DigitalLibrary student={student} />
+        {/* 5. LIBRARY, TIMETABLE & UNIVERSITY PORTAL TAB */}
+        {mobileTab === 'library' ? (
+          <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-border bg-card/85 p-1.5 shadow-xs sm:grid-cols-4 lg:hidden">
+            {(
+              [
+                { id: 'digital-library', label: 'Digital Kitabs', icon: Library },
+                { id: 'library', label: 'Library (മക്തബ)', icon: BookMarked },
+                { id: 'timetable', label: 'Time Table', icon: CalendarDays },
+                { id: 'university-portal', label: 'Exam Results', icon: Globe },
+              ] as const
+            ).map((sub) => {
+              const active = mobileResourceSubTab === sub.id
+              return (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => setMobileResourceSubTab(sub.id)}
+                  className={cn(
+                    'flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-semibold transition-all',
+                    active
+                      ? 'bg-lime text-primary-foreground shadow-xs'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <sub.icon className="size-3.5 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{sub.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        ) : null}
 
-        <LibraryBooks />
+        <div
+          className={cn(
+            mobileTab === 'library' && mobileResourceSubTab === 'digital-library'
+              ? 'block'
+              : 'hidden lg:block',
+          )}
+        >
+          <DigitalLibrary student={student} />
+        </div>
 
-        <Timetable student={student} />
+        <div
+          className={cn(
+            mobileTab === 'library' && mobileResourceSubTab === 'library'
+              ? 'block'
+              : 'hidden lg:block',
+          )}
+        >
+          <LibraryBooks />
+        </div>
 
-        <ExamResultCard />
+        <div
+          className={cn(
+            mobileTab === 'library' && mobileResourceSubTab === 'timetable'
+              ? 'block'
+              : 'hidden lg:block',
+          )}
+        >
+          <Timetable student={student} />
+        </div>
+
+        <div
+          className={cn(
+            mobileTab === 'library' && mobileResourceSubTab === 'university-portal'
+              ? 'block'
+              : 'hidden lg:block',
+          )}
+        >
+          <ExamResultCard />
+        </div>
       </main>
+
+      {/* PHONE & TABLET BOTTOM NAVIGATION MENU BAR (Hidden on Desktop lg:) */}
+      <nav
+        aria-label="Mobile & Tablet Bottom Navigation"
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-border/85 bg-background/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl lg:hidden"
+      >
+        <div className="mx-auto grid h-16 max-w-xl grid-cols-5 items-center px-1.5">
+          <button
+            type="button"
+            onClick={() => selectMobileTab('home')}
+            className={cn(
+              'flex flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-colors',
+              mobileTab === 'home'
+                ? 'text-lime'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <span
+              className={cn(
+                'flex h-7 w-12 items-center justify-center rounded-full transition-all',
+                mobileTab === 'home' && 'bg-lime/15',
+              )}
+            >
+              <Megaphone className="size-4" aria-hidden="true" />
+            </span>
+            <span className="text-[10.5px] font-semibold leading-none">Notices</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => selectMobileTab('attendance')}
+            className={cn(
+              'flex flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-colors',
+              mobileTab === 'attendance'
+                ? 'text-lime'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <span
+              className={cn(
+                'relative flex h-7 w-12 items-center justify-center rounded-full transition-all',
+                mobileTab === 'attendance' && 'bg-lime/15',
+              )}
+            >
+              <CalendarCheck className="size-4" aria-hidden="true" />
+              {isClassLeader ? (
+                <span className="absolute -top-0.5 right-1.5 size-2 rounded-full bg-cyan" />
+              ) : null}
+            </span>
+            <span className="text-[10.5px] font-semibold leading-none">Attendance</span>
+          </button>
+
+          {/* Center Gemini AI Chatbot Tab */}
+          <button
+            type="button"
+            onClick={() => selectMobileTab('chatbot')}
+            className={cn(
+              'flex flex-col items-center justify-center gap-1 py-1 transition-all',
+              mobileTab === 'chatbot'
+                ? 'text-lime'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <span
+              className={cn(
+                'flex h-9 w-14 items-center justify-center rounded-2xl border transition-all duration-200',
+                mobileTab === 'chatbot'
+                  ? 'border-lime/60 bg-lime text-primary-foreground shadow-md shadow-lime/25 scale-105'
+                  : 'border-lime/35 bg-lime/10 text-lime hover:bg-lime/20',
+              )}
+            >
+              <Sparkles className="size-4" aria-hidden="true" />
+            </span>
+            <span
+              className={cn(
+                'text-[10.5px] font-bold leading-none',
+                mobileTab === 'chatbot' ? 'text-lime' : 'text-foreground/90',
+              )}
+            >
+              AI Chat
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => selectMobileTab('leave')}
+            className={cn(
+              'flex flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-colors',
+              mobileTab === 'leave'
+                ? 'text-lime'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <span
+              className={cn(
+                'relative flex h-7 w-12 items-center justify-center rounded-full transition-all',
+                mobileTab === 'leave' && 'bg-lime/15',
+              )}
+            >
+              <ClipboardList className="size-4" aria-hidden="true" />
+              <span
+                className={cn(
+                  'absolute -top-0.5 right-1.5 size-2 rounded-full',
+                  isOnLeave ? 'bg-red-500 animate-pulse' : 'bg-emerald-500 dark:bg-lime',
+                )}
+              />
+            </span>
+            <span className="text-[10.5px] font-semibold leading-none">Leave</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => selectMobileTab('library')}
+            className={cn(
+              'flex flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-colors',
+              mobileTab === 'library'
+                ? 'text-lime'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <span
+              className={cn(
+                'flex h-7 w-12 items-center justify-center rounded-full transition-all',
+                mobileTab === 'library' && 'bg-lime/15',
+              )}
+            >
+              <Library className="size-4" aria-hidden="true" />
+            </span>
+            <span className="text-[10.5px] font-semibold leading-none">Library</span>
+          </button>
+        </div>
+      </nav>
     </div>
   )
 }

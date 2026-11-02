@@ -1203,7 +1203,13 @@ function buildDefaultThreads(lang: ChatLanguage = 'en'): Record<ChatRole, ChatTu
   }
 }
 
-export function GeminiChatbot({ student }: { student: Student }) {
+export function GeminiChatbot({
+  student,
+  mobileFullScreen = false,
+}: {
+  student: Student
+  mobileFullScreen?: boolean
+}) {
   const [role, setRole] = useState<ChatRole>('usthad')
   const [language, setLanguage] = useState<ChatLanguage>('en')
   const [responseLanguagePreference, setResponseLanguagePreference] =
@@ -1739,7 +1745,11 @@ export function GeminiChatbot({ student }: { student: Student }) {
       eyebrow="Multi-Turn Conversational AI"
       title="Da'wa College Chatbot"
       icon={MessageSquareText}
-      className="border-lime/30"
+      className={cn(
+        'border-lime/30',
+        mobileFullScreen &&
+          'rounded-none border-0 bg-transparent p-0 sm:p-0 md:p-0 [&>header]:hidden lg:rounded-2xl lg:border lg:border-lime/30 lg:bg-card lg:p-6 lg:[&>header]:flex',
+      )}
       action={
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           {/* Top Language Switcher */}
@@ -1834,9 +1844,14 @@ export function GeminiChatbot({ student }: { student: Student }) {
         </div>
       }
     >
-      <div className="grid min-w-0 gap-6 lg:grid-cols-12">
+      <div className={cn('grid min-w-0 gap-6 lg:grid-cols-12', mobileFullScreen && 'gap-0 lg:gap-6')}>
         {/* Left Sidebar: Chatbot Roles (System Instructions) & Language Controls */}
-        <div className="flex min-w-0 flex-col justify-between gap-4 lg:col-span-4">
+        <div
+          className={cn(
+            'flex min-w-0 flex-col justify-between gap-4 lg:col-span-4',
+            mobileFullScreen && 'hidden lg:flex',
+          )}
+        >
           <div className="flex min-w-0 flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
               <p
@@ -1980,9 +1995,138 @@ export function GeminiChatbot({ student }: { student: Student }) {
         </div>
 
         {/* Right Column: Scrollable Conversation Thread & Composer */}
-        <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-background/60 lg:col-span-8">
-          {/* Thread Header */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3.5 py-3 sm:px-4">
+        <div
+          className={cn(
+            'flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-background/60 lg:col-span-8',
+            mobileFullScreen &&
+              'h-[calc(100dvh-8.25rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] sm:h-[calc(100dvh-9.25rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] lg:h-auto rounded-none border-0 bg-background/95 lg:rounded-2xl lg:border lg:border-border lg:bg-background/60',
+          )}
+        >
+          {/* Mobile & Tablet Gemini-App Compact Header + Persona & Language Switcher */}
+          {mobileFullScreen ? (
+            <div className="flex flex-col gap-2 border-b border-border/80 bg-card/75 px-3.5 py-2.5 backdrop-blur-md lg:hidden">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-lime/15 text-lime">
+                    <currentPersona.icon className="size-4" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-xs font-bold text-foreground">
+                        {currentPersona.title}
+                      </span>
+                      <span className="rounded-md bg-lime/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-lime">
+                        Gemini AI
+                      </span>
+                    </div>
+                    <p className="truncate text-[10.5px] text-muted-foreground">
+                      {currentPersona.subTitle}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Compact Language & Reset Controls */}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <div
+                    role="group"
+                    aria-label="Select chat language"
+                    className="inline-flex items-center rounded-lg border border-border bg-background/80 p-0.5"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleSelectLanguage('auto')}
+                      className={cn(
+                        'rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold transition-colors',
+                        responseLanguagePreference === 'auto'
+                          ? 'bg-lime text-primary-foreground'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      Auto
+                    </button>
+                    {LANGUAGES.map((lang) => {
+                      const active = responseLanguagePreference === lang.id
+                      return (
+                        <button
+                          key={lang.id}
+                          type="button"
+                          onClick={() => handleSelectLanguage(lang.id)}
+                          className={cn(
+                            'rounded-md px-1.5 py-0.5 text-[10.5px] font-medium transition-colors',
+                            lang.id === 'ml' && 'font-malayalam',
+                            lang.id === 'ar' && 'font-arabic',
+                            lang.id === 'ur' && 'font-urdu text-xs leading-none',
+                            active
+                              ? 'bg-primary text-primary-foreground font-semibold'
+                              : 'text-muted-foreground hover:text-foreground',
+                          )}
+                        >
+                          {lang.id === 'en' ? 'EN' : lang.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleResetThread}
+                    disabled={sending || currentMessages.length <= 1}
+                    title="New Chat / Clear History"
+                    className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border bg-background/90 text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive disabled:opacity-40"
+                  >
+                    <RotateCcw className="size-3.5" aria-hidden="true" />
+                    <span className="sr-only">New Chat</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Horizontal Scrollable Persona Selector Chips (Gemini App Style) */}
+              <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                {PERSONAS.map((persona) => {
+                  const active = role === persona.id
+                  const msgCount = Math.max(
+                    0,
+                    (threads[persona.id] ?? []).filter((m) => m.role === 'user').length,
+                  )
+                  return (
+                    <button
+                      key={persona.id}
+                      type="button"
+                      onClick={() => {
+                        setRole(persona.id)
+                        setErrorMessage(null)
+                      }}
+                      className={cn(
+                        'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all',
+                        active
+                          ? 'border-lime/60 bg-lime/15 text-foreground shadow-xs'
+                          : 'border-border/80 bg-background/60 text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      <persona.icon
+                        className={cn('size-3.5 shrink-0', active ? 'text-lime' : 'text-muted-foreground')}
+                        aria-hidden="true"
+                      />
+                      <span>{persona.title}</span>
+                      {msgCount > 0 ? (
+                        <span className="rounded-full bg-lime/20 px-1.5 py-0.2 font-mono text-[9.5px] font-bold text-lime">
+                          {msgCount}
+                        </span>
+                      ) : null}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Thread Header (Desktop & Non-Fullscreen) */}
+          <div
+            className={cn(
+              'flex flex-wrap items-center justify-between gap-2 border-b border-border px-3.5 py-3 sm:px-4',
+              mobileFullScreen && 'hidden lg:flex',
+            )}
+          >
             <div className="flex min-w-0 flex-1 items-center gap-2.5">
               <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-lime/15 text-lime">
                 <currentPersona.icon className="size-4" aria-hidden="true" />
@@ -2020,9 +2164,28 @@ export function GeminiChatbot({ student }: { student: Student }) {
           {/* Scrollable Messages Container */}
           <div
             ref={threadContainerRef}
-            className="relative flex h-[390px] sm:h-[430px] flex-col gap-4 overflow-y-auto p-3.5 sm:p-4 md:p-5"
+            className={cn(
+              'relative flex flex-col gap-4 overflow-y-auto p-3.5 sm:p-4 md:p-5',
+              mobileFullScreen
+                ? 'min-h-0 flex-1 lg:h-[430px] lg:flex-none'
+                : 'h-[390px] sm:h-[430px]',
+            )}
             aria-live="polite"
           >
+            {mobileFullScreen && turnCount === 0 ? (
+              <div className="mb-1 flex flex-col gap-1 rounded-2xl border border-lime/25 bg-gradient-to-br from-lime/10 via-cyan/5 to-transparent p-4 lg:hidden">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-lime">
+                  Da&apos;wa College AI · {currentPersona.badge}
+                </p>
+                <h2 className="font-display text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+                  Assalamu Alaikum, <span className="text-lime">{student.firstName}</span>
+                </h2>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {currentPersona.description}
+                </p>
+              </div>
+            ) : null}
+
             {currentMessages.map((msg, idx) => {
               const isUser = msg.role === 'user'
               const msgIsAr = isArabicText(msg.text)

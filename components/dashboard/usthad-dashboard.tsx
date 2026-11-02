@@ -172,10 +172,37 @@ export function UsthadDashboard() {
   })
 
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null)
+  const [mobileTab, setMobileTab] = useState<
+    'roster' | 'attendance' | 'leave' | 'notices' | 'library'
+  >('roster')
+  const [mobileLibrarySubTab, setMobileLibrarySubTab] = useState<'kitabs' | 'portal'>('kitabs')
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setFirebaseUser(u))
     return () => unsub()
+  }, [])
+
+  useEffect(() => {
+    const syncHash = () => {
+      if (typeof window === 'undefined') return
+      const hash = window.location.hash.replace('#', '')
+      if (!hash) return
+      if (hash === 'class-roster') setMobileTab('roster')
+      else if (hash === 'usthad-attendance' || hash === 'class-attendance')
+        setMobileTab('attendance')
+      else if (hash === 'usthad-leave') setMobileTab('leave')
+      else if (hash === 'usthad-notices') setMobileTab('notices')
+      else if (hash === 'usthad-kitabs') {
+        setMobileTab('library')
+        setMobileLibrarySubTab('kitabs')
+      } else if (hash === 'university-portal') {
+        setMobileTab('library')
+        setMobileLibrarySubTab('portal')
+      }
+    }
+    syncHash()
+    window.addEventListener('hashchange', syncHash)
+    return () => window.removeEventListener('hashchange', syncHash)
   }, [])
 
   // Strictly filter students to ONLY the logged-in Class Usthad's assigned class
@@ -719,7 +746,7 @@ export function UsthadDashboard() {
       : 0
 
   return (
-    <div className="min-h-svh bg-background transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] lg:pl-64">
+    <div className="min-h-svh bg-background pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] lg:pb-0 lg:pl-64">
       {/* Desktop Sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-background pt-[var(--safe-top)] transition-colors duration-300 lg:flex">
         <Link
@@ -814,29 +841,18 @@ export function UsthadDashboard() {
             <UsthadSwitcher usthad={usthad} />
           </div>
         </div>
-
-        <nav aria-label="Usthad sections" className="border-t border-border lg:hidden">
-          <ul className="flex gap-1 overflow-x-auto px-3 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            {usthadNavItems.map((item) => (
-              <li key={item.href} className="shrink-0">
-                <a
-                  href={item.href}
-                  className="flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground whitespace-nowrap shrink-0"
-                >
-                  <item.icon className="size-3.5" aria-hidden="true" />
-                  {item.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
       </header>
 
       <CampusNotificationBar classNameFilter={usthad.className} />
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-8 md:px-8 md:py-10">
-        {/* Usthad Welcome & Class Summary Header */}
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+      <main className="mx-auto flex max-w-7xl flex-col gap-5 px-3.5 py-5 sm:gap-6 sm:px-5 sm:py-7 md:px-8 md:py-10">
+        {/* Usthad Welcome & Class Summary Header — Shown on Roster Tab on Phone/Tablet, Always Shown on Desktop */}
+        <div
+          className={cn(
+            'flex flex-col justify-between gap-4 md:flex-row md:items-end',
+            mobileTab !== 'roster' && 'hidden lg:flex',
+          )}
+        >
           <div>
             <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-lime">
               Class Usthad Workspace · {usthad.fullClassLabel}
@@ -862,8 +878,13 @@ export function UsthadDashboard() {
           </div>
         </div>
 
-        {/* 4-Column Class KPI Strip */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* 4-Column Class KPI Strip — Shown on Roster Tab on Phone/Tablet, Always Shown on Desktop */}
+        <div
+          className={cn(
+            'grid grid-cols-2 gap-3 sm:grid-cols-4',
+            mobileTab !== 'roster' && 'hidden lg:grid',
+          )}
+        >
           <div className="rounded-2xl border border-border bg-card/60 p-4">
             <p className="text-xs font-medium text-muted-foreground">Total Students</p>
             <p className="mt-1.5 font-display text-2xl font-bold tabular-nums text-foreground md:text-3xl">
@@ -898,11 +919,12 @@ export function UsthadDashboard() {
         </div>
 
         {/* 1. CLASS STUDENT ROSTER & INDIVIDUAL DETAILS */}
-        <Panel
-          id="class-roster"
-          eyebrow={`${usthad.fullClassLabel} · Student Directory`}
-          title="Class Students & Profiles"
-          icon={Users}
+        <div className={cn(mobileTab === 'roster' ? 'block' : 'hidden lg:block')}>
+          <Panel
+            id="class-roster"
+            eyebrow={`${usthad.fullClassLabel} · Student Directory`}
+            title="Class Students & Profiles"
+            icon={Users}
           action={
             <span className="text-xs font-medium tabular-nums text-muted-foreground">
               {filteredRoster.length} of {classStudents.length} students
@@ -1034,7 +1056,10 @@ export function UsthadDashboard() {
                           <div className="inline-flex items-center justify-end gap-1.5">
                             <a
                               href="#usthad-attendance"
-                              onClick={() => setSelectedStudentId(st.id)}
+                              onClick={() => {
+                                setSelectedStudentId(st.id)
+                                setMobileTab('attendance')
+                              }}
                               className="inline-flex h-8 items-center rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:border-lime/40 hover:bg-muted whitespace-nowrap shrink-0"
                             >
                               Attendance
@@ -1044,6 +1069,7 @@ export function UsthadDashboard() {
                               onClick={() => {
                                 setLeaveStudentId(st.id)
                                 setLeaveActionType(isOnLeave ? 'return' : 'application')
+                                setMobileTab('leave')
                               }}
                               className="inline-flex h-8 items-center rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-cyan/40 hover:text-foreground whitespace-nowrap shrink-0"
                             >
@@ -1067,8 +1093,15 @@ export function UsthadDashboard() {
             </div>
           </div>
         </Panel>
+        </div>
 
         {/* 2. ATTENDANCE STATUS & MONTHLY ATTENDANCE EDITOR */}
+        <div
+          className={cn(
+            'flex flex-col gap-5 sm:gap-6',
+            mobileTab === 'attendance' ? 'flex' : 'hidden lg:flex',
+          )}
+        >
         <Panel
           id="usthad-attendance"
           eyebrow={`${usthad.fullClassLabel} · Monthly Attendance Control`}
@@ -1508,8 +1541,10 @@ export function UsthadDashboard() {
             highlightLeaderBadge={false}
           />
         ) : null}
+        </div>
 
         {/* 3. LEAVE REGISTER & LIVE ON-LEAVE MONITOR */}
+        <div className={cn(mobileTab === 'leave' ? 'block' : 'hidden lg:block')}>
         <Panel
           id="usthad-leave"
           eyebrow={`${usthad.fullClassLabel} · Campus Outpass & Return Registry`}
@@ -1755,8 +1790,10 @@ export function UsthadDashboard() {
             </form>
           </div>
         </Panel>
+        </div>
 
         {/* 4. NOTICE BOARD — PUBLISH & MANAGE ANNOUNCEMENTS */}
+        <div className={cn(mobileTab === 'notices' ? 'block' : 'hidden lg:block')}>
         <Panel
           id="usthad-notices"
           eyebrow="Campus & Class Announcements"
@@ -2074,8 +2111,47 @@ export function UsthadDashboard() {
             </div>
           </div>
         </Panel>
+        </div>
 
-        {/* 5. DIGITAL LIBRARY — ADD KITAB PDF */}
+        {/* 5. DIGITAL LIBRARY — ADD KITAB PDF & UNIVERSITY PORTAL */}
+        {mobileTab === 'library' ? (
+          <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-border bg-card/85 p-1.5 shadow-xs lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileLibrarySubTab('kitabs')}
+              className={cn(
+                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all',
+                mobileLibrarySubTab === 'kitabs'
+                  ? 'bg-lime text-primary-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Library className="size-4" aria-hidden="true" />
+              <span>Digital Kitabs</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileLibrarySubTab('portal')}
+              className={cn(
+                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all',
+                mobileLibrarySubTab === 'portal'
+                  ? 'bg-lime text-primary-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Globe className="size-4" aria-hidden="true" />
+              <span>University Portal</span>
+            </button>
+          </div>
+        ) : null}
+
+        <div
+          className={cn(
+            mobileTab === 'library' && mobileLibrarySubTab === 'kitabs'
+              ? 'block'
+              : 'hidden lg:block',
+          )}
+        >
         <Panel
           id="usthad-kitabs"
           eyebrow="Firebase Storage · Kitab Repository Uploader"
@@ -2275,9 +2351,74 @@ export function UsthadDashboard() {
             </div>
           ) : null}
         </Panel>
+        </div>
 
-        <ExamResultCard />
+        <div
+          className={cn(
+            mobileTab === 'library' && mobileLibrarySubTab === 'portal'
+              ? 'block'
+              : 'hidden lg:block',
+          )}
+        >
+          <ExamResultCard />
+        </div>
       </main>
+
+      {/* PHONE & TABLET BOTTOM NAVIGATION MENU BAR FOR CLASS USTHAD (Hidden on Desktop lg:) */}
+      <nav
+        aria-label="Usthad Mobile & Tablet Bottom Navigation"
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-border/85 bg-background/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl lg:hidden"
+      >
+        <div className="mx-auto grid h-16 max-w-xl grid-cols-5 items-center px-1.5">
+          {(
+            [
+              { id: 'roster', label: 'Students', icon: Users, badge: 0 },
+              { id: 'attendance', label: 'Attendance', icon: CalendarCheck, badge: 0 },
+              {
+                id: 'leave',
+                label: 'Leave',
+                icon: ClipboardList,
+                badge: studentsCurrentlyOnLeave.length,
+              },
+              { id: 'notices', label: 'Notices', icon: Megaphone, badge: 0 },
+              { id: 'library', label: 'Library', icon: Library, badge: 0 },
+            ] as const
+          ).map((tab) => {
+            const active = mobileTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setMobileTab(tab.id)
+                  if (typeof window !== 'undefined') {
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }
+                }}
+                className={cn(
+                  'flex flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-colors',
+                  active ? 'text-lime' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <span
+                  className={cn(
+                    'relative flex h-7 w-12 items-center justify-center rounded-full transition-all',
+                    active && 'bg-lime/15',
+                  )}
+                >
+                  <tab.icon className="size-4" aria-hidden="true" />
+                  {tab.badge > 0 ? (
+                    <span className="absolute -top-1 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 font-mono text-[9.5px] font-bold text-white tabular-nums">
+                      {tab.badge}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="text-[10.5px] font-semibold leading-none">{tab.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </nav>
 
       <ParentReportModal
         student={pdfReportStudent}

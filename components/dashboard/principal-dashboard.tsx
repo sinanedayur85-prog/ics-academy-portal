@@ -1090,7 +1090,7 @@ export function PrincipalDashboard() {
   ]
 
   return (
-    <div className="min-h-svh bg-background text-foreground transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] lg:pl-64">
+    <div className="min-h-svh bg-background pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] text-foreground transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] lg:pb-0 lg:pl-64">
       {/* Desktop Sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-background pt-[var(--safe-top)] transition-colors duration-300 lg:flex">
         <Link
@@ -1205,8 +1205,8 @@ export function PrincipalDashboard() {
           </div>
         </div>
 
-        {/* Executive Section Switcher Bar */}
-        <nav aria-label="Principal control sections" className="border-t border-border">
+        {/* Executive Section Switcher Bar (Desktop Only — Replaced by Bottom Navigation Bar on Phone/Tablet) */}
+        <nav aria-label="Principal control sections" className="hidden border-t border-border lg:block">
           <ul className="flex gap-1.5 overflow-x-auto px-3 py-2 md:px-8 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {principalNavItems.map((item) => (
               <li key={item.id} className="shrink-0">
@@ -1243,9 +1243,14 @@ export function PrincipalDashboard() {
 
       <CampusNotificationBar />
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-8 md:px-8 md:py-10">
-        {/* Executive Banner & 6 Live Campus Telemetry KPIs */}
-        <section className="relative overflow-hidden rounded-2xl border border-border bg-card/65 p-5 sm:p-6">
+      <main className="mx-auto flex max-w-7xl flex-col gap-5 px-3.5 py-5 sm:gap-6 sm:px-5 sm:py-7 md:px-8 md:py-10">
+        {/* Executive Banner & 6 Live Campus Telemetry KPIs — Shown on Monitor Tab on Phone/Tablet, Always Shown on Desktop */}
+        <section
+          className={cn(
+            'relative overflow-hidden rounded-2xl border border-border bg-card/65 p-5 sm:p-6',
+            activeTab !== 'monitor' && 'hidden lg:block',
+          )}
+        >
           <div className="flex flex-col justify-between gap-4 border-b border-border/70 pb-5 lg:flex-row lg:items-center">
             <div className="flex flex-col gap-1.5">
               <div className="flex flex-wrap items-center gap-2">
@@ -2971,6 +2976,61 @@ export function PrincipalDashboard() {
           </div>
         )}
       </main>
+
+      {/* PHONE & TABLET BOTTOM NAVIGATION MENU BAR FOR PRINCIPAL (Hidden on Desktop lg:) */}
+      <nav
+        aria-label="Principal Mobile & Tablet Bottom Navigation"
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-border/85 bg-background/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl lg:hidden"
+      >
+        <div className="mx-auto grid h-16 max-w-xl grid-cols-4 items-center px-2">
+          {(
+            [
+              {
+                id: 'monitor',
+                label: 'Monitor',
+                icon: Building2,
+                badge: campusMetrics.periodsNotHeld,
+              },
+              { id: 'people', label: 'Directory', icon: Users, badge: 0 },
+              { id: 'notices', label: 'Notices', icon: Megaphone, badge: 0 },
+              { id: 'library', label: 'Library', icon: Library, badge: 0 },
+            ] as const
+          ).map((tab) => {
+            const active = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setActiveTab(tab.id)
+                  if (typeof window !== 'undefined') {
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }
+                }}
+                className={cn(
+                  'flex flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-colors',
+                  active ? 'text-lime' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <span
+                  className={cn(
+                    'relative flex h-7 w-14 items-center justify-center rounded-full transition-all',
+                    active && 'bg-lime/15',
+                  )}
+                >
+                  <tab.icon className="size-4" aria-hidden="true" />
+                  {tab.badge > 0 ? (
+                    <span className="absolute -top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 font-mono text-[9.5px] font-bold text-white tabular-nums">
+                      {tab.badge}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="text-[10.5px] font-semibold leading-none">{tab.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </nav>
 
       <ParentReportModal
         student={pdfReportStudent}
