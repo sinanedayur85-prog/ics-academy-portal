@@ -1248,6 +1248,23 @@ export function GeminiChatbot({
   const threadContainerRef = useRef<HTMLDivElement | null>(null)
   const printTemplateRef = useRef<HTMLDivElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const audioFileInputRef = useRef<HTMLInputElement | null>(null)
+
+  // Listen for native Android voice recognition results if triggered via ICSNativeBridge
+  useEffect(() => {
+    const onNativeVoiceResult = (e: Event) => {
+      const customEv = e as CustomEvent<{ text?: string; error?: string }>
+      setIsListening(false)
+      const spoken = String(customEv.detail?.text ?? '').trim()
+      if (spoken) {
+        const base = speechBaseTextRef.current
+        setInput(base ? `${base} ${spoken}` : spoken)
+        setErrorMessage(null)
+      }
+    }
+    window.addEventListener('ics-native-voice-result', onNativeVoiceResult)
+    return () => window.removeEventListener('ics-native-voice-result', onNativeVoiceResult)
+  }, [])
 
   // Auto-resize textarea height smoothly like the Gemini app composer
   useEffect(() => {
@@ -1552,6 +1569,65 @@ export function GeminiChatbot({
     }
   }
 
+  async function transcribeAudioBlob(blob: Blob, mimeHint: string) {
+    if (!blob || blob.size < 300) return
+    setIsTranscribingVoice(true)
+    setErrorMessage(null)
+    try {
+      const base64Audio = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          const res = typeof reader.result === 'string' ? reader.result : ''
+          const commaIdx = res.indexOf(',')
+          resolve(commaIdx >= 0 ? res.slice(commaIdx + 1) : res)
+        }
+        reader.onerror = () => reject(new Error('Failed to read recorded audio'))
+        reader.readAsDataURL(blob)
+      })
+
+      if (!base64Audio) return
+
+      const rawResult = await transcribeVoiceAudio({
+        audioBase64: base64Audio,
+        mimeType: (mimeHint || blob.type || 'audio/webm').split(';')[0] || 'audio/webm',
+        language:
+          responseLanguagePreference === 'auto'
+            ? 'auto'
+            : responseLanguagePreference,
+      })
+
+      const cleanText = String(
+        typeof rawResult === 'string'
+          ? rawResult
+          : (rawResult as { text?: string })?.text ?? '',
+      ).trim()
+
+      if (cleanText) {
+        const base = speechBaseTextRef.current
+        setInput(base ? `${base} ${cleanText}` : cleanText)
+      } else {
+        setErrorMessage(
+          'No speech detected. Please speak clearly close to the microphone and try again.',
+        )
+      }
+    } catch (err) {
+      console.warn('Voice transcription failed:', err)
+      setErrorMessage(
+        'Could not transcribe voice clearly. Please try speaking again or type your message.',
+      )
+    } finally {
+      setIsTranscribingVoice(false)
+    }
+  }
+
+  async function handleAudioFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    speechBaseTextRef.current = input.trim()
+    await transcribeAudioBlob(file, file.type || 'audio/mp4')
+  }
+
   async function toggleVoiceInput() {
     if (isListening) {
       if (stopVoiceCaptureRef.current) {
@@ -1587,27 +1663,43 @@ export function GeminiChatbot({
       de: 'de-DE',
       en: 'en-IN',
     }
+    const targetBcp47 = speechLangMap[activeSpeechLang] || 'en-IN'
 
-    const SpeechRecognitionClass =
-      (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any })
-        .SpeechRecognition ||
-      (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any })
-        .webkitSpeechRecognition
+    const nativeBridge = (
+      window as unknown as {
+        ICSNativeBridge?: {
+          requestMicrophonePermission?: () => void
+          startVoiceInput?: (lang: string) => boolean
+        }
+      }
+    ).ICSNativeBridge
 
-    // Primary Engine: MediaRecorder + Gemini Server Audio Transcription (works reliably across iframes, mobile browsers & Android WebViews)
+    // Ask Android Native Bridge to ensure runtime RECORD_AUDIO permission if inside APK
+    try {
+      nativeBridge?.requestMicrophonePermission?.()
+    } catch {
+      // Ignore
+    }
+
+    // Primary Engine: MediaRecorder + Server Audio Transcription (works reliably across mobile browsers, desktops & WebViews without SpeechRecognition conflicts)
     if (
       navigator.mediaDevices &&
       typeof navigator.mediaDevices.getUserMedia === 'function' &&
       typeof window.MediaRecorder !== 'undefined'
     ) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        })
+        let stream: MediaStream
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+          })
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        }
         mediaStreamRef.current = stream
 
         const preferredMimeTypes = [
@@ -1615,6 +1707,7 @@ export function GeminiChatbot({
           'audio/webm',
           'audio/mp4',
           'audio/ogg;codecs=opus',
+          'audio/aac',
         ]
         let chosenMimeType = ''
         for (const candidate of preferredMimeTypes) {
@@ -1640,14 +1733,6 @@ export function GeminiChatbot({
 
         const stopVoiceCapture = () => {
           stopVoiceCaptureRef.current = null
-          if (recognitionRef.current) {
-            try {
-              recognitionRef.current.stop()
-            } catch {
-              // Ignore
-            }
-            recognitionRef.current = null
-          }
           if (
             mediaRecorderRef.current &&
             mediaRecorderRef.current.state !== 'inactive'
@@ -1673,60 +1758,20 @@ export function GeminiChatbot({
           cleanupAudioResources()
           setIsListening(false)
 
-          // If live SpeechRecognition already captured the transcript, no server round-trip needed
-          if (speechGotTranscriptRef.current || chunks.length === 0) {
-            return
-          }
-
+          if (chunks.length === 0) return
           const blob = new Blob(chunks, { type: recordedMime })
-          if (blob.size < 600) {
-            return
-          }
-
-          setIsTranscribingVoice(true)
-          try {
-            const base64Audio = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader()
-              reader.onloadend = () => {
-                const res = typeof reader.result === 'string' ? reader.result : ''
-                const commaIdx = res.indexOf(',')
-                resolve(commaIdx >= 0 ? res.slice(commaIdx + 1) : res)
-              }
-              reader.onerror = () => reject(new Error('Failed to read recorded audio'))
-              reader.readAsDataURL(blob)
-            })
-
-            if (!base64Audio) return
-
-            const result = await transcribeVoiceAudio({
-              audioBase64: base64Audio,
-              mimeType: recordedMime.split(';')[0] || 'audio/webm',
-              language:
-                responseLanguagePreference === 'auto'
-                  ? 'auto'
-                  : responseLanguagePreference,
-            })
-
-            const cleanText = String(result.text ?? '').trim()
-            if (cleanText) {
-              const base = speechBaseTextRef.current
-              setInput(base ? `${base} ${cleanText}` : cleanText)
-            }
-          } catch (err) {
-            console.warn('Voice transcription failed:', err)
-            setErrorMessage(
-              'Could not transcribe voice clearly. Please try speaking again or type your message.',
-            )
-          } finally {
-            setIsTranscribingVoice(false)
-          }
+          await transcribeAudioBlob(blob, recordedMime)
         }
 
-        recorder.start(250)
+        try {
+          recorder.start(300)
+        } catch {
+          recorder.start()
+        }
         setIsListening(true)
         setErrorMessage(null)
 
-        // Set up automatic silence detection so voice recording auto-completes after the user speaks and pauses
+        // Automatic silence detection so voice recording auto-completes after the user speaks and pauses
         try {
           const AudioCtx =
             window.AudioContext ||
@@ -1735,6 +1780,9 @@ export function GeminiChatbot({
           if (AudioCtx) {
             const audioCtx = new AudioCtx()
             audioContextRef.current = audioCtx
+            if (audioCtx.state === 'suspended') {
+              void audioCtx.resume().catch(() => {})
+            }
             const source = audioCtx.createMediaStreamSource(stream)
             const analyser = audioCtx.createAnalyser()
             analyser.fftSize = 512
@@ -1754,19 +1802,19 @@ export function GeminiChatbot({
               const rms = Math.sqrt(sumSquares / dataArray.length)
               const now = Date.now()
 
-              if (rms > 0.02) {
+              if (rms > 0.018) {
                 hasDetectedSpeech = true
                 silenceStartMs = 0
               } else if (hasDetectedSpeech) {
                 if (!silenceStartMs) {
                   silenceStartMs = now
-                } else if (now - silenceStartMs > 2100) {
+                } else if (now - silenceStartMs > 2200) {
                   stopVoiceCapture()
                 }
               }
 
-              // Safety max duration: 30 seconds
-              if (now - startedAtMs > 30000) {
+              // Safety max duration: 45 seconds
+              if (now - startedAtMs > 45000) {
                 stopVoiceCapture()
               }
             }, 150)
@@ -1775,97 +1823,95 @@ export function GeminiChatbot({
           // Silence detection is optional; manual Stop button remains available
         }
 
-        // Optional Live Interim Preview via Web Speech API (all errors ignored while MediaRecorder is active)
-        if (SpeechRecognitionClass) {
-          try {
-            const recognition = new SpeechRecognitionClass()
-            recognition.continuous = true
-            recognition.interimResults = true
-            recognition.lang = speechLangMap[activeSpeechLang] || 'en-IN'
-            recognition.onresult = (event: any) => {
-              let transcript = ''
-              for (let i = 0; i < event.results.length; i++) {
-                transcript += event.results[i][0].transcript
-              }
-              const cleanSpeech = transcript.trim()
-              if (cleanSpeech) {
-                speechGotTranscriptRef.current = true
-                const base = speechBaseTextRef.current
-                setInput(base ? `${base} ${cleanSpeech}` : cleanSpeech)
-              }
-            }
-            recognition.onerror = () => {
-              // Completely ignore Web Speech API errors because MediaRecorder + Gemini Transcription handles the audio
-            }
-            recognition.start()
-            recognitionRef.current = recognition
-          } catch {
-            // Ignore Web Speech initialization errors
-          }
-        }
-
         return
       } catch {
         cleanupAudioResources()
-        // If getUserMedia threw or was blocked, fall through to Web Speech API fallback below
+        // If getUserMedia threw or was blocked by WebView/iframe, fall through to native bridge / Web Speech / System Audio Recorder fallback below
       }
     }
 
-    // Fallback if MediaRecorder/getUserMedia was not available
-    if (!SpeechRecognitionClass) {
-      setErrorMessage(
-        'Microphone access is blocked. Please allow microphone permission in your browser site settings or open the app in a new tab.',
-      )
+    // Secondary Engine: Android Native Speech Recognizer Bridge (if available in APK)
+    try {
+      if (nativeBridge && typeof nativeBridge.startVoiceInput === 'function') {
+        const started = nativeBridge.startVoiceInput(targetBcp47)
+        if (started) {
+          setIsListening(true)
+          return
+        }
+      }
+    } catch {
+      // Ignore and continue to Web Speech API fallback
+    }
+
+    // Tertiary Engine: Browser Web Speech API
+    const SpeechRecognitionClass =
+      (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any })
+        .SpeechRecognition ||
+      (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any })
+        .webkitSpeechRecognition
+
+    if (SpeechRecognitionClass) {
+      try {
+        const recognition = new SpeechRecognitionClass()
+        recognition.continuous = false
+        recognition.interimResults = true
+        recognition.lang = targetBcp47
+
+        recognition.onstart = () => {
+          setIsListening(true)
+          setErrorMessage(null)
+        }
+
+        recognition.onresult = (event: any) => {
+          let transcript = ''
+          for (let i = 0; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript
+          }
+          const base = speechBaseTextRef.current
+          const cleanSpeech = transcript.trim()
+          if (cleanSpeech) {
+            setInput(base ? `${base} ${cleanSpeech}` : cleanSpeech)
+          }
+        }
+
+        recognition.onerror = (event: any) => {
+          const errCode = event?.error
+          setIsListening(false)
+          if (errCode === 'not-allowed' || errCode === 'service-not-allowed') {
+            // If embedded iframe or older Android WebView blocked live mic stream, open system voice recorder fallback
+            if (audioFileInputRef.current) {
+              audioFileInputRef.current.click()
+            } else {
+              setErrorMessage(
+                'Live microphone stream is restricted in this view. Tap the Mic icon to record with your device voice recorder.',
+              )
+            }
+          } else if (errCode !== 'no-speech' && errCode !== 'aborted' && errCode) {
+            setErrorMessage(`Voice input interrupted (${errCode}). Please try again.`)
+          }
+        }
+
+        recognition.onend = () => {
+          setIsListening(false)
+        }
+
+        recognition.start()
+        recognitionRef.current = recognition
+        return
+      } catch {
+        setIsListening(false)
+      }
+    }
+
+    // Final Universal Fallback: Trigger native device audio capture (<input type="file" accept="audio/*" capture>)
+    if (audioFileInputRef.current) {
+      audioFileInputRef.current.click()
       return
     }
 
-    try {
-      const recognition = new SpeechRecognitionClass()
-      recognition.continuous = true
-      recognition.interimResults = true
-      recognition.lang = speechLangMap[activeSpeechLang] || 'en-IN'
-
-      recognition.onstart = () => {
-        setIsListening(true)
-        setErrorMessage(null)
-      }
-
-      recognition.onresult = (event: any) => {
-        let transcript = ''
-        for (let i = 0; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript
-        }
-        const base = speechBaseTextRef.current
-        const cleanSpeech = transcript.trim()
-        if (cleanSpeech) {
-          setInput(base ? `${base} ${cleanSpeech}` : cleanSpeech)
-        }
-      }
-
-      recognition.onerror = (event: any) => {
-        const errCode = event?.error
-        if (errCode === 'not-allowed' || errCode === 'service-not-allowed') {
-          setErrorMessage(
-            'Microphone access is blocked. Please allow microphone permission in your browser site settings (address bar icon) or open the app in a new tab.',
-          )
-        } else if (errCode !== 'no-speech' && errCode !== 'aborted' && errCode) {
-          setErrorMessage(`Voice typing unavailable (${errCode}).`)
-        }
-        setIsListening(false)
-      }
-
-      recognition.onend = () => {
-        setIsListening(false)
-      }
-
-      recognition.start()
-      recognitionRef.current = recognition
-    } catch {
-      setIsListening(false)
-      setErrorMessage(
-        'Microphone access is blocked. Please allow microphone permission in your browser site settings.',
-      )
-    }
+    setErrorMessage(
+      'Unable to start microphone. Please check that no other app is using the microphone and try again.',
+    )
   }
 
   function handleCopyMessage(msg: ChatTurnMessage) {
@@ -1934,10 +1980,6 @@ export function GeminiChatbot({
   async function handleDirectPdfDownload(action: 'download' | 'print' = 'download') {
     if (!activeExportNote || isGeneratingDirectPdf) return
     const el = printTemplateRef.current
-    if (!el) {
-      setExportDocsError('PDF print template not found. Please try again shortly.')
-      return
-    }
 
     setIsGeneratingDirectPdf(true)
     setDirectPdfSuccess(false)
@@ -1948,6 +1990,8 @@ export function GeminiChatbot({
         element: el,
         fileName: docTitleInput.trim() || 'ics-academy-study-note',
         action,
+        note: activeExportNote,
+        student,
       })
       setDirectPdfSuccess(true)
       window.setTimeout(() => setDirectPdfSuccess(false), 5000)
@@ -2723,8 +2767,18 @@ export function GeminiChatbot({
                 )}
               />
 
-              {/* Compact Right Action Cluster (Voice + Send Icons like Gemini App) */}
+              {/* Compact Right Action Cluster (Voice + Send Icons) */}
               <div className="flex shrink-0 items-center gap-1 self-end pb-0.5">
+                <input
+                  ref={audioFileInputRef}
+                  type="file"
+                  accept="audio/*"
+                  capture="user"
+                  onChange={(e) => void handleAudioFilePicked(e)}
+                  className="hidden"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                />
                 {/* Microphone Icon Button */}
                 <button
                   type="button"
@@ -2795,7 +2849,7 @@ export function GeminiChatbot({
                   id="study-note-export-title"
                   className="mt-1 text-base font-semibold text-foreground sm:text-lg"
                 >
-                  Export Study Note (DOCX / PDF)
+                  Export Study Note (DOCX / Vector PDF)
                 </h3>
               </div>
               <button
@@ -2825,10 +2879,10 @@ export function GeminiChatbot({
               {/* Direct 1-Click Download Options (No Login Needed) */}
               <div className="rounded-xl border border-border bg-muted/30 p-4">
                 <p className="text-xs font-semibold text-foreground">
-                  ⚡ Instant Direct Downloads (No Sign-in Required):
+                  ⚡ Instant Official Downloads (No Sign-in Required):
                 </p>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Download the complete study note immediately in DOCX or PDF format for offline study or editing.
+                  Download the complete study note in official ICS Academy Vector PDF or editable DOCX format.
                 </p>
 
                 <div className="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -2868,10 +2922,10 @@ export function GeminiChatbot({
                     <div>
                       <div className="flex items-center gap-2">
                         <BookOpen className="size-4 text-lime" aria-hidden="true" />
-                        <span className="font-semibold text-xs text-foreground">PDF (Printable Document)</span>
+                        <span className="font-semibold text-xs text-foreground">Official Vector PDF</span>
                       </div>
                       <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                        High-fidelity document formatted with balanced 20mm margins, running headers, and page counters.
+                        Crisp vector A4 document with official ICS Academy header, embedded Poppins fonts, student details card, and multi-script support.
                       </p>
                     </div>
                     <button
@@ -2883,12 +2937,12 @@ export function GeminiChatbot({
                       {isGeneratingDirectPdf ? (
                         <>
                           <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-                          <span>Generating PDF...</span>
+                          <span>Generating Vector PDF...</span>
                         </>
                       ) : (
                         <>
                           <Download className="size-3.5" aria-hidden="true" />
-                          <span>Download PDF</span>
+                          <span>Download Vector PDF</span>
                         </>
                       )}
                     </button>
