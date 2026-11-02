@@ -338,6 +338,8 @@ jobs:
 
                       webView.postDelayed(() -> injectStatusBarHeight(webView, lastStatusBarHeightDp), 300);
                       webView.postDelayed(() -> injectStatusBarHeight(webView, lastStatusBarHeightDp), 1200);
+                      webView.postDelayed(() -> injectStatusBarHeight(webView, lastStatusBarHeightDp), 2500);
+                      webView.postDelayed(() -> injectStatusBarHeight(webView, lastStatusBarHeightDp), 4500);
                   }
               }
 
@@ -377,6 +379,11 @@ jobs:
               }
 
               public class ICSNativeBridge {
+                  @JavascriptInterface
+                  public int getStatusBarHeightDp() {
+                      return lastStatusBarHeightDp;
+                  }
+
                   @JavascriptInterface
                   public void setStatusBarTheme(final boolean isDark) {
                       runOnUiThread(() -> {

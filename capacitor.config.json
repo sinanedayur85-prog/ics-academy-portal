@@ -4,6 +4,7 @@
   "webDir": "dist",
   "backgroundColor": "#081E21",
   "server": {
+    "url": "https://ics-academy-manhappatta.vercel.app",
     "androidScheme": "https"
   },
   "plugins": {
