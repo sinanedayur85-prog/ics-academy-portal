@@ -12,6 +12,12 @@ export interface ClientChatTurn {
   text: string
 }
 
+export interface ClientChatAttachment {
+  mimeType: string
+  data: string
+  name?: string
+}
+
 const REMOTE_BACKEND_ORIGINS = [
   'https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app',
   'https://ais-dev-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app',

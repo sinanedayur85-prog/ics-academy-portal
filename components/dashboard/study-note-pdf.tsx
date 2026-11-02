@@ -450,30 +450,29 @@ export async function exportStudyNoteDirectPdf({
     pdf.setFontSize(sizePt)
   }
 
-  const safeStudent: Student = student ?? {
-    id: 'student',
-    name: 'ICS Academy Student',
-    firstName: 'Student',
-    admissionNo: 'ICS-2026',
-    className: 'BS 4',
-    batch: 'Batch 08',
-    VerifyEmail: '',
-    advisor: 'Class Usthad',
-    semester: 'Semester 2',
-    cgpa: 0,
-    creditsCompleted: 0,
-    creditsTotal: 0,
-    attendance: {
-      overall: 100,
-      present: 100,
-      absent: 0,
-      leave: 0,
-      workingDays: 100,
-      officialHolidayDays: 0,
-    },
-    subjects: [],
-    monthlyAttendance: [],
-  }
+  const safeStudent: Student =
+    student ??
+    ({
+      id: 'student',
+      name: 'ICS Academy Student',
+      firstName: 'Student',
+      admissionNo: 'ICS-2026',
+      className: 'BS 4',
+      semester: 'Semester 2',
+      cgpa: 0,
+      creditsCompleted: 0,
+      creditsTotal: 0,
+      attendance: {
+        overall: 100,
+        present: 100,
+        absent: 0,
+        leave: 0,
+        workingDays: 100,
+        officialHolidayDays: 0,
+      },
+      subjects: [],
+      monthlyAttendance: [],
+    } as unknown as Student)
 
   const safeNote: StudyNoteExportData = note ?? {
     msgId: 'note-001',
