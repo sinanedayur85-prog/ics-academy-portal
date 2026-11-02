@@ -9,18 +9,18 @@
       "headers": [
         {
           "key": "Permissions-Policy",
-          "value": "microphone=*, autoplay=*"
+          "value": "microphone=*, camera=*, autoplay=*"
         }
       ]
     }
   ],
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app/api/:path*"
+      "source": "/api/ai/:action",
+      "destination": "/api/ai/[action]?action=:action"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]

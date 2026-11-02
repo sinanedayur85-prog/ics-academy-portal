@@ -26,6 +26,12 @@ type OutputLanguage = 'ml' | 'en' | 'ar' | 'ur' | 'es' | 'de'
 type ChatRole = 'usthad' | 'academic' | 'language' | 'campus'
 type ChatModelTier = 'flash' | 'flash-lite'
 
+interface ClientChatAttachment {
+  mimeType: string
+  data: string
+  name?: string
+}
+
 interface ClientChatTurn {
   role: 'user' | 'model'
   text: string
@@ -81,8 +87,6 @@ function detectInputLanguage(
   const latinChars = (targetForScriptCheck.match(/[A-Za-z\u00C0-\u024F]/g) || []).length
 
   if (arabicChars > 0 && arabicChars > latinChars) {
-    // If the student types an Arabic practice sentence/answer during an ongoing Malayalam/Urdu/English lesson
-    // (e.g. answering an Arabic translation prompt asked in Malayalam), keep the ongoing conversation language.
     if (history && history.length > 0) {
       const recentTurns = history.slice(-4)
       for (let i = recentTurns.length - 1; i >= 0; i--) {
@@ -113,7 +117,7 @@ function detectInputLanguage(
   const totalLatinChars = (stripped.match(/[A-Za-z\u00C0-\u024F]/g) || []).length
   if (totalLatinChars >= 2) {
     if (
-      /\b(enthanu|enthokkeyanu|enthokke|parayamo|parayu|engane|enganeyanu|vishadeekarikamo|vishadeekarikkuka|artham|sharthukal|farzukal|sunnathukal|vivarikkuka|entha|manassilayilla|padippikkamo|chodyam|utharam)\b/i.test(
+      /\b(enthanu|enthokkeyanu|enthokke|parayamo|parayu|engane|enganeyanu|vishadeekarikamo|vishadeekarikkuka|artham|sharthukal|farzukal|sunnathukal|vivarikkuka|entha|manassilayilla|padippikkamo|chodyam|utharam|malayalathil|paribhasha)\b/i.test(
         clean,
       )
     ) {
@@ -144,7 +148,6 @@ function detectInputLanguage(
 function isResponseValidForLanguage(text: string, language: OutputLanguage): boolean {
   if (!text || !text.trim()) return false
   if (language === 'ml') {
-    // Must contain Malayalam script and MUST NOT contain Urdu sentences/letters
     const hasMalayalam = /[\u0D00-\u0D7F]{3,}/.test(text)
     const hasUrduWords =
       /[\u0679\u067E\u0686\u0688\u0691\u0698\u06AF\u06BA\u06D2\u06D4]/.test(text) ||
@@ -187,14 +190,14 @@ function getTurnLanguageEnforcement(
 ): string {
   const salamRule = getSalamTurnDirective(isFirstTurn, userSaidSalam)
   const modePrefix = isExplicitLanguage
-    ? 'EXPLICIT RESPONSE LANGUAGE SELECTED BY USER (Even if the question above is written in another language, the user has explicitly selected this target language for the reply — you MUST answer in this selected language ONLY!): '
-    : 'AUTO-DETECTED QUESTION LANGUAGE (The user did not select a separate response language, so reply in the same language as their question): '
+    ? 'EXPLICIT RESPONSE LANGUAGE SELECTED BY USER (Even if the question or attached image text above is in another language, the user has explicitly selected this target language for the reply — you MUST write your explanation/translation in this selected language ONLY!): '
+    : 'AUTO-DETECTED QUESTION LANGUAGE (Reply in the requested target language): '
 
   switch (language) {
     case 'ur':
       return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} You MUST write your entire explanation in URDU (اردو) language ONLY — do NOT write the explanation, headings, or follow-up questions in Arabic, English, or Malayalam! Always refer to the institution in Urdu as "آئی سی ایس اکیڈمی" (ICS Academy). Use authentic Urdu vocabulary, grammar, and verbs (e.g., ہے، ہیں، میں، کی، کے، کا، اس جملے کی نحوی ترکیب درج ذیل ہے، غور و فکر کے لیے سوال). Keep only the quoted Quranic Ayah, Hadith, Islamic greeting (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), or Kitab Ibarat in Arabic script, and explain everything else 100% in Urdu (اردو).]`
     case 'ml':
-      return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} You MUST write your entire explanation, salutation, headings, and follow-up questions in MALAYALAM (മലയാളം) script ONLY! NEVER write in Urdu (اردو) or use Urdu words (such as ہے، ہیں، میں، کی، کے، کا، آپ) and NEVER write full sentences in Arabic or English! Keep ONLY Islamic greetings (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), quoted Quran/Hadith/Kitab Ibarats, and short Arabic Fiqh terms inside brackets in Arabic script. Put a newline after the Arabic Salam, and refer to the institution in Malayalam as "ഐ.സി.എസ് അക്കാദമി".]`
+      return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} You MUST write your entire explanation, translation, salutation, headings, and follow-up questions in MALAYALAM (മലയാളം) script ONLY! NEVER write in Urdu (اردو) or use Urdu words (such as ہے، ہیں، میں، کی، کے، کا، آپ) and NEVER write full sentences in Arabic or English! Keep ONLY Islamic greetings (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), quoted Quran/Hadith/Kitab Ibarats, and short Arabic Fiqh terms inside brackets in Arabic script. Put a newline after the Arabic Salam, and refer to the institution in Malayalam as "ഐ.സി.എസ് അക്കാദമി".]`
     case 'ar':
       return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} Respond entirely in clear Classical/Modern Standard Arabic (العربية الفصحى). Even if the student's question was written in Malayalam or English, write your entire answer in Arabic! Never mix Malayalam or Urdu words. Refer to the institution as "أكاديمية ICS".]`
     case 'es':
@@ -203,7 +206,7 @@ function getTurnLanguageEnforcement(
       return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} Respond entirely in German (Deutsch). Even if the student's question was written in Malayalam, Arabic, or English, write your entire explanation in German! NEVER use Malayalam or Urdu script or words — always write "ICS Academy" in Latin script. Put a newline (\\n) after the Arabic Salam so the German salutation starts on a new line.]`
     case 'en':
     default:
-      return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} Respond entirely in clear academic English. Even if the student's question was written in Malayalam or another language, write your entire explanation in English! When explaining Islamic, Fiqh, Nahw/Sarf, or Kitab concepts in English, naturally present key Arabic terms and book/concept names with their original vocalized Arabic script inside brackets (...) right beside the English term — for example: Tayammum (التَّيَمُّم), Niyyah (النِّيَّة), Fard (فَرْض), Shart (شَرْط), Mubtada' (مُبْتَدَأ), Fathul Mueen (فَتْحُ الْمُعِينِ). NEVER use Malayalam or Urdu script or words anywhere in your response (always write "ICS Academy" in English, NEVER write "ഐ.സി.എസ് അക്കാദമി"). Always write the Salam itself in Arabic script (السَّلَامُ عَلَيْكُمْ or وَعَلَيْكُمُ السَّلَامُ) on its own line, followed by a newline (\\n), and write the English salutation (e.g., "My dear student...") on the next line.]`
+      return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} Respond entirely in clear academic English. Even if the student's question or image is in Malayalam, Arabic, or another language, write your entire explanation/translation in English! When explaining Islamic, Fiqh, Nahw/Sarf, or Kitab concepts in English, naturally present key Arabic terms and book/concept names with their original vocalized Arabic script inside brackets (...) right beside the English term — for example: Tayammum (التَّيَمُّم), Niyyah (النِّيَّة), Fard (فَرْض), Shart (شَرْط), Mubtada' (مُبْتَدَأ), Fathul Mueen (فَتْحُ الْمُعِينِ). NEVER use Malayalam or Urdu script or words anywhere in your response (always write "ICS Academy" in English, NEVER write "ഐ.സി.എസ് അക്കാദമി"). Always write the Salam itself in Arabic script (السَّلَامُ عَلَيْكُمْ or وَعَلَيْكُمُ السَّلَامُ) on its own line, followed by a newline (\\n), and write the English salutation (e.g., "My dear student...") on the next line.]`
   }
 }
 
@@ -302,20 +305,29 @@ function buildChatbotSystemInstruction(
   const rolePersonas: Record<ChatRole, string> = {
     usthad: `Role: Usthad Kitab & Fiqh Mentor at ICS Academy (Da'wa College).
 You engage in multi-turn scholarly dialogue on classical Kitabs (Fathul Mueen, Mahalli, Tafsir Jalalayn, Riyad as-Salihin, Alfiyyah Ibn Malik), Usul al-Fiqh, Nahw/Sarf, and Shafi'i jurisprudence.
-Break down complex Ibarats step by step, remember earlier questions in the conversation, and ask thoughtful follow-up reflection questions to deepen the student's mastery.`,
+Break down complex Ibarats step by step, read and translate photos of Kitab pages accurately, remember earlier questions in the conversation, and ask thoughtful follow-up reflection questions to deepen the student's mastery.`,
     academic: `Role: Academic & Exam Tutor at ICS Academy.
-You help Da'wa College students master integrated Islamic and modern academic subjects (Humanities, Commerce, History, English, Sociology, Islamic History).
-Provide structured exam-ready points, memory aids, timelines, and multi-turn revision quizzes based on the ongoing conversation.`,
+You help Da'wa College students master integrated Islamic and modern academic subjects (Humanities, Commerce, History, English, Sociology, Science, Mathematics, Islamic History).
+Read uploaded textbook pages, handwritten notes, diagrams, or question papers, and provide structured exam-ready points, memory aids, timelines, and multi-turn revision quizzes.`,
     language: `Role: Multilingual Language Coach (Arabic · English · Malayalam · Urdu · Spanish · German) at ICS Academy.
-You coach students in Arabic conversation (Muhadathah), academic English, Malayalam, Urdu (اردو), Spanish (Español), and German (Deutsch) conversation, writing, and scholarly translation.
+You coach students in Arabic conversation (Muhadathah), academic English, Malayalam, Urdu (اردو), Spanish (Español), and German (Deutsch) conversation, writing, and scholarly translation (including translating photos of book pages, signs, or notes).
 Correct grammar gently, highlight root letters (Maddah) and vocabulary (Mufradat), and encourage the student to reply in the target language.`,
     campus: `Role: Campus & Da'wa Advisor at ICS Academy.
 You guide students on Da'wa speech preparation (Khutbah/elocution), essay writing, study timetables, Digital Library Kitab recommendations, and holistic spiritual-academic routines.`,
   }
 
-  return `You are the official Multi-Turn Gemini Chatbot for ICS Academy (Da'wa College).
+  return `You are the official Multi-Turn Multimodal Scholarly Chatbot for ICS Academy (Islamic Centre Sunniyya, Manhappatta — Da'wa College).
 Student: ${studentName || "Da'wa College Scholar"}${studentClass ? ` (Class ${studentClass})` : ''}
 ${rolePersonas[role] || rolePersonas.usthad}
+
+Multimodal Image & Document Capabilities (Kitabs, Textbooks, Notes & Translation):
+- When the student attaches a photo or PDF of a Kitab page, Arabic text, textbook page, handwritten notes, diagram, or exam paper:
+  1. Accurately read/transcribe the relevant text from the image (including vocalized Arabic script, Malayalam, English, or Urdu).
+  2. Perform the requested task thoroughly: translate into the target language, explain word-by-word meanings (Mufradat), analyze Nahw/Sarf/I'rab grammar, explain Fiqh/academic concepts, or solve the exam questions shown.
+
+Strict Institutional & Educational Scope (CRITICAL):
+- You are exclusively dedicated to educational, academic, linguistic, Islamic scholarly (Kitab/Fiqh/Tafsir/Hadith/Nahw/Sarf/Da'wa), and ICS Academy institutional matters.
+- If a student uploads an image or asks a question that is clearly non-educational or inappropriate (such as movies, cinema/celebrity gossip, video games, entertainment trivia, or off-topic chat unrelated to learning or ICS Academy), politely decline in the target response language and remind the student that this platform is exclusively for ICS Academy educational, linguistic, and scholarly studies.
 
 Language Instruction:
 - ${languageDirective}
@@ -366,6 +378,8 @@ async function generateWithFallback(
   language: OutputLanguage = 'ml',
 ): Promise<string> {
   const models = [
+    'gemini-3.8-flash',
+    'gemini-3.1-flash-lite',
     'gemini-3-flash-preview',
     'gemini-3.1-flash-lite-preview',
     'gemini-2.5-flash',
@@ -418,18 +432,23 @@ async function sendMultiTurnChatWithFallback(
   preferredTier: ChatModelTier,
   language: OutputLanguage,
   isExplicitLanguage = false,
+  attachments: ClientChatAttachment[] = [],
 ): Promise<{ reply: string; modelUsed: string }> {
   const modelOrder =
     preferredTier === 'flash-lite'
       ? ([
+          'gemini-3.1-flash-lite',
           'gemini-3.1-flash-lite-preview',
+          'gemini-3.8-flash',
           'gemini-3-flash-preview',
           'gemini-2.5-flash-lite',
           'gemini-2.5-flash',
           'gemini-flash-lite-latest',
         ] as const)
       : ([
+          'gemini-3.8-flash',
           'gemini-3-flash-preview',
+          'gemini-3.1-flash-lite',
           'gemini-3.1-flash-lite-preview',
           'gemini-2.5-flash',
           'gemini-2.5-flash-lite',
@@ -454,11 +473,29 @@ async function sendMultiTurnChatWithFallback(
       }
       return true
     })
-    .slice(-20)
+    .slice(-16)
     .map((turn) => ({
       role: turn.role === 'model' ? ('model' as const) : ('user' as const),
       parts: [{ text: turn.text.trim().slice(0, 4000) }],
     }))
+
+  const validAttachments = Array.isArray(attachments)
+    ? attachments
+        .filter(
+          (att) =>
+            att &&
+            typeof att.data === 'string' &&
+            att.data.trim().length > 0 &&
+            typeof att.mimeType === 'string',
+        )
+        .slice(0, 3)
+        .map((att) => ({
+          inlineData: {
+            mimeType: att.mimeType.split(';')[0].trim() || 'image/jpeg',
+            data: att.data.replace(/^data:[^;]+;base64,/, '').trim(),
+          },
+        }))
+    : []
 
   const isFirstTurn = sanitizedHistory.length === 0
   const userSaidSalam = didStudentSaySalam(message)
@@ -469,32 +506,60 @@ async function sendMultiTurnChatWithFallback(
   for (const modelName of modelOrder) {
     try {
       const ai = getAiClient()
-      const chat = ai.chats.create({
-        model: modelName,
-        history: sanitizedHistory,
-        config: {
-          systemInstruction,
-          ...(modelName === 'gemini-3.8-flash'
-            ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
-            : {}),
-        },
-      })
+      let responseText: string | undefined
 
-      const response = await withTimeout(
-        chat.sendMessage({ message: enforcedMessage }),
-        modelName.includes('lite') ? 20000 : 30000,
-        modelName,
-      )
+      if (validAttachments.length > 0) {
+        const multimodalContents = [
+          ...sanitizedHistory,
+          {
+            role: 'user' as const,
+            parts: [...validAttachments, { text: enforcedMessage }],
+          },
+        ]
+        const response = await withTimeout(
+          ai.models.generateContent({
+            model: modelName,
+            contents: multimodalContents,
+            config: {
+              systemInstruction,
+              ...(modelName === 'gemini-3.8-flash'
+                ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
+                : {}),
+            },
+          }),
+          35000,
+          modelName,
+        )
+        responseText = response.text
+      } else {
+        const chat = ai.chats.create({
+          model: modelName,
+          history: sanitizedHistory,
+          config: {
+            systemInstruction,
+            ...(modelName === 'gemini-3.8-flash'
+              ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
+              : {}),
+          },
+        })
 
-      if (response.text) {
-        if (!isResponseValidForLanguage(response.text, language)) {
+        const response = await withTimeout(
+          chat.sendMessage({ message: enforcedMessage }),
+          modelName.includes('lite') ? 20000 : 30000,
+          modelName,
+        )
+        responseText = response.text
+      }
+
+      if (responseText) {
+        if (!isResponseValidForLanguage(responseText, language)) {
           console.warn(
             `Chat model ${modelName} returned mismatched language script for '${language}', trying next model...`,
           )
           continue
         }
         return {
-          reply: response.text,
+          reply: responseText,
           modelUsed: modelName,
         }
       }
@@ -516,10 +581,10 @@ async function startServer() {
   const httpServer = createHttpServer(app)
   const PORT = Number(process.env.PORT) || 3000
 
-  app.use(express.json({ limit: '15mb' }))
+  app.use(express.json({ limit: '25mb' }))
 
   app.use((req, res, next) => {
-    res.setHeader('Permissions-Policy', 'microphone=*, autoplay=*')
+    res.setHeader('Permissions-Policy', 'microphone=*, camera=*, autoplay=*')
     next()
   })
 
@@ -564,8 +629,6 @@ async function startServer() {
         ? language
         : 'en'
       const isExplicitLanguage = languageMode === 'explicit'
-      // If the user explicitly selected a response language, strictly honor it.
-      // Otherwise ('auto'), detect the language of the user's question and reply in that language.
       const validLanguage: OutputLanguage = isExplicitLanguage
         ? requestedLanguage
         : detectInputLanguage(trimmedPrompt, requestedLanguage)
@@ -584,7 +647,6 @@ async function startServer() {
     } catch (error) {
       console.error('Gemini study assistant error:', error)
       if (isTransientOrTimeoutError(error)) {
-        // Use HTTP 429 instead of 503 because Nginx proxy_intercept_errors replaces 502/503/504 with warmup.html
         res.status(429).json({
           error:
             'The AI server is currently busy. Please try again in a few moments.',
@@ -601,7 +663,7 @@ async function startServer() {
     res.setHeader('Content-Type', 'application/json')
     try {
       const {
-        message,
+        message = '',
         history = [],
         role = 'usthad',
         language = 'en',
@@ -609,14 +671,23 @@ async function startServer() {
         modelTier = 'flash-lite',
         studentName,
         studentClass,
+        attachments = [],
       } = req.body ?? {}
 
-      if (!message || typeof message !== 'string' || !message.trim()) {
-        res.status(400).json({ error: 'Please enter a message to send to the chatbot.' })
+      const hasAttachments = Array.isArray(attachments) && attachments.length > 0
+      const rawMessage = typeof message === 'string' ? message.trim() : ''
+
+      if (!rawMessage && !hasAttachments) {
+        res.status(400).json({ error: 'Please enter a message or attach a study image/document.' })
         return
       }
 
-      const cleanMessage = message.trim().slice(0, 2000)
+      const defaultAttachmentPrompt =
+        language === 'ml'
+          ? 'ഈ ചിത്രത്തിലെ കിതാബ് ഭാഗം / പഠന വിഷയം വായിച്ച് മലയാളത്തിലേക്ക് വിവർത്തനം ചെയ്യുകയും പ്രധാന ആശയങ്ങൾ വിശദീകരിക്കുകയും ചെയ്യുക.'
+          : 'Please examine this educational image/document, transcribe the key text, translate it clearly, and explain its scholarly meaning and key takeaways.'
+
+      const cleanMessage = (rawMessage || defaultAttachmentPrompt).slice(0, 3000)
       const validRole: ChatRole = ['usthad', 'academic', 'language', 'campus'].includes(role)
         ? role
         : 'usthad'
@@ -626,12 +697,11 @@ async function startServer() {
       const isExplicitLanguage = languageMode === 'explicit'
       const validTier: ChatModelTier = modelTier === 'flash' ? 'flash' : 'flash-lite'
       const safeHistory: ClientChatTurn[] = Array.isArray(history) ? history : []
-      // If user explicitly selected a response language, use it strictly.
-      // If user did NOT select a specific response language ('auto'), reply in the language of their question
-      // (while preserving the ongoing conversation language when typing Arabic practice answers in a Malayalam/English/Urdu lesson).
       const validLanguage: OutputLanguage = isExplicitLanguage
         ? requestedLanguage
-        : detectInputLanguage(cleanMessage, requestedLanguage, safeHistory)
+        : rawMessage
+          ? detectInputLanguage(cleanMessage, requestedLanguage, safeHistory)
+          : requestedLanguage
 
       const systemInstruction = buildChatbotSystemInstruction(
         validRole,
@@ -647,6 +717,7 @@ async function startServer() {
         validTier,
         validLanguage,
         isExplicitLanguage,
+        attachments,
       )
 
       res.json({
@@ -658,7 +729,6 @@ async function startServer() {
     } catch (error) {
       console.error('Gemini multi-turn chat error:', error)
       if (isTransientOrTimeoutError(error)) {
-        // Use HTTP 429 instead of 503 because Nginx proxy_intercept_errors replaces 502/503/504 with warmup.html
         res.status(429).json({
           error:
             'The AI server is currently busy or timed out. Please try again in a few moments.',
@@ -685,23 +755,28 @@ async function startServer() {
 
       const langHint =
         language === 'ml'
-          ? 'Malayalam (മലയാളം)'
+          ? 'Malayalam (മലയാളം script)'
           : language === 'ar'
-            ? 'Arabic (العربية)'
+            ? 'Arabic (العربية script)'
             : language === 'ur'
-              ? 'Urdu (اردو)'
+              ? 'Urdu (اردو script)'
               : language === 'en'
                 ? 'English'
                 : 'the exact language spoken by the student (Malayalam, English, Arabic, or Urdu)'
 
-      const promptText = `Transcribe this spoken audio accurately into ${langHint}. Return ONLY the transcribed text itself with no extra commentary, quotes, or prefixes. If the audio is silent or unintelligible, return an empty string.`
+      const promptText = `Listen carefully to this audio clip from an ICS Academy student.
+1. If the audio is silent, contains only background noise/clicks, or has no clear human speech, output ONLY the exact token: __SILENT__
+2. Do NOT invent, guess, or hallucinate any words if no one is speaking.
+3. If there is clear human speech, transcribe the spoken words accurately into ${langHint} and output ONLY the transcribed text itself with no quotes, prefixes, or commentary.`
 
       const transcribeModels = [
-        'gemini-3.5-transcribe',
+        'gemini-3.8-flash',
         'gemini-3-flash-preview',
+        'gemini-3.1-flash-lite',
         'gemini-3.1-flash-lite-preview',
         'gemini-2.5-flash',
         'gemini-2.5-flash-lite',
+        'gemini-3.5-transcribe',
       ] as const
 
       let transcript = ''
@@ -730,7 +805,12 @@ async function startServer() {
             modelName,
           )
           if (typeof response.text === 'string') {
-            transcript = response.text.trim()
+            const raw = response.text.trim()
+            if (raw.includes('__SILENT__') || /^["'\s]*$/.test(raw)) {
+              transcript = ''
+            } else {
+              transcript = raw
+            }
             break
           }
         } catch {

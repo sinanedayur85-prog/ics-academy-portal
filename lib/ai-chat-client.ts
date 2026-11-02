@@ -402,12 +402,14 @@ export async function fetchAiChatReply(payload: {
   modelTier: ChatModelTier
   studentName?: string
   studentClass?: string
+  attachments?: ClientChatAttachment[]
 }): Promise<{ reply: string; modelUsed: string }> {
   const urls = getCandidateApiUrls('/api/ai/chat')
+  const hasAttachments = Array.isArray(payload.attachments) && payload.attachments.length > 0
 
   for (const url of urls) {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 28000)
+    const timeoutId = setTimeout(() => controller.abort(), hasAttachments ? 38000 : 28000)
 
     try {
       const res = await fetch(url, {

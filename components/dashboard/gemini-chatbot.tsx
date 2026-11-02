@@ -12,6 +12,7 @@ import {
   BookmarkCheck,
   BookOpen,
   Bot,
+  Camera,
   Check,
   Compass,
   Copy,
@@ -19,11 +20,13 @@ import {
   ExternalLink,
   FileText,
   GraduationCap,
+  ImagePlus,
   Languages,
   Loader2,
   MessageSquareText,
   Mic,
   MicOff,
+  Paperclip,
   Printer,
   RotateCcw,
   Send,
@@ -33,7 +36,11 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { fetchAiChatReply, transcribeVoiceAudio } from '@/lib/ai-chat-client'
+import {
+  fetchAiChatReply,
+  transcribeVoiceAudio,
+  type ClientChatAttachment,
+} from '@/lib/ai-chat-client'
 import type { Student } from '@/components/dashboard/data'
 import { Panel, fieldClassName } from '@/components/dashboard/panel'
 import { Button } from '@/components/ui/button'
@@ -62,6 +69,14 @@ export type ChatLanguage = 'ml' | 'en' | 'ar' | 'ur' | 'es' | 'de'
 export type ResponseLanguagePreference = 'auto' | ChatLanguage
 export type ChatModelTier = 'flash' | 'flash-lite'
 
+export interface ChatAttachmentItem {
+  id: string
+  name: string
+  mimeType: string
+  previewUrl: string
+  base64Data: string
+}
+
 export interface ChatTurnMessage {
   id: string
   role: 'user' | 'model'
@@ -69,6 +84,11 @@ export interface ChatTurnMessage {
   timestamp: number
   modelUsed?: string
   persona?: ChatRole
+  attachments?: {
+    name: string
+    mimeType: string
+    previewUrl: string
+  }[]
 }
 
 const PERSONAS: {
@@ -1226,6 +1246,8 @@ export function GeminiChatbot({
   // Voice Input (Speech-to-Text) State
   const [isListening, setIsListening] = useState(false)
   const [isTranscribingVoice, setIsTranscribingVoice] = useState(false)
+  const [voiceLevel, setVoiceLevel] = useState(0)
+  const [micFallbackMode, setMicFallbackMode] = useState(false)
   const recognitionRef = useRef<any>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
@@ -1235,6 +1257,13 @@ export function GeminiChatbot({
   const speechGotTranscriptRef = useRef<boolean>(false)
   const stopVoiceCaptureRef = useRef<(() => void) | null>(null)
   const speechBaseTextRef = useRef<string>('')
+
+  // Multimodal Study Attachments (Photos of Kitabs, textbooks, notes, PDFs)
+  const [pendingAttachments, setPendingAttachments] = useState<ChatAttachmentItem[]>([])
+  const [isProcessingAttachment, setIsProcessingAttachment] = useState(false)
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null)
+  const studyImageInputRef = useRef<HTMLInputElement | null>(null)
+  const studyCameraInputRef = useRef<HTMLInputElement | null>(null)
 
   // Direct DOCX & PDF Export State when "Save Note" is clicked
   const [activeExportNote, setActiveExportNote] = useState<StudyNoteExportData | null>(null)
@@ -1297,7 +1326,13 @@ export function GeminiChatbot({
   )
 
   const currentMessages = useMemo(
-    () => (threads[role] ?? []).filter((m) => m && typeof m.text === 'string' && m.text.trim().length > 0),
+    () =>
+      (threads[role] ?? []).filter(
+        (m) =>
+          m &&
+          ((typeof m.text === 'string' && m.text.trim().length > 0) ||
+            (Array.isArray(m.attachments) && m.attachments.length > 0)),
+      ),
     [threads, role],
   )
 
@@ -1385,6 +1420,156 @@ export function GeminiChatbot({
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }, [currentMessages, sending])
 
+  async function compressAndReadStudyFile(file: File): Promise<ChatAttachmentItem> {
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+    if (isPdf) {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          const res = typeof reader.result === 'string' ? reader.result : ''
+          const comma = res.indexOf(',')
+          resolve(comma >= 0 ? res.slice(comma + 1) : res)
+        }
+        reader.onerror = () => reject(new Error('Could not read PDF file'))
+        reader.readAsDataURL(file)
+      })
+      return {
+        id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name: file.name || 'Study Document.pdf',
+        mimeType: 'application/pdf',
+        previewUrl: '',
+        base64Data,
+      }
+    }
+
+    // Compress image on canvas to max 1500px so high-res phone photos upload in <1 second
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () =>
+        resolve(typeof reader.result === 'string' ? reader.result : '')
+      reader.onerror = () => reject(new Error('Could not read image file'))
+      reader.readAsDataURL(file)
+    })
+
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image()
+      image.onload = () => resolve(image)
+      image.onerror = () => reject(new Error('Invalid image format'))
+      image.src = dataUrl
+    })
+
+    const maxDim = 1500
+    let targetW = img.naturalWidth || img.width || 800
+    let targetH = img.naturalHeight || img.height || 800
+    if (targetW > maxDim || targetH > maxDim) {
+      const ratio = Math.min(maxDim / targetW, maxDim / targetH)
+      targetW = Math.max(1, Math.round(targetW * ratio))
+      targetH = Math.max(1, Math.round(targetH * ratio))
+    }
+
+    const canvas = document.createElement('canvas')
+    canvas.width = targetW
+    canvas.height = targetH
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.fillStyle = '#FFFFFF'
+      ctx.fillRect(0, 0, targetW, targetH)
+      ctx.drawImage(img, 0, 0, targetW, targetH)
+    }
+
+    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.84)
+    const commaIdx = compressedDataUrl.indexOf(',')
+    const base64Data = commaIdx >= 0 ? compressedDataUrl.slice(commaIdx + 1) : compressedDataUrl
+
+    // Create a smaller 420px thumbnail for chat bubble history storage
+    const thumbMax = 420
+    let thumbW = targetW
+    let thumbH = targetH
+    if (thumbW > thumbMax || thumbH > thumbMax) {
+      const r = Math.min(thumbMax / thumbW, thumbMax / thumbH)
+      thumbW = Math.max(1, Math.round(thumbW * r))
+      thumbH = Math.max(1, Math.round(thumbH * r))
+    }
+    const thumbCanvas = document.createElement('canvas')
+    thumbCanvas.width = thumbW
+    thumbCanvas.height = thumbH
+    const thumbCtx = thumbCanvas.getContext('2d')
+    if (thumbCtx) {
+      thumbCtx.drawImage(canvas, 0, 0, thumbW, thumbH)
+    }
+    const previewUrl = thumbCanvas.toDataURL('image/jpeg', 0.72)
+
+    return {
+      id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name: file.name || 'Kitab-Page.jpg',
+      mimeType: 'image/jpeg',
+      previewUrl,
+      base64Data,
+    }
+  }
+
+  async function processSelectedStudyFiles(fileList: FileList | File[]) {
+    const files = Array.from(fileList)
+    if (files.length === 0) return
+
+    setErrorMessage(null)
+    setIsProcessingAttachment(true)
+    try {
+      const remainingSlots = Math.max(0, 3 - pendingAttachments.length)
+      if (remainingSlots === 0) {
+        setErrorMessage('You can attach up to 3 study images or documents per message.')
+        return
+      }
+      const selected = files.slice(0, remainingSlots)
+      const processed: ChatAttachmentItem[] = []
+      for (const file of selected) {
+        const isAllowed =
+          file.type.startsWith('image/') ||
+          file.type === 'application/pdf' ||
+          /\.(jpg|jpeg|png|webp|heic|pdf)$/i.test(file.name)
+        if (!isAllowed) {
+          setErrorMessage('Please attach an image (JPG, PNG, WEBP) or PDF study document.')
+          continue
+        }
+        if (file.size > 18 * 1024 * 1024) {
+          setErrorMessage('File is too large. Please select an image or PDF under 18 MB.')
+          continue
+        }
+        const item = await compressAndReadStudyFile(file)
+        processed.push(item)
+      }
+      if (processed.length > 0) {
+        setPendingAttachments((prev) => [...prev, ...processed].slice(0, 3))
+      }
+    } catch (err) {
+      console.warn('Attachment processing failed:', err)
+      setErrorMessage('Could not load the selected image. Please try another photo.')
+    } finally {
+      setIsProcessingAttachment(false)
+    }
+  }
+
+  function handleRemovePendingAttachment(id: string) {
+    setPendingAttachments((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  function handlePasteIntoComposer(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const items = e.clipboardData?.items
+    if (!items) return
+    const imageFiles: File[] = []
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (item.kind === 'file' && (item.type.startsWith('image/') || item.type === 'application/pdf')) {
+        const file = item.getAsFile()
+        if (file) imageFiles.push(file)
+      }
+    }
+    if (imageFiles.length > 0) {
+      e.preventDefault()
+      void processSelectedStudyFiles(imageFiles)
+    }
+  }
+
   async function handleSendMessage(customText?: string) {
     if (isListening) {
       if (stopVoiceCaptureRef.current) {
@@ -1400,13 +1585,24 @@ export function GeminiChatbot({
       setIsListening(false)
     }
 
-    const textToSend = (customText ?? input).trim()
-    if (!textToSend || sending) return
+    const attachmentsToSend = [...pendingAttachments]
+    const rawTypedText = (customText ?? input).trim()
+
+    if (!rawTypedText && attachmentsToSend.length === 0) return
+    if (sending) return
+
+    // Default scholarly prompt when a student sends a photo without typing a question
+    const defaultImagePrompt =
+      responseLanguagePreference === 'ml'
+        ? 'ഈ ചിത്രത്തിലെ പാഠഭാഗം വായിച്ച് മലയാളത്തിലും ഇംഗ്ലീഷിലും വിവർത്തനം ചെയ്യുകയും പ്രധാന ആശയങ്ങൾ വിശദീകരിക്കുകയും ചെയ്യുക.'
+        : 'Please read the text in this study image, translate it clearly into Malayalam and English, and explain the key scholarly points.'
+
+    const textToSend = rawTypedText || defaultImagePrompt
 
     if (!customText) {
       setInput('')
     }
-
+    setPendingAttachments([])
     setErrorMessage(null)
 
     const previousHistory = currentMessages
@@ -1434,6 +1630,15 @@ export function GeminiChatbot({
       text: textToSend,
       timestamp: Date.now(),
       persona: role,
+      ...(attachmentsToSend.length > 0
+        ? {
+            attachments: attachmentsToSend.map((att) => ({
+              name: att.name,
+              mimeType: att.mimeType,
+              previewUrl: att.previewUrl,
+            })),
+          }
+        : {}),
     }
 
     setThreads((prev) => ({
@@ -1444,6 +1649,12 @@ export function GeminiChatbot({
     setSending(true)
 
     try {
+      const apiAttachments: ClientChatAttachment[] = attachmentsToSend.map((att) => ({
+        mimeType: att.mimeType,
+        data: att.base64Data,
+        name: att.name,
+      }))
+
       const data = await fetchAiChatReply({
         message: textToSend.slice(0, 2000),
         history: previousHistory,
@@ -1453,6 +1664,7 @@ export function GeminiChatbot({
         modelTier,
         studentName: student.name,
         studentClass: student.className,
+        ...(apiAttachments.length > 0 ? { attachments: apiAttachments } : {}),
       })
 
       const botMsg: ChatTurnMessage = {
@@ -1496,6 +1708,7 @@ export function GeminiChatbot({
       }
       return updated
     })
+    setPendingAttachments([])
     setErrorMessage(null)
   }
 
@@ -1547,6 +1760,7 @@ export function GeminiChatbot({
   }
 
   function cleanupAudioResources() {
+    setVoiceLevel(0)
     if (silenceTimerRef.current) {
       window.clearInterval(silenceTimerRef.current)
       silenceTimerRef.current = null
@@ -1602,18 +1816,18 @@ export function GeminiChatbot({
           : (rawResult as { text?: string })?.text ?? '',
       ).trim()
 
-      if (cleanText) {
+      if (cleanText && cleanText !== '__SILENT__') {
         const base = speechBaseTextRef.current
         setInput(base ? `${base} ${cleanText}` : cleanText)
       } else {
         setErrorMessage(
-          'No speech detected. Please speak clearly close to the microphone and try again.',
+          'No clear speech detected. Please speak close to the microphone and tap Done ✓ when finished.',
         )
       }
     } catch (err) {
       console.warn('Voice transcription failed:', err)
       setErrorMessage(
-        'Could not transcribe voice clearly. Please try speaking again or type your message.',
+        'Could not transcribe voice right now. Please try speaking again or type your question.',
       )
     } finally {
       setIsTranscribingVoice(false)
@@ -1624,6 +1838,7 @@ export function GeminiChatbot({
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
+    setMicFallbackMode(false)
     speechBaseTextRef.current = input.trim()
     await transcribeAudioBlob(file, file.type || 'audio/mp4')
   }
@@ -1649,6 +1864,7 @@ export function GeminiChatbot({
     if (typeof window === 'undefined' || isTranscribingVoice) return
 
     setErrorMessage(null)
+    setMicFallbackMode(false)
     speechBaseTextRef.current = input.trim()
     speechGotTranscriptRef.current = false
     audioChunksRef.current = []
@@ -1681,7 +1897,7 @@ export function GeminiChatbot({
       // Ignore
     }
 
-    // Primary Engine: MediaRecorder + Server Audio Transcription (works reliably across mobile browsers, desktops & WebViews without SpeechRecognition conflicts)
+    // Primary Engine: MediaRecorder + Server Audio Transcription
     if (
       navigator.mediaDevices &&
       typeof navigator.mediaDevices.getUserMedia === 'function' &&
@@ -1764,14 +1980,14 @@ export function GeminiChatbot({
         }
 
         try {
-          recorder.start(300)
+          recorder.start(250)
         } catch {
           recorder.start()
         }
         setIsListening(true)
         setErrorMessage(null)
 
-        // Automatic silence detection so voice recording auto-completes after the user speaks and pauses
+        // Live audio level meter + smart silence detection (ignores initial 900ms finger-tap pop on phones)
         try {
           const AudioCtx =
             window.AudioContext ||
@@ -1789,6 +2005,7 @@ export function GeminiChatbot({
             source.connect(analyser)
             const dataArray = new Uint8Array(analyser.frequencyBinCount)
             let hasDetectedSpeech = false
+            let sustainedSpeechFrames = 0
             let silenceStartMs = 0
             const startedAtMs = Date.now()
 
@@ -1801,32 +2018,40 @@ export function GeminiChatbot({
               }
               const rms = Math.sqrt(sumSquares / dataArray.length)
               const now = Date.now()
+              const elapsedMs = now - startedAtMs
 
-              if (rms > 0.018) {
-                hasDetectedSpeech = true
-                silenceStartMs = 0
-              } else if (hasDetectedSpeech) {
-                if (!silenceStartMs) {
-                  silenceStartMs = now
-                } else if (now - silenceStartMs > 2200) {
-                  stopVoiceCapture()
+              setVoiceLevel(Math.min(100, Math.round(rms * 420)))
+
+              // Ignore the first 900ms so the finger tap on the phone screen doesn't count as speech
+              if (elapsedMs > 900) {
+                if (rms > 0.024) {
+                  sustainedSpeechFrames += 1
+                  if (sustainedSpeechFrames >= 2) {
+                    hasDetectedSpeech = true
+                  }
+                  silenceStartMs = 0
+                } else if (hasDetectedSpeech) {
+                  if (!silenceStartMs) {
+                    silenceStartMs = now
+                  } else if (now - silenceStartMs > 2600) {
+                    stopVoiceCapture()
+                  }
                 }
               }
 
               // Safety max duration: 45 seconds
-              if (now - startedAtMs > 45000) {
+              if (elapsedMs > 45000) {
                 stopVoiceCapture()
               }
             }, 150)
           }
         } catch {
-          // Silence detection is optional; manual Stop button remains available
+          // Silence detection is optional; manual Done button remains available
         }
 
         return
       } catch {
         cleanupAudioResources()
-        // If getUserMedia threw or was blocked by WebView/iframe, fall through to native bridge / Web Speech / System Audio Recorder fallback below
       }
     }
 
@@ -1878,16 +2103,9 @@ export function GeminiChatbot({
           const errCode = event?.error
           setIsListening(false)
           if (errCode === 'not-allowed' || errCode === 'service-not-allowed') {
-            // If embedded iframe or older Android WebView blocked live mic stream, open system voice recorder fallback
-            if (audioFileInputRef.current) {
-              audioFileInputRef.current.click()
-            } else {
-              setErrorMessage(
-                'Live microphone stream is restricted in this view. Tap the Mic icon to record with your device voice recorder.',
-              )
-            }
+            setMicFallbackMode(true)
           } else if (errCode !== 'no-speech' && errCode !== 'aborted' && errCode) {
-            setErrorMessage(`Voice input interrupted (${errCode}). Please try again.`)
+            setMicFallbackMode(true)
           }
         }
 
@@ -1903,15 +2121,8 @@ export function GeminiChatbot({
       }
     }
 
-    // Final Universal Fallback: Trigger native device audio capture (<input type="file" accept="audio/*" capture>)
-    if (audioFileInputRef.current) {
-      audioFileInputRef.current.click()
-      return
-    }
-
-    setErrorMessage(
-      'Unable to start microphone. Please check that no other app is using the microphone and try again.',
-    )
+    // Universal Fallback: Enable 1-tap synchronous <label> voice recorder bar
+    setMicFallbackMode(true)
   }
 
   function handleCopyMessage(msg: ChatTurnMessage) {
@@ -2529,6 +2740,43 @@ export function GeminiChatbot({
                         : 'border-border bg-card/90 text-foreground',
                     )}
                   >
+                    {msg.attachments && msg.attachments.length > 0 ? (
+                      <div className="mb-1 flex flex-wrap gap-2" dir="ltr">
+                        {msg.attachments.map((att, attIdx) =>
+                          att.previewUrl ? (
+                            <button
+                              key={`${msg.id}-att-${attIdx}`}
+                              type="button"
+                              onClick={() =>
+                                setLightboxImage({
+                                  url: att.previewUrl,
+                                  name: att.name || 'Study Image',
+                                })
+                              }
+                              className="group relative overflow-hidden rounded-xl border border-white/20 bg-black/20 shadow-xs transition-transform hover:scale-[1.02]"
+                            >
+                              <img
+                                src={att.previewUrl}
+                                alt={att.name || 'Attached study page'}
+                                className="max-h-44 w-auto max-w-[220px] object-cover"
+                              />
+                              <span className="absolute inset-x-0 bottom-0 truncate bg-black/65 px-2 py-0.5 text-[10px] font-medium text-white">
+                                {att.name}
+                              </span>
+                            </button>
+                          ) : (
+                            <div
+                              key={`${msg.id}-att-${attIdx}`}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-white/25 bg-black/15 px-2.5 py-1.5 text-xs font-medium"
+                            >
+                              <FileText className="size-3.5 shrink-0" aria-hidden="true" />
+                              <span className="max-w-[180px] truncate">{att.name}</span>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    ) : null}
+
                     <FormattedChatText
                       text={msg.text}
                       isUser={isUser}
@@ -2635,37 +2883,152 @@ export function GeminiChatbot({
             ) : null}
           </div>
 
-          {/* Pinned Bottom Composer Area (Starter Prompts + Voice Banner + Input/Mic Bar — Never Scrolls) */}
+          {/* Pinned Bottom Composer Area (Starter Prompts + Attachments + Voice Banner + Input/Mic Bar — Never Scrolls) */}
           <div className="shrink-0 bg-card/90 backdrop-blur-md">
-            {/* Starter Prompts Bar */}
-            <div
-              dir="ltr"
-              className="border-t border-border/60 bg-background/30 px-3.5 py-1.5 text-left"
-            >
-              <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
-                  {UI_TEXT.en.tryAsking}
-                </span>
-                {(currentPersona.starters[activeStarterLang] ?? currentPersona.starters.en).map(
-                  (starter) => (
-                    <button
-                      key={starter.label}
-                      type="button"
-                      disabled={sending}
-                      onClick={() => void handleSendMessage(starter.prompt)}
-                      className={cn(
-                        'shrink-0 rounded-full border border-border/80 bg-background/80 px-3 py-1 text-xs font-medium text-foreground/90 transition-colors hover:border-lime/50 hover:bg-lime/10 disabled:opacity-50',
-                        activeStarterLang === 'ml' && 'font-malayalam',
-                        activeStarterLang === 'ar' && 'font-arabic',
-                        activeStarterLang === 'ur' && 'font-urdu text-sm',
-                      )}
-                    >
-                      {starter.label}
-                    </button>
-                  ),
-                )}
+            {/* Starter Prompts Bar (Hidden when photos are attached so Quick Study Actions take focus) */}
+            {pendingAttachments.length === 0 ? (
+              <div
+                dir="ltr"
+                className="border-t border-border/60 bg-background/30 px-3.5 py-1.5 text-left"
+              >
+                <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
+                    {UI_TEXT.en.tryAsking}
+                  </span>
+                  {(currentPersona.starters[activeStarterLang] ?? currentPersona.starters.en).map(
+                    (starter) => (
+                      <button
+                        key={starter.label}
+                        type="button"
+                        disabled={sending}
+                        onClick={() => void handleSendMessage(starter.prompt)}
+                        className={cn(
+                          'shrink-0 rounded-full border border-border/80 bg-background/80 px-3 py-1 text-xs font-medium text-foreground/90 transition-colors hover:border-lime/50 hover:bg-lime/10 disabled:opacity-50',
+                          activeStarterLang === 'ml' && 'font-malayalam',
+                          activeStarterLang === 'ar' && 'font-arabic',
+                          activeStarterLang === 'ur' && 'font-urdu text-sm',
+                        )}
+                      >
+                        {starter.label}
+                      </button>
+                    ),
+                  )}
+                </div>
               </div>
-            </div>
+            ) : null}
+
+            {/* Pending Multimodal Study Attachments Tray + 1-Tap Study Action Chips */}
+            {pendingAttachments.length > 0 || isProcessingAttachment ? (
+              <div
+                dir="ltr"
+                className="flex flex-col gap-2 border-t border-lime/30 bg-lime/5 px-3.5 py-2.5 text-left"
+              >
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {pendingAttachments.map((att) => (
+                    <div
+                      key={att.id}
+                      className="group relative flex items-center gap-2 rounded-xl border border-lime/40 bg-card/95 p-1.5 pr-7 shadow-xs"
+                    >
+                      {att.previewUrl ? (
+                        <img
+                          src={att.previewUrl}
+                          alt={att.name}
+                          className="size-11 rounded-lg object-cover border border-border/60"
+                        />
+                      ) : (
+                        <div className="flex size-11 items-center justify-center rounded-lg bg-lime/15 text-lime">
+                          <FileText className="size-5" aria-hidden="true" />
+                        </div>
+                      )}
+                      <div className="min-w-0 max-w-[130px]">
+                        <p className="truncate text-[11px] font-semibold text-foreground">
+                          {att.name}
+                        </p>
+                        <p className="text-[10px] text-lime">Ready for analysis</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePendingAttachment(att.id)}
+                        aria-label={`Remove ${att.name}`}
+                        className="absolute right-1.5 top-1.5 flex size-5 items-center justify-center rounded-full bg-background/90 text-muted-foreground transition-colors hover:bg-destructive hover:text-white"
+                      >
+                        <X className="size-3" aria-hidden="true" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {isProcessingAttachment ? (
+                    <div className="inline-flex items-center gap-2 rounded-xl border border-border bg-card/80 px-3 py-2 text-xs text-muted-foreground">
+                      <Loader2 className="size-3.5 animate-spin text-lime" aria-hidden="true" />
+                      <span>Preparing image...</span>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Quick 1-Tap Multimodal Study Actions */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pt-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  <span className="shrink-0 text-[10.5px] font-semibold text-lime">
+                    Quick Action:
+                  </span>
+                  <button
+                    type="button"
+                    disabled={sending}
+                    onClick={() =>
+                      void handleSendMessage(
+                        responseLanguagePreference === 'ml'
+                          ? 'ഈ ചിത്രത്തിലെ ഭാഗം വായിച്ച് മലയാളത്തിലേക്കും ഇംഗ്ലീഷിലേക്കും കൃത്യമായി വിവർത്തനം ചെയ്യുക. പ്രധാന പദങ്ങളുടെ അർത്ഥവും നൽകുക.'
+                          : 'Transcribe the text in this image and translate it clearly into Malayalam and English with key vocabulary meanings.',
+                      )
+                    }
+                    className="shrink-0 rounded-full border border-lime/40 bg-lime/15 px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:bg-lime hover:text-primary-foreground"
+                  >
+                    Translate Page (മലയാളം / EN)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={sending}
+                    onClick={() =>
+                      void handleSendMessage(
+                        responseLanguagePreference === 'ml'
+                          ? 'ഈ കിതാബ് ഇബാറത്ത് പൂർണ്ണ ഹറകത്തുകളോടെ എഴുതി, ഓരോ പദത്തിന്റെയും അർത്ഥവും നഹ്‌വ്/സർഫ് ഇഅ്റാബും ഫിഖ്ഹീ വിധിയും മലയാളത്തിൽ വിശദീകരിക്കുക.'
+                          : "Read the Kitab Ibarat in this image, provide full vocalized Arabic text, word-by-word meaning, Nahw/Sarf I'rab analysis, and scholarly commentary.",
+                      )
+                    }
+                    className="shrink-0 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-lime/50 hover:bg-lime/10"
+                  >
+                    Explain Kitab &amp; I&apos;rab
+                  </button>
+                  <button
+                    type="button"
+                    disabled={sending}
+                    onClick={() =>
+                      void handleSendMessage(
+                        responseLanguagePreference === 'ml'
+                          ? 'ഈ ചിത്രത്തിലെ പാഠഭാഗം വായിച്ച് പരീക്ഷയ്ക്ക് പഠിക്കാൻ എളുപ്പമുള്ള പ്രധാന പോയിന്റുകളായി (Study Notes) ചുരുക്കി തയ്യാറാക്കുക.'
+                          : 'Extract the text from this page and organize it into structured, exam-ready study notes with key takeaways.',
+                      )
+                    }
+                    className="shrink-0 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-lime/50 hover:bg-lime/10"
+                  >
+                    Summarize Study Notes
+                  </button>
+                  <button
+                    type="button"
+                    disabled={sending}
+                    onClick={() =>
+                      void handleSendMessage(
+                        responseLanguagePreference === 'ml'
+                          ? 'ഈ ചിത്രത്തിലുള്ള ചോദ്യങ്ങൾ വായിച്ച് ഓരോന്നിനും കൃത്യവും ലളിതവുമായ ഉത്തരങ്ങൾ തയ്യാറാക്കുക.'
+                          : 'Read the academic or exam questions shown in this image and provide clear, step-by-step scholarly answers.',
+                      )
+                    }
+                    className="shrink-0 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-lime/50 hover:bg-lime/10"
+                  >
+                    Solve Questions
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             {/* Error Banner if any */}
             {errorMessage ? (
@@ -2685,7 +3048,35 @@ export function GeminiChatbot({
               </div>
             ) : null}
 
-            {/* Active Voice Listening / Transcribing Banner */}
+            {/* Fallback Device Voice Recorder Bar (Shown when browser/iframe restricts live mic stream) */}
+            {micFallbackMode && !isListening && !isTranscribingVoice ? (
+              <div
+                dir="ltr"
+                className="flex items-center justify-between gap-2 border-t border-cyan/35 bg-cyan/10 px-3.5 py-2 text-left text-xs text-cyan"
+              >
+                <span className="text-[11.5px] font-medium text-foreground">
+                  Tap to record voice with your device microphone &amp; transcribe automatically:
+                </span>
+                <div className="flex shrink-0 items-center gap-2">
+                  <label
+                    htmlFor="chatbot-voice-recorder-input"
+                    className="cursor-pointer inline-flex items-center gap-1.5 rounded-full bg-cyan px-3 py-1 text-[11px] font-semibold text-[#081e21] shadow-xs transition-transform active:scale-95"
+                  >
+                    <Mic className="size-3.5" aria-hidden="true" />
+                    <span>Record Voice</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setMicFallbackMode(false)}
+                    className="text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Active Voice Listening / Transcribing Banner with Live Audio Meter */}
             {isListening || isTranscribingVoice ? (
               <div
                 role="status"
@@ -2693,142 +3084,268 @@ export function GeminiChatbot({
                 dir="ltr"
                 className="flex items-center justify-between gap-3 border-t border-cyan/35 bg-cyan/10 px-3.5 py-2 text-left text-xs text-cyan"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-2.5">
                   {isTranscribingVoice ? (
-                    <Loader2 className="size-3.5 animate-spin text-cyan" aria-hidden="true" />
+                    <Loader2 className="size-3.5 shrink-0 animate-spin text-cyan" aria-hidden="true" />
                   ) : (
-                    <span className="relative flex size-2.5">
+                    <span className="relative flex size-2.5 shrink-0">
                       <span className="absolute inline-flex size-full animate-ping rounded-full bg-cyan opacity-75" />
                       <span className="relative inline-flex size-2.5 rounded-full bg-cyan" />
                     </span>
                   )}
-                  <span className="font-medium animate-pulse">
+                  <span className="truncate font-medium">
                     {isTranscribingVoice
-                      ? 'Transcribing voice...'
-                      : 'Listening... Speak clearly (tap Stop when finished)'}
+                      ? 'Transcribing your voice...'
+                      : 'Listening... Speak now (tap Done when finished)'}
                   </span>
+                  {isListening ? (
+                    <div
+                      aria-hidden="true"
+                      className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-cyan/20 sm:block"
+                    >
+                      <div
+                        className="h-full rounded-full bg-cyan transition-all duration-100"
+                        style={{ width: `${Math.max(12, voiceLevel)}%` }}
+                      />
+                    </div>
+                  ) : null}
                 </div>
                 {isListening ? (
                   <button
                     type="button"
                     onClick={() => void toggleVoiceInput()}
-                    className="rounded-full border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-[11px] font-semibold text-cyan transition-colors hover:bg-cyan hover:text-[#081e21]"
+                    className="shrink-0 rounded-full bg-cyan px-3 py-0.5 text-[11px] font-bold text-[#081e21] shadow-xs transition-colors hover:bg-cyan/90"
                   >
-                    {UI_TEXT.en.voiceStop}
+                    Done ✓
                   </button>
                 ) : null}
               </div>
             ) : null}
 
-            {/* Unified Message Input Composer */}
+            {/* Unified Multimodal Message Input Composer */}
             <form
               onSubmit={(e) => {
                 e.preventDefault()
                 void handleSendMessage()
               }}
-              className="border-t border-border/70 bg-background/40 p-2.5 sm:p-3"
+              className="border-t border-border/70 bg-background/40 p-2 sm:p-3"
             >
               <label htmlFor="gemini-chatbot-input" className="sr-only">
                 Type your message to the Da&apos;wa College Chatbot
               </label>
-            <div
-              dir="ltr"
-              className={cn(
-                'flex w-full items-end gap-2 rounded-[26px] border bg-card/95 pl-4 pr-2 py-1.5 shadow-sm transition-all duration-200 focus-within:bg-card',
-                isListening || isTranscribingVoice
-                  ? 'border-cyan/70 ring-2 ring-cyan/20'
-                  : 'border-border/90 focus-within:border-lime/60 focus-within:ring-2 focus-within:ring-lime/15',
-              )}
-            >
-              <textarea
-                ref={textareaRef}
-                id="gemini-chatbot-input"
-                rows={1}
-                maxLength={2000}
-                value={input}
-                dir={input.trim().length > 0 && isArabicText(input) ? 'rtl' : 'ltr'}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    void handleSendMessage()
+
+              {/* Hidden file inputs for Photo/PDF, Camera, and Voice Recorder */}
+              <input
+                ref={studyImageInputRef}
+                id="chatbot-study-image-input"
+                type="file"
+                accept="image/*,application/pdf"
+                multiple
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    void processSelectedStudyFiles(e.target.files)
                   }
+                  e.target.value = ''
                 }}
-                placeholder={UI_TEXT.en.placeholder(currentPersona.title)}
-                className={cn(
-                  'min-h-[40px] max-h-36 min-w-0 flex-1 w-full resize-none border-0 bg-transparent py-2 text-sm sm:text-[15px] leading-relaxed text-foreground placeholder:text-left placeholder:font-poppins placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0 [scrollbar-width:thin]',
-                  input.trim().length > 0 && isArabicText(input)
-                    ? isUrduText(input)
-                      ? 'text-right font-urdu leading-[2.1]'
-                      : 'text-right font-arabic'
-                    : /[\u0D00-\u0D7F]/.test(input)
-                      ? 'text-left font-malayalam'
-                      : 'text-left font-poppins',
-                )}
+                className="hidden"
+                aria-hidden="true"
+                tabIndex={-1}
+              />
+              <input
+                ref={studyCameraInputRef}
+                id="chatbot-study-camera-input"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    void processSelectedStudyFiles(e.target.files)
+                  }
+                  e.target.value = ''
+                }}
+                className="hidden"
+                aria-hidden="true"
+                tabIndex={-1}
+              />
+              <input
+                ref={audioFileInputRef}
+                id="chatbot-voice-recorder-input"
+                type="file"
+                accept="audio/*"
+                capture="user"
+                onChange={(e) => void handleAudioFilePicked(e)}
+                className="hidden"
+                aria-hidden="true"
+                tabIndex={-1}
               />
 
-              {/* Compact Right Action Cluster (Voice + Send Icons) */}
-              <div className="flex shrink-0 items-center gap-1 self-end pb-0.5">
-                <input
-                  ref={audioFileInputRef}
-                  type="file"
-                  accept="audio/*"
-                  capture="user"
-                  onChange={(e) => void handleAudioFilePicked(e)}
-                  className="hidden"
-                  aria-hidden="true"
-                  tabIndex={-1}
-                />
-                {/* Microphone Icon Button */}
-                <button
-                  type="button"
-                  onClick={() => void toggleVoiceInput()}
-                  disabled={sending || isTranscribingVoice}
-                  title={isListening ? UI_TEXT.en.voiceStop : UI_TEXT.en.voiceTyping}
-                  aria-label={isListening ? UI_TEXT.en.voiceStop : UI_TEXT.en.voiceTyping}
-                  className={cn(
-                    'flex size-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan disabled:opacity-40',
-                    isListening
-                      ? 'bg-cyan text-[#081e21] shadow-md shadow-cyan/35 ring-2 ring-cyan/40 animate-pulse hover:bg-cyan/90'
-                      : isTranscribingVoice
-                        ? 'bg-cyan/20 text-cyan'
-                        : 'text-muted-foreground hover:bg-cyan/15 hover:text-cyan active:bg-cyan active:text-[#081e21]',
-                  )}
-                >
-                  {isTranscribingVoice ? (
-                    <Loader2 className="size-4 animate-spin text-cyan" aria-hidden="true" />
-                  ) : isListening ? (
-                    <MicOff className="size-4 text-[#081e21]" aria-hidden="true" />
-                  ) : (
-                    <Mic className="size-4" aria-hidden="true" />
-                  )}
-                </button>
+              <div
+                dir="ltr"
+                className={cn(
+                  'flex w-full items-end gap-1.5 rounded-[26px] border bg-card/95 pl-2 pr-2 py-1.5 shadow-sm transition-all duration-200 focus-within:bg-card sm:gap-2 sm:pl-2.5',
+                  isListening || isTranscribingVoice
+                    ? 'border-cyan/70 ring-2 ring-cyan/20'
+                    : pendingAttachments.length > 0
+                      ? 'border-lime/70 ring-2 ring-lime/15'
+                      : 'border-border/90 focus-within:border-lime/60 focus-within:ring-2 focus-within:ring-lime/15',
+                )}
+              >
+                {/* Left Multimodal Attachment Cluster (Photo/PDF + Camera like Gemini App) */}
+                <div className="flex shrink-0 items-center gap-0.5 self-end pb-0.5">
+                  <button
+                    type="button"
+                    disabled={sending || pendingAttachments.length >= 3}
+                    onClick={() => studyImageInputRef.current?.click()}
+                    title="Attach Kitab photo, textbook page, or PDF to translate/explain"
+                    aria-label="Attach photo or PDF"
+                    className="flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-lime/15 hover:text-lime disabled:opacity-40"
+                  >
+                    <ImagePlus className="size-4" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={sending || pendingAttachments.length >= 3}
+                    onClick={() => studyCameraInputRef.current?.click()}
+                    title="Take photo of Kitab or notes with camera"
+                    aria-label="Take photo with camera"
+                    className="flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-lime/15 hover:text-lime disabled:opacity-40"
+                  >
+                    <Camera className="size-4" aria-hidden="true" />
+                  </button>
+                </div>
 
-                {/* Send Icon Button */}
-                <button
-                  type="submit"
-                  disabled={sending || !input.trim()}
-                  title={UI_TEXT[language].send}
-                  aria-label={UI_TEXT[language].send}
+                <textarea
+                  ref={textareaRef}
+                  id="gemini-chatbot-input"
+                  rows={1}
+                  maxLength={2000}
+                  value={input}
+                  dir={input.trim().length > 0 && isArabicText(input) ? 'rtl' : 'ltr'}
+                  onChange={(e) => setInput(e.target.value)}
+                  onPaste={handlePasteIntoComposer}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      void handleSendMessage()
+                    }
+                  }}
+                  placeholder={
+                    pendingAttachments.length > 0
+                      ? 'Ask to translate, explain Ibarat, or tap Send...'
+                      : UI_TEXT.en.placeholder(currentPersona.title)
+                  }
                   className={cn(
-                    'flex size-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime',
-                    input.trim() && !sending
-                      ? 'bg-lime text-primary-foreground shadow-xs hover:bg-lime/90 active:scale-95'
-                      : 'bg-muted/60 text-muted-foreground/40 cursor-not-allowed',
+                    'min-h-[40px] max-h-36 min-w-0 flex-1 w-full resize-none border-0 bg-transparent py-2 text-sm sm:text-[15px] leading-relaxed text-foreground placeholder:text-left placeholder:font-poppins placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0 [scrollbar-width:thin]',
+                    input.trim().length > 0 && isArabicText(input)
+                      ? isUrduText(input)
+                        ? 'text-right font-urdu leading-[2.1]'
+                        : 'text-right font-arabic'
+                      : /[\u0D00-\u0D7F]/.test(input)
+                        ? 'text-left font-malayalam'
+                        : 'text-left font-poppins',
                   )}
-                >
-                  {sending ? (
-                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                />
+
+                {/* Compact Right Action Cluster (Voice + Send Icons) */}
+                <div className="flex shrink-0 items-center gap-1 self-end pb-0.5">
+                  {micFallbackMode && !isListening && !isTranscribingVoice ? (
+                    <label
+                      htmlFor="chatbot-voice-recorder-input"
+                      title="Record voice audio"
+                      aria-label="Record voice audio"
+                      className="cursor-pointer flex size-9 shrink-0 items-center justify-center rounded-full bg-cyan/20 text-cyan transition-all hover:bg-cyan hover:text-[#081e21]"
+                    >
+                      <Mic className="size-4" aria-hidden="true" />
+                    </label>
                   ) : (
-                    <Send className="size-4" aria-hidden="true" />
+                    <button
+                      type="button"
+                      onClick={() => void toggleVoiceInput()}
+                      disabled={sending || isTranscribingVoice}
+                      title={isListening ? UI_TEXT.en.voiceStop : UI_TEXT.en.voiceTyping}
+                      aria-label={isListening ? UI_TEXT.en.voiceStop : UI_TEXT.en.voiceTyping}
+                      className={cn(
+                        'flex size-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan disabled:opacity-40',
+                        isListening
+                          ? 'bg-cyan text-[#081e21] shadow-md shadow-cyan/35 ring-2 ring-cyan/40 animate-pulse hover:bg-cyan/90'
+                          : isTranscribingVoice
+                            ? 'bg-cyan/20 text-cyan'
+                            : 'text-muted-foreground hover:bg-cyan/15 hover:text-cyan active:bg-cyan active:text-[#081e21]',
+                      )}
+                    >
+                      {isTranscribingVoice ? (
+                        <Loader2 className="size-4 animate-spin text-cyan" aria-hidden="true" />
+                      ) : isListening ? (
+                        <MicOff className="size-4 text-[#081e21]" aria-hidden="true" />
+                      ) : (
+                        <Mic className="size-4" aria-hidden="true" />
+                      )}
+                    </button>
                   )}
-                </button>
-              </div>
+
+                  {/* Send Icon Button */}
+                  <button
+                    type="submit"
+                    disabled={sending || (!input.trim() && pendingAttachments.length === 0)}
+                    title={UI_TEXT[language].send}
+                    aria-label={UI_TEXT[language].send}
+                    className={cn(
+                      'flex size-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime',
+                      (input.trim() || pendingAttachments.length > 0) && !sending
+                        ? 'bg-lime text-primary-foreground shadow-xs hover:bg-lime/90 active:scale-95'
+                        : 'bg-muted/60 text-muted-foreground/40 cursor-not-allowed',
+                    )}
+                  >
+                    {sending ? (
+                      <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Send className="size-4" aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
         </div>
       </div>
+
+      {/* Lightbox Modal for Viewing Attached Study Photos */}
+      {lightboxImage && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              role="dialog"
+              aria-modal="true"
+              onClick={() => setLightboxImage(null)}
+              className="fixed inset-0 z-[110] flex items-center justify-center bg-black/85 p-4 backdrop-blur-xs"
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="relative flex max-h-[90dvh] max-w-3xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+              >
+                <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+                  <span className="truncate text-xs font-semibold text-foreground">
+                    {lightboxImage.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setLightboxImage(null)}
+                    className="flex size-7 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                  </button>
+                </div>
+                <div className="overflow-auto p-3">
+                  <img
+                    src={lightboxImage.url}
+                    alt={lightboxImage.name}
+                    className="max-h-[78dvh] w-auto rounded-lg object-contain mx-auto"
+                  />
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {/* Save Note -> Direct DOCX & PDF Download Modal */}
       {activeExportNote && typeof document !== 'undefined'
