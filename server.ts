@@ -117,7 +117,7 @@ function detectInputLanguage(
   const totalLatinChars = (stripped.match(/[A-Za-z\u00C0-\u024F]/g) || []).length
   if (totalLatinChars >= 2) {
     if (
-      /\b(enthanu|enthokkeyanu|enthokke|parayamo|parayu|engane|enganeyanu|vishadeekarikamo|vishadeekarikkuka|artham|sharthukal|farzukal|sunnathukal|vivarikkuka|entha|manassilayilla|padippikkamo|chodyam|utharam|malayalathil|paribhasha)\b/i.test(
+      /\b(enthanu|enthokkeyanu|enthokke|parayamo|parayu|engane|enganeyanu|vishadeekarikamo|vishadeekarikkuka|artham|sharthukal|farzukal|sunnathukal|vivarikkuka|entha|manassilayilla|padippikkamo|chodyam|utharam|malayalathil|paribhasha|sughamano|sugamano|namaskaram|niskaram|usthade|orennam|onnu|randu|moonnu|shariyano|athe|alla)\b/i.test(
         clean,
       )
     ) {
@@ -139,28 +139,20 @@ function detectInputLanguage(
     ) {
       return 'de'
     }
+    // If short reply and previous turn in history was in Malayalam/Urdu, preserve thread language
+    if (clean.length <= 24 && history && history.length > 0) {
+      const lastTurn = history[history.length - 1]?.text || ''
+      if (/[\u0D00-\u0D7F]{3,}/.test(lastTurn)) return 'ml'
+      if (isUrduScript(lastTurn)) return 'ur'
+    }
     return 'en'
   }
 
   return fallbackLanguage
 }
 
-function isResponseValidForLanguage(text: string, language: OutputLanguage): boolean {
-  if (!text || !text.trim()) return false
-  if (language === 'ml') {
-    const hasMalayalam = /[\u0D00-\u0D7F]{3,}/.test(text)
-    const hasUrduWords =
-      /[\u0679\u067E\u0686\u0688\u0691\u0698\u06AF\u06BA\u06D2\u06D4]/.test(text) ||
-      /(?:^|\s)(?:ہے|ہیں|میں|کو|سے|پر|اور|کا|کی|کے|آپ|نے|پکڑا|گہرائی)(?:\s|$|[۔،؟!])/.test(text)
-    return hasMalayalam && !hasUrduWords
-  }
-  if (language === 'en' || language === 'es' || language === 'de') {
-    const hasUrduWords =
-      /[\u0679\u067E\u0686\u0688\u0691\u0698\u06AF\u06BA\u06D2\u06D4]/.test(text) ||
-      /(?:^|\s)(?:ہے|ہیں|میں|کو|سے|پر|اور|کا|کی|کے)(?:\s|$|[۔،؟!])/.test(text)
-    return !hasUrduWords && !/[\u0D00-\u0D7F]{3,}/.test(text)
-  }
-  return true
+function isResponseValidForLanguage(text: string, _language: OutputLanguage): boolean {
+  return Boolean(text && text.trim().length > 0)
 }
 
 function didStudentSaySalam(text: string): boolean {
@@ -193,20 +185,23 @@ function getTurnLanguageEnforcement(
     ? 'EXPLICIT RESPONSE LANGUAGE SELECTED BY USER (Even if the question or attached image text above is in another language, the user has explicitly selected this target language for the reply — you MUST write your explanation/translation in this selected language ONLY!): '
     : 'AUTO-DETECTED QUESTION LANGUAGE (Reply in the requested target language): '
 
+  const followUpRule =
+    'FOLLOW-UP & CONVERSATION RULE: Answer the exact message the student sent! If the student says "ഹായ്" / "Hi" / "Hello" / "Salam", greet them warmly and briefly in 2-3 sentences and ask what topic or Kitab they want to study. If your previous message ended with a follow-up question or quiz question and the student is now answering that question, DO NOT treat their answer as a new question — evaluate their answer directly (e.g., "മാശാ അല്ലാഹ്! താങ്കളുടെ ഉത്തരം വളരെ കൃത്യമാണ്..." / "Masha\'Allah, your answer is correct!"), explain why, and continue naturally.'
+
   switch (language) {
     case 'ur':
-      return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} You MUST write your entire explanation in URDU (اردو) language ONLY — do NOT write the explanation, headings, or follow-up questions in Arabic, English, or Malayalam! Always refer to the institution in Urdu as "آئی سی ایس اکیڈمی" (ICS Academy). Use authentic Urdu vocabulary, grammar, and verbs (e.g., ہے، ہیں، میں، کی، کے، کا، اس جملے کی نحوی ترکیب درج ذیل ہے، غور و فکر کے لیے سوال). Keep only the quoted Quranic Ayah, Hadith, Islamic greeting (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), or Kitab Ibarat in Arabic script, and explain everything else 100% in Urdu (اردو).]`
+      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule} Write your explanation in URDU (اردو) language. Refer to the institution in Urdu as "آئی سی ایس اکیڈمی" (ICS Academy). Keep quoted Quranic Ayahs, Hadith, Islamic greetings (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), and Kitab Ibarats in Arabic script, and explain everything else in Urdu (اردو).]`
     case 'ml':
-      return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} You MUST write your entire explanation, translation, salutation, headings, and follow-up questions in MALAYALAM (മലയാളം) script ONLY! NEVER write in Urdu (اردو) or use Urdu words (such as ہے، ہیں، میں، کی، کے، کا، آپ) and NEVER write full sentences in Arabic or English! Keep ONLY Islamic greetings (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), quoted Quran/Hadith/Kitab Ibarats, and short Arabic Fiqh terms inside brackets in Arabic script. Put a newline after the Arabic Salam, and refer to the institution in Malayalam as "ഐ.സി.എസ് അക്കാദമി".]`
+      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule} Write your explanation, translation, salutation, headings, and follow-up questions in natural, scholarly MALAYALAM (മലയാളം) script! Keep Islamic greetings (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), quoted Quran/Hadith/Kitab Ibarats, and Arabic Fiqh/Nahw terms inside brackets in Arabic script. Refer to the institution in Malayalam as "ഐ.സി.എസ് അക്കാദമി".]`
     case 'ar':
-      return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} Respond entirely in clear Classical/Modern Standard Arabic (العربية الفصحى). Even if the student's question was written in Malayalam or English, write your entire answer in Arabic! Never mix Malayalam or Urdu words. Refer to the institution as "أكاديمية ICS".]`
+      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule} Respond in clear Classical/Modern Standard Arabic (العربية الفصحى). Refer to the institution as "أكاديمية ICS".]`
     case 'es':
-      return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} Respond entirely in Spanish (Español). Even if the student's question was written in Malayalam, Arabic, or English, write your entire explanation in Spanish! NEVER use Malayalam or Urdu script or words — always write "ICS Academy" in Latin script. Put a newline (\\n) after the Arabic Salam so the Spanish salutation starts on a new line.]`
+      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule} Respond in Spanish (Español). Refer to the institution as "ICS Academy".]`
     case 'de':
-      return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} Respond entirely in German (Deutsch). Even if the student's question was written in Malayalam, Arabic, or English, write your entire explanation in German! NEVER use Malayalam or Urdu script or words — always write "ICS Academy" in Latin script. Put a newline (\\n) after the Arabic Salam so the German salutation starts on a new line.]`
+      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule} Respond in German (Deutsch). Refer to the institution as "ICS Academy".]`
     case 'en':
     default:
-      return `\n\n[LANGUAGE INSTRUCTION — ${modePrefix}${salamRule} Respond entirely in clear academic English. Even if the student's question or image is in Malayalam, Arabic, or another language, write your entire explanation/translation in English! When explaining Islamic, Fiqh, Nahw/Sarf, or Kitab concepts in English, naturally present key Arabic terms and book/concept names with their original vocalized Arabic script inside brackets (...) right beside the English term — for example: Tayammum (التَّيَمُّم), Niyyah (النِّيَّة), Fard (فَرْض), Shart (شَرْط), Mubtada' (مُبْتَدَأ), Fathul Mueen (فَتْحُ الْمُعِينِ). NEVER use Malayalam or Urdu script or words anywhere in your response (always write "ICS Academy" in English, NEVER write "ഐ.സി.എസ് അക്കാദമി"). Always write the Salam itself in Arabic script (السَّلَامُ عَلَيْكُمْ or وَعَلَيْكُمُ السَّلَامُ) on its own line, followed by a newline (\\n), and write the English salutation (e.g., "My dear student...") on the next line.]`
+      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule} Respond in clear academic English (and if the student explicitly asked to translate into Malayalam or another language, include that requested translation clearly!). Present key Arabic terms with their vocalized Arabic script inside brackets (...) beside the English term. Always write the Salam itself in Arabic script (السَّلَامُ عَلَيْكُمْ or وَعَلَيْكُمُ السَّلَامُ) on its own line.]`
   }
 }
 
@@ -455,24 +450,9 @@ async function sendMultiTurnChatWithFallback(
           'gemini-flash-lite-latest',
         ] as const)
 
-  // Filter history so earlier turns in a different language (e.g. Urdu) never cause language drift
+  // Preserve full multi-turn conversation history so follow-up answers to Usthad questions always have context
   const sanitizedHistory = history
-    .filter((turn) => {
-      if (!turn || typeof turn.text !== 'string' || !turn.text.trim()) return false
-      const txt = turn.text.trim()
-      if (language !== 'ur' && turn.role === 'model' && isUrduScript(txt)) return false
-      if (language === 'ml' && turn.role === 'model' && !/[\u0D00-\u0D7F]{3,}/.test(txt)) {
-        return false
-      }
-      if (
-        (language === 'en' || language === 'es' || language === 'de') &&
-        turn.role === 'model' &&
-        /[\u0D00-\u0D7F]{3,}/.test(txt)
-      ) {
-        return false
-      }
-      return true
-    })
+    .filter((turn) => Boolean(turn && typeof turn.text === 'string' && turn.text.trim()))
     .slice(-16)
     .map((turn) => ({
       role: turn.role === 'model' ? ('model' as const) : ('user' as const),

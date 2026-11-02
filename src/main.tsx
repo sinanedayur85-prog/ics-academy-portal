@@ -1,8 +1,8 @@
 import {createRoot} from 'react-dom/client';
-import App from './App.tsx';
+import App from './App';
 import './index.css';
 
-const LIVE_BACKEND_ORIGIN = 'https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app';
+const LIVE_BACKEND_ORIGIN = 'https://ics-academy-manhappatta.vercel.app';
 
 if (
   typeof window !== 'undefined' &&

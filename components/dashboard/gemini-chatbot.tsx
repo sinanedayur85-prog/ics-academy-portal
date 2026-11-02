@@ -1601,20 +1601,6 @@ export function GeminiChatbot({
     if (!rawTypedText && attachmentsToSend.length === 0) return
     if (sending) return
 
-    // Default scholarly prompt when a student sends a photo without typing a question
-    const defaultImagePrompt =
-      responseLanguagePreference === 'ml'
-        ? 'ഈ ചിത്രത്തിലെ പാഠഭാഗം വായിച്ച് മലയാളത്തിലും ഇംഗ്ലീഷിലും വിവർത്തനം ചെയ്യുകയും പ്രധാന ആശയങ്ങൾ വിശദീകരിക്കുകയും ചെയ്യുക.'
-        : 'Please read the text in this study image, translate it clearly into Malayalam and English, and explain the key scholarly points.'
-
-    const textToSend = rawTypedText || defaultImagePrompt
-
-    if (!customText) {
-      setInput('')
-    }
-    setPendingAttachments([])
-    setErrorMessage(null)
-
     const previousHistory = currentMessages
       .filter((m) => !m.id.startsWith('welcome-') && m.text.trim().length > 0)
       .map((m) => ({
@@ -1624,8 +1610,22 @@ export function GeminiChatbot({
 
     const isAutoLanguage = responseLanguagePreference === 'auto'
     const effectiveLanguage: ChatLanguage = isAutoLanguage
-      ? detectInputLanguage(textToSend, 'en', previousHistory)
+      ? detectInputLanguage(rawTypedText, 'en', previousHistory)
       : responseLanguagePreference
+
+    // Default scholarly prompt when a student sends a photo without typing a question
+    const defaultImagePrompt =
+      effectiveLanguage === 'ml'
+        ? 'ഈ ചിത്രത്തിലെ പാഠഭാഗം വായിച്ച് മലയാളത്തിലേക്ക് വിവർത്തനം ചെയ്യുകയും പ്രധാന ആശയങ്ങൾ വിശദീകരിക്കുകയും ചെയ്യുക.'
+        : 'Please read the text in this study image, translate it clearly into Malayalam and English, and explain the key scholarly points.'
+
+    const textToSend = rawTypedText || defaultImagePrompt
+
+    if (!customText) {
+      setInput('')
+    }
+    setPendingAttachments([])
+    setErrorMessage(null)
 
     // In Auto mode, keep the UI language in English ('en') so starter chips, placeholders, and error banners never flip to Arabic/RTL
     if (!isAutoLanguage && effectiveLanguage !== language) {

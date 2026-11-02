@@ -91,11 +91,23 @@ export function detectInputLanguage<T extends 'ml' | 'en' | 'ar' | 'ur' | 'es' |
   fallbackLanguage: T,
   history?: { role: 'user' | 'model'; text: string }[],
 ): T {
-  if (!text || !text.trim()) return fallbackLanguage
+  if (!text || !text.trim()) {
+    if (history && history.length > 0) {
+      for (let i = history.length - 1; i >= 0; i--) {
+        const turnText = history[i]?.text || ''
+        if (/[\u0D00-\u0D7F]{3,}/.test(turnText)) return 'ml' as T
+        if (isUrduText(turnText)) return 'ur' as T
+      }
+    }
+    return fallbackLanguage
+  }
   const clean = text.trim()
 
-  // 1. If the user writes any Malayalam characters, always respond in Malayalam ('ml')
-  if (/[\u0D00-\u0D7F]/.test(clean)) {
+  // 1. If the user writes any Malayalam characters or explicitly requests Malayalam, respond in Malayalam ('ml')
+  if (
+    /[\u0D00-\u0D7F]/.test(clean) ||
+    /\b(in\s+malayalam|malayalathil|malayalam\s+meaning|malayalam\s+translation)\b/i.test(clean)
+  ) {
     return 'ml' as T
   }
 
@@ -155,7 +167,7 @@ export function detectInputLanguage<T extends 'ml' | 'en' | 'ar' | 'ur' | 'es' |
   const totalLatinChars = (stripped.match(/[A-Za-z\u00C0-\u024F]/g) || []).length
   if (totalLatinChars >= 2) {
     if (
-      /\b(enthanu|enthokkeyanu|enthokke|parayamo|parayu|engane|enganeyanu|vishadeekarikamo|vishadeekarikkuka|artham|sharthukal|farzukal|sunnathukal|vivarikkuka|entha|manassilayilla|padippikkamo|chodyam|utharam)\b/i.test(
+      /\b(enthanu|enthokkeyanu|enthokke|parayamo|parayu|engane|enganeyanu|vishadeekarikamo|vishadeekarikkuka|artham|sharthukal|farzukal|sunnathukal|vivarikkuka|entha|manassilayilla|padippikkamo|chodyam|utharam|malayalathil|paribhasha|sughamano|sugamano|namaskaram|niskaram|usthade|orennam|onnu|randu|moonnu|shariyano|athe|alla)\b/i.test(
         clean,
       )
     ) {
@@ -176,6 +188,11 @@ export function detectInputLanguage<T extends 'ml' | 'en' | 'ar' | 'ur' | 'es' |
       )
     ) {
       return 'de' as T
+    }
+    if (clean.length <= 24 && history && history.length > 0) {
+      const lastTurn = history[history.length - 1]?.text || ''
+      if (/[\u0D00-\u0D7F]{3,}/.test(lastTurn)) return 'ml' as T
+      if (isUrduText(lastTurn)) return 'ur' as T
     }
     return 'en' as T
   }

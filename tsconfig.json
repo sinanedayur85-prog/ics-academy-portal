@@ -4,7 +4,7 @@
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "module": "ESNext",
-    "types": ["vite/client"],
+    "types": ["vite/client", "node"],
     "lib": [
       "ES2022",
       "DOM",
@@ -27,8 +27,7 @@
         "./shims/next-link.tsx"
       ]
     },
-    "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "exclude": ["dist", "public/assets/aistudio"]
+  "exclude": ["dist", "api", "public/assets/aistudio"]
 }

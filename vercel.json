@@ -34,6 +34,18 @@
   ],
   "rewrites": [
     {
+      "source": "/api/ai/chat",
+      "destination": "/api/ai/chat"
+    },
+    {
+      "source": "/api/ai/transcribe",
+      "destination": "/api/ai/transcribe"
+    },
+    {
+      "source": "/api/ai/study-assistant",
+      "destination": "/api/ai/study-assistant"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app/api/:path*"
     },
