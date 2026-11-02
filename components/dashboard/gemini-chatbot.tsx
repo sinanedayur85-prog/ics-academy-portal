@@ -33,7 +33,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { fetchAiChatReply } from '@/lib/ai-chat-client'
+import { fetchAiChatReply, transcribeVoiceAudio } from '@/lib/ai-chat-client'
 import type { Student } from '@/components/dashboard/data'
 import { Panel, fieldClassName } from '@/components/dashboard/panel'
 import { Button } from '@/components/ui/button'
@@ -606,80 +606,80 @@ const UI_TEXT: Record<
       'Speech recognition is not supported in this browser. Please use Chrome, Safari, or Edge.',
   },
   ar: {
-    tryAsking: 'جرّب السؤال:',
-    placeholder: (personaTitle) => `اسأل ${personaTitle}...`,
-    send: 'إرسال',
-    thinking: (personaTitle) => `${personaTitle} يفكر...`,
-    analyzing: 'جارٍ إعداد الإجابة · تحليل سياق المحادثة',
-    selectPersona: 'اختر شخصية المساعد',
-    responseLang: 'لغة الإجابة:',
-    newChat: 'محادثة جديدة',
-    turnSingular: 'جولة',
-    turnPlural: 'جولات',
-    activeRole: 'الدور النشط:',
-    maintainsMemory: 'يحفظ سياق المحادثة كاملة عبر جميع الرسائل.',
-    voiceTyping: 'الإملاء الصوتي',
-    voiceListening: 'جارٍ الاستماع... تكلّم بوضوح باللغة العربية',
-    voiceStop: 'إيقاف الصوت',
+    tryAsking: 'Try asking:',
+    placeholder: (personaTitle) => `Ask ${personaTitle}...`,
+    send: 'Send',
+    thinking: (personaTitle) => `${personaTitle} is thinking...`,
+    analyzing: 'Preparing answer · Analyzing conversation history',
+    selectPersona: 'Select Chatbot Persona',
+    responseLang: 'Response Language:',
+    newChat: 'Clear Chat',
+    turnSingular: 'turn',
+    turnPlural: 'turns',
+    activeRole: 'Active System Role:',
+    maintainsMemory: 'Maintains multi-turn memory across your conversation.',
+    voiceTyping: 'Voice Typing',
+    voiceListening: 'Listening... Speak clearly',
+    voiceStop: 'Stop Voice',
     voiceNotSupported:
-      'خاصية التعرف على الصوت غير مدعومة في هذا المتصفح. يُرجى استخدام متصفح Chrome أو Safari أو Edge.',
+      'Speech recognition is not supported in this browser. Please use Chrome, Safari, or Edge.',
   },
   ur: {
-    tryAsking: 'یہ سوال پوچھ کر دیکھیں:',
-    placeholder: (personaTitle) => `${personaTitle} سے پوچھیں...`,
-    send: 'ارسال کریں',
-    thinking: (personaTitle) => `${personaTitle} جواب تیار کر رہا ہے...`,
-    analyzing: 'علمی جواب تیار کیا جا رہا ہے · گفتگو کے سیاق و سباق کا جائزہ',
-    selectPersona: 'چیٹ بوٹ رہنما منتخب کریں',
-    responseLang: 'جواب کی زبان:',
-    newChat: 'نئی گفتگو',
-    turnSingular: 'سوال',
-    turnPlural: 'سوالات',
-    activeRole: 'فعال کردار:',
-    maintainsMemory: 'پوری گفتگو کے تمام پچھلے سوالات اور سیاق و سباق کو یاد رکھتا ہے۔',
-    voiceTyping: 'آواز سے لکھیں',
-    voiceListening: 'اردو میں سنا جا رہا ہے... براہِ کرم واضح بولیں',
-    voiceStop: 'آواز روکیں',
+    tryAsking: 'Try asking:',
+    placeholder: (personaTitle) => `Ask ${personaTitle}...`,
+    send: 'Send',
+    thinking: (personaTitle) => `${personaTitle} is thinking...`,
+    analyzing: 'Preparing answer · Analyzing conversation history',
+    selectPersona: 'Select Chatbot Persona',
+    responseLang: 'Response Language:',
+    newChat: 'Clear Chat',
+    turnSingular: 'turn',
+    turnPlural: 'turns',
+    activeRole: 'Active System Role:',
+    maintainsMemory: 'Maintains multi-turn memory across your conversation.',
+    voiceTyping: 'Voice Typing',
+    voiceListening: 'Listening... Speak clearly',
+    voiceStop: 'Stop Voice',
     voiceNotSupported:
-      'اس براؤزر میں وائس ٹائپنگ دستیاب نہیں ہے۔ براہِ کرم Chrome، Safari یا Edge استعمال کریں۔',
+      'Speech recognition is not supported in this browser. Please use Chrome, Safari, or Edge.',
   },
   es: {
-    tryAsking: 'Prueba a preguntar:',
-    placeholder: (personaTitle) => `Pregunta a ${personaTitle}...`,
-    send: 'Enviar',
-    thinking: (personaTitle) => `${personaTitle} está pensando...`,
-    analyzing: 'Preparando respuesta académica · Analizando el historial de conversación',
-    selectPersona: 'Seleccionar Mentor del Chatbot',
-    responseLang: 'Idioma de respuesta:',
-    newChat: 'Nuevo Chat',
-    turnSingular: 'turno',
-    turnPlural: 'turnos',
-    activeRole: 'Rol activo del sistema:',
-    maintainsMemory: 'Mantiene la memoria contextual durante toda la conversación.',
-    voiceTyping: 'Dictado por voz',
-    voiceListening: 'Escuchando en español... Habla con claridad',
-    voiceStop: 'Detener voz',
+    tryAsking: 'Try asking:',
+    placeholder: (personaTitle) => `Ask ${personaTitle}...`,
+    send: 'Send',
+    thinking: (personaTitle) => `${personaTitle} is thinking...`,
+    analyzing: 'Preparing answer · Analyzing conversation history',
+    selectPersona: 'Select Chatbot Persona',
+    responseLang: 'Response Language:',
+    newChat: 'Clear Chat',
+    turnSingular: 'turn',
+    turnPlural: 'turns',
+    activeRole: 'Active System Role:',
+    maintainsMemory: 'Maintains multi-turn memory across your conversation.',
+    voiceTyping: 'Voice Typing',
+    voiceListening: 'Listening... Speak clearly',
+    voiceStop: 'Stop Voice',
     voiceNotSupported:
-      'El reconocimiento de voz no es compatible con este navegador. Utiliza Chrome, Safari o Edge.',
+      'Speech recognition is not supported in this browser. Please use Chrome, Safari, or Edge.',
   },
   de: {
-    tryAsking: 'Beispielfragen:',
-    placeholder: (personaTitle) => `Fragen Sie ${personaTitle}...`,
-    send: 'Senden',
-    thinking: (personaTitle) => `${personaTitle} denkt nach...`,
-    analyzing: 'Antwort wird erstellt · Gesprächsverlauf wird analysiert',
-    selectPersona: 'Chatbot-Mentor auswählen',
-    responseLang: 'Antwortsprache:',
-    newChat: 'Neuer Chat',
-    turnSingular: 'Frage',
-    turnPlural: 'Fragen',
-    activeRole: 'Aktive Systemrolle:',
-    maintainsMemory: 'Bewahrt den gesamten Gesprächskontext über mehrere Fragen hinweg.',
-    voiceTyping: 'Spracheingabe',
-    voiceListening: 'Hört auf Deutsch zu... Bitte deutlich sprechen',
-    voiceStop: 'Stopp',
+    tryAsking: 'Try asking:',
+    placeholder: (personaTitle) => `Ask ${personaTitle}...`,
+    send: 'Send',
+    thinking: (personaTitle) => `${personaTitle} is thinking...`,
+    analyzing: 'Preparing answer · Analyzing conversation history',
+    selectPersona: 'Select Chatbot Persona',
+    responseLang: 'Response Language:',
+    newChat: 'Clear Chat',
+    turnSingular: 'turn',
+    turnPlural: 'turns',
+    activeRole: 'Active System Role:',
+    maintainsMemory: 'Maintains multi-turn memory across your conversation.',
+    voiceTyping: 'Voice Typing',
+    voiceListening: 'Listening... Speak clearly',
+    voiceStop: 'Stop Voice',
     voiceNotSupported:
-      'Spracherkennung wird in diesem Browser nicht unterstützt. Bitte verwenden Sie Chrome, Safari oder Edge.',
+      'Speech recognition is not supported in this browser. Please use Chrome, Safari, or Edge.',
   },
 }
 
@@ -692,15 +692,15 @@ const MODEL_TIERS: {
 }[] = [
   {
     id: 'flash-lite',
-    label: 'Gemini 3.1 Flash-Lite',
-    modelBadge: 'gemini-3.1-flash-lite',
+    label: 'Fast Mode',
+    modelBadge: 'Fast Mode',
     description: 'Fast Instant Responses (~1.3s)',
     icon: Zap,
   },
   {
     id: 'flash',
-    label: 'Gemini 3.8 Flash',
-    modelBadge: 'gemini-3.8-flash',
+    label: 'Deep Scholar',
+    modelBadge: 'Deep Scholar',
     description: 'Deep Scholarly Tasks (Auto-fallback)',
     icon: Sparkles,
   },
@@ -1225,7 +1225,15 @@ export function GeminiChatbot({
 
   // Voice Input (Speech-to-Text) State
   const [isListening, setIsListening] = useState(false)
+  const [isTranscribingVoice, setIsTranscribingVoice] = useState(false)
   const recognitionRef = useRef<any>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const mediaStreamRef = useRef<MediaStream | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const silenceTimerRef = useRef<number | null>(null)
+  const speechGotTranscriptRef = useRef<boolean>(false)
+  const stopVoiceCaptureRef = useRef<(() => void) | null>(null)
   const speechBaseTextRef = useRef<string>('')
 
   // Direct DOCX & PDF Export State when "Save Note" is clicked
@@ -1250,9 +1258,12 @@ export function GeminiChatbot({
     el.style.height = `${nextHeight}px`
   }, [input, language])
 
-  // Clean up voice recognition on unmount
+  // Clean up voice recognition and audio streams on unmount
   useEffect(() => {
     return () => {
+      if (stopVoiceCaptureRef.current) {
+        stopVoiceCaptureRef.current()
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop()
@@ -1358,11 +1369,16 @@ export function GeminiChatbot({
   }, [currentMessages, sending])
 
   async function handleSendMessage(customText?: string) {
-    if (isListening && recognitionRef.current) {
-      try {
-        recognitionRef.current.stop()
-      } catch {
-        // Ignore
+    if (isListening) {
+      if (stopVoiceCaptureRef.current) {
+        stopVoiceCaptureRef.current()
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop()
+        } catch {
+          // Ignore
+        }
       }
       setIsListening(false)
     }
@@ -1385,11 +1401,14 @@ export function GeminiChatbot({
 
     const isAutoLanguage = responseLanguagePreference === 'auto'
     const effectiveLanguage: ChatLanguage = isAutoLanguage
-      ? detectInputLanguage(textToSend, language, previousHistory)
+      ? detectInputLanguage(textToSend, 'en', previousHistory)
       : responseLanguagePreference
 
-    if (effectiveLanguage !== language) {
+    // In Auto mode, keep the UI language in English ('en') so starter chips, placeholders, and error banners never flip to Arabic/RTL
+    if (!isAutoLanguage && effectiveLanguage !== language) {
       setLanguage(effectiveLanguage)
+    } else if (isAutoLanguage && language !== 'en') {
+      setLanguage('en')
     }
 
     const userMsg: ChatTurnMessage = {
@@ -1464,11 +1483,16 @@ export function GeminiChatbot({
   }
 
   function handleSelectLanguage(newPref: ResponseLanguagePreference) {
-    if (isListening && recognitionRef.current) {
-      try {
-        recognitionRef.current.stop()
-      } catch {
-        // Ignore
+    if (isListening) {
+      if (stopVoiceCaptureRef.current) {
+        stopVoiceCaptureRef.current()
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop()
+        } catch {
+          // Ignore
+        }
       }
       setIsListening(false)
     }
@@ -1479,7 +1503,9 @@ export function GeminiChatbot({
 
     setResponseLanguagePreference(resolvedPref)
 
-    if (resolvedPref !== 'auto') {
+    if (resolvedPref === 'auto') {
+      setLanguage('en')
+    } else {
       setLanguage(resolvedPref)
       setThreads((prev) => {
         const updated = { ...prev }
@@ -1503,39 +1529,56 @@ export function GeminiChatbot({
     }
   }
 
-  function toggleVoiceInput() {
-    if (isListening) {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop()
-        } catch {
-          // Ignore
-        }
+  function cleanupAudioResources() {
+    if (silenceTimerRef.current) {
+      window.clearInterval(silenceTimerRef.current)
+      silenceTimerRef.current = null
+    }
+    if (audioContextRef.current) {
+      try {
+        void audioContextRef.current.close()
+      } catch {
+        // Ignore
       }
-      setIsListening(false)
+      audioContextRef.current = null
+    }
+    if (mediaStreamRef.current) {
+      try {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop())
+      } catch {
+        // Ignore
+      }
+      mediaStreamRef.current = null
+    }
+  }
+
+  async function toggleVoiceInput() {
+    if (isListening) {
+      if (stopVoiceCaptureRef.current) {
+        stopVoiceCaptureRef.current()
+      } else {
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.stop()
+          } catch {
+            // Ignore
+          }
+        }
+        cleanupAudioResources()
+        setIsListening(false)
+      }
       return
     }
 
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined' || isTranscribingVoice) return
 
-    const SpeechRecognitionClass =
-      (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any }).SpeechRecognition ||
-      (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any }).webkitSpeechRecognition
+    setErrorMessage(null)
+    speechBaseTextRef.current = input.trim()
+    speechGotTranscriptRef.current = false
+    audioChunksRef.current = []
 
-    if (!SpeechRecognitionClass) {
-      setErrorMessage(UI_TEXT[language].voiceNotSupported)
-      return
-    }
-
-    const micDeniedMessages: Record<ChatLanguage, string> = {
-      ml: 'Microphone access is blocked. Please allow microphone permission in your browser site settings or open the app in a new tab.',
-      ar: 'لم يتم السماح بالوصول إلى الميكروفون. يُرجى تفعيل إذن الميكروفون في إعدادات المتصفح.',
-      ur: 'مائیکروفون کی اجازت دستیاب نہیں ہے۔ براہِ کرم براؤزر ایڈریس بار کی سیٹنگز میں مائیکروفون کو Allow کریں۔',
-      es: 'Se denegó el acceso al micrófono. Por favor, permite el uso del micrófono en la configuración del navegador.',
-      de: 'Der Mikrofonzugriff wurde verweigert. Bitte erlauben Sie den Mikrofonzugriff in den Browsereinstellungen.',
-      en: 'Microphone access is blocked. Please allow microphone permission in your browser site settings (address bar icon) or open the app in a new tab.',
-    }
-
+    const activeSpeechLang =
+      responseLanguagePreference === 'auto' ? 'en' : responseLanguagePreference
     const speechLangMap: Record<ChatLanguage, string> = {
       ml: 'ml-IN',
       ar: 'ar-SA',
@@ -1545,71 +1588,284 @@ export function GeminiChatbot({
       en: 'en-IN',
     }
 
-    const startRecognitionInstance = (hasRetriedAfterPrompt = false) => {
+    const SpeechRecognitionClass =
+      (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any })
+        .SpeechRecognition ||
+      (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any })
+        .webkitSpeechRecognition
+
+    // Primary Engine: MediaRecorder + Gemini Server Audio Transcription (works reliably across iframes, mobile browsers & Android WebViews)
+    if (
+      navigator.mediaDevices &&
+      typeof navigator.mediaDevices.getUserMedia === 'function' &&
+      typeof window.MediaRecorder !== 'undefined'
+    ) {
       try {
-        const recognition = new SpeechRecognitionClass()
-        recognition.continuous = true
-        recognition.interimResults = true
-        recognition.lang = speechLangMap[language] || 'en-IN'
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        })
+        mediaStreamRef.current = stream
 
-        speechBaseTextRef.current = input.trim()
-
-        recognition.onstart = () => {
-          setIsListening(true)
-          setErrorMessage(null)
+        const preferredMimeTypes = [
+          'audio/webm;codecs=opus',
+          'audio/webm',
+          'audio/mp4',
+          'audio/ogg;codecs=opus',
+        ]
+        let chosenMimeType = ''
+        for (const candidate of preferredMimeTypes) {
+          if (
+            typeof MediaRecorder.isTypeSupported === 'function' &&
+            MediaRecorder.isTypeSupported(candidate)
+          ) {
+            chosenMimeType = candidate
+            break
+          }
         }
 
-        recognition.onresult = (event: any) => {
-          let transcript = ''
-          for (let i = 0; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript
-          }
-          const base = speechBaseTextRef.current
-          const cleanSpeech = transcript.trim()
-          if (cleanSpeech) {
-            setInput(base ? `${base} ${cleanSpeech}` : cleanSpeech)
+        const recorder = chosenMimeType
+          ? new MediaRecorder(stream, { mimeType: chosenMimeType })
+          : new MediaRecorder(stream)
+        mediaRecorderRef.current = recorder
+
+        recorder.ondataavailable = (ev: BlobEvent) => {
+          if (ev.data && ev.data.size > 0) {
+            audioChunksRef.current.push(ev.data)
           }
         }
 
-        recognition.onerror = async (event: any) => {
-          const errCode = event?.error
-          if (errCode === 'not-allowed' || errCode === 'service-not-allowed') {
-            if (!hasRetriedAfterPrompt && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-              try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-                stream.getTracks().forEach((track) => track.stop())
-                startRecognitionInstance(true)
-                return
-              } catch {
-                // Permission was denied or blocked by iframe/browser policy; show friendly UI notice without console error
+        const stopVoiceCapture = () => {
+          stopVoiceCaptureRef.current = null
+          if (recognitionRef.current) {
+            try {
+              recognitionRef.current.stop()
+            } catch {
+              // Ignore
+            }
+            recognitionRef.current = null
+          }
+          if (
+            mediaRecorderRef.current &&
+            mediaRecorderRef.current.state !== 'inactive'
+          ) {
+            try {
+              mediaRecorderRef.current.stop()
+            } catch {
+              cleanupAudioResources()
+              setIsListening(false)
+            }
+          } else {
+            cleanupAudioResources()
+            setIsListening(false)
+          }
+        }
+
+        stopVoiceCaptureRef.current = stopVoiceCapture
+
+        recorder.onstop = async () => {
+          const recordedMime = recorder.mimeType || chosenMimeType || 'audio/webm'
+          const chunks = [...audioChunksRef.current]
+          audioChunksRef.current = []
+          cleanupAudioResources()
+          setIsListening(false)
+
+          // If live SpeechRecognition already captured the transcript, no server round-trip needed
+          if (speechGotTranscriptRef.current || chunks.length === 0) {
+            return
+          }
+
+          const blob = new Blob(chunks, { type: recordedMime })
+          if (blob.size < 600) {
+            return
+          }
+
+          setIsTranscribingVoice(true)
+          try {
+            const base64Audio = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader()
+              reader.onloadend = () => {
+                const res = typeof reader.result === 'string' ? reader.result : ''
+                const commaIdx = res.indexOf(',')
+                resolve(commaIdx >= 0 ? res.slice(commaIdx + 1) : res)
+              }
+              reader.onerror = () => reject(new Error('Failed to read recorded audio'))
+              reader.readAsDataURL(blob)
+            })
+
+            if (!base64Audio) return
+
+            const result = await transcribeVoiceAudio({
+              audioBase64: base64Audio,
+              mimeType: recordedMime.split(';')[0] || 'audio/webm',
+              language:
+                responseLanguagePreference === 'auto'
+                  ? 'auto'
+                  : responseLanguagePreference,
+            })
+
+            const cleanText = String(result.text ?? '').trim()
+            if (cleanText) {
+              const base = speechBaseTextRef.current
+              setInput(base ? `${base} ${cleanText}` : cleanText)
+            }
+          } catch (err) {
+            console.warn('Voice transcription failed:', err)
+            setErrorMessage(
+              'Could not transcribe voice clearly. Please try speaking again or type your message.',
+            )
+          } finally {
+            setIsTranscribingVoice(false)
+          }
+        }
+
+        recorder.start(250)
+        setIsListening(true)
+        setErrorMessage(null)
+
+        // Set up automatic silence detection so voice recording auto-completes after the user speaks and pauses
+        try {
+          const AudioCtx =
+            window.AudioContext ||
+            (window as unknown as { webkitAudioContext?: typeof AudioContext })
+              .webkitAudioContext
+          if (AudioCtx) {
+            const audioCtx = new AudioCtx()
+            audioContextRef.current = audioCtx
+            const source = audioCtx.createMediaStreamSource(stream)
+            const analyser = audioCtx.createAnalyser()
+            analyser.fftSize = 512
+            source.connect(analyser)
+            const dataArray = new Uint8Array(analyser.frequencyBinCount)
+            let hasDetectedSpeech = false
+            let silenceStartMs = 0
+            const startedAtMs = Date.now()
+
+            silenceTimerRef.current = window.setInterval(() => {
+              analyser.getByteTimeDomainData(dataArray)
+              let sumSquares = 0
+              for (let i = 0; i < dataArray.length; i++) {
+                const normalized = (dataArray[i] - 128) / 128
+                sumSquares += normalized * normalized
+              }
+              const rms = Math.sqrt(sumSquares / dataArray.length)
+              const now = Date.now()
+
+              if (rms > 0.02) {
+                hasDetectedSpeech = true
+                silenceStartMs = 0
+              } else if (hasDetectedSpeech) {
+                if (!silenceStartMs) {
+                  silenceStartMs = now
+                } else if (now - silenceStartMs > 2100) {
+                  stopVoiceCapture()
+                }
+              }
+
+              // Safety max duration: 30 seconds
+              if (now - startedAtMs > 30000) {
+                stopVoiceCapture()
+              }
+            }, 150)
+          }
+        } catch {
+          // Silence detection is optional; manual Stop button remains available
+        }
+
+        // Optional Live Interim Preview via Web Speech API (all errors ignored while MediaRecorder is active)
+        if (SpeechRecognitionClass) {
+          try {
+            const recognition = new SpeechRecognitionClass()
+            recognition.continuous = true
+            recognition.interimResults = true
+            recognition.lang = speechLangMap[activeSpeechLang] || 'en-IN'
+            recognition.onresult = (event: any) => {
+              let transcript = ''
+              for (let i = 0; i < event.results.length; i++) {
+                transcript += event.results[i][0].transcript
+              }
+              const cleanSpeech = transcript.trim()
+              if (cleanSpeech) {
+                speechGotTranscriptRef.current = true
+                const base = speechBaseTextRef.current
+                setInput(base ? `${base} ${cleanSpeech}` : cleanSpeech)
               }
             }
-            setErrorMessage(micDeniedMessages[language])
-          } else if (errCode === 'no-speech' || errCode === 'aborted') {
-            // Normal timeout or user-initiated stop
-          } else if (errCode) {
-            setErrorMessage(
-              language === 'ur'
-                ? `وائس ٹائپنگ دستیاب نہیں ہے (${errCode})۔`
-                : `Voice typing unavailable (${errCode}).`,
-            )
+            recognition.onerror = () => {
+              // Completely ignore Web Speech API errors because MediaRecorder + Gemini Transcription handles the audio
+            }
+            recognition.start()
+            recognitionRef.current = recognition
+          } catch {
+            // Ignore Web Speech initialization errors
           }
-          setIsListening(false)
         }
 
-        recognition.onend = () => {
-          setIsListening(false)
-        }
-
-        recognition.start()
-        recognitionRef.current = recognition
+        return
       } catch {
-        setIsListening(false)
-        setErrorMessage(micDeniedMessages[language])
+        cleanupAudioResources()
+        // If getUserMedia threw or was blocked, fall through to Web Speech API fallback below
       }
     }
 
-    startRecognitionInstance(false)
+    // Fallback if MediaRecorder/getUserMedia was not available
+    if (!SpeechRecognitionClass) {
+      setErrorMessage(
+        'Microphone access is blocked. Please allow microphone permission in your browser site settings or open the app in a new tab.',
+      )
+      return
+    }
+
+    try {
+      const recognition = new SpeechRecognitionClass()
+      recognition.continuous = true
+      recognition.interimResults = true
+      recognition.lang = speechLangMap[activeSpeechLang] || 'en-IN'
+
+      recognition.onstart = () => {
+        setIsListening(true)
+        setErrorMessage(null)
+      }
+
+      recognition.onresult = (event: any) => {
+        let transcript = ''
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript
+        }
+        const base = speechBaseTextRef.current
+        const cleanSpeech = transcript.trim()
+        if (cleanSpeech) {
+          setInput(base ? `${base} ${cleanSpeech}` : cleanSpeech)
+        }
+      }
+
+      recognition.onerror = (event: any) => {
+        const errCode = event?.error
+        if (errCode === 'not-allowed' || errCode === 'service-not-allowed') {
+          setErrorMessage(
+            'Microphone access is blocked. Please allow microphone permission in your browser site settings (address bar icon) or open the app in a new tab.',
+          )
+        } else if (errCode !== 'no-speech' && errCode !== 'aborted' && errCode) {
+          setErrorMessage(`Voice typing unavailable (${errCode}).`)
+        }
+        setIsListening(false)
+      }
+
+      recognition.onend = () => {
+        setIsListening(false)
+      }
+
+      recognition.start()
+      recognitionRef.current = recognition
+    } catch {
+      setIsListening(false)
+      setErrorMessage(
+        'Microphone access is blocked. Please allow microphone permission in your browser site settings.',
+      )
+    }
   }
 
   function handleCopyMessage(msg: ChatTurnMessage) {
@@ -1737,18 +1993,20 @@ export function GeminiChatbot({
   }
 
   const turnCount = Math.max(0, currentMessages.filter((m) => m.role === 'user').length)
-  const isRtlLang = language === 'ar' || language === 'ur'
+  const isRtlLang = false
+  const activeStarterLang: ChatLanguage =
+    responseLanguagePreference === 'auto' ? 'en' : responseLanguagePreference
 
   return (
     <Panel
       id="gemini-chatbot"
-      eyebrow="Multi-Turn Conversational AI"
+      eyebrow="Da'wa College · AI Scholar"
       title="Da'wa College Chatbot"
       icon={MessageSquareText}
       className={cn(
         'border-lime/30',
         mobileFullScreen &&
-          'rounded-none border-0 bg-transparent p-0 sm:p-0 md:p-0 [&>header]:hidden lg:rounded-2xl lg:border lg:border-lime/30 lg:bg-card lg:p-6 lg:[&>header]:flex',
+          'max-lg:flex max-lg:flex-1 max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden rounded-none border-0 bg-transparent p-0 sm:p-0 md:p-0 [&>header]:hidden lg:rounded-2xl lg:border lg:border-lime/30 lg:bg-card lg:p-6 lg:[&>header]:flex',
       )}
       action={
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
@@ -1797,7 +2055,7 @@ export function GeminiChatbot({
 
           <div
             role="group"
-            aria-label="Select Gemini model tier"
+            aria-label="Select response speed tier"
             className="hidden sm:inline-flex max-w-full flex-wrap rounded-xl border border-border bg-background/70 p-1"
           >
             {MODEL_TIERS.map((tier) => {
@@ -1844,7 +2102,13 @@ export function GeminiChatbot({
         </div>
       }
     >
-      <div className={cn('grid min-w-0 gap-6 lg:grid-cols-12', mobileFullScreen && 'gap-0 lg:gap-6')}>
+      <div
+        className={cn(
+          'grid min-w-0 gap-6 lg:grid-cols-12',
+          mobileFullScreen &&
+            'max-lg:flex max-lg:flex-1 max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden gap-0 lg:grid lg:gap-6',
+        )}
+      >
         {/* Left Sidebar: Chatbot Roles (System Instructions) & Language Controls */}
         <div
           className={cn(
@@ -1999,88 +2263,41 @@ export function GeminiChatbot({
           className={cn(
             'flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-background/60 lg:col-span-8',
             mobileFullScreen &&
-              'h-[calc(100dvh-8.25rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] sm:h-[calc(100dvh-9.25rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] lg:h-auto rounded-none border-0 bg-background/95 lg:rounded-2xl lg:border lg:border-border lg:bg-background/60',
+              'max-lg:flex-1 max-lg:min-h-0 max-lg:h-full rounded-none border-0 bg-background/95 lg:h-auto lg:rounded-2xl lg:border lg:border-border lg:bg-background/60',
           )}
         >
-          {/* Mobile & Tablet Gemini-App Compact Header + Persona & Language Switcher */}
+          {/* Mobile & Tablet Clean Fixed Header: Mentor Title, Role Tabs & Language Bar (Never Scrolls) */}
           {mobileFullScreen ? (
-            <div className="flex flex-col gap-2 border-b border-border/80 bg-card/75 px-3.5 py-2.5 backdrop-blur-md lg:hidden">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-lime/15 text-lime">
+            <div className="flex shrink-0 flex-col gap-2 border-b border-border/80 bg-card/90 px-3.5 py-2.5 backdrop-blur-md lg:hidden">
+              {/* Row 1: Full Mentor Title & Subtitle + Clear Button */}
+              <div className="flex items-center justify-between gap-2.5">
+                <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-lime/25 bg-lime/15 text-lime">
                     <currentPersona.icon className="size-4" aria-hidden="true" />
                   </span>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate text-xs font-bold text-foreground">
-                        {currentPersona.title}
-                      </span>
-                      <span className="rounded-md bg-lime/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-lime">
-                        Gemini AI
-                      </span>
-                    </div>
-                    <p className="truncate text-[10.5px] text-muted-foreground">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="truncate text-xs font-bold text-foreground sm:text-sm">
+                      {currentPersona.title}
+                    </h2>
+                    <p className="truncate text-[11px] font-medium text-lime/90">
                       {currentPersona.subTitle}
                     </p>
                   </div>
                 </div>
 
-                {/* Compact Language & Reset Controls */}
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <div
-                    role="group"
-                    aria-label="Select chat language"
-                    className="inline-flex items-center rounded-lg border border-border bg-background/80 p-0.5"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => handleSelectLanguage('auto')}
-                      className={cn(
-                        'rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold transition-colors',
-                        responseLanguagePreference === 'auto'
-                          ? 'bg-lime text-primary-foreground'
-                          : 'text-muted-foreground hover:text-foreground',
-                      )}
-                    >
-                      Auto
-                    </button>
-                    {LANGUAGES.map((lang) => {
-                      const active = responseLanguagePreference === lang.id
-                      return (
-                        <button
-                          key={lang.id}
-                          type="button"
-                          onClick={() => handleSelectLanguage(lang.id)}
-                          className={cn(
-                            'rounded-md px-1.5 py-0.5 text-[10.5px] font-medium transition-colors',
-                            lang.id === 'ml' && 'font-malayalam',
-                            lang.id === 'ar' && 'font-arabic',
-                            lang.id === 'ur' && 'font-urdu text-xs leading-none',
-                            active
-                              ? 'bg-primary text-primary-foreground font-semibold'
-                              : 'text-muted-foreground hover:text-foreground',
-                          )}
-                        >
-                          {lang.id === 'en' ? 'EN' : lang.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleResetThread}
-                    disabled={sending || currentMessages.length <= 1}
-                    title="New Chat / Clear History"
-                    className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border bg-background/90 text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive disabled:opacity-40"
-                  >
-                    <RotateCcw className="size-3.5" aria-hidden="true" />
-                    <span className="sr-only">New Chat</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleResetThread}
+                  disabled={sending || currentMessages.length <= 1}
+                  title="New Chat / Clear History"
+                  className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg border border-border bg-background/90 px-2.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive disabled:opacity-40"
+                >
+                  <RotateCcw className="size-3" aria-hidden="true" />
+                  <span>Clear</span>
+                </button>
               </div>
 
-              {/* Horizontal Scrollable Persona Selector Chips (Gemini App Style) */}
+              {/* Row 2: Horizontal Scrollable Mentor Role Chips */}
               <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 {PERSONAS.map((persona) => {
                   const active = role === persona.id
@@ -2117,13 +2334,59 @@ export function GeminiChatbot({
                   )
                 })}
               </div>
+
+              {/* Row 3: Clean Horizontal Scrollable Language Selector */}
+              <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Reply:
+                </span>
+                <div
+                  role="group"
+                  aria-label="Select chat language"
+                  className="inline-flex shrink-0 items-center gap-0.5 rounded-lg border border-border/80 bg-background/80 p-0.5"
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleSelectLanguage('auto')}
+                    className={cn(
+                      'rounded-md px-2 py-0.5 text-[10.5px] font-semibold transition-colors whitespace-nowrap',
+                      responseLanguagePreference === 'auto'
+                        ? 'bg-lime text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    Auto
+                  </button>
+                  {LANGUAGES.map((lang) => {
+                    const active = responseLanguagePreference === lang.id
+                    return (
+                      <button
+                        key={lang.id}
+                        type="button"
+                        onClick={() => handleSelectLanguage(lang.id)}
+                        className={cn(
+                          'rounded-md px-2 py-0.5 text-[10.5px] font-medium transition-colors whitespace-nowrap',
+                          lang.id === 'ml' && 'font-malayalam',
+                          lang.id === 'ar' && 'font-arabic',
+                          lang.id === 'ur' && 'font-urdu text-xs leading-none',
+                          active
+                            ? 'bg-primary text-primary-foreground font-semibold'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        {lang.id === 'en' ? 'EN' : lang.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
           ) : null}
 
           {/* Thread Header (Desktop & Non-Fullscreen) */}
           <div
             className={cn(
-              'flex flex-wrap items-center justify-between gap-2 border-b border-border px-3.5 py-3 sm:px-4',
+              'flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-3.5 py-3 sm:px-4',
               mobileFullScreen && 'hidden lg:flex',
             )}
           >
@@ -2145,9 +2408,6 @@ export function GeminiChatbot({
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <span className="hidden sm:inline font-mono text-[11px] text-lime">
-                {modelTier === 'flash-lite' ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash'}
-              </span>
               <button
                 type="button"
                 onClick={handleResetThread}
@@ -2161,11 +2421,11 @@ export function GeminiChatbot({
             </div>
           </div>
 
-          {/* Scrollable Messages Container */}
+          {/* Scrollable Messages Container — ONLY THIS BOX SCROLLS */}
           <div
             ref={threadContainerRef}
             className={cn(
-              'relative flex flex-col gap-4 overflow-y-auto p-3.5 sm:p-4 md:p-5',
+              'relative flex flex-col gap-3.5 overflow-y-auto overscroll-y-contain p-3.5 sm:p-4 md:p-5',
               mobileFullScreen
                 ? 'min-h-0 flex-1 lg:h-[430px] lg:flex-none'
                 : 'h-[390px] sm:h-[430px]',
@@ -2173,14 +2433,14 @@ export function GeminiChatbot({
             aria-live="polite"
           >
             {mobileFullScreen && turnCount === 0 ? (
-              <div className="mb-1 flex flex-col gap-1 rounded-2xl border border-lime/25 bg-gradient-to-br from-lime/10 via-cyan/5 to-transparent p-4 lg:hidden">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-lime">
-                  Da&apos;wa College AI · {currentPersona.badge}
+              <div className="flex flex-col gap-1 rounded-2xl border border-lime/25 bg-gradient-to-br from-lime/10 via-cyan/5 to-transparent px-3.5 py-3 lg:hidden">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-lime">
+                  Da&apos;wa College · {currentPersona.badge}
                 </p>
-                <h2 className="font-display text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+                <h3 className="font-display text-base font-bold tracking-tight text-foreground sm:text-lg">
                   Assalamu Alaikum, <span className="text-lime">{student.firstName}</span>
-                </h2>
-                <p className="text-xs leading-relaxed text-muted-foreground">
+                </h3>
+                <p className="text-[11.5px] leading-relaxed text-muted-foreground">
                   {currentPersona.description}
                 </p>
               </div>
@@ -2252,9 +2512,6 @@ export function GeminiChatbot({
                             minute: '2-digit',
                           })}
                         </span>
-                        {!isUser && msg.modelUsed ? (
-                          <span className="font-mono text-lime">{msg.modelUsed}</span>
-                        ) : null}
                       </div>
 
                       {!isUser ? (
@@ -2334,115 +2591,107 @@ export function GeminiChatbot({
             ) : null}
           </div>
 
-          {/* Starter Prompts Bar */}
-          <div
-            dir={isRtlLang ? 'rtl' : 'ltr'}
-            className={cn(
-              'border-t border-border/60 bg-background/30 px-4 py-2',
-              isRtlLang && 'text-right',
-            )}
-          >
-            <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-              <span
-                className={cn(
-                  'shrink-0 text-[11px] font-semibold text-muted-foreground',
-                  language === 'ml' && 'font-malayalam',
-                  language === 'ar' && 'font-arabic',
-                  language === 'ur' && 'font-urdu text-xs',
+          {/* Pinned Bottom Composer Area (Starter Prompts + Voice Banner + Input/Mic Bar — Never Scrolls) */}
+          <div className="shrink-0 bg-card/90 backdrop-blur-md">
+            {/* Starter Prompts Bar */}
+            <div
+              dir="ltr"
+              className="border-t border-border/60 bg-background/30 px-3.5 py-1.5 text-left"
+            >
+              <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
+                  {UI_TEXT.en.tryAsking}
+                </span>
+                {(currentPersona.starters[activeStarterLang] ?? currentPersona.starters.en).map(
+                  (starter) => (
+                    <button
+                      key={starter.label}
+                      type="button"
+                      disabled={sending}
+                      onClick={() => void handleSendMessage(starter.prompt)}
+                      className={cn(
+                        'shrink-0 rounded-full border border-border/80 bg-background/80 px-3 py-1 text-xs font-medium text-foreground/90 transition-colors hover:border-lime/50 hover:bg-lime/10 disabled:opacity-50',
+                        activeStarterLang === 'ml' && 'font-malayalam',
+                        activeStarterLang === 'ar' && 'font-arabic',
+                        activeStarterLang === 'ur' && 'font-urdu text-sm',
+                      )}
+                    >
+                      {starter.label}
+                    </button>
+                  ),
                 )}
-              >
-                {UI_TEXT[language].tryAsking}
-              </span>
-              {(currentPersona.starters[language] ?? currentPersona.starters.en).map((starter) => (
-                <button
-                  key={starter.label}
-                  type="button"
-                  disabled={sending}
-                  onClick={() => void handleSendMessage(starter.prompt)}
-                  className={cn(
-                    'shrink-0 rounded-full border border-border/80 bg-background/80 px-3 py-1 text-xs font-medium text-foreground/90 transition-colors hover:border-lime/50 hover:bg-lime/10 disabled:opacity-50',
-                    language === 'ml' && 'font-malayalam',
-                    language === 'ar' && 'font-arabic',
-                    language === 'ur' && 'font-urdu text-sm',
-                  )}
-                >
-                  {starter.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Error Banner if any */}
-          {errorMessage ? (
-            <div
-              role="alert"
-              className="mx-4 mt-2 flex items-center justify-between gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-3.5 py-2 text-xs text-destructive"
-            >
-              <span className={cn(language === 'ur' && 'font-urdu text-sm')}>{errorMessage}</span>
-              <button
-                type="button"
-                onClick={() => setErrorMessage(null)}
-                className="font-sans font-semibold underline whitespace-nowrap shrink-0"
-              >
-                Dismiss
-              </button>
-            </div>
-          ) : null}
-
-          {/* Active Voice Listening Banner */}
-          {isListening ? (
-            <div
-              role="status"
-              aria-live="polite"
-              dir={isRtlLang ? 'rtl' : 'ltr'}
-              className="flex items-center justify-between gap-3 border-t border-cyan/35 bg-cyan/10 px-4 py-2 text-xs text-cyan"
-            >
-              <div className="flex items-center gap-2">
-                <span className="relative flex size-2.5">
-                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-cyan opacity-75" />
-                  <span className="relative inline-flex size-2.5 rounded-full bg-cyan" />
-                </span>
-                <span
-                  className={cn(
-                    'font-medium animate-pulse',
-                    language === 'ml' && 'font-malayalam',
-                    language === 'ar' && 'font-arabic',
-                    language === 'ur' && 'font-urdu text-sm',
-                  )}
-                >
-                  {UI_TEXT[language].voiceListening}
-                </span>
               </div>
-              <button
-                type="button"
-                onClick={toggleVoiceInput}
-                className={cn(
-                  'rounded-full border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-[11px] font-semibold text-cyan transition-colors hover:bg-cyan hover:text-[#081e21]',
-                  language === 'ml' && 'font-malayalam',
-                  language === 'ar' && 'font-arabic',
-                  language === 'ur' && 'font-urdu text-xs',
-                )}
-              >
-                {UI_TEXT[language].voiceStop}
-              </button>
             </div>
-          ) : null}
 
-          {/* Gemini-App Style Unified Message Input Composer */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              void handleSendMessage()
-            }}
-            className="border-t border-border/70 bg-background/40 p-3 sm:p-3.5"
-          >
-            <label htmlFor="gemini-chatbot-input" className="sr-only">
-              Type your message to the Da&apos;wa College Gemini Chatbot
-            </label>
+            {/* Error Banner if any */}
+            {errorMessage ? (
+              <div
+                role="alert"
+                dir="ltr"
+                className="mx-3.5 mt-2 flex items-center justify-between gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-3.5 py-2 text-left text-xs text-destructive"
+              >
+                <span>{errorMessage}</span>
+                <button
+                  type="button"
+                  onClick={() => setErrorMessage(null)}
+                  className="font-sans font-semibold underline whitespace-nowrap shrink-0"
+                >
+                  Dismiss
+                </button>
+              </div>
+            ) : null}
+
+            {/* Active Voice Listening / Transcribing Banner */}
+            {isListening || isTranscribingVoice ? (
+              <div
+                role="status"
+                aria-live="polite"
+                dir="ltr"
+                className="flex items-center justify-between gap-3 border-t border-cyan/35 bg-cyan/10 px-3.5 py-2 text-left text-xs text-cyan"
+              >
+                <div className="flex items-center gap-2">
+                  {isTranscribingVoice ? (
+                    <Loader2 className="size-3.5 animate-spin text-cyan" aria-hidden="true" />
+                  ) : (
+                    <span className="relative flex size-2.5">
+                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-cyan opacity-75" />
+                      <span className="relative inline-flex size-2.5 rounded-full bg-cyan" />
+                    </span>
+                  )}
+                  <span className="font-medium animate-pulse">
+                    {isTranscribingVoice
+                      ? 'Transcribing voice...'
+                      : 'Listening... Speak clearly (tap Stop when finished)'}
+                  </span>
+                </div>
+                {isListening ? (
+                  <button
+                    type="button"
+                    onClick={() => void toggleVoiceInput()}
+                    className="rounded-full border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-[11px] font-semibold text-cyan transition-colors hover:bg-cyan hover:text-[#081e21]"
+                  >
+                    {UI_TEXT.en.voiceStop}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* Unified Message Input Composer */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                void handleSendMessage()
+              }}
+              className="border-t border-border/70 bg-background/40 p-2.5 sm:p-3"
+            >
+              <label htmlFor="gemini-chatbot-input" className="sr-only">
+                Type your message to the Da&apos;wa College Chatbot
+              </label>
             <div
+              dir="ltr"
               className={cn(
                 'flex w-full items-end gap-2 rounded-[26px] border bg-card/95 pl-4 pr-2 py-1.5 shadow-sm transition-all duration-200 focus-within:bg-card',
-                isListening
+                isListening || isTranscribingVoice
                   ? 'border-cyan/70 ring-2 ring-cyan/20'
                   : 'border-border/90 focus-within:border-lime/60 focus-within:ring-2 focus-within:ring-lime/15',
               )}
@@ -2453,7 +2702,7 @@ export function GeminiChatbot({
                 rows={1}
                 maxLength={2000}
                 value={input}
-                dir={(input.trim().length > 0 ? isArabicText(input) : isRtlLang) ? 'rtl' : 'ltr'}
+                dir={input.trim().length > 0 && isArabicText(input) ? 'rtl' : 'ltr'}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -2461,14 +2710,14 @@ export function GeminiChatbot({
                     void handleSendMessage()
                   }
                 }}
-                placeholder={UI_TEXT[language].placeholder(currentPersona.title)}
+                placeholder={UI_TEXT.en.placeholder(currentPersona.title)}
                 className={cn(
-                  'min-h-[40px] max-h-36 min-w-0 flex-1 w-full resize-none border-0 bg-transparent py-2 text-sm sm:text-[15px] leading-relaxed text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0 [scrollbar-width:thin]',
-                  (input.trim().length > 0 ? isArabicText(input) : isRtlLang)
-                    ? language === 'ur' || isUrduText(input)
+                  'min-h-[40px] max-h-36 min-w-0 flex-1 w-full resize-none border-0 bg-transparent py-2 text-sm sm:text-[15px] leading-relaxed text-foreground placeholder:text-left placeholder:font-poppins placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0 [scrollbar-width:thin]',
+                  input.trim().length > 0 && isArabicText(input)
+                    ? isUrduText(input)
                       ? 'text-right font-urdu leading-[2.1]'
                       : 'text-right font-arabic'
-                    : /[\u0D00-\u0D7F]/.test(input) || (input.trim().length === 0 && language === 'ml')
+                    : /[\u0D00-\u0D7F]/.test(input)
                       ? 'text-left font-malayalam'
                       : 'text-left font-poppins',
                 )}
@@ -2479,18 +2728,22 @@ export function GeminiChatbot({
                 {/* Microphone Icon Button */}
                 <button
                   type="button"
-                  onClick={toggleVoiceInput}
-                  disabled={sending}
-                  title={isListening ? UI_TEXT[language].voiceStop : UI_TEXT[language].voiceTyping}
-                  aria-label={isListening ? UI_TEXT[language].voiceStop : UI_TEXT[language].voiceTyping}
+                  onClick={() => void toggleVoiceInput()}
+                  disabled={sending || isTranscribingVoice}
+                  title={isListening ? UI_TEXT.en.voiceStop : UI_TEXT.en.voiceTyping}
+                  aria-label={isListening ? UI_TEXT.en.voiceStop : UI_TEXT.en.voiceTyping}
                   className={cn(
                     'flex size-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan disabled:opacity-40',
                     isListening
                       ? 'bg-cyan text-[#081e21] shadow-md shadow-cyan/35 ring-2 ring-cyan/40 animate-pulse hover:bg-cyan/90'
-                      : 'text-muted-foreground hover:bg-cyan/15 hover:text-cyan active:bg-cyan active:text-[#081e21]',
+                      : isTranscribingVoice
+                        ? 'bg-cyan/20 text-cyan'
+                        : 'text-muted-foreground hover:bg-cyan/15 hover:text-cyan active:bg-cyan active:text-[#081e21]',
                   )}
                 >
-                  {isListening ? (
+                  {isTranscribingVoice ? (
+                    <Loader2 className="size-4 animate-spin text-cyan" aria-hidden="true" />
+                  ) : isListening ? (
                     <MicOff className="size-4 text-[#081e21]" aria-hidden="true" />
                   ) : (
                     <Mic className="size-4" aria-hidden="true" />
@@ -2517,8 +2770,9 @@ export function GeminiChatbot({
                   )}
                 </button>
               </div>
-            </div>
-          </form>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
 

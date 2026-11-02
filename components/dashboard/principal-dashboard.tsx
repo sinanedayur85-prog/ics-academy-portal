@@ -1090,7 +1090,7 @@ export function PrincipalDashboard() {
   ]
 
   return (
-    <div className="min-h-svh bg-background pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] text-foreground transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] lg:pb-0 lg:pl-64">
+    <div className="min-h-svh bg-background text-foreground transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] max-lg:fixed max-lg:inset-0 max-lg:flex max-lg:flex-col max-lg:overflow-hidden lg:pl-64">
       {/* Desktop Sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-background pt-[var(--safe-top)] transition-colors duration-300 lg:flex">
         <Link
@@ -1167,7 +1167,7 @@ export function PrincipalDashboard() {
       </aside>
 
       {/* Top Sticky Header (Matches Student & Usthad Header with Profile Switcher) */}
-      <header className="sticky top-0 z-40 border-b border-border bg-background/85 pt-[var(--safe-top)] backdrop-blur-md transition-colors duration-300">
+      <header className="z-40 shrink-0 border-b border-border bg-background/95 pt-[var(--safe-top)] backdrop-blur-md transition-colors duration-300 lg:sticky lg:top-0">
         <div className="flex h-16 sm:h-20 items-center justify-between gap-2 px-3.5 sm:gap-4 sm:px-5 md:px-8">
           <Link
             href="/"
@@ -1241,9 +1241,10 @@ export function PrincipalDashboard() {
         </nav>
       </header>
 
-      <CampusNotificationBar />
+      <div className="max-lg:flex-1 max-lg:min-h-0 max-lg:w-full max-lg:overflow-y-auto max-lg:overflow-x-hidden max-lg:overscroll-y-contain">
+        <CampusNotificationBar />
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-5 px-3.5 py-5 sm:gap-6 sm:px-5 sm:py-7 md:px-8 md:py-10">
+        <main className="mx-auto flex max-w-7xl flex-col gap-5 px-3.5 py-5 sm:gap-6 sm:px-5 sm:py-7 md:px-8 md:py-10">
         {/* Executive Banner & 6 Live Campus Telemetry KPIs — Shown on Monitor Tab on Phone/Tablet, Always Shown on Desktop */}
         <section
           className={cn(
@@ -2975,12 +2976,13 @@ export function PrincipalDashboard() {
             <LibraryBooks />
           </div>
         )}
-      </main>
+        </main>
+      </div>
 
       {/* PHONE & TABLET BOTTOM NAVIGATION MENU BAR FOR PRINCIPAL (Hidden on Desktop lg:) */}
       <nav
         aria-label="Principal Mobile & Tablet Bottom Navigation"
-        className="fixed inset-x-0 bottom-0 z-50 border-t border-border/85 bg-background/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl lg:hidden"
+        className="z-50 shrink-0 border-t border-border/85 bg-background/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl lg:hidden"
       >
         <div className="mx-auto grid h-16 max-w-xl grid-cols-4 items-center px-2">
           {(

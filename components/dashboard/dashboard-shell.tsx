@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
@@ -87,6 +87,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
     useState<MobileAttendanceSubTab>('personal')
   const [mobileResourceSubTab, setMobileResourceSubTab] =
     useState<MobileResourceSubTab>('digital-library')
+  const mobileScrollRef = useRef<HTMLDivElement | null>(null)
 
   const student = students.find((s) => s.id === selectedStudentId) ?? students[0]
   const leaderInfo = getLeaderInfoForStudent(student)
@@ -135,13 +136,16 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
 
   const selectMobileTab = (tab: MobileTabId) => {
     setMobileTab(tab)
+    if (mobileScrollRef.current) {
+      mobileScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' })
+    }
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 
   return (
-    <div className="min-h-svh overflow-x-hidden bg-background pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] lg:pb-0 lg:pl-64">
+    <div className="min-h-svh bg-background transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] max-lg:fixed max-lg:inset-0 max-lg:flex max-lg:flex-col max-lg:overflow-hidden lg:pl-64">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-background pt-[var(--safe-top)] transition-colors duration-300 lg:flex">
         <Link href="/" className="flex h-20 items-center gap-3 border-b border-border px-6" aria-label="ICS Academy Manhappatta home">
           <Image
@@ -195,7 +199,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
         </div>
       </aside>
 
-      <header className="sticky top-0 z-40 border-b border-border bg-background/85 pt-[var(--safe-top)] backdrop-blur-md transition-colors duration-300">
+      <header className="z-40 shrink-0 border-b border-border bg-background/95 pt-[var(--safe-top)] backdrop-blur-md transition-colors duration-300 lg:sticky lg:top-0">
         <div className="flex h-16 sm:h-20 items-center justify-between gap-2 px-3.5 sm:gap-4 sm:px-5 md:px-8">
           <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3 lg:hidden" aria-label="ICS Academy Manhappatta home">
             <Image
@@ -229,20 +233,29 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
         </div>
       </header>
 
-      <div className={cn(mobileTab === 'chatbot' && 'hidden lg:block')}>
-        <CampusNotificationBar
-          studentId={student.id}
-          classNameFilter={student.className}
-        />
-      </div>
-
-      <main
+      <div
+        ref={mobileScrollRef}
         className={cn(
-          'mx-auto flex max-w-7xl flex-col gap-5 px-3.5 py-5 sm:gap-6 sm:px-5 sm:py-7 md:px-8 md:py-10',
-          mobileTab === 'chatbot' &&
-            'gap-0 px-0 py-0 sm:gap-0 sm:px-0 sm:py-0 md:px-0 md:py-0 lg:gap-6 lg:px-8 lg:py-10',
+          'max-lg:flex-1 max-lg:min-h-0 max-lg:w-full',
+          mobileTab === 'chatbot'
+            ? 'max-lg:flex max-lg:flex-col max-lg:overflow-hidden'
+            : 'max-lg:overflow-y-auto max-lg:overflow-x-hidden max-lg:overscroll-y-contain',
         )}
       >
+        <div className={cn(mobileTab === 'chatbot' && 'hidden lg:block')}>
+          <CampusNotificationBar
+            studentId={student.id}
+            classNameFilter={student.className}
+          />
+        </div>
+
+        <main
+          className={cn(
+            'mx-auto flex max-w-7xl flex-col gap-5 px-3.5 py-5 sm:gap-6 sm:px-5 sm:py-7 md:px-8 md:py-10',
+            mobileTab === 'chatbot' &&
+              'max-lg:flex-1 max-lg:min-h-0 max-lg:w-full max-lg:max-w-none max-lg:gap-0 max-lg:px-0 max-lg:py-0 max-lg:overflow-hidden',
+          )}
+        >
         {/* Welcome Student Header — Shown on Home Tab on Phone/Tablet, Always Shown on Desktop */}
         <div
           key={student.id}
@@ -397,8 +410,14 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
           <LeaveRegister student={student} onLeaveStatusChange={setIsOnLeave} />
         </div>
 
-        {/* 4. FULL-SCREEN GEMINI AI CHATBOT TAB */}
-        <div className={cn(mobileTab === 'chatbot' ? 'block' : 'hidden lg:block')}>
+        {/* 4. FULL-SCREEN AI CHATBOT TAB */}
+        <div
+          className={cn(
+            mobileTab === 'chatbot'
+              ? 'max-lg:flex max-lg:flex-1 max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden block'
+              : 'hidden lg:block',
+          )}
+        >
           <GeminiChatbot student={student} mobileFullScreen />
         </div>
 
@@ -408,7 +427,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
             {(
               [
                 { id: 'digital-library', label: 'Digital Kitabs', icon: Library },
-                { id: 'library', label: 'Library (മക്തബ)', icon: BookMarked },
+                { id: 'library', label: 'Library', icon: BookMarked },
                 { id: 'timetable', label: 'Time Table', icon: CalendarDays },
                 { id: 'university-portal', label: 'Exam Results', icon: Globe },
               ] as const
@@ -473,12 +492,13 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
         >
           <ExamResultCard />
         </div>
-      </main>
+        </main>
+      </div>
 
       {/* PHONE & TABLET BOTTOM NAVIGATION MENU BAR (Hidden on Desktop lg:) */}
       <nav
         aria-label="Mobile & Tablet Bottom Navigation"
-        className="fixed inset-x-0 bottom-0 z-50 border-t border-border/85 bg-background/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl lg:hidden"
+        className="z-50 shrink-0 border-t border-border/85 bg-background/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl lg:hidden"
       >
         <div className="mx-auto grid h-16 max-w-xl grid-cols-5 items-center px-1.5">
           <button

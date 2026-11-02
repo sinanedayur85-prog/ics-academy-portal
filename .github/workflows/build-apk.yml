@@ -223,14 +223,14 @@ jobs:
             fs.writeFileSync(stylesPath, stylesXml, 'utf8');
           }
 
-          // 2. Ensure AndroidManifest.xml has notification & legacy storage permissions (without REQUEST_INSTALL_PACKAGES so Play Protect does not flag the app)
+          // 2. Ensure AndroidManifest.xml has notification, microphone & legacy storage permissions (without REQUEST_INSTALL_PACKAGES so Play Protect does not flag the app)
           const manifestPath = 'android/app/src/main/AndroidManifest.xml';
           if (fs.existsSync(manifestPath)) {
             let manifest = fs.readFileSync(manifestPath, 'utf8');
             if (!manifest.includes('POST_NOTIFICATIONS')) {
               manifest = manifest.replace(
                 '<uses-permission android:name="android.permission.INTERNET" />',
-                '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />'
+                '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />'
               );
               fs.writeFileSync(manifestPath, manifest, 'utf8');
             }

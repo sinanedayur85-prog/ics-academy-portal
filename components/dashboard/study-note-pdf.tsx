@@ -49,8 +49,14 @@ export function detectInputLanguage<T extends 'ml' | 'en' | 'ar' | 'ur' | 'es' |
     return 'ur' as T
   }
 
-  // 3. Check Arabic vs Latin character counts (ignoring quoted Arabic passages if outer question is in Latin script)
-  const stripped = clean.replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+  // 3. Check Arabic vs Latin character counts (ignoring quoted Arabic passages and standalone Salam greetings)
+  const stripped = clean
+    .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+    .replace(
+      /(?:^|\s)(?:وعليكم\s+السلام|السلام\s+عليكم|سلام\s+عليكم|ورحمة\s+الله|وبركاته|بسم\s+الله\s+الرحمن\s+الرحيم)(?=\s|$|[،.؟!])/g,
+      ' ',
+    )
+    .trim()
   const withoutQuotes = stripped
     .replace(/["“”«»'‘’][^"“”«»'‘’]{4,}["“”«»'‘’]/g, ' ')
     .trim()

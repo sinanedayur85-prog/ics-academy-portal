@@ -60,8 +60,14 @@ function detectInputLanguage(
     return 'ur'
   }
 
-  // 3. Check Arabic vs Latin character counts (ignoring quoted Arabic passages if outer question is in Latin script)
-  const stripped = clean.replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+  // 3. Check Arabic vs Latin character counts (ignoring quoted Arabic passages and standalone Salam greetings)
+  const stripped = clean
+    .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+    .replace(
+      /(?:^|\s)(?:وعليكم\s+السلام|السلام\s+عليكم|سلام\s+عليكم|ورحمة\s+الله|وبركاته|بسم\s+الله\s+الرحمن\s+الرحيم)(?=\s|$|[،.؟!])/g,
+      ' ',
+    )
+    .trim()
   const withoutQuotes = stripped
     .replace(/["“”«»'‘’][^"“”«»'‘’]{4,}["“”«»'‘’]/g, ' ')
     .trim()
@@ -510,7 +516,12 @@ async function startServer() {
   const httpServer = createHttpServer(app)
   const PORT = Number(process.env.PORT) || 3000
 
-  app.use(express.json({ limit: '1mb' }))
+  app.use(express.json({ limit: '15mb' }))
+
+  app.use((req, res, next) => {
+    res.setHeader('Permissions-Policy', 'microphone=*, autoplay=*')
+    next()
+  })
 
   app.use('/api', (req, res, next) => {
     const origin = req.headers.origin
@@ -656,6 +667,81 @@ async function startServer() {
       }
       const errMessage =
         error instanceof Error ? error.message : 'Failed to receive reply from Gemini chatbot.'
+      res.status(500).json({ error: errMessage })
+    }
+  })
+
+  app.post('/api/ai/transcribe', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    try {
+      const { audioBase64, mimeType = 'audio/webm', language = 'auto' } = req.body ?? {}
+      if (!audioBase64 || typeof audioBase64 !== 'string') {
+        res.status(400).json({ error: 'Missing audio data for transcription.' })
+        return
+      }
+
+      const cleanBase64 = audioBase64.replace(/^data:[^;]+;base64,/, '').trim()
+      const cleanMime = String(mimeType || 'audio/webm').split(';')[0].trim() || 'audio/webm'
+
+      const langHint =
+        language === 'ml'
+          ? 'Malayalam (മലയാളം)'
+          : language === 'ar'
+            ? 'Arabic (العربية)'
+            : language === 'ur'
+              ? 'Urdu (اردو)'
+              : language === 'en'
+                ? 'English'
+                : 'the exact language spoken by the student (Malayalam, English, Arabic, or Urdu)'
+
+      const promptText = `Transcribe this spoken audio accurately into ${langHint}. Return ONLY the transcribed text itself with no extra commentary, quotes, or prefixes. If the audio is silent or unintelligible, return an empty string.`
+
+      const transcribeModels = [
+        'gemini-3.5-transcribe',
+        'gemini-3-flash-preview',
+        'gemini-3.1-flash-lite-preview',
+        'gemini-2.5-flash',
+        'gemini-2.5-flash-lite',
+      ] as const
+
+      let transcript = ''
+      for (const modelName of transcribeModels) {
+        try {
+          const ai = getAiClient()
+          const response = await withTimeout(
+            ai.models.generateContent({
+              model: modelName,
+              contents: [
+                {
+                  role: 'user',
+                  parts: [
+                    {
+                      inlineData: {
+                        mimeType: cleanMime,
+                        data: cleanBase64,
+                      },
+                    },
+                    { text: promptText },
+                  ],
+                },
+              ],
+            }),
+            15000,
+            modelName,
+          )
+          if (typeof response.text === 'string') {
+            transcript = response.text.trim()
+            break
+          }
+        } catch {
+          continue
+        }
+      }
+
+      res.json({ text: transcript })
+    } catch (error) {
+      const errMessage =
+        error instanceof Error ? error.message : 'Failed to transcribe voice input.'
       res.status(500).json({ error: errMessage })
     }
   })

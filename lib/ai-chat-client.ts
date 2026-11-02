@@ -510,3 +510,39 @@ export async function fetchAiStudyAssistantReply(payload: {
     }),
   }
 }
+
+export async function transcribeVoiceAudio(payload: {
+  audioBase64: string
+  mimeType: string
+  language: string
+}): Promise<string> {
+  const urls = getCandidateApiUrls('/api/ai/transcribe')
+
+  for (const url of urls) {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 20000)
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify(payload),
+      })
+      clearTimeout(timeoutId)
+
+      const contentType = res.headers.get('content-type') || ''
+      if (res.ok && contentType.includes('application/json')) {
+        const data = (await res.json()) as { text?: string }
+        if (data && typeof data.text === 'string') {
+          return data.text.trim()
+        }
+      }
+    } catch {
+      clearTimeout(timeoutId)
+    }
+  }
+
+  return ''
+}
+

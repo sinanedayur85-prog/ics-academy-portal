@@ -149,11 +149,11 @@ export function LibraryBooks() {
             className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-background/40 px-4 py-6 text-center"
           >
             <Search className="size-5 text-lime" aria-hidden="true" />
-            <p className="font-malayalam text-xs font-semibold text-foreground">
-              ലൈബ്രറിയിലെ ഗ്രന്ഥങ്ങൾ സെർച്ച് ചെയ്യുക
+            <p className="text-xs font-semibold text-foreground">
+              Search Books & Kitabs in the Library
             </p>
-            <p className="font-malayalam max-w-xs text-[11px] leading-relaxed text-muted-foreground">
-              ബഹ്റുൽ ഉലൂം നോളജ് റിസർച്ച് സെന്ററിലുള്ള കിതാബുകളും അവ ഏത് സെക്ഷനിൽ, ഏത് ഷെൽഫിലാണ് ഉള്ളതെന്ന് കണ്ടെത്താൻ മുകളിലെ സെർച്ച് ബോക്സിൽ ടൈപ്പ് ചെയ്യുക.
+            <p className="max-w-xs text-[11px] leading-relaxed text-muted-foreground">
+              Type in the search box above to find Kitabs in the Bahrul Uloom Knowledge Research Centre and check their section, shelf, and call number.
             </p>
             <button
               type="button"
@@ -203,8 +203,8 @@ export function LibraryBooks() {
               >
                 <SearchX className="size-6 text-muted-foreground" aria-hidden="true" />
                 <p className="text-xs font-semibold text-foreground">No matching Kitabs found</p>
-                <p className="font-malayalam max-w-xs text-[11px] leading-relaxed text-muted-foreground">
-                  ഈ പേരിലോ വിഷയത്തിലോ ഉള്ള കിതാബ് ബഹ്റുൽ ഉലൂം നോളജ് റിസർച്ച് സെന്ററിൽ കണ്ടെത്തിയില്ല. മറ്റൊരു പദം ഉപയോഗിച്ച് സെർച്ച് ചെയ്യുക.
+                <p className="max-w-xs text-[11px] leading-relaxed text-muted-foreground">
+                  No Kitab matching this title or subject was found in the Bahrul Uloom Knowledge Research Centre. Please try another search term.
                 </p>
                 <button
                   type="button"
