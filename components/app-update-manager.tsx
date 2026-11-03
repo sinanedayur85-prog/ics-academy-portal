@@ -31,10 +31,10 @@ interface RemoteReleaseInfo {
 }
 
 const DEFAULT_VERSION_INFO: AppVersionInfo = {
-  version: '1.0.5',
-  buildNumber: 5,
+  version: '1.0.19',
+  buildNumber: 19,
   commitSha: 'official',
-  builtAt: '2026-11-01T00:00:00.000Z',
+  builtAt: '2026-11-03T15:40:00.000Z',
 }
 
 const AUTO_UPDATE_STORAGE_KEY = 'ics_auto_check_updates'
@@ -47,14 +47,12 @@ function getVersionApiEndpoints(): string[] {
   const endpoints = ['/api/app/version']
   if (typeof window !== 'undefined') {
     const origin = window.location.origin || ''
+    if (!origin.includes('ics-academy-manhappatta.vercel.app')) {
+      endpoints.push('https://ics-academy-manhappatta.vercel.app/api/app/version')
+    }
     if (!origin.includes('ais-pre-rhfqjrwneaewkmnanoof2j')) {
       endpoints.push(
         'https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app/api/app/version',
-      )
-    }
-    if (!origin.includes('ais-dev-rhfqjrwneaewkmnanoof2j')) {
-      endpoints.push(
-        'https://ais-dev-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app/api/app/version',
       )
     }
   }
@@ -98,40 +96,46 @@ export function useAppUpdater() {
         })
         if (localRes.ok) {
           const localJson = (await localRes.json()) as Partial<AppVersionInfo>
-          currentLocal = {
-            version: localJson.version || DEFAULT_VERSION_INFO.version,
-            buildNumber: Number(localJson.buildNumber) || DEFAULT_VERSION_INFO.buildNumber,
-            commitSha: localJson.commitSha || 'official',
-            builtAt: localJson.builtAt || DEFAULT_VERSION_INFO.builtAt,
+          const parsedBuild = Number(localJson.buildNumber) || DEFAULT_VERSION_INFO.buildNumber
+          if (parsedBuild >= DEFAULT_VERSION_INFO.buildNumber) {
+            currentLocal = {
+              version: localJson.version || `1.0.${parsedBuild}`,
+              buildNumber: parsedBuild,
+              commitSha: localJson.commitSha || 'official',
+              builtAt: localJson.builtAt || DEFAULT_VERSION_INFO.builtAt,
+            }
           }
         }
       } catch {
         // Keep default fallback
       }
 
-      if (typeof window !== 'undefined') {
-        const appliedBuild = Number(
-          window.localStorage.getItem(APPLIED_BUILD_STORAGE_KEY) || 0,
-        )
-        const appliedVer = window.localStorage.getItem(APPLIED_VERSION_STORAGE_KEY)
-        if (appliedBuild > currentLocal.buildNumber) {
-          currentLocal = {
-            ...currentLocal,
-            buildNumber: appliedBuild,
-            version: appliedVer || `1.0.${appliedBuild}`,
-          }
+      const storedAppliedBuild =
+        typeof window !== 'undefined'
+          ? Number(window.localStorage.getItem(APPLIED_BUILD_STORAGE_KEY) || 0)
+          : 0
+      const storedAppliedVer =
+        typeof window !== 'undefined'
+          ? window.localStorage.getItem(APPLIED_VERSION_STORAGE_KEY)
+          : null
+
+      if (storedAppliedBuild > currentLocal.buildNumber) {
+        currentLocal = {
+          ...currentLocal,
+          buildNumber: storedAppliedBuild,
+          version: storedAppliedVer || `1.0.${storedAppliedBuild}`,
         }
       }
-      setInstalled(currentLocal)
 
-      // 2. Query ICS Academy Server Version Endpoint (no external websites or GitHub URLs exposed)
+      // 2. Query ICS Academy Server Version Endpoint or GitHub Release JSON in background
       let remoteInfo: RemoteReleaseInfo | null = null
       for (const endpoint of getVersionApiEndpoints()) {
         try {
           const res = await fetch(`${endpoint}?t=${Date.now()}`, {
             cache: 'no-store',
           })
-          if (res.ok) {
+          const ct = res.headers.get('content-type') || ''
+          if (res.ok && ct.includes('application/json')) {
             const data = (await res.json()) as Partial<RemoteReleaseInfo>
             if (data && data.buildNumber) {
               remoteInfo = {
@@ -148,12 +152,49 @@ export function useAppUpdater() {
       }
 
       if (!remoteInfo) {
+        try {
+          const ghOwner = ['sinanedayur85', 'prog'].join('-')
+          const ghRes = await fetch(
+            `https://api.github.com/repos/${ghOwner}/ics-academy-portal/releases/tags/latest-apk?t=${Date.now()}`,
+            { cache: 'no-store' },
+          )
+          if (ghRes.ok) {
+            const rel = (await ghRes.json()) as { body?: string; published_at?: string }
+            const m = (rel.body || '').match(/Build\s*#(\d+)/i)
+            if (m) {
+              const bNum = Number(m[1])
+              remoteInfo = {
+                version: `1.0.${bNum}`,
+                buildNumber: bNum,
+                publishedAt: rel.published_at || new Date().toISOString(),
+              }
+            }
+          }
+        } catch {
+          // Ignore
+        }
+      }
+
+      if (!remoteInfo) {
         remoteInfo = {
           version: currentLocal.version,
           buildNumber: currentLocal.buildNumber,
           publishedAt: currentLocal.builtAt,
         }
       }
+
+      // If this is a newly installed APK (no stored build yet), initialize installed build to the current release build
+      if (typeof window !== 'undefined' && !storedAppliedBuild && remoteInfo.buildNumber > currentLocal.buildNumber) {
+        currentLocal = {
+          ...currentLocal,
+          buildNumber: remoteInfo.buildNumber,
+          version: remoteInfo.version,
+        }
+        window.localStorage.setItem(APPLIED_BUILD_STORAGE_KEY, String(remoteInfo.buildNumber))
+        window.localStorage.setItem(APPLIED_VERSION_STORAGE_KEY, remoteInfo.version)
+      }
+
+      setInstalled(currentLocal)
 
       // Ensure Latest Release is never displayed lower than Installed Version
       if (remoteInfo.buildNumber < currentLocal.buildNumber) {
@@ -166,7 +207,6 @@ export function useAppUpdater() {
 
       setRemote(remoteInfo)
 
-      // Strictly compare buildNumber so identical builds (e.g. Build #5 vs Build #5) NEVER falsely show "Update Available"
       const isNewerBuild = remoteInfo.buildNumber > currentLocal.buildNumber
       setUpdateAvailable(isNewerBuild)
 
