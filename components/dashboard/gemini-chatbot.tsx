@@ -38,6 +38,7 @@ import {
 } from 'lucide-react'
 import {
   fetchAiChatReply,
+  normalizeSpokenVoiceText,
   transcribeVoiceAudio,
   type ClientChatAttachment,
 } from '@/lib/ai-chat-client'
@@ -1266,9 +1267,19 @@ export function GeminiChatbot({
   const audioChunksRef = useRef<Blob[]>([])
   const audioContextRef = useRef<AudioContext | null>(null)
   const silenceTimerRef = useRef<number | null>(null)
+  const liveChunkTimerRef = useRef<number | null>(null)
+  const isChunkTranscribingRef = useRef<boolean>(false)
   const speechGotTranscriptRef = useRef<boolean>(false)
   const stopVoiceCaptureRef = useRef<(() => void) | null>(null)
   const speechBaseTextRef = useRef<string>('')
+  const voiceSessionIdRef = useRef<number>(0)
+  const voiceNormalizeTimerRef = useRef<number | null>(null)
+  const voiceNormalizeReqIdRef = useRef<number>(0)
+  const lastNormalizedInputRef = useRef<string>('')
+  const lastSentTextRef = useRef<string>('')
+  const lastSentAtRef = useRef<number>(0)
+  const responseLangPrefRef = useRef<ResponseLanguagePreference>(responseLanguagePreference)
+  responseLangPrefRef.current = responseLanguagePreference
 
   // Multimodal Study Attachments (Photos of Kitabs, textbooks, notes, PDFs)
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachmentItem[]>([])
@@ -1295,16 +1306,67 @@ export function GeminiChatbot({
   const printTemplateRef = useRef<HTMLDivElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
+  // Real-time spoken script normalizer so Auto mode immediately displays the exact language spoken
+  function scheduleLiveSpokenScriptUpdate(
+    rawSpoken: string,
+    immediate = false,
+    sessionId = voiceSessionIdRef.current,
+  ) {
+    if (sessionId !== voiceSessionIdRef.current) return
+    const cleanSpoken = rawSpoken.trim()
+    if (!cleanSpoken) return
+
+    const base = speechBaseTextRef.current
+    setInput(base ? `${base} ${cleanSpoken}` : cleanSpoken)
+    setErrorMessage(null)
+
+    if (voiceNormalizeTimerRef.current) {
+      window.clearTimeout(voiceNormalizeTimerRef.current)
+      voiceNormalizeTimerRef.current = null
+    }
+
+    const activePref = responseLangPrefRef.current
+    const runNormalization = async () => {
+      if (sessionId !== voiceSessionIdRef.current) return
+      if (cleanSpoken === lastNormalizedInputRef.current) return
+      const reqId = ++voiceNormalizeReqIdRef.current
+      try {
+        const normalized = await normalizeSpokenVoiceText({
+          rawTranscript: cleanSpoken,
+          language: activePref === 'auto' ? 'auto' : activePref,
+        })
+        if (
+          sessionId === voiceSessionIdRef.current &&
+          reqId === voiceNormalizeReqIdRef.current &&
+          normalized.trim()
+        ) {
+          lastNormalizedInputRef.current = cleanSpoken
+          const currentBase = speechBaseTextRef.current
+          setInput(currentBase ? `${currentBase} ${normalized.trim()}` : normalized.trim())
+        }
+      } catch {
+        // Keep the live transcript already in the input box
+      }
+    }
+
+    if (immediate) {
+      void runNormalization()
+    } else {
+      voiceNormalizeTimerRef.current = window.setTimeout(() => {
+        void runNormalization()
+      }, 420)
+    }
+  }
+
   // Listen for native Android voice recognition results if triggered via ICSNativeBridge
   useEffect(() => {
     const onNativeVoiceResult = (e: Event) => {
       const customEv = e as CustomEvent<{ text?: string; error?: string }>
       setIsListening(false)
+      setErrorMessage(null)
       const spoken = String(customEv.detail?.text ?? '').trim()
       if (spoken) {
-        const base = speechBaseTextRef.current
-        setInput(base ? `${base} ${spoken}` : spoken)
-        setErrorMessage(null)
+        scheduleLiveSpokenScriptUpdate(spoken, true, voiceSessionIdRef.current)
       }
     }
     window.addEventListener('ics-native-voice-result', onNativeVoiceResult)
@@ -1323,6 +1385,12 @@ export function GeminiChatbot({
   // Clean up voice recognition, audio streams, and camera streams on unmount
   useEffect(() => {
     return () => {
+      if (voiceNormalizeTimerRef.current) {
+        window.clearTimeout(voiceNormalizeTimerRef.current)
+      }
+      if (liveChunkTimerRef.current) {
+        window.clearInterval(liveChunkTimerRef.current)
+      }
       if (stopVoiceCaptureRef.current) {
         stopVoiceCaptureRef.current()
       }
@@ -1593,26 +1661,82 @@ export function GeminiChatbot({
     }
   }
 
-  async function handleSendMessage(customText?: string) {
-    if (isListening) {
-      if (stopVoiceCaptureRef.current) {
-        stopVoiceCaptureRef.current()
-      }
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop()
-        } catch {
-          // Ignore
-        }
-      }
-      setIsListening(false)
+  function cancelAllVoiceActivity(resetBuffers = true) {
+    voiceSessionIdRef.current += 1
+    voiceNormalizeReqIdRef.current += 1
+
+    if (voiceNormalizeTimerRef.current) {
+      window.clearTimeout(voiceNormalizeTimerRef.current)
+      voiceNormalizeTimerRef.current = null
     }
 
+    if (resetBuffers) {
+      speechBaseTextRef.current = ''
+      lastNormalizedInputRef.current = ''
+      speechGotTranscriptRef.current = false
+    }
+
+    audioChunksRef.current = []
+    isChunkTranscribingRef.current = false
+    stopVoiceCaptureRef.current = null
+
+    if (recognitionRef.current) {
+      const rec = recognitionRef.current
+      recognitionRef.current = null
+      try {
+        rec.onstart = null
+        rec.onresult = null
+        rec.onerror = null
+        rec.onend = null
+        if (typeof rec.abort === 'function') {
+          rec.abort()
+        } else if (typeof rec.stop === 'function') {
+          rec.stop()
+        }
+      } catch {
+        // Ignore
+      }
+    }
+
+    if (mediaRecorderRef.current) {
+      const recorder = mediaRecorderRef.current
+      mediaRecorderRef.current = null
+      try {
+        recorder.ondataavailable = null
+        recorder.onstop = null
+        if (recorder.state !== 'inactive') {
+          recorder.stop()
+        }
+      } catch {
+        // Ignore
+      }
+    }
+
+    cleanupAudioResources()
+    setIsListening(false)
+    setIsTranscribingVoice(false)
+  }
+
+  async function handleSendMessage(customText?: string) {
     const attachmentsToSend = [...pendingAttachments]
-    const rawTypedText = (customText ?? input).trim()
+    const currentDomValue = textareaRef.current?.value ?? ''
+    const rawTypedText = (customText ?? (input || currentDomValue)).trim()
 
     if (!rawTypedText && attachmentsToSend.length === 0) return
     if (sending) return
+
+    // Immediately cancel all active or in-flight voice recognition, audio transcription, and script normalization
+    // so no trailing callback can ever write the old voice-typed text back into the input box after Send.
+    cancelAllVoiceActivity(true)
+
+    lastSentTextRef.current = rawTypedText
+    lastSentAtRef.current = Date.now()
+    setInput('')
+
+    if (textareaRef.current) {
+      textareaRef.current.value = ''
+      textareaRef.current.style.height = '40px'
+    }
 
     const previousHistory = currentMessages
       .filter((m) => !m.id.startsWith('welcome-') && m.text.trim().length > 0)
@@ -1634,9 +1758,6 @@ export function GeminiChatbot({
 
     const textToSend = rawTypedText || defaultImagePrompt
 
-    if (!customText) {
-      setInput('')
-    }
     setPendingAttachments([])
     setErrorMessage(null)
 
@@ -1718,6 +1839,12 @@ export function GeminiChatbot({
   }
 
   function handleResetThread() {
+    cancelAllVoiceActivity(true)
+    setInput('')
+    if (textareaRef.current) {
+      textareaRef.current.value = ''
+      textareaRef.current.style.height = '40px'
+    }
     const defaultForRole = buildDefaultThreads(language)[role]
     setThreads((prev) => {
       const updated = {
@@ -1736,18 +1863,8 @@ export function GeminiChatbot({
   }
 
   function handleSelectLanguage(newPref: ResponseLanguagePreference) {
-    if (isListening) {
-      if (stopVoiceCaptureRef.current) {
-        stopVoiceCaptureRef.current()
-      }
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop()
-        } catch {
-          // Ignore
-        }
-      }
-      setIsListening(false)
+    if (isListening || isTranscribingVoice) {
+      cancelAllVoiceActivity(false)
     }
 
     // Clicking the currently active explicit language toggles back to 'auto'
@@ -1784,6 +1901,10 @@ export function GeminiChatbot({
 
   function cleanupAudioResources() {
     setVoiceLevel(0)
+    if (liveChunkTimerRef.current) {
+      window.clearInterval(liveChunkTimerRef.current)
+      liveChunkTimerRef.current = null
+    }
     if (silenceTimerRef.current) {
       window.clearInterval(silenceTimerRef.current)
       silenceTimerRef.current = null
@@ -1806,10 +1927,23 @@ export function GeminiChatbot({
     }
   }
 
-  async function transcribeAudioBlob(blob: Blob, mimeHint: string) {
+  async function transcribeAudioBlob(
+    blob: Blob,
+    mimeHint: string,
+    isLiveRolling = false,
+    sessionId = voiceSessionIdRef.current,
+  ) {
+    if (sessionId !== voiceSessionIdRef.current) return
     if (!blob || blob.size < 300) return
-    setIsTranscribingVoice(true)
+    if (isLiveRolling && isChunkTranscribingRef.current) return
+
+    if (isLiveRolling) {
+      isChunkTranscribingRef.current = true
+    } else {
+      setIsTranscribingVoice(true)
+    }
     setErrorMessage(null)
+
     try {
       const base64Audio = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader()
@@ -1822,16 +1956,16 @@ export function GeminiChatbot({
         reader.readAsDataURL(blob)
       })
 
-      if (!base64Audio) return
+      if (!base64Audio || sessionId !== voiceSessionIdRef.current) return
 
+      const activePref = responseLangPrefRef.current
       const rawResult = await transcribeVoiceAudio({
         audioBase64: base64Audio,
         mimeType: (mimeHint || blob.type || 'audio/webm').split(';')[0] || 'audio/webm',
-        language:
-          responseLanguagePreference === 'auto'
-            ? 'auto'
-            : responseLanguagePreference,
+        language: activePref === 'auto' ? 'auto' : activePref,
       })
+
+      if (sessionId !== voiceSessionIdRef.current) return
 
       const cleanText = String(
         typeof rawResult === 'string'
@@ -1840,20 +1974,19 @@ export function GeminiChatbot({
       ).trim()
 
       if (cleanText && cleanText !== '__SILENT__') {
+        speechGotTranscriptRef.current = true
         const base = speechBaseTextRef.current
         setInput(base ? `${base} ${cleanText}` : cleanText)
-      } else {
-        setErrorMessage(
-          'No clear speech detected. Please speak close to the microphone and tap Done ✓ when finished.',
-        )
+        setErrorMessage(null)
       }
     } catch (err) {
-      console.warn('Voice transcription failed:', err)
-      setErrorMessage(
-        'Could not transcribe voice right now. Please try speaking again or type your question.',
-      )
+      console.warn('Voice transcription note:', err)
     } finally {
-      setIsTranscribingVoice(false)
+      if (isLiveRolling) {
+        isChunkTranscribingRef.current = false
+      } else if (sessionId === voiceSessionIdRef.current) {
+        setIsTranscribingVoice(false)
+      }
     }
   }
 
@@ -1956,7 +2089,9 @@ export function GeminiChatbot({
     closeLiveCameraModal()
   }
 
-  async function startMediaRecorderVoiceCapture(): Promise<boolean> {
+  async function startMediaRecorderVoiceCapture(
+    sessionId = voiceSessionIdRef.current,
+  ): Promise<boolean> {
     if (
       !navigator.mediaDevices ||
       typeof navigator.mediaDevices.getUserMedia !== 'function' ||
@@ -1977,6 +2112,10 @@ export function GeminiChatbot({
         })
       } catch {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      }
+      if (sessionId !== voiceSessionIdRef.current) {
+        stream.getTracks().forEach((t) => t.stop())
+        return false
       }
       mediaStreamRef.current = stream
 
@@ -2004,6 +2143,7 @@ export function GeminiChatbot({
       mediaRecorderRef.current = recorder
 
       recorder.ondataavailable = (ev: BlobEvent) => {
+        if (sessionId !== voiceSessionIdRef.current) return
         if (ev.data && ev.data.size > 0) {
           audioChunksRef.current.push(ev.data)
         }
@@ -2036,9 +2176,9 @@ export function GeminiChatbot({
         cleanupAudioResources()
         setIsListening(false)
 
-        if (chunks.length === 0) return
+        if (sessionId !== voiceSessionIdRef.current || chunks.length === 0) return
         const blob = new Blob(chunks, { type: recordedMime })
-        await transcribeAudioBlob(blob, recordedMime)
+        await transcribeAudioBlob(blob, recordedMime, false, sessionId)
       }
 
       try {
@@ -2049,7 +2189,24 @@ export function GeminiChatbot({
       setIsListening(true)
       setErrorMessage(null)
 
-      // Live audio level meter + smart silence detection (ignores initial 900ms finger-tap pop on phones)
+      // Stream live rolling audio snapshots every 1.6s so words appear live in the input box while speaking
+      const recordedMimeForLive = recorder.mimeType || chosenMimeType || 'audio/webm'
+      liveChunkTimerRef.current = window.setInterval(() => {
+        if (
+          sessionId === voiceSessionIdRef.current &&
+          audioChunksRef.current.length > 0 &&
+          !isChunkTranscribingRef.current
+        ) {
+          const liveBlob = new Blob([...audioChunksRef.current], {
+            type: recordedMimeForLive,
+          })
+          if (liveBlob.size > 800) {
+            void transcribeAudioBlob(liveBlob, recordedMimeForLive, true, sessionId)
+          }
+        }
+      }, 1600)
+
+      // Live audio level meter + smart silence detection
       try {
         const AudioCtx =
           window.AudioContext ||
@@ -2094,7 +2251,7 @@ export function GeminiChatbot({
               } else if (hasDetectedSpeech) {
                 if (!silenceStartMs) {
                   silenceStartMs = now
-                } else if (now - silenceStartMs > 1800) {
+                } else if (now - silenceStartMs > 2200) {
                   stopVoiceCapture()
                 }
               }
@@ -2110,22 +2267,8 @@ export function GeminiChatbot({
       }
 
       return true
-    } catch (err: any) {
+    } catch {
       cleanupAudioResources()
-      const errName = String(err?.name || '')
-      if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError') {
-        setErrorMessage(
-          'No microphone found on this device. Please connect a microphone or headset and try again.',
-        )
-      } else if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
-        setErrorMessage(
-          'Microphone permission is blocked by this browser/preview window. Please allow Microphone access in the address bar or open the live app URL in a full browser tab.',
-        )
-      } else {
-        setErrorMessage(
-          'Could not access the microphone. Please ensure no other app is using the microphone.',
-        )
-      }
       return false
     }
   }
@@ -2150,9 +2293,11 @@ export function GeminiChatbot({
 
     if (typeof window === 'undefined' || isTranscribingVoice) return
 
+    const currentSessionId = ++voiceSessionIdRef.current
     setErrorMessage(null)
     speechBaseTextRef.current = input.trim()
     speechGotTranscriptRef.current = false
+    lastNormalizedInputRef.current = ''
     audioChunksRef.current = []
 
     const nativeBridge = (
@@ -2170,18 +2315,6 @@ export function GeminiChatbot({
       // Ignore
     }
 
-    // When 'Auto' language mode is active, use MediaRecorder + Gemini Multimodal Audio Transcription FIRST
-    // because Web Speech API / Android RecognizerIntent require a single fixed language code (like 'en-IN')
-    // and would otherwise force Malayalam, Arabic, or Urdu speech into English words.
-    if (responseLanguagePreference === 'auto') {
-      const startedMultilingualRecorder = await startMediaRecorderVoiceCapture()
-      if (startedMultilingualRecorder) {
-        return
-      }
-    }
-
-    const activeSpeechLang =
-      responseLanguagePreference === 'auto' ? 'ml' : responseLanguagePreference
     const speechLangMap: Record<ChatLanguage, string> = {
       ml: 'ml-IN',
       ar: 'ar-SA',
@@ -2190,22 +2323,15 @@ export function GeminiChatbot({
       de: 'de-DE',
       en: 'en-IN',
     }
+
+    const activeSpeechLang: ChatLanguage =
+      responseLanguagePreference === 'auto' ? 'ml' : responseLanguagePreference
     const targetBcp47 = speechLangMap[activeSpeechLang] || 'ml-IN'
 
-    // 1. If an explicit language is selected inside the Android APK, or if MediaRecorder was unavailable
-    try {
-      if (nativeBridge && typeof nativeBridge.startVoiceInput === 'function') {
-        const started = nativeBridge.startVoiceInput(targetBcp47)
-        if (started) {
-          setIsListening(true)
-          return
-        }
-      }
-    } catch {
-      // Continue to browser voice engines
-    }
-
-    // 2. Browser Engine for explicit selected language: Real-Time Web Speech API
+    // 1. Primary Engine for BOTH Auto & Explicit modes: Real-Time Web Speech API
+    // Streams words into the input box immediately ("അപ്പപ്പോൾ തന്നെ") as the user speaks,
+    // and in Auto mode runs live script normalization so Malayalam, English, Arabic, Urdu, Spanish, or German
+    // appears in its native script in real time ready to click Send.
     const SpeechRecognitionClass =
       (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any })
         .SpeechRecognition ||
@@ -2220,43 +2346,63 @@ export function GeminiChatbot({
         recognition.lang = targetBcp47
 
         recognition.onstart = () => {
+          if (currentSessionId !== voiceSessionIdRef.current) return
           setIsListening(true)
           setErrorMessage(null)
         }
 
         recognition.onresult = (event: any) => {
+          if (currentSessionId !== voiceSessionIdRef.current) return
           let transcript = ''
+          let hasFinal = false
           for (let i = 0; i < event.results.length; i++) {
             transcript += event.results[i][0].transcript
+            if (event.results[i].isFinal) {
+              hasFinal = true
+            }
           }
-          const base = speechBaseTextRef.current
           const cleanSpeech = transcript.trim()
           if (cleanSpeech) {
             speechGotTranscriptRef.current = true
-            setInput(base ? `${base} ${cleanSpeech}` : cleanSpeech)
+            if (responseLangPrefRef.current === 'auto') {
+              scheduleLiveSpokenScriptUpdate(cleanSpeech, hasFinal, currentSessionId)
+            } else {
+              const base = speechBaseTextRef.current
+              setInput(base ? `${base} ${cleanSpeech}` : cleanSpeech)
+            }
           }
         }
 
-        recognition.onerror = (event: any) => {
+        recognition.onerror = async (event: any) => {
+          if (currentSessionId !== voiceSessionIdRef.current) return
           const errCode = String(event?.error || '')
           setIsListening(false)
-          if (errCode === 'audio-capture') {
-            setErrorMessage(
-              'No microphone hardware detected on this device. Please connect a microphone or headset.',
-            )
-          } else if (
-            errCode === 'not-allowed' ||
-            errCode === 'service-not-allowed' ||
-            errCode === 'network' ||
-            errCode === 'language-not-supported'
+          if (
+            !speechGotTranscriptRef.current &&
+            (errCode === 'not-allowed' ||
+              errCode === 'service-not-allowed' ||
+              errCode === 'network' ||
+              errCode === 'language-not-supported' ||
+              errCode === 'audio-capture')
           ) {
-            // Fall back to MediaRecorder + Gemini Audio Transcription
-            void startMediaRecorderVoiceCapture()
+            // Silently fall back to live MediaRecorder or Android Native Bridge without showing any red error banner
+            const startedRecorder = await startMediaRecorderVoiceCapture(currentSessionId)
+            if (!startedRecorder && nativeBridge && typeof nativeBridge.startVoiceInput === 'function') {
+              try {
+                if (nativeBridge.startVoiceInput(targetBcp47)) {
+                  setIsListening(true)
+                }
+              } catch {
+                // Ignore
+              }
+            }
           }
         }
 
         recognition.onend = () => {
-          setIsListening(false)
+          if (currentSessionId === voiceSessionIdRef.current) {
+            setIsListening(false)
+          }
         }
 
         recognition.start()
@@ -2267,8 +2413,24 @@ export function GeminiChatbot({
       }
     }
 
-    // 3. Fallback Engine: MediaRecorder + Gemini Server Audio Transcription
-    await startMediaRecorderVoiceCapture()
+    // 2. Fallback Engine: Live MediaRecorder with rolling 1.6s audio transcription
+    const startedRecorder = await startMediaRecorderVoiceCapture(currentSessionId)
+    if (startedRecorder) {
+      return
+    }
+
+    // 3. Final Fallback for older Android WebViews: Native RecognizerIntent Bridge
+    try {
+      if (nativeBridge && typeof nativeBridge.startVoiceInput === 'function') {
+        const started = nativeBridge.startVoiceInput(targetBcp47)
+        if (started) {
+          setIsListening(true)
+          return
+        }
+      }
+    } catch {
+      // Ignore
+    }
   }
 
   function handleCopyMessage(msg: ChatTurnMessage) {
@@ -3314,7 +3476,29 @@ export function GeminiChatbot({
                   maxLength={2000}
                   value={input}
                   dir={input.trim().length > 0 && isArabicText(input) ? 'rtl' : 'ltr'}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    const nextVal = e.target.value
+                    // Guard against mobile keyboard (Gboard) voice IME re-committing the already-sent buffer right after tapping Send
+                    if (
+                      lastSentAtRef.current > 0 &&
+                      Date.now() - lastSentAtRef.current < 500 &&
+                      lastSentTextRef.current &&
+                      nextVal.trim() === lastSentTextRef.current
+                    ) {
+                      e.target.value = ''
+                      setInput('')
+                      return
+                    }
+                    if (!isListening) {
+                      voiceNormalizeReqIdRef.current += 1
+                      if (voiceNormalizeTimerRef.current) {
+                        window.clearTimeout(voiceNormalizeTimerRef.current)
+                        voiceNormalizeTimerRef.current = null
+                      }
+                      speechBaseTextRef.current = nextVal.trim()
+                    }
+                    setInput(nextVal)
+                  }}
                   onPaste={handlePasteIntoComposer}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {

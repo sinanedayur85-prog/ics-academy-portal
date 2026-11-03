@@ -1,4 +1,4 @@
-import { BrandWordmark } from '@/components/brand-wordmark'
+import { BrandLogoMark, BrandWordmark } from '@/components/brand-wordmark'
 
 export function SiteFooter() {
   return (
@@ -9,37 +9,39 @@ export function SiteFooter() {
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-8 px-6 py-12 md:flex-row">
         {/* Left Brand Group: [Icon + English Text] -> [Vertical Line] -> [Arabic Calligraphy] */}
         <div className="flex flex-wrap items-center justify-center gap-6 sm:flex-nowrap md:justify-start md:gap-8">
-          {/* 1. Water Drop Icon + English Text ("ICS ACADEMY MANHAPPATTA") */}
-          <div className="flex shrink-0 items-center gap-3">
-            <img
-              src="/images/ics-mark-transparent.png"
-              alt="ICS Academy logo"
-              className="h-10 w-auto shrink-0 bg-transparent object-contain md:h-11"
-            />
+          {/* 1. Water Drop Icon + English Text ("ICS ACADEMY MANHAPPATTA") — exact same size as SiteHeader */}
+          <div className="flex shrink-0 items-center gap-2.5 sm:gap-3">
+            <BrandLogoMark className="h-9 sm:h-11 w-auto shrink-0 md:h-12" />
             <BrandWordmark
               gapClassName="gap-0"
-              topClassName="text-lg font-bold text-emerald-950 transition-colors duration-300 dark:text-white md:text-[19px] leading-none"
-              bottomClassName="-mt-[2px] text-[10px] font-semibold text-emerald-900 transition-colors duration-300 dark:text-emerald-400 md:text-[10.5px] leading-none"
+              topClassName="text-base sm:text-lg font-bold text-emerald-950 transition-colors duration-300 dark:text-white md:text-[19px] leading-none"
+              bottomClassName="-mt-[2px] text-[9.5px] sm:text-[10px] font-semibold text-emerald-900 transition-colors duration-300 dark:text-emerald-400 md:text-[10.5px] leading-none"
             />
           </div>
 
           {/* 2. Vertical Divider Line */}
           <div
             aria-hidden="true"
-            className="h-9 w-px shrink-0 bg-gray-300 md:h-10 dark:bg-gray-600"
+            className="h-9 sm:h-10 w-px shrink-0 bg-gray-300 md:h-11 dark:bg-gray-600"
           />
 
-          {/* 3. Arabic Calligraphy (matched to the compact height of ICS ACADEMY + MANHAPPATTA) */}
+          {/* 3. Arabic Calligraphy (matched to the height of ICS ACADEMY + MANHAPPATTA) */}
           <div className="flex shrink-0 items-center">
             <img
-              src="/calligraphy-black.png?v=4"
+              src="/calligraphy-black.png?v=5"
               alt="ICS Academy Arabic calligraphy"
-              className="block h-6 w-auto object-contain md:h-[25px] dark:hidden"
+              width={1928}
+              height={342}
+              decoding="async"
+              className="block h-6 sm:h-[26px] w-auto object-contain md:h-[27px] dark:hidden"
             />
             <img
-              src="/calligraphy-white.png?v=4"
+              src="/calligraphy-white.png?v=5"
               alt="ICS Academy Arabic calligraphy"
-              className="hidden h-6 w-auto object-contain md:h-[25px] dark:block"
+              width={1928}
+              height={342}
+              decoding="async"
+              className="hidden h-6 sm:h-[26px] w-auto object-contain md:h-[27px] dark:block"
             />
           </div>
         </div>

@@ -1,7 +1,6 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import { AppUpdateButton } from '@/components/app-update-manager'
-import { BrandWordmark } from '@/components/brand-wordmark'
+import { BrandLogoMark, BrandWordmark } from '@/components/brand-wordmark'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 
@@ -16,14 +15,7 @@ export function SiteHeader() {
     <header className="absolute top-0 z-40 w-full border-b border-black/15 bg-transparent pt-[var(--safe-top)] transition-colors duration-300 dark:border-white/20">
       <div className="mx-auto flex h-16 sm:h-20 max-w-7xl items-center justify-between gap-2 px-3.5 sm:gap-6 sm:px-6">
         <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3" aria-label="ICS Academy Manhappatta home">
-          <Image
-            src="/images/ics-mark-transparent.png"
-            alt="ICS Academy logo"
-            width={381}
-            height={512}
-            className="h-9 sm:h-11 w-auto shrink-0 bg-transparent object-contain md:h-12"
-            priority
-          />
+          <BrandLogoMark className="h-9 sm:h-11 w-auto shrink-0 md:h-12" />
           <BrandWordmark
             gapClassName="gap-0"
             topClassName="text-base sm:text-lg font-bold text-black transition-colors duration-300 dark:text-white md:text-[19px] leading-none"

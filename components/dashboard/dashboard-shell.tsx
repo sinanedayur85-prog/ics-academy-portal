@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import {
   BookMarked,
@@ -17,7 +16,7 @@ import {
   UserCheck,
 } from 'lucide-react'
 import { AppUpdateButton } from '@/components/app-update-manager'
-import { BrandWordmark } from '@/components/brand-wordmark'
+import { BrandLogoMark, BrandWordmark } from '@/components/brand-wordmark'
 import {
   CampusNotificationBar,
   CampusNotificationBell,
@@ -148,14 +147,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
     <div className="min-h-svh bg-background transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#081E21] dark:to-[#040F11] max-lg:fixed max-lg:inset-0 max-lg:flex max-lg:flex-col max-lg:overflow-hidden lg:pl-64">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-background pt-[var(--safe-top)] transition-colors duration-300 lg:flex">
         <Link href="/" className="flex h-20 items-center gap-3 border-b border-border px-6" aria-label="ICS Academy Manhappatta home">
-          <Image
-            src="/images/ics-mark-transparent.png"
-            alt="ICS Academy logo"
-            width={381}
-            height={512}
-            className="h-10 w-auto object-contain"
-            priority
-          />
+          <BrandLogoMark className="h-10 w-auto" />
           <BrandWordmark
             gapClassName="gap-0"
             topClassName="text-lg font-bold text-foreground leading-none"
@@ -202,13 +194,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
       <header className="z-40 shrink-0 border-b border-border bg-background/95 pt-[var(--safe-top)] backdrop-blur-md transition-colors duration-300 lg:sticky lg:top-0">
         <div className="flex h-16 sm:h-20 items-center justify-between gap-2 px-3.5 sm:gap-4 sm:px-5 md:px-8">
           <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3 lg:hidden" aria-label="ICS Academy Manhappatta home">
-            <Image
-              src="/images/ics-mark-transparent.png"
-              alt="ICS Academy logo"
-              width={381}
-              height={512}
-              className="h-9 sm:h-10 w-auto shrink-0 object-contain"
-            />
+            <BrandLogoMark className="h-9 sm:h-11 w-auto shrink-0" />
             <BrandWordmark
               gapClassName="gap-0"
               topClassName="text-base sm:text-lg font-bold text-foreground leading-none"
@@ -347,7 +333,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
 
         {/* 1. HOME / NOTICE BOARD TAB */}
         <div className={cn(mobileTab === 'home' ? 'block' : 'hidden lg:block')}>
-          <NoticeBoard />
+          <NoticeBoard studentClass={student.className} />
         </div>
 
         {/* 2. ATTENDANCE TAB (With Class Leader Sub-Switcher on Phone/Tablet) */}

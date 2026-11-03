@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarClock, Megaphone, Pin, ShieldCheck } from 'lucide-react'
+import { CalendarClock, Megaphone, Pin, ShieldCheck, Users } from 'lucide-react'
 import {
   MONTHS_META,
+  formatTargetClassesBadge,
+  getNoticeTargetClasses,
+  isNoticeVisibleForClass,
   loadCustomNotices,
   notices,
   type Notice,
@@ -20,7 +23,7 @@ const categoryTone: Record<string, string> = {
   Academic: 'bg-foreground/10 text-muted-foreground',
 }
 
-export function NoticeBoard() {
+export function NoticeBoard({ studentClass }: { studentClass?: string }) {
   const [customNotices, setCustomNotices] = useState<Notice[]>([])
 
   useEffect(() => {
@@ -37,19 +40,25 @@ export function NoticeBoard() {
   }, [])
 
   const allNotices = useMemo(() => {
-    const combined = [...customNotices, ...notices]
+    const combined = [...customNotices, ...notices].filter((nt) =>
+      isNoticeVisibleForClass(nt, studentClass),
+    )
     return combined.sort((a, b) => {
       if (Boolean(a.pinned) !== Boolean(b.pinned)) {
         return a.pinned ? -1 : 1
       }
       return b.date.localeCompare(a.date)
     })
-  }, [customNotices])
+  }, [customNotices, studentClass])
 
   return (
     <Panel
       id="notices"
-      eyebrow="Latest announcements & official holiday schedule"
+      eyebrow={
+        studentClass
+          ? `Announcements & Holiday Schedule • ${studentClass}`
+          : 'Latest announcements & official holiday schedule'
+      }
       title="Notice Board"
       icon={Megaphone}
       action={
@@ -69,6 +78,9 @@ export function NoticeBoard() {
           const monthLabel = hMeta?.monthId
             ? MONTHS_META.find((m) => m.id === hMeta.monthId)?.month ?? hMeta.monthId
             : null
+          const targetBatches = getNoticeTargetClasses(notice)
+          const targetBadgeText = formatTargetClassesBadge(targetBatches)
+          const isBatchSpecific = targetBatches.length > 0
 
           return (
             <li key={notice.id} className="group flex gap-4 py-4 first:pt-0 last:pb-0">
@@ -93,12 +105,23 @@ export function NoticeBoard() {
                   >
                     {notice.category}
                   </span>
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.7rem] font-semibold',
+                      isBatchSpecific
+                        ? 'border-cyan/40 bg-cyan/15 text-cyan'
+                        : 'border-border bg-muted/60 text-muted-foreground',
+                    )}
+                  >
+                    <Users className="size-3" aria-hidden="true" />
+                    {targetBadgeText}
+                  </span>
                   {hMeta?.isOfficialHoliday ? (
                     <span className="inline-flex items-center gap-1 rounded-full border border-lime/40 bg-lime/15 px-2.5 py-0.5 text-[0.7rem] font-bold text-emerald-700 dark:text-lime">
                       <CalendarClock className="size-3" aria-hidden="true" />
                       {hMeta.holidayType === 'monthly-second-saturday'
                         ? 'Official 2nd Saturday Leave'
-                        : 'Official Festival / Celebration Leave'}
+                        : 'Official Festival / Batch Holiday'}
                     </span>
                   ) : null}
                   {notice.pinned ? (
@@ -142,7 +165,7 @@ export function NoticeBoard() {
 
                     <div className="flex flex-col justify-between gap-0.5 border-t border-border/60 pt-2 sm:border-t-0 sm:border-l sm:pl-3 sm:pt-0">
                       <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                        Working Days Impact
+                        Working Days Impact ({targetBadgeText})
                       </span>
                       <span className="font-semibold text-emerald-700 dark:text-lime">
                         -{hMeta.holidayDaysDeducted} Days Excluded ({monthLabel ?? hMeta.monthId})

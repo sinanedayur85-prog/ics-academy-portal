@@ -506,7 +506,11 @@ export function findStudentByAdmissionNo(identifier: string): Student | undefine
 
 export type OfficialHolidayMeta = {
   isOfficialHoliday: boolean
-  holidayType: 'monthly-second-saturday' | 'festival-celebration'
+  holidayType:
+    | 'monthly-second-saturday'
+    | 'festival-celebration'
+    | 'festival-holiday'
+    | 'custom-holiday'
   monthId: string // e.g. '2026-11'
   departureDate: string // e.g. 'Friday, 13 Nov 2026'
   departureTime: string // e.g. '09:30 AM (Morning)' or '12:45 PM (After Jumu’ah)'
@@ -514,6 +518,8 @@ export type OfficialHolidayMeta = {
   returnTime: string // e.g. '07:30 AM (Before Period 1)'
   holidayDaysDeducted: number
   announcedBy: string // e.g. 'Principal • ICS Academy' or Usthad name
+  /** Optional list of target className strings (e.g. ['BS 3 • Batch 07']). Empty or ['ALL'] means all 11 batches. */
+  targetClasses?: string[]
 }
 
 export type Notice = {
@@ -524,6 +530,82 @@ export type Notice = {
   title: string
   body: string
   holidayMeta?: OfficialHolidayMeta
+  /** Optional list of target className strings. Empty/undefined or ['ALL'] means all 11 batches. */
+  targetClasses?: string[]
+}
+
+export const ALL_ACADEMY_CLASS_NAMES: string[] = [
+  '8th • Batch 14',
+  '9th • Batch 13',
+  '10th • Batch 12',
+  'HS 1 • Batch 11',
+  'HS 2A • Batch 10',
+  'HS 2B • Batch 1',
+  'BS 1 • Batch 09',
+  'BS 2 • Batch 08',
+  'BS 3 • Batch 07',
+  'BS 4 • Batch 06',
+  'BS 5 • Batch 05',
+]
+
+export const HIGH_SCHOOL_CLASS_NAMES: string[] = [
+  '8th • Batch 14',
+  '9th • Batch 13',
+  '10th • Batch 12',
+  'HS 1 • Batch 11',
+  'HS 2A • Batch 10',
+  'HS 2B • Batch 1',
+]
+
+export const BS_DEGREE_CLASS_NAMES: string[] = [
+  'BS 1 • Batch 09',
+  'BS 2 • Batch 08',
+  'BS 3 • Batch 07',
+  'BS 4 • Batch 06',
+  'BS 5 • Batch 05',
+]
+
+export function getNoticeTargetClasses(notice: Notice): string[] {
+  const raw = notice.targetClasses ?? notice.holidayMeta?.targetClasses
+  if (!raw || !Array.isArray(raw) || raw.length === 0 || raw.includes('ALL')) {
+    return []
+  }
+  return raw
+}
+
+export function isNoticeVisibleForClass(notice: Notice, studentClass?: string): boolean {
+  if (!studentClass || studentClass === 'ALL') return true
+  const targets = getNoticeTargetClasses(notice)
+  if (targets.length === 0) return true
+  return targets.includes(studentClass)
+}
+
+export function formatTargetClassesBadge(targetClasses?: string[]): string {
+  if (
+    !targetClasses ||
+    targetClasses.length === 0 ||
+    targetClasses.includes('ALL') ||
+    targetClasses.length >= ALL_ACADEMY_CLASS_NAMES.length
+  ) {
+    return 'All 11 Batches'
+  }
+  if (targetClasses.length === 1) {
+    return `${targetClasses[0]} Only`
+  }
+  const isExactHighSchool =
+    targetClasses.length === HIGH_SCHOOL_CLASS_NAMES.length &&
+    HIGH_SCHOOL_CLASS_NAMES.every((c) => targetClasses.includes(c))
+  if (isExactHighSchool) {
+    return 'High School Batches (8th–HS 2)'
+  }
+  const isExactBsDegree =
+    targetClasses.length === BS_DEGREE_CLASS_NAMES.length &&
+    BS_DEGREE_CLASS_NAMES.every((c) => targetClasses.includes(c))
+  if (isExactBsDegree) {
+    return 'BS Degree Batches (BS 1–BS 5)'
+  }
+  const shortNames = targetClasses.map((c) => c.split('•')[0].trim())
+  return `${targetClasses.length} Batches (${shortNames.join(', ')})`
 }
 
 export const notices: Notice[] = [
@@ -1344,13 +1426,18 @@ export function saveCustomNotices(customList: Notice[]): void {
     let notif: CampusNotification | undefined
     if (newlyAdded) {
       const isHoliday = Boolean(newlyAdded.holidayMeta?.isOfficialHoliday)
+      const targets = getNoticeTargetClasses(newlyAdded)
+      const badgeLabel = formatTargetClassesBadge(targets)
+      const scopeSuffix = targets.length > 0 ? ` [${badgeLabel}]` : ''
       notif = createAndStoreCampusNotification({
         type: 'notice',
         title: isHoliday
-          ? `Official Holiday Notice: ${newlyAdded.title}`
-          : `New Announcement: ${newlyAdded.title}`,
+          ? `Official Holiday${scopeSuffix}: ${newlyAdded.title}`
+          : `Announcement${scopeSuffix}: ${newlyAdded.title}`,
         message: newlyAdded.body,
         category: newlyAdded.category,
+        targetClass: targets.length === 1 ? targets[0] : undefined,
+        targetClasses: targets.length > 0 ? targets : undefined,
         actorName: newlyAdded.holidayMeta?.announcedBy || 'Usthad / Principal',
         href: '#notices',
       })
@@ -1390,9 +1477,17 @@ export function getEffectiveStudentAttendance(
   const activeCustomNotices = customNoticesList ?? loadCustomNotices()
 
   // Calculate any extra official holiday deductions announced on Notice Board per month
+  // ONLY if the notice applies to this student's class/batch!
   const extraHolidayByMonth: Record<string, { days: number; notes: string[] }> = {}
   for (const nt of activeCustomNotices) {
-    if (nt.holidayMeta?.isOfficialHoliday && nt.holidayMeta.monthId && nt.holidayMeta.holidayDaysDeducted > 0) {
+    if (!isNoticeVisibleForClass(nt, student.className)) {
+      continue
+    }
+    if (
+      nt.holidayMeta?.isOfficialHoliday &&
+      nt.holidayMeta.monthId &&
+      nt.holidayMeta.holidayDaysDeducted > 0
+    ) {
       const mId = nt.holidayMeta.monthId
       if (!extraHolidayByMonth[mId]) {
         extraHolidayByMonth[mId] = { days: 0, notes: [] }
@@ -1827,11 +1922,104 @@ export type CampusNotification = {
   message: string
   category?: string
   targetClass?: string
+  targetClasses?: string[]
   targetStudentId?: string
   actorName?: string
   href?: string
   createdAt: string
   createdAtMs: number
+}
+
+/**
+ * Determines whether a notification should be shown to the given user context.
+ * - When `studentId` is provided (Student / Class Leader session):
+ *   1. Personal notifications (`type === 'attendance'` or `type === 'leave'`, or any notification with `targetStudentId`)
+ *      are STRICTLY restricted to `notif.targetStudentId === studentId`. Another student's leave or attendance
+ *      will NEVER be visible on this student's phone.
+ *   2. Class/Batch-scoped notifications (`targetClasses` or `targetClass`) are only shown if the student's
+ *      `classNameFilter` matches one of the target classes.
+ *   3. General notices (`type === 'notice'` with no `targetClasses`/`targetClass`) are visible to everyone.
+ */
+export function isNotificationVisibleForStudent(
+  notif: CampusNotification,
+  studentId?: string,
+  classNameFilter?: string,
+): boolean {
+  if (studentId) {
+    // 1. Any notification explicitly targeting a student ID must match this logged-in student
+    if (notif.targetStudentId && notif.targetStudentId !== studentId) {
+      return false
+    }
+    // 2. Personal attendance & leave notifications MUST have targetStudentId === studentId
+    if (notif.type === 'attendance' || notif.type === 'leave') {
+      return notif.targetStudentId === studentId
+    }
+    // 3. Multi-batch target filtering (for batch-specific notices/holidays)
+    if (
+      notif.targetClasses &&
+      notif.targetClasses.length > 0 &&
+      !notif.targetClasses.includes('ALL')
+    ) {
+      if (classNameFilter && !notif.targetClasses.includes(classNameFilter)) {
+        return false
+      }
+    }
+    // 4. Single-class target filtering (for period-attendance or single-class notices)
+    if (notif.targetClass && notif.targetClass !== 'ALL') {
+      if (classNameFilter && notif.targetClass !== classNameFilter) {
+        return false
+      }
+    }
+    return true
+  }
+
+  // Staff / Usthad / Principal view:
+  if (classNameFilter && classNameFilter !== 'ALL') {
+    if (
+      notif.targetClasses &&
+      notif.targetClasses.length > 0 &&
+      !notif.targetClasses.includes('ALL') &&
+      !notif.targetClasses.includes(classNameFilter)
+    ) {
+      return false
+    }
+    if (
+      notif.targetClass &&
+      notif.targetClass !== 'ALL' &&
+      notif.targetClass !== classNameFilter
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
+function isNotificationRelevantForCurrentBrowserSession(notif: CampusNotification): boolean {
+  if (typeof window === 'undefined') return true
+  try {
+    const role = window.localStorage.getItem('authRole') || 'student'
+    if (role === 'principal') return true
+    if (role === 'usthad') {
+      const staffId = window.localStorage.getItem('usthadStaffId') || ''
+      const usthad = findUsthadByStaffId(staffId)
+      return isNotificationVisibleForStudent(notif, undefined, usthad?.className)
+    }
+    if (role === 'class-leader') {
+      const leaderId = window.localStorage.getItem('classLeaderId') || ''
+      const leaderMatch = findClassLeaderByIdentifier(leaderId)
+      return isNotificationVisibleForStudent(
+        notif,
+        leaderMatch?.student.id,
+        leaderMatch?.student.className,
+      )
+    }
+    // Default: Student role
+    const loggedInStudentId = window.localStorage.getItem('loggedInStudentId') || ''
+    const st = students.find((s) => s.id === loggedInStudentId) ?? students[0]
+    return isNotificationVisibleForStudent(notif, st?.id, st?.className)
+  } catch {
+    return true
+  }
 }
 
 export const CAMPUS_NOTIFICATIONS_STORAGE_KEY = 'ics_campus_notifications_v1'
@@ -1909,6 +2097,7 @@ export function createAndStoreCampusNotification(input: {
   message: string
   category?: string
   targetClass?: string
+  targetClasses?: string[]
   targetStudentId?: string
   actorName?: string
   href?: string
@@ -1921,6 +2110,7 @@ export function createAndStoreCampusNotification(input: {
     message: input.message,
     category: input.category,
     targetClass: input.targetClass,
+    targetClasses: input.targetClasses,
     targetStudentId: input.targetStudentId,
     actorName: input.actorName,
     href: input.href || '#notices',
@@ -1938,9 +2128,11 @@ export function createAndStoreCampusNotification(input: {
           JSON.stringify(updated),
         )
       }
-      window.dispatchEvent(
-        new CustomEvent('ics-campus-notification', { detail: notif }),
-      )
+      if (isNotificationRelevantForCurrentBrowserSession(notif)) {
+        window.dispatchEvent(
+          new CustomEvent('ics-campus-notification', { detail: notif }),
+        )
+      }
     } catch {
       // Ignore storage errors
     }
@@ -1955,6 +2147,7 @@ export function publishCampusNotification(input: {
   message: string
   category?: string
   targetClass?: string
+  targetClasses?: string[]
   targetStudentId?: string
   actorName?: string
   href?: string
@@ -2044,7 +2237,7 @@ export async function pullCampusStateFromServer(): Promise<void> {
         }
       }
 
-      // 4. Merge notifications and emit banner for brand-new ones
+      // 4. Merge notifications and emit banner ONLY for brand-new notifications relevant to this logged-in user
       if (Array.isArray(data.notifications) && data.notifications.length > 0) {
         const localNotifs = loadCampusNotifications()
         const localIds = new Set(localNotifs.map((n) => n.id))
@@ -2057,11 +2250,16 @@ export async function pullCampusStateFromServer(): Promise<void> {
             CAMPUS_NOTIFICATIONS_STORAGE_KEY,
             JSON.stringify(combined),
           )
-          window.dispatchEvent(
-            new CustomEvent('ics-campus-notification', {
-              detail: brandNew[0],
-            }),
+          const relevantNew = brandNew.find((n) =>
+            isNotificationRelevantForCurrentBrowserSession(n),
           )
+          if (relevantNew) {
+            window.dispatchEvent(
+              new CustomEvent('ics-campus-notification', {
+                detail: relevantNew,
+              }),
+            )
+          }
         }
       }
       return

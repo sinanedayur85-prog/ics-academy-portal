@@ -1,4 +1,40 @@
+import type { SVGProps } from 'react'
 import { cn } from '@/lib/utils'
+
+export function BrandLogoMark({
+  className,
+  ...props
+}: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 381 512"
+      fill="none"
+      role="img"
+      aria-label="ICS Academy logo"
+      shapeRendering="geometricPrecision"
+      className={cn('w-auto shrink-0 select-none', className)}
+      {...props}
+    >
+      <path
+        d="M 133.5 74.94 C 124.97 103.64, 125.17 118.9, 138.01 146.36 C 97.57 191.81, 51.69 233.52, 38.62 295.7 C 34.61 314.79, 34.97 331.51, 34.91 350.75 C 23.84 324.9, 13.26 303.78, 11.82 274.74 C 7.98 197.29, 85.2 128.03, 133.5 74.94 Z"
+        fill="#009245"
+      />
+      <path
+        d="M 144.19 154.98 C 153.4 165.61, 162.66 177.78, 170.06 189.73 C 122.77 260.51, 57.3 361.05, 118.1 443.78 C 134.48 466.06, 159.95 484.38, 186.3 492.69 C 202.45 497.79, 217.34 497.23, 233.58 499.6 C 218.41 500.46, 205.5 502.1, 190.11 500.47 C 108.01 491.8, 70.95 427.16, 38.6 359.6 C 38.94 346.52, 38.61 335.2, 40.58 322.07 C 51.25 251.09, 96.35 204.26, 144.19 154.98 Z"
+        fill="#89C53F"
+      />
+      <path
+        d="M 192.26 11.05 C 208.8 38.99, 219.45 65.35, 238.74 93.05 C 276.74 147.62, 341.68 200.08, 358.45 266.29 C 363.81 287.43, 365.27 304.81, 362.54 326.51 C 356.13 377.52, 309.16 461.06, 258.1 478.21 C 202.98 496.71, 140.31 461.33, 119.39 408.9 C 110.51 386.66, 110.63 365.56, 113.2 342.22 C 118.16 297.25, 143.81 266.34, 161.48 227.52 C 159.47 246.69, 156.79 262.64, 159.01 282.2 C 166.04 344.17, 210.3 387.72, 271.68 396.48 C 288.23 398.85, 301.01 397.08, 317.26 396.33 C 314.82 386.74, 314.16 376.54, 311.46 366.74 C 305.22 344.06, 295.53 325.17, 282.88 305.49 C 266 279.24, 244.32 254.97, 223.83 231.49 C 194.36 197.72, 141.08 148.01, 145.78 99.68 C 148.14 75.41, 164.33 56.8, 176.76 37.01 C 182.13 28.46, 186.93 19.55, 192.26 11.05 Z"
+        fill="#00AFD9"
+      />
+      <path
+        d="M 231.52 256.23 C 266.84 297.83, 295.46 330.73, 307.55 385.55 C 259.98 386.53, 230.11 375.7, 197.52 340.5 C 221.23 309.34, 224.7 293.91, 231.52 256.23 Z"
+        fill="#89C53F"
+      />
+    </svg>
+  )
+}
 
 type BrandWordmarkProps = {
   as?: 'div' | 'h1'
@@ -18,7 +54,7 @@ export function BrandWordmark({
   gapClassName = 'gap-0.5',
 }: BrandWordmarkProps) {
   return (
-    <Tag className={cn('inline-flex w-max flex-col font-display', gapClassName, className)}>
+    <Tag className={cn('inline-flex w-max flex-col font-display antialiased', gapClassName, className)}>
       {/* El Messiri glyphs carry side bearings (I and M start ~0.078em inside their box, final A overhangs ~0.03em), so em offsets align the visible ink edges. */}
       <span className={cn('-ml-[0.078em] block leading-none', topClassName)}>ICS ACADEMY</span>
       <span className="sr-only">{SUBTITLE}</span>
@@ -41,3 +77,4 @@ export function BrandWordmark({
     </Tag>
   )
 }
+

@@ -165,7 +165,7 @@ export async function transcribeVoiceAudio(payload: {
 
   for (const url of urls) {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 22000)
+    const timeoutId = setTimeout(() => controller.abort(), 14000)
 
     try {
       const res = await fetch(url, {
@@ -179,7 +179,7 @@ export async function transcribeVoiceAudio(payload: {
       const contentType = res.headers.get('content-type') || ''
       if (res.ok && contentType.includes('application/json')) {
         const data = (await res.json()) as { text?: string }
-        if (data && typeof data.text === 'string') {
+        if (data && typeof data.text === 'string' && data.text.trim()) {
           return data.text.trim()
         }
       }
@@ -189,4 +189,44 @@ export async function transcribeVoiceAudio(payload: {
   }
 
   return ''
+}
+
+export async function normalizeSpokenVoiceText(payload: {
+  rawTranscript: string
+  language: string
+}): Promise<string> {
+  const clean = payload.rawTranscript.trim()
+  if (!clean) return ''
+
+  const urls = getCandidateApiUrls('/api/ai/transcribe')
+
+  for (const url of urls) {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 7000)
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          rawTranscript: clean,
+          language: payload.language,
+        }),
+      })
+      clearTimeout(timeoutId)
+
+      const contentType = res.headers.get('content-type') || ''
+      if (res.ok && contentType.includes('application/json')) {
+        const data = (await res.json()) as { text?: string }
+        if (data && typeof data.text === 'string' && data.text.trim()) {
+          return data.text.trim()
+        }
+      }
+    } catch {
+      clearTimeout(timeoutId)
+    }
+  }
+
+  return clean
 }

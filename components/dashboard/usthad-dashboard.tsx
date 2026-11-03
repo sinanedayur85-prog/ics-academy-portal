@@ -43,17 +43,22 @@ import {
   X,
 } from 'lucide-react'
 import { AppUpdateButton } from '@/components/app-update-manager'
-import { BrandWordmark } from '@/components/brand-wordmark'
+import { BrandLogoMark, BrandWordmark } from '@/components/brand-wordmark'
 import {
   CampusNotificationBar,
   CampusNotificationBell,
 } from '@/components/campus-notifications'
 import {
   ABSENT_REASONS,
+  ALL_ACADEMY_CLASS_NAMES,
   ATTENDANCE_LEAVE_REASONS,
+  BS_DEGREE_CLASS_NAMES,
   CLASS_USTHADS,
+  HIGH_SCHOOL_CLASS_NAMES,
   MONTHS_META,
+  formatTargetClassesBadge,
   getEffectiveStudentAttendance,
+  getNoticeTargetClasses,
   leaveReasons,
   loadAttendanceOverrides,
   loadCustomNotices,
@@ -250,6 +255,12 @@ export function UsthadDashboard() {
   const [noticeCategory, setNoticeCategory] = useState<Notice['category']>('Hostel')
   const [noticePinned, setNoticePinned] = useState(true)
   const [noticeBody, setNoticeBody] = useState('')
+  const [noticeTargetScope, setNoticeTargetScope] = useState<
+    'all' | 'my-class' | 'high-school' | 'bs-degree' | 'custom'
+  >('all')
+  const [noticeCustomBatches, setNoticeCustomBatches] = useState<string[]>(() => [
+    usthad.className,
+  ])
   const [isHolidayNotice, setIsHolidayNotice] = useState(false)
   const [holidayType, setHolidayType] = useState<OfficialHolidayMeta['holidayType']>(
     'monthly-second-saturday',
@@ -539,6 +550,22 @@ export function UsthadDashboard() {
     }
   }
 
+  function getResolvedTargetClasses(): string[] | undefined {
+    if (noticeTargetScope === 'all') return undefined
+    if (noticeTargetScope === 'my-class') return [usthad.className]
+    if (noticeTargetScope === 'high-school') return [...HIGH_SCHOOL_CLASS_NAMES]
+    if (noticeTargetScope === 'bs-degree') return [...BS_DEGREE_CLASS_NAMES]
+    return noticeCustomBatches.length > 0 ? [...noticeCustomBatches] : [usthad.className]
+  }
+
+  function toggleNoticeCustomBatch(batchName: string) {
+    setNoticeCustomBatches((prev) =>
+      prev.includes(batchName)
+        ? prev.filter((b) => b !== batchName)
+        : [...prev, batchName],
+    )
+  }
+
   function handlePublishNotice(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const cleanTitle = noticeTitle.trim()
@@ -547,6 +574,9 @@ export function UsthadDashboard() {
 
     const todayIso = new Date().toISOString().slice(0, 10)
     const parsedDeduct = Math.max(0, Math.min(25, Number.parseInt(holidayDaysDeducted, 10) || 0))
+    const resolvedTargets = getResolvedTargetClasses()
+    const targetSummary = formatTargetClassesBadge(resolvedTargets)
+
     const newNotice: Notice = {
       id: `nt-usthad-${Date.now()}`,
       date: todayIso,
@@ -554,6 +584,7 @@ export function UsthadDashboard() {
       pinned: noticePinned,
       title: cleanTitle,
       body: cleanBody,
+      ...(resolvedTargets ? { targetClasses: resolvedTargets } : {}),
       ...(isHolidayNotice
         ? {
             holidayMeta: {
@@ -566,6 +597,7 @@ export function UsthadDashboard() {
               returnTime: holidayReturnTime.trim() || '07:30 AM',
               holidayDaysDeducted: parsedDeduct,
               announcedBy: holidayAnnouncedBy.trim() || `${usthad.name} (Class Usthad)`,
+              ...(resolvedTargets ? { targetClasses: resolvedTargets } : {}),
             },
           }
         : {}),
@@ -578,8 +610,8 @@ export function UsthadDashboard() {
     setNoticeBody('')
     setNoticeToast(
       isHolidayNotice
-        ? `Published Official Holiday Notice "${cleanTitle}" — Working days for ${holidayMonthId} automatically reduced by ${parsedDeduct} days.`
-        : `Published notice "${cleanTitle}" to the Notice Board.`,
+        ? `Published Official Holiday "${cleanTitle}" for ${targetSummary} — Working days for ${holidayMonthId} reduced by ${parsedDeduct} days for those batches.`
+        : `Published notice "${cleanTitle}" for ${targetSummary}.`,
     )
     window.setTimeout(() => setNoticeToast(null), 5000)
   }
@@ -754,14 +786,7 @@ export function UsthadDashboard() {
           className="flex h-20 items-center gap-3 border-b border-border px-6"
           aria-label="ICS Academy Manhappatta home"
         >
-          <Image
-            src="/images/ics-mark-transparent.png"
-            alt="ICS Academy logo"
-            width={381}
-            height={512}
-            className="h-10 w-auto object-contain"
-            priority
-          />
+          <BrandLogoMark className="h-10 w-auto" />
           <BrandWordmark
             gapClassName="gap-0"
             topClassName="text-lg font-bold text-foreground leading-none"
@@ -811,13 +836,7 @@ export function UsthadDashboard() {
             className="flex min-w-0 items-center gap-2.5 sm:gap-3 lg:hidden"
             aria-label="ICS Academy Manhappatta home"
           >
-            <Image
-              src="/images/ics-mark-transparent.png"
-              alt="ICS Academy logo"
-              width={381}
-              height={512}
-              className="h-9 sm:h-10 w-auto shrink-0 object-contain"
-            />
+            <BrandLogoMark className="h-9 sm:h-11 w-auto shrink-0" />
             <BrandWordmark
               gapClassName="gap-0"
               topClassName="text-base sm:text-lg font-bold text-foreground leading-none"
@@ -1877,6 +1896,119 @@ export function UsthadDashboard() {
                 />
               </div>
 
+              {/* Target Batches / Classes Selector */}
+              <div className="flex flex-col gap-2.5 rounded-xl border border-cyan/30 bg-cyan/[0.05] p-3">
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-xs font-bold text-foreground">
+                    Target Batches / Classes (ആർക്കാണ് ഈ അറിയിപ്പ് / ലീവ്?)
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Select whether this notice or holiday applies to all 11 batches or only selected batches.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                  {(
+                    [
+                      {
+                        id: 'all',
+                        label: 'All 11 Batches (എല്ലാ ബാച്ചുകൾക്കും)',
+                      },
+                      {
+                        id: 'my-class',
+                        label: `My Batch Only (${usthad.className})`,
+                      },
+                      {
+                        id: 'high-school',
+                        label: 'High School Batches (8th – HS 2)',
+                      },
+                      {
+                        id: 'bs-degree',
+                        label: 'BS Degree Batches (BS 1 – BS 5)',
+                      },
+                      {
+                        id: 'custom',
+                        label: 'Select Specific Batches (തിരഞ്ഞെടുത്ത ബാച്ചുകൾ)',
+                      },
+                    ] as const
+                  ).map((opt) => {
+                    const active = noticeTargetScope === opt.id
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setNoticeTargetScope(opt.id)}
+                        className={cn(
+                          'flex items-center justify-start gap-2 rounded-lg border px-2.5 py-2 text-left text-xs font-semibold transition-all',
+                          opt.id === 'custom' && 'sm:col-span-2',
+                          active
+                            ? 'border-cyan bg-cyan/20 text-foreground shadow-2xs'
+                            : 'border-border bg-background/70 text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'flex size-3.5 shrink-0 items-center justify-center rounded-full border',
+                            active ? 'border-cyan bg-cyan text-slate-950' : 'border-muted-foreground/50',
+                          )}
+                        >
+                          {active ? <Check className="size-2.5 stroke-[3]" /> : null}
+                        </span>
+                        <span className="truncate">{opt.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {noticeTargetScope === 'custom' ? (
+                  <div className="mt-1 flex flex-col gap-2 rounded-lg border border-border/70 bg-background/80 p-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold text-foreground">
+                        Select Batches ({noticeCustomBatches.length} selected):
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setNoticeCustomBatches([...ALL_ACADEMY_CLASS_NAMES])}
+                          className="text-[10px] font-semibold text-cyan hover:underline"
+                        >
+                          Select All
+                        </button>
+                        <span className="text-muted-foreground">·</span>
+                        <button
+                          type="button"
+                          onClick={() => setNoticeCustomBatches([usthad.className])}
+                          className="text-[10px] font-semibold text-muted-foreground hover:text-foreground"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ALL_ACADEMY_CLASS_NAMES.map((cls) => {
+                        const checked = noticeCustomBatches.includes(cls)
+                        return (
+                          <button
+                            key={cls}
+                            type="button"
+                            onClick={() => toggleNoticeCustomBatch(cls)}
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold transition-all',
+                              checked
+                                ? 'border-lime bg-lime/20 text-foreground'
+                                : 'border-border bg-card text-muted-foreground hover:text-foreground',
+                            )}
+                          >
+                            {checked ? <Check className="size-3 text-lime" /> : null}
+                            <span>{cls}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
               {/* Official Academy Holiday Schedule & Working Days Deduction Toggle */}
               <div className="flex flex-col gap-3 rounded-xl border border-lime/30 bg-lime/[0.05] p-3">
                 <label className="flex cursor-pointer items-center justify-between gap-2 text-xs font-semibold text-foreground">
@@ -2062,9 +2194,12 @@ export function UsthadDashboard() {
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Published Notices (Synced with Student Dashboard)
               </h3>
-              <ul className="flex max-h-80 flex-col divide-y divide-border overflow-y-auto rounded-xl border border-border bg-background/40 px-4">
+              <ul className="flex max-h-96 flex-col divide-y divide-border overflow-y-auto rounded-xl border border-border bg-background/40 px-4">
                 {allNoticesCombined.map((item) => {
-                  const isCustom = item.id.startsWith('nt-usthad-')
+                  const isCustom =
+                    item.id.startsWith('nt-usthad-') || item.id.startsWith('nt-principal-')
+                  const itemTargets = getNoticeTargetClasses(item)
+                  const itemTargetLabel = formatTargetClassesBadge(itemTargets)
                   return (
                     <li key={item.id} className="flex items-start justify-between gap-3 py-3.5">
                       <div className="min-w-0 flex-1">
@@ -2072,6 +2207,17 @@ export function UsthadDashboard() {
                           <span className="font-semibold text-lime">{item.category}</span>
                           <span aria-hidden="true">·</span>
                           <span className="font-mono tabular-nums text-muted-foreground">{item.date}</span>
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                              itemTargets.length > 0
+                                ? 'border-cyan/40 bg-cyan/15 text-cyan'
+                                : 'border-border bg-muted/50 text-muted-foreground',
+                            )}
+                          >
+                            <Users className="size-2.5" aria-hidden="true" />
+                            {itemTargetLabel}
+                          </span>
                           {item.pinned ? (
                             <>
                               <span aria-hidden="true">·</span>

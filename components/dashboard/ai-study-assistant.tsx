@@ -320,12 +320,11 @@ export function AiStudyAssistant({ student }: { student: Student }) {
   }, [cloudNotes, localNotes, modeFilter, searchQuery])
 
   async function handleAskAssistant(customPrompt?: string) {
-    const activePrompt = (customPrompt ?? prompt).trim()
+    const activePrompt = (customPrompt ?? (prompt || lastPrompt)).trim()
     if (!activePrompt || loading) return
 
-    if (customPrompt) {
-      setPrompt(customPrompt)
-    }
+    setLastPrompt(activePrompt)
+    setPrompt('')
 
     const isAutoLanguage = languagePreference === 'auto'
     const effectiveLanguage: OutputLanguage = isAutoLanguage
@@ -348,7 +347,6 @@ export function AiStudyAssistant({ student }: { student: Student }) {
         studentName: student.name,
       })
 
-      setLastPrompt(activePrompt)
       setResponse(data.response)
     } catch (err) {
       const rawMsg =

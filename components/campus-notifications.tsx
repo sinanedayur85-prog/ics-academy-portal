@@ -14,6 +14,8 @@ import {
   X,
 } from 'lucide-react'
 import {
+  formatTargetClassesBadge,
+  isNotificationVisibleForStudent,
   loadCampusNotifications,
   pullCampusStateFromServer,
   type CampusNotification,
@@ -25,10 +27,16 @@ import { cn } from '@/lib/utils'
 const READ_NOTIF_IDS_STORAGE_KEY = 'ics_read_notification_ids_v1'
 const LAST_TOASTED_NOTIF_ID_KEY = 'ics_last_toasted_notif_id_v1'
 
-function loadReadIds(): Set<string> {
+function getScopeStorageSuffix(studentId?: string, classNameFilter?: string): string {
+  const raw = studentId || classNameFilter || 'campus'
+  return raw.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60)
+}
+
+function loadReadIds(studentId?: string, classNameFilter?: string): Set<string> {
   if (typeof window === 'undefined') return new Set()
   try {
-    const raw = window.localStorage.getItem(READ_NOTIF_IDS_STORAGE_KEY)
+    const key = `${READ_NOTIF_IDS_STORAGE_KEY}_${getScopeStorageSuffix(studentId, classNameFilter)}`
+    const raw = window.localStorage.getItem(key) || window.localStorage.getItem(READ_NOTIF_IDS_STORAGE_KEY)
     if (!raw) return new Set()
     const arr = JSON.parse(raw) as string[]
     return new Set(Array.isArray(arr) ? arr : [])
@@ -37,17 +45,34 @@ function loadReadIds(): Set<string> {
   }
 }
 
-function saveReadIds(set: Set<string>): void {
+function saveReadIds(
+  set: Set<string>,
+  studentId?: string,
+  classNameFilter?: string,
+): void {
   if (typeof window === 'undefined') return
   try {
-    window.localStorage.setItem(
-      READ_NOTIF_IDS_STORAGE_KEY,
-      JSON.stringify(Array.from(set).slice(-120)),
-    )
+    const key = `${READ_NOTIF_IDS_STORAGE_KEY}_${getScopeStorageSuffix(studentId, classNameFilter)}`
+    window.localStorage.setItem(key, JSON.stringify(Array.from(set).slice(-120)))
     window.dispatchEvent(new CustomEvent('ics-notifications-read-changed'))
   } catch {
     // Ignore storage errors
   }
+}
+
+function getNotificationScopeBadge(notif: CampusNotification, studentId?: string): string {
+  if (notif.targetStudentId) {
+    return studentId && notif.targetStudentId === studentId
+      ? 'Personal • Only Your Account'
+      : 'Student Personal Record'
+  }
+  if (notif.targetClasses && notif.targetClasses.length > 0) {
+    return formatTargetClassesBadge(notif.targetClasses)
+  }
+  if (notif.targetClass && notif.targetClass !== 'ALL') {
+    return `${notif.targetClass} Only`
+  }
+  return 'All Batches'
 }
 
 function getNotificationMeta(type: CampusNotificationType) {
@@ -141,26 +166,15 @@ export function CampusNotificationBar({
       const notif = custom.detail
       if (!notif || !notif.id) return
 
-      // Filter out notifications targeted exclusively at another student
-      if (
-        studentId &&
-        notif.targetStudentId &&
-        notif.targetStudentId !== studentId
-      ) {
-        return
-      }
-      if (
-        classNameFilter &&
-        notif.targetClass &&
-        notif.targetClass !== classNameFilter &&
-        notif.type !== 'notice'
-      ) {
+      // Strictly enforce personal student & batch visibility rules
+      if (!isNotificationVisibleForStudent(notif, studentId, classNameFilter)) {
         return
       }
 
-      const lastToasted = window.sessionStorage.getItem(LAST_TOASTED_NOTIF_ID_KEY)
+      const toastKey = `${LAST_TOASTED_NOTIF_ID_KEY}_${getScopeStorageSuffix(studentId, classNameFilter)}`
+      const lastToasted = window.sessionStorage.getItem(toastKey)
       if (lastToasted === notif.id) return
-      window.sessionStorage.setItem(LAST_TOASTED_NOTIF_ID_KEY, notif.id)
+      window.sessionStorage.setItem(toastKey, notif.id)
 
       setActiveToast(notif)
       triggerSystemNotification(notif.title, notif.message)
@@ -215,6 +229,9 @@ export function CampusNotificationBar({
             >
               {meta.label}
             </span>
+            <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85">
+              {getNotificationScopeBadge(activeToast, studentId)}
+            </span>
             <span className="text-[11px] text-white/65">
               {formatRelativeTime(activeToast.createdAtMs)}
             </span>
@@ -232,9 +249,9 @@ export function CampusNotificationBar({
               <a
                 href={activeToast.href}
                 onClick={() => {
-                  const read = loadReadIds()
+                  const read = loadReadIds(studentId, classNameFilter)
                   read.add(activeToast.id)
-                  saveReadIds(read)
+                  saveReadIds(read, studentId, classNameFilter)
                   setActiveToast(null)
                 }}
                 className="inline-flex items-center gap-1 rounded-lg bg-lime px-2.5 py-1 text-[11px] font-bold text-slate-950 transition hover:bg-lime/90"
@@ -246,9 +263,9 @@ export function CampusNotificationBar({
             <button
               type="button"
               onClick={() => {
-                const read = loadReadIds()
+                const read = loadReadIds(studentId, classNameFilter)
                 read.add(activeToast.id)
-                saveReadIds(read)
+                saveReadIds(read, studentId, classNameFilter)
                 setActiveToast(null)
               }}
               className="rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/85 transition hover:bg-white/20 hover:text-white"
@@ -287,8 +304,8 @@ export function CampusNotificationBell({
 
   const refreshNotifications = useCallback(() => {
     setNotifications(loadCampusNotifications())
-    setReadIds(loadReadIds())
-  }, [])
+    setReadIds(loadReadIds(studentId, classNameFilter))
+  }, [studentId, classNameFilter])
 
   useEffect(() => {
     refreshNotifications()
@@ -309,20 +326,9 @@ export function CampusNotificationBell({
   }, [refreshNotifications])
 
   const filteredNotifications = useMemo(() => {
-    return notifications.filter((n) => {
-      if (studentId && n.targetStudentId && n.targetStudentId !== studentId) {
-        return false
-      }
-      if (
-        classNameFilter &&
-        n.targetClass &&
-        n.targetClass !== classNameFilter &&
-        n.type !== 'notice'
-      ) {
-        return false
-      }
-      return true
-    })
+    return notifications.filter((n) =>
+      isNotificationVisibleForStudent(n, studentId, classNameFilter),
+    )
   }, [notifications, studentId, classNameFilter])
 
   const unreadCount = useMemo(() => {
@@ -335,8 +341,8 @@ export function CampusNotificationBell({
       next.add(n.id)
     }
     setReadIds(next)
-    saveReadIds(next)
-  }, [filteredNotifications, readIds])
+    saveReadIds(next, studentId, classNameFilter)
+  }, [filteredNotifications, readIds, studentId, classNameFilter])
 
   const requestAndTestNotification = useCallback(async () => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -477,14 +483,19 @@ export function CampusNotificationBell({
 
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span
-                              className={cn(
-                                'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase',
-                                meta.badgeClass,
-                              )}
-                            >
-                              {meta.label}
-                            </span>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span
+                                className={cn(
+                                  'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase',
+                                  meta.badgeClass,
+                                )}
+                              >
+                                {meta.label}
+                              </span>
+                              <span className="inline-flex items-center rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                {getNotificationScopeBadge(item, studentId)}
+                              </span>
+                            </div>
                             <span className="text-[11px] text-muted-foreground">
                               {formatRelativeTime(item.createdAtMs)}
                             </span>
@@ -505,7 +516,7 @@ export function CampusNotificationBell({
                                   const next = new Set(readIds)
                                   next.add(item.id)
                                   setReadIds(next)
-                                  saveReadIds(next)
+                                  saveReadIds(next, studentId, classNameFilter)
                                   setOpen(false)
                                 }}
                                 className="inline-flex items-center gap-1 text-xs font-semibold text-lime hover:underline"

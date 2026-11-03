@@ -724,14 +724,12 @@ async function startServer() {
   app.post('/api/ai/transcribe', async (req, res) => {
     res.setHeader('Content-Type', 'application/json')
     try {
-      const { audioBase64, mimeType = 'audio/webm', language = 'auto' } = req.body ?? {}
-      if (!audioBase64 || typeof audioBase64 !== 'string') {
-        res.status(400).json({ error: 'Missing audio data for transcription.' })
-        return
-      }
-
-      const cleanBase64 = audioBase64.replace(/^data:[^;]+;base64,/, '').trim()
-      const cleanMime = String(mimeType || 'audio/webm').split(';')[0].trim() || 'audio/webm'
+      const {
+        audioBase64,
+        rawTranscript,
+        mimeType = 'audio/webm',
+        language = 'auto',
+      } = req.body ?? {}
 
       const langHint =
         language === 'ml'
@@ -748,19 +746,88 @@ async function startServer() {
                     ? 'English'
                     : 'the EXACT language spoken by the student in its native script: if spoken in Malayalam, write in Malayalam script (മലയാളം); if spoken in Arabic, write in Arabic script (العربية); if spoken in Urdu, write in Urdu script (اردو); if spoken in English, write in English; if spoken in Spanish, write in Español; if spoken in German, write in Deutsch'
 
+      // Fast Path 1: Live SpeechRecognition phonetic/script auto-resolver (~300ms)
+      if (typeof rawTranscript === 'string' && rawTranscript.trim().length > 0) {
+        const cleanSpoken = rawTranscript.trim().slice(0, 1500)
+        const scriptPrompt = `You are a real-time speech-to-text script normalizer for ICS Academy (Da'wa College).
+A student just spoke into a live voice recognizer, which captured the following phonetic transcript:
+"""
+${cleanSpoken}
+"""
+
+Your ONLY job is to output the exact words the student spoke in ${langHint}:
+1. NEVER translate the meaning into another language and NEVER answer the question! Output ONLY what the student said.
+2. Why this normalization is needed: Browser SpeechRecognition runs in a single locale (like 'ml-IN' or 'en-IN'), so:
+   - If the student spoke English while the recognizer was in 'ml-IN' mode, English words may be written phonetically in Malayalam letters (e.g., "വാട്ട് ആർ ദി കണ്ടീഷൻസ് ഓഫ് വുളൂ" or "ഹൗ ആർ യു") -> convert them to clean English ("What are the conditions of Wudu?", "How are you?").
+   - If the student spoke Malayalam while the recognizer was in 'en-IN' mode, Malayalam words may be written in Latin/Manglish or phonetic English words (e.g., "enthanu niskarathinte farzukal", "sukhamano", "assalamu alaikum usthad") -> convert them to natural Malayalam script ("എന്താണ് നിസ്കാരത്തിന്റെ ഫർളുകൾ?", "സുഖമാണോ?", "അസ്സലാമു അലൈക്കും ഉസ്താദേ").
+   - If the student spoke Malayalam and it is already in Malayalam script (e.g., "അസ്സലാമു അലൈക്കും ഉസ്താദേ എന്താണ് വിശേഷം"), keep it in clean Malayalam script!
+   - If the student spoke Arabic (even if written phonetically in Malayalam or Latin script like "മാ ഹിയ ശുറൂത്തു സ്വലാത്ത്" or "ma hiya shuroot as salah" or "കൈഫ ഹാലുക്ക"), output it in clean Arabic script ("مَا هِيَ شُرُوطُ الصَّلَاةِ؟", "كَيْفَ حَالُكَ؟").
+   - If the student spoke Urdu (even if written phonetically in Malayalam or Latin script like "നമാസ് കെ ഫറായിസ് ക്യാ ഹേ" or "namaz ke faraiz kya hain" or "ആപ് കൈസേ ഹേ"), output it in clean Urdu script ("نماز کے فرائض کیا ہیں؟", "آپ کیسے ہیں؟").
+   - If the student spoke Spanish or German phonetically, output it in clean Español or Deutsch.
+3. Output ONLY the final normalized text with no quotes, no markdown, and no explanation.`
+
+        const fastTextModels = [
+          'gemini-3.1-flash-lite',
+          'gemini-3.1-flash-lite-preview',
+          'gemini-3.8-flash',
+          'gemini-2.5-flash-lite',
+          'gemini-2.5-flash',
+        ] as const
+
+        for (const modelName of fastTextModels) {
+          try {
+            const ai = getAiClient()
+            const response = await withTimeout(
+              ai.models.generateContent({
+                model: modelName,
+                contents: scriptPrompt,
+                ...(modelName === 'gemini-3.8-flash'
+                  ? { config: { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } } }
+                  : {}),
+              }),
+              6000,
+              modelName,
+            )
+            if (typeof response.text === 'string' && response.text.trim()) {
+              res.json({
+                text: response.text
+                  .trim()
+                  .replace(/^["'“”]+|["'“”]+$/g, '')
+                  .trim(),
+              })
+              return
+            }
+          } catch {
+            continue
+          }
+        }
+
+        res.json({ text: cleanSpoken })
+        return
+      }
+
+      // Fast Path 2: Multimodal Audio Blob Transcription
+      if (!audioBase64 || typeof audioBase64 !== 'string') {
+        res.status(200).json({ text: '' })
+        return
+      }
+
+      const cleanBase64 = audioBase64.replace(/^data:[^;]+;base64,/, '').trim()
+      const cleanMime = String(mimeType || 'audio/webm').split(';')[0].trim() || 'audio/webm'
+
       const promptText = `Listen carefully to this audio clip from an ICS Academy student.
 1. If the audio is silent, contains only background noise/clicks, or has no clear human speech, output ONLY the exact token: __SILENT__
 2. Do NOT invent, guess, or hallucinate any words if no one is speaking.
 3. CRITICAL: Do NOT translate the speech into English! Transcribe the spoken words verbatim in ${langHint}. Never transliterate Malayalam, Arabic, or Urdu speech into English/Latin letters. Output ONLY the transcribed text itself with no quotes, prefixes, or commentary.`
 
       const transcribeModels = [
-        'gemini-3.8-flash',
         'gemini-3.1-flash-lite',
         'gemini-3.5-transcribe',
-        'gemini-3-flash-preview',
+        'gemini-3.8-flash',
         'gemini-3.1-flash-lite-preview',
-        'gemini-2.5-flash',
+        'gemini-3-flash-preview',
         'gemini-2.5-flash-lite',
+        'gemini-2.5-flash',
       ] as const
 
       let transcript = ''
@@ -784,8 +851,11 @@ async function startServer() {
                   ],
                 },
               ],
+              ...(modelName === 'gemini-3.8-flash'
+                ? { config: { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } } }
+                : {}),
             }),
-            15000,
+            8000,
             modelName,
           )
           if (typeof response.text === 'string') {
@@ -793,7 +863,7 @@ async function startServer() {
             if (raw.includes('__SILENT__') || /^["'\s]*$/.test(raw)) {
               transcript = ''
             } else {
-              transcript = raw
+              transcript = raw.replace(/^["'“”]+|["'“”]+$/g, '').trim()
             }
             break
           }
@@ -943,6 +1013,7 @@ async function startServer() {
     message: string
     category?: string
     targetClass?: string
+    targetClasses?: string[]
     targetStudentId?: string
     actorName?: string
     href?: string
@@ -1019,6 +1090,9 @@ async function startServer() {
               message: String(incomingNotif.message || '').slice(0, 500),
               category: incomingNotif.category,
               targetClass: incomingNotif.targetClass,
+              targetClasses: Array.isArray(incomingNotif.targetClasses)
+                ? incomingNotif.targetClasses
+                : undefined,
               targetStudentId: incomingNotif.targetStudentId,
               actorName: incomingNotif.actorName,
               href: incomingNotif.href || '#notices',

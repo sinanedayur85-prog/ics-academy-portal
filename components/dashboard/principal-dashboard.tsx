@@ -54,7 +54,7 @@ import {
   uploadBytes,
 } from 'firebase/storage'
 import { AppUpdateButton } from '@/components/app-update-manager'
-import { BrandWordmark } from '@/components/brand-wordmark'
+import { BrandLogoMark, BrandWordmark } from '@/components/brand-wordmark'
 import {
   CampusNotificationBar,
   CampusNotificationBell,
@@ -63,14 +63,19 @@ import { ClassLeaderAttendanceCard } from '@/components/dashboard/class-leader-a
 import {
   ABSENT_REASONS,
   ACADEMY_PRINCIPAL,
+  ALL_ACADEMY_CLASS_NAMES,
   ATTENDANCE_LEAVE_REASONS,
+  BS_DEGREE_CLASS_NAMES,
   CLASS_LEADERS,
   CLASS_USTHADS,
   CURRENT_SEMESTER,
+  HIGH_SCHOOL_CLASS_NAMES,
   NOT_HELD_REASONS,
+  formatTargetClassesBadge,
   getClassLeadersForClass,
   getClassSemesterTimetable,
   getEffectiveStudentAttendance,
+  getNoticeTargetClasses,
   leaveReasons,
   loadAttendanceOverrides,
   loadCustomNotices,
@@ -239,6 +244,12 @@ export function PrincipalDashboard() {
   const [noticeCategory, setNoticeCategory] = useState<Notice['category']>('Academic')
   const [noticePinned, setNoticePinned] = useState(true)
   const [noticeBody, setNoticeBody] = useState('')
+  const [noticeTargetScope, setNoticeTargetScope] = useState<
+    'all' | 'high-school' | 'bs-degree' | 'custom'
+  >('all')
+  const [noticeCustomBatches, setNoticeCustomBatches] = useState<string[]>(() => [
+    ALL_ACADEMY_CLASS_NAMES[0],
+  ])
   const [isHolidayNotice, setIsHolidayNotice] = useState(false)
   const [holidayType, setHolidayType] = useState<OfficialHolidayMeta['holidayType']>(
     'monthly-second-saturday',
@@ -852,6 +863,23 @@ export function PrincipalDashboard() {
     setLeaveDetails('')
   }
 
+  function getResolvedTargetClasses(): string[] | undefined {
+    if (noticeTargetScope === 'all') return undefined
+    if (noticeTargetScope === 'high-school') return [...HIGH_SCHOOL_CLASS_NAMES]
+    if (noticeTargetScope === 'bs-degree') return [...BS_DEGREE_CLASS_NAMES]
+    return noticeCustomBatches.length > 0
+      ? [...noticeCustomBatches]
+      : [ALL_ACADEMY_CLASS_NAMES[0]]
+  }
+
+  function toggleNoticeCustomBatch(batchName: string) {
+    setNoticeCustomBatches((prev) =>
+      prev.includes(batchName)
+        ? prev.filter((b) => b !== batchName)
+        : [...prev, batchName],
+    )
+  }
+
   function handlePublishNotice(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const cleanTitle = noticeTitle.trim()
@@ -863,6 +891,9 @@ export function PrincipalDashboard() {
       0,
       Math.min(25, Number.parseInt(holidayDaysDeducted, 10) || 0),
     )
+    const resolvedTargets = getResolvedTargetClasses()
+    const targetSummary = formatTargetClassesBadge(resolvedTargets)
+
     const newNotice: Notice = {
       id: `nt-principal-${Date.now()}`,
       date: todayIso,
@@ -870,6 +901,7 @@ export function PrincipalDashboard() {
       pinned: noticePinned,
       title: cleanTitle,
       body: cleanBody,
+      ...(resolvedTargets ? { targetClasses: resolvedTargets } : {}),
       ...(isHolidayNotice
         ? {
             holidayMeta: {
@@ -883,6 +915,7 @@ export function PrincipalDashboard() {
               holidayDaysDeducted: parsedDeduct,
               announcedBy:
                 holidayAnnouncedBy.trim() || `${principal.name} (Principal • ADM-001)`,
+              ...(resolvedTargets ? { targetClasses: resolvedTargets } : {}),
             },
           }
         : {}),
@@ -895,8 +928,8 @@ export function PrincipalDashboard() {
     setNoticeBody('')
     setNoticeToast(
       isHolidayNotice
-        ? `Published official holiday notice "${cleanTitle}" — deducted ${parsedDeduct} days from ${holidayMonthId} working days across all 11 classes.`
-        : `Published notice "${cleanTitle}" for the entire campus.`,
+        ? `Published official holiday notice "${cleanTitle}" for ${targetSummary} — deducted ${parsedDeduct} days from ${holidayMonthId} working days for those batches.`
+        : `Published notice "${cleanTitle}" for ${targetSummary}.`,
     )
     window.setTimeout(() => setNoticeToast(null), 5000)
   }
@@ -1098,14 +1131,7 @@ export function PrincipalDashboard() {
           className="flex h-20 items-center gap-3 border-b border-border px-6"
           aria-label="ICS Academy Manhappatta home"
         >
-          <Image
-            src="/images/ics-mark-transparent.png"
-            alt="ICS Academy logo"
-            width={381}
-            height={512}
-            className="h-10 w-auto object-contain"
-            priority
-          />
+          <BrandLogoMark className="h-10 w-auto" />
           <BrandWordmark
             gapClassName="gap-0"
             topClassName="text-lg font-bold text-foreground leading-none"
@@ -1174,13 +1200,7 @@ export function PrincipalDashboard() {
             className="flex min-w-0 items-center gap-2.5 sm:gap-3 lg:hidden"
             aria-label="ICS Academy Manhappatta home"
           >
-            <Image
-              src="/images/ics-mark-transparent.png"
-              alt="ICS Academy logo"
-              width={381}
-              height={512}
-              className="h-9 sm:h-10 w-auto shrink-0 object-contain"
-            />
+            <BrandLogoMark className="h-9 sm:h-11 w-auto shrink-0" />
             <BrandWordmark
               gapClassName="gap-0"
               topClassName="text-base sm:text-lg font-bold text-foreground leading-none"
@@ -2702,6 +2722,114 @@ export function PrincipalDashboard() {
                   />
                 </div>
 
+                {/* Target Batches / Classes Selector */}
+                <div className="flex flex-col gap-2.5 rounded-2xl border border-cyan/30 bg-cyan/[0.05] p-3.5">
+                  <div className="flex flex-col gap-0.5">
+                    <Label className="text-xs font-bold text-foreground">
+                      Target Batches / Classes (ആർക്കാണ് ഈ അറിയിപ്പ് / ലീവ് ബാധകം?)
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Choose whether this notice or official holiday applies to all 11 batches or only selected batches (other batches will continue normal classes).
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
+                    {(
+                      [
+                        {
+                          id: 'all',
+                          label: 'All 11 Batches (എല്ലാ ബാച്ചുകൾക്കും)',
+                        },
+                        {
+                          id: 'high-school',
+                          label: 'High School (8th – HS 2)',
+                        },
+                        {
+                          id: 'bs-degree',
+                          label: 'BS Degree (BS 1 – BS 5)',
+                        },
+                        {
+                          id: 'custom',
+                          label: 'Select Specific Batches (തിരഞ്ഞെടുത്തവ)',
+                        },
+                      ] as const
+                    ).map((opt) => {
+                      const active = noticeTargetScope === opt.id
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setNoticeTargetScope(opt.id)}
+                          className={cn(
+                            'flex items-center justify-start gap-2 rounded-xl border px-3 py-2 text-left text-xs font-semibold transition-all',
+                            active
+                              ? 'border-cyan bg-cyan/20 text-foreground shadow-2xs'
+                              : 'border-border bg-background/70 text-muted-foreground hover:text-foreground',
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              'flex size-3.5 shrink-0 items-center justify-center rounded-full border',
+                              active ? 'border-cyan bg-cyan text-slate-950' : 'border-muted-foreground/50',
+                            )}
+                          >
+                            {active ? <Check className="size-2.5 stroke-[3]" /> : null}
+                          </span>
+                          <span className="truncate">{opt.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {noticeTargetScope === 'custom' ? (
+                    <div className="mt-1 flex flex-col gap-2 rounded-xl border border-border/70 bg-background/80 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-foreground">
+                          Select Batches ({noticeCustomBatches.length} selected):
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setNoticeCustomBatches([...ALL_ACADEMY_CLASS_NAMES])}
+                            className="text-[11px] font-semibold text-cyan hover:underline"
+                          >
+                            Select All 11
+                          </button>
+                          <span className="text-muted-foreground">·</span>
+                          <button
+                            type="button"
+                            onClick={() => setNoticeCustomBatches([ALL_ACADEMY_CLASS_NAMES[0]])}
+                            className="text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                          >
+                            Reset
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {ALL_ACADEMY_CLASS_NAMES.map((cls) => {
+                          const checked = noticeCustomBatches.includes(cls)
+                          return (
+                            <button
+                              key={cls}
+                              type="button"
+                              onClick={() => toggleNoticeCustomBatch(cls)}
+                              className={cn(
+                                'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-all',
+                                checked
+                                  ? 'border-lime bg-lime/20 text-foreground'
+                                  : 'border-border bg-card text-muted-foreground hover:text-foreground',
+                              )}
+                            >
+                              {checked ? <Check className="size-3 text-lime" /> : null}
+                              <span>{cls}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
                     <input
@@ -2732,40 +2860,48 @@ export function PrincipalDashboard() {
                     Manage Published Custom Notices ({customNotices.length})
                   </h4>
                   <div className="grid gap-2.5 sm:grid-cols-2">
-                    {customNotices.map((n) => (
-                      <div
-                        key={n.id}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/60 p-3 text-xs"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-foreground">{n.title}</p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {n.category} • {n.date}
-                          </p>
+                    {customNotices.map((n) => {
+                      const nTargets = getNoticeTargetClasses(n)
+                      const nTargetBadge = formatTargetClassesBadge(nTargets)
+                      return (
+                        <div
+                          key={n.id}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/60 p-3 text-xs"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold text-foreground">{n.title}</p>
+                            <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                              <span>{n.category}</span>
+                              <span>•</span>
+                              <span>{n.date}</span>
+                              <span>•</span>
+                              <span className="font-semibold text-cyan">{nTargetBadge}</span>
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleToggleNoticePin(n.id)}
+                              className="h-7 rounded-lg px-2 text-[11px]"
+                            >
+                              <Pin className="mr-1 size-3" aria-hidden="true" />
+                              {n.pinned ? 'Unpin' : 'Pin'}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteCustomNotice(n.id)}
+                              className="h-7 rounded-lg px-2 text-[11px] text-red-500 hover:text-red-600"
+                            >
+                              <Trash2 className="size-3.5" aria-hidden="true" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleToggleNoticePin(n.id)}
-                            className="h-7 rounded-lg px-2 text-[11px]"
-                          >
-                            <Pin className="mr-1 size-3" aria-hidden="true" />
-                            {n.pinned ? 'Unpin' : 'Pin'}
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteCustomNotice(n.id)}
-                            className="h-7 rounded-lg px-2 text-[11px] text-red-500 hover:text-red-600"
-                          >
-                            <Trash2 className="size-3.5" aria-hidden="true" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}
