@@ -886,7 +886,7 @@ function renderScriptRuns(
   preferUrduFont = false,
 ): React.ReactNode {
   const scriptRegex =
-    /([\u0D00-\u0D7F\u200C\u200D]+|[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+)/g
+    /([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+(?:[\s،؛؟«»ـ\-/:,.0-9\u0660-\u0669\u06F0-\u06F9]+[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+)*[،؛؟.!]*|[\u0D00-\u0D7F\u200C\u200D]+(?:\s+[\u0D00-\u0D7F\u200C\u200D]+)*)/g
   const parts = text.split(scriptRegex)
   if (parts.length <= 1) return text
 
@@ -905,7 +905,7 @@ function renderScriptRuns(
         <bdi
           key={`${keyPrefix}-ar-${idx}`}
           dir="rtl"
-          className={useUrdu ? 'font-urdu' : 'font-arabic'}
+          className={cn(useUrdu ? 'font-urdu' : 'font-arabic', 'unicode-bidi-isolate')}
         >
           {part}
         </bdi>
@@ -916,6 +916,9 @@ function renderScriptRuns(
 }
 
 function renderSlantedWords(content: string, keyPrefix: string, preferUrduFont = false) {
+  if (/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(content)) {
+    return renderScriptRuns(content, `${keyPrefix}-sw-rtl`, preferUrduFont)
+  }
   const parts = content.split(/(\s+)/)
   return parts.map((part, idx) => {
     if (!part) return null
@@ -931,11 +934,21 @@ function renderSlantedWords(content: string, keyPrefix: string, preferUrduFont =
 }
 
 function renderInlineMarkdown(
-  line: string,
+  rawLine: string,
   keyPrefix: string,
   isUser: boolean,
   preferUrduFont = false,
 ) {
+  // Merge adjacent bold/italic Arabic words so they stay in a single RTL phrase run
+  const line = rawLine
+    .replace(
+      /\*\*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\s،؛؟]+)\*\*\s+\*\*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\s،؛؟]+)\*\*/g,
+      '**$1 $2**',
+    )
+    .replace(
+      /\*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\s،؛؟]+)\*\s+\*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\s،؛؟]+)\*/g,
+      '*$1 $2*',
+    )
   const tokenRegex =
     /(\*\*\*[\s\S]+?\*\*\*|___[\s\S]+?___|\*\*[\s\S]+?\*\*|__[\s\S]+?__|\*[^\s*](?:[\s\S]*?[^\s*])?\*|_[^\s_](?:[\s\S]*?[^\s_])?_|\`[^\`]+\`)/g
 

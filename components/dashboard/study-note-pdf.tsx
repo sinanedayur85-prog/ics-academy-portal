@@ -365,7 +365,7 @@ function renderComplexScriptBlockToPng(params: {
 
 export function renderPrintScriptRuns(text: string, keyPrefix: string): React.ReactNode {
   const scriptRegex =
-    /([\u0D00-\u0D7F\u200C\u200D]+|[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+)/g
+    /([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+(?:[\s،؛؟«»ـ\-/:,.0-9\u0660-\u0669\u06F0-\u06F9]+[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+)*[،؛؟.!]*|[\u0D00-\u0D7F\u200C\u200D]+(?:\s+[\u0D00-\u0D7F\u200C\u200D]+)*)/g
   const parts = text.split(scriptRegex)
   if (parts.length <= 1) return text
 
@@ -384,7 +384,7 @@ export function renderPrintScriptRuns(text: string, keyPrefix: string): React.Re
     if (/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(part)) {
       const partIsUrdu = isUrduText(part)
       return (
-        <span
+        <bdi
           key={`${keyPrefix}-ar-${idx}`}
           dir="rtl"
           style={{
@@ -392,12 +392,11 @@ export function renderPrintScriptRuns(text: string, keyPrefix: string): React.Re
               ? "'Noto Nastaliq Urdu', 'Tajawal', serif"
               : "'Tajawal', 'Noto Sans Arabic', sans-serif",
             fontWeight: 600,
-            display: 'inline-block',
             margin: '0 2px',
           }}
         >
           {part}
-        </span>
+        </bdi>
       )
     }
     return <React.Fragment key={`${keyPrefix}-tx-${idx}`}>{part}</React.Fragment>
