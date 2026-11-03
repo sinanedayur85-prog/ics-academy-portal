@@ -1,9 +1,3 @@
-import { GoogleGenAI } from '@google/genai'
-
-const CLOUD_RUN_BACKENDS = [
-  'https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app',
-]
-
 function getApiKey() {
   return (
     process.env.GEMINI_API_KEY ||
@@ -12,6 +6,40 @@ function getApiKey() {
     process.env.VITE_GEMINI_API_KEY ||
     ''
   ).trim()
+}
+
+async function callGeminiTranscribe(apiKey, modelName, cleanMime, cleanBase64, promptText) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+    modelName,
+  )}:generateContent?key=${encodeURIComponent(apiKey)}`
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType: cleanMime, data: cleanBase64 } },
+            { text: promptText },
+          ],
+        },
+      ],
+    }),
+  })
+
+  if (!res.ok) {
+    throw new Error(`Gemini API ${res.status}`)
+  }
+
+  const data = await res.json()
+  const parts = data?.candidates?.[0]?.content?.parts
+  if (!Array.isArray(parts)) return ''
+  return parts
+    .map((p) => (typeof p?.text === 'string' ? p.text : ''))
+    .join('')
+    .trim()
 }
 
 export default async function handler(req, res) {
@@ -33,24 +61,6 @@ export default async function handler(req, res) {
   const apiKey = getApiKey()
 
   if (!apiKey) {
-    for (const backend of CLOUD_RUN_BACKENDS) {
-      try {
-        const proxyRes = await fetch(`${backend}/api/ai/transcribe`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(req.body ?? {}),
-        })
-        const ct = proxyRes.headers.get('content-type') || ''
-        if (proxyRes.ok && ct.includes('application/json')) {
-          const data = await proxyRes.json()
-          res.status(200).json(data)
-          return
-        }
-      } catch {
-        // Continue
-      }
-    }
-
     res.status(503).json({ error: 'GEMINI_API_KEY is not configured for voice transcription.' })
     return
   }
@@ -82,36 +92,24 @@ export default async function handler(req, res) {
 3. If there is clear human speech, transcribe the spoken words accurately into ${langHint} and output ONLY the transcribed text itself.`
 
     const models = [
-      'gemini-3.8-flash',
-      'gemini-3-flash-preview',
-      'gemini-3.1-flash-lite',
-      'gemini-3.1-flash-lite-preview',
       'gemini-2.5-flash',
-      'gemini-3.5-transcribe',
+      'gemini-3-flash-preview',
+      'gemini-3.1-flash-lite-preview',
+      'gemini-2.5-flash-lite',
+      'gemini-2.0-flash',
     ]
-
-    const ai = new GoogleGenAI({
-      apiKey,
-      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
-    })
 
     let transcript = ''
     for (const modelName of models) {
       try {
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { inlineData: { mimeType: cleanMime, data: cleanBase64 } },
-                { text: promptText },
-              ],
-            },
-          ],
-        })
-        if (typeof response.text === 'string') {
-          const raw = response.text.trim()
+        const raw = await callGeminiTranscribe(
+          apiKey,
+          modelName,
+          cleanMime,
+          cleanBase64,
+          promptText,
+        )
+        if (typeof raw === 'string') {
           transcript = raw.includes('__SILENT__') ? '' : raw
           break
         }

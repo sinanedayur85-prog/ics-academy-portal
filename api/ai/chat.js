@@ -1,9 +1,3 @@
-import { GoogleGenAI, ThinkingLevel } from '@google/genai'
-
-const CLOUD_RUN_BACKENDS = [
-  'https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app',
-]
-
 function getApiKey() {
   return (
     process.env.GEMINI_API_KEY ||
@@ -12,17 +6,6 @@ function getApiKey() {
     process.env.VITE_GEMINI_API_KEY ||
     ''
   ).trim()
-}
-
-function getAiClient(apiKey) {
-  return new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      },
-    },
-  })
 }
 
 function isUrduScript(text) {
@@ -50,22 +33,18 @@ function detectInputLanguage(text, fallbackLanguage, history) {
 
   const clean = text.trim()
 
-  // 1. Any Malayalam characters -> Malayalam ('ml')
   if (/[\u0D00-\u0D7F]/.test(clean)) {
     return 'ml'
   }
 
-  // 2. Explicit request for Malayalam in text
   if (/\b(in\s+malayalam|malayalathil|malayalam\s+meaning|malayalam\s+translation)\b/i.test(clean)) {
     return 'ml'
   }
 
-  // 3. Urdu script -> Urdu ('ur')
   if (isUrduScript(clean)) {
     return 'ur'
   }
 
-  // 4. Manglish (Malayalam written in English alphabet)
   if (
     /\b(enthanu|enthokkeyanu|enthokke|parayamo|parayu|engane|enganeyanu|vishadeekarikamo|vishadeekarikkuka|artham|sharthukal|farzukal|sunnathukal|vivarikkuka|entha|manassilayilla|padippikkamo|chodyam|utharam|paribhasha|sughamano|sugamano|namaskaram|niskaram|usthade|orennam|onnu|randu|moonnu|shariyano|athe|alla)\b/i.test(
       clean,
@@ -74,7 +53,6 @@ function detectInputLanguage(text, fallbackLanguage, history) {
     return 'ml'
   }
 
-  // 5. Check Arabic vs Latin characters
   const stripped = clean
     .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
     .replace(
@@ -112,7 +90,6 @@ function detectInputLanguage(text, fallbackLanguage, history) {
     return 'de'
   }
 
-  // If short message and previous turn was in Malayalam/Arabic/Urdu, preserve thread language
   if (clean.length <= 24 && Array.isArray(history) && history.length > 0) {
     const lastTurn = history[history.length - 1]?.text || ''
     if (/[\u0D00-\u0D7F]{3,}/.test(lastTurn)) return 'ml'
@@ -173,6 +150,44 @@ Language Rule:
 ${langRule}`
 }
 
+async function callGeminiGenerateContent(apiKey, modelName, contents, systemInstruction) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+    modelName,
+  )}:generateContent?key=${encodeURIComponent(apiKey)}`
+
+  const body = {
+    contents,
+    ...(systemInstruction
+      ? {
+          systemInstruction: {
+            parts: [{ text: systemInstruction }],
+          },
+        }
+      : {}),
+  }
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '')
+    throw new Error(`Gemini API ${res.status}: ${errText.slice(0, 300)}`)
+  }
+
+  const data = await res.json()
+  const parts = data?.candidates?.[0]?.content?.parts
+  if (!Array.isArray(parts)) return ''
+  return parts
+    .map((p) => (typeof p?.text === 'string' ? p.text : ''))
+    .join('')
+    .trim()
+}
+
 export default async function handler(req, res) {
   const origin = req.headers?.origin || '*'
   res.setHeader('Access-Control-Allow-Origin', origin)
@@ -191,29 +206,10 @@ export default async function handler(req, res) {
 
   const apiKey = getApiKey()
 
-  // If GEMINI_API_KEY is not set in Vercel env vars yet, try proxying to Cloud Run backend if deployed
   if (!apiKey) {
-    for (const backend of CLOUD_RUN_BACKENDS) {
-      try {
-        const proxyRes = await fetch(`${backend}/api/ai/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(req.body ?? {}),
-        })
-        const ct = proxyRes.headers.get('content-type') || ''
-        if (proxyRes.ok && ct.includes('application/json')) {
-          const data = await proxyRes.json()
-          res.status(200).json(data)
-          return
-        }
-      } catch {
-        // Continue
-      }
-    }
-
     res.status(503).json({
       error:
-        'GEMINI_API_KEY ക്രമീകരിച്ചിട്ടില്ല. ദയവായി Vercel Settings → Environment Variables-ൽ GEMINI_API_KEY ചേർക്കുക (അല്ലെങ്കിൽ AI Studio-യിൽ Deploy ചെയ്യുക).',
+        'GEMINI_API_KEY ക്രമീകരിച്ചിട്ടില്ല. ദയവായി Vercel Settings → Environment Variables-ൽ GEMINI_API_KEY ചേർക്കുക.',
     })
     return
   }
@@ -298,55 +294,55 @@ export default async function handler(req, res) {
     const models =
       modelTier === 'flash-lite'
         ? [
-            'gemini-3.1-flash-lite',
-            'gemini-3.1-flash-lite-preview',
-            'gemini-3.8-flash',
-            'gemini-3-flash-preview',
             'gemini-2.5-flash',
+            'gemini-2.5-flash-lite',
+            'gemini-3.1-flash-lite-preview',
+            'gemini-3-flash-preview',
+            'gemini-2.0-flash',
           ]
         : [
-            'gemini-3.8-flash',
-            'gemini-3-flash-preview',
-            'gemini-3.1-flash-lite',
-            'gemini-3.1-flash-lite-preview',
             'gemini-2.5-flash',
+            'gemini-3-flash-preview',
+            'gemini-3.1-flash-lite-preview',
+            'gemini-2.5-flash-lite',
+            'gemini-2.0-flash',
           ]
 
-    const ai = getAiClient(apiKey)
+    const contents = [
+      ...sanitizedHistory,
+      {
+        role: 'user',
+        parts: [...inlineParts, { text: promptWithDirective }],
+      },
+    ]
 
+    let lastError = ''
     for (const modelName of models) {
       try {
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: [
-            ...sanitizedHistory,
-            {
-              role: 'user',
-              parts: [...inlineParts, { text: promptWithDirective }],
-            },
-          ],
-          config: {
-            systemInstruction,
-            ...(modelName === 'gemini-3.8-flash'
-              ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
-              : {}),
-          },
-        })
-
-        if (response.text && response.text.trim()) {
+        const replyText = await callGeminiGenerateContent(
+          apiKey,
+          modelName,
+          contents,
+          systemInstruction,
+        )
+        if (replyText) {
           res.status(200).json({
-            reply: response.text.trim(),
+            reply: replyText,
             modelUsed: modelName,
+            role,
             language: validLanguage,
           })
           return
         }
-      } catch {
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : String(err)
         continue
       }
     }
 
-    res.status(503).json({ error: 'AI models are currently busy. Please try again.' })
+    res.status(503).json({
+      error: `AI service error: ${lastError || 'All models busy. Please try again.'}`,
+    })
   } catch (err) {
     res.status(500).json({
       error: err instanceof Error ? err.message : 'Chat request failed',

@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm i --legacy-peer-deps",
+  "installCommand": "sed -i '/eslint-plugin-security-rules/d' package.json && npm i --legacy-peer-deps",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
@@ -35,26 +35,26 @@
   "rewrites": [
     {
       "source": "/api/ai/chat",
-      "destination": "/api/ai/chat"
+      "destination": "/api/ai/chat.js"
     },
     {
       "source": "/api/ai/transcribe",
-      "destination": "/api/ai/transcribe"
+      "destination": "/api/ai/transcribe.js"
     },
     {
       "source": "/api/ai/study-assistant",
-      "destination": "/api/ai/study-assistant"
+      "destination": "/api/ai/study-assistant.js"
     },
     {
       "source": "/api/app/version",
-      "destination": "/api/app/version"
+      "destination": "/api/app/version.js"
     },
     {
       "source": "/api/:path*",
       "destination": "https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app/api/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]

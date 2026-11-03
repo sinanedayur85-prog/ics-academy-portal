@@ -1,9 +1,3 @@
-import { GoogleGenAI, ThinkingLevel } from '@google/genai'
-
-const CLOUD_RUN_BACKENDS = [
-  'https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app',
-]
-
 function getApiKey() {
   return (
     process.env.GEMINI_API_KEY ||
@@ -12,6 +6,20 @@ function getApiKey() {
     process.env.VITE_GEMINI_API_KEY ||
     ''
   ).trim()
+}
+
+function detectLanguage(text, fallbackLanguage) {
+  if (!text) return fallbackLanguage
+  if (/[\u0D00-\u0D7F]/.test(text)) return 'ml'
+  if (/[\u0679\u067E\u0686\u0688\u0691\u0698\u06AF\u06BA\u06BE\u06C1\u06C2\u06C3\u06D2\u06D4]/.test(text)) {
+    return 'ur'
+  }
+  const arabicChars = (
+    text.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []
+  ).length
+  const latinChars = (text.match(/[A-Za-z]/g) || []).length
+  if (arabicChars > 0 && arabicChars > latinChars) return 'ar'
+  return fallbackLanguage
 }
 
 export default async function handler(req, res) {
@@ -23,7 +31,6 @@ export default async function handler(req, res) {
     'Access-Control-Allow-Headers',
     'Content-Type, Authorization, Accept, X-Requested-With',
   )
-  res.setHeader('Permissions-Policy', 'microphone=*, camera=*, autoplay=*')
 
   if (req.method === 'OPTIONS') {
     res.status(204).end()
@@ -33,92 +40,81 @@ export default async function handler(req, res) {
   const apiKey = getApiKey()
 
   if (!apiKey) {
-    for (const backend of CLOUD_RUN_BACKENDS) {
-      try {
-        const proxyRes = await fetch(`${backend}/api/ai/study-assistant`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(req.body ?? {}),
-        })
-        const ct = proxyRes.headers.get('content-type') || ''
-        if (proxyRes.ok && ct.includes('application/json')) {
-          const data = await proxyRes.json()
-          res.status(200).json(data)
-          return
-        }
-      } catch {
-        // Continue
-      }
-    }
-
     res.status(503).json({
-      error:
-        'GEMINI_API_KEY ക്രമീകരിച്ചിട്ടില്ല. ദയവായി Vercel Settings → Environment Variables-ൽ GEMINI_API_KEY ചേർക്കുക.',
+      error: 'GEMINI_API_KEY is not configured in Vercel Environment Variables.',
     })
     return
   }
 
   try {
-    const { prompt = '', mode = 'kitab', language = 'ml', studentName } = req.body ?? {}
-    const cleanPrompt = String(prompt).trim().slice(0, 3000)
+    const {
+      prompt = '',
+      mode = 'kitab',
+      language = 'en',
+      languageMode = 'auto',
+      studentName,
+    } = req.body ?? {}
+
+    const cleanPrompt = String(prompt || '').trim().slice(0, 3000)
     if (!cleanPrompt) {
       res.status(400).json({ error: 'Prompt is required.' })
       return
     }
 
-    const validLanguage = ['ml', 'en', 'ar', 'ur', 'es', 'de'].includes(language)
-      ? language
-      : /[\u0D00-\u0D7F]/.test(cleanPrompt)
-        ? 'ml'
-        : 'en'
+    const requestedLang = ['ml', 'en', 'ar', 'ur', 'es', 'de'].includes(language) ? language : 'en'
+    const validLanguage =
+      languageMode === 'explicit' ? requestedLang : detectLanguage(cleanPrompt, requestedLang)
 
-    const langLabel =
+    const langRule =
       validLanguage === 'ml'
-        ? 'Malayalam (മലയാളം script)'
+        ? 'Respond in natural, scholarly Malayalam (മലയാളം) script, keeping Arabic Kitab citations in vocalized Arabic script.'
         : validLanguage === 'ar'
-          ? 'Arabic (العربية الفصحى)'
+          ? 'Respond in Classical/Modern Standard Arabic (العربية الفصحى).'
           : validLanguage === 'ur'
-            ? 'Urdu (اردو script)'
-            : validLanguage === 'es'
-              ? 'Spanish (Español)'
-              : validLanguage === 'de'
-                ? 'German (Deutsch)'
-                : 'English'
+            ? 'Respond in scholarly Urdu (اردو).'
+            : 'Respond in clear academic English with Arabic technical terms in vocalized Arabic script.'
 
-    const systemInstruction = `You are the official AI Study & Kitab Research Assistant for ICS Academy (Da'wa College).
+    const systemInstruction = `You are the official AI Academic & Kitab Scholar for ICS Academy (Islamic Centre Sunniyya, Manhappatta — Da'wa College).
 Student: ${studentName || "Da'wa College Scholar"}
 Mode: ${mode}
-Primary Output Language: ${langLabel}
-Provide an accurate, scholarly, well-structured explanation in ${langLabel}.`
-
-    const ai = new GoogleGenAI({
-      apiKey,
-      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
-    })
+${langRule}`
 
     const models = [
-      'gemini-3.8-flash',
-      'gemini-3-flash-preview',
-      'gemini-3.1-flash-lite',
-      'gemini-3.1-flash-lite-preview',
       'gemini-2.5-flash',
+      'gemini-3-flash-preview',
+      'gemini-3.1-flash-lite-preview',
+      'gemini-2.5-flash-lite',
+      'gemini-2.0-flash',
     ]
 
     for (const modelName of models) {
       try {
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: cleanPrompt,
-          config: {
-            systemInstruction,
-            ...(modelName === 'gemini-3.8-flash'
-              ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
-              : {}),
-          },
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+          modelName,
+        )}:generateContent?key=${encodeURIComponent(apiKey)}`
+
+        const apiRes = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: cleanPrompt }] }],
+            systemInstruction: { parts: [{ text: systemInstruction }] },
+          }),
         })
-        if (response.text && response.text.trim()) {
+
+        if (!apiRes.ok) continue
+        const data = await apiRes.json()
+        const parts = data?.candidates?.[0]?.content?.parts
+        const replyText = Array.isArray(parts)
+          ? parts
+              .map((p) => (typeof p?.text === 'string' ? p.text : ''))
+              .join('')
+              .trim()
+          : ''
+
+        if (replyText) {
           res.status(200).json({
-            response: response.text.trim(),
+            response: replyText,
             mode,
             language: validLanguage,
           })
