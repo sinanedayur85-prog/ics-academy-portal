@@ -735,28 +735,32 @@ async function startServer() {
 
       const langHint =
         language === 'ml'
-          ? 'Malayalam (മലയാളം script)'
+          ? 'Malayalam (മലയാളം script — do NOT write in English or Manglish)'
           : language === 'ar'
             ? 'Arabic (العربية script)'
             : language === 'ur'
               ? 'Urdu (اردو script)'
-              : language === 'en'
-                ? 'English'
-                : 'the exact language spoken by the student (Malayalam, English, Arabic, or Urdu)'
+              : language === 'es'
+                ? 'Spanish (Español)'
+                : language === 'de'
+                  ? 'German (Deutsch)'
+                  : language === 'en'
+                    ? 'English'
+                    : 'the EXACT language spoken by the student in its native script: if spoken in Malayalam, write in Malayalam script (മലയാളം); if spoken in Arabic, write in Arabic script (العربية); if spoken in Urdu, write in Urdu script (اردو); if spoken in English, write in English; if spoken in Spanish, write in Español; if spoken in German, write in Deutsch'
 
       const promptText = `Listen carefully to this audio clip from an ICS Academy student.
 1. If the audio is silent, contains only background noise/clicks, or has no clear human speech, output ONLY the exact token: __SILENT__
 2. Do NOT invent, guess, or hallucinate any words if no one is speaking.
-3. If there is clear human speech, transcribe the spoken words accurately into ${langHint} and output ONLY the transcribed text itself with no quotes, prefixes, or commentary.`
+3. CRITICAL: Do NOT translate the speech into English! Transcribe the spoken words verbatim in ${langHint}. Never transliterate Malayalam, Arabic, or Urdu speech into English/Latin letters. Output ONLY the transcribed text itself with no quotes, prefixes, or commentary.`
 
       const transcribeModels = [
         'gemini-3.8-flash',
-        'gemini-3-flash-preview',
         'gemini-3.1-flash-lite',
+        'gemini-3.5-transcribe',
+        'gemini-3-flash-preview',
         'gemini-3.1-flash-lite-preview',
         'gemini-2.5-flash',
         'gemini-2.5-flash-lite',
-        'gemini-3.5-transcribe',
       ] as const
 
       let transcript = ''

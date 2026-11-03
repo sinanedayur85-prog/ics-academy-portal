@@ -601,7 +601,7 @@ const UI_TEXT: Record<
     activeRole: 'Active System Role:',
     maintainsMemory: 'Maintains multi-turn memory across your conversation.',
     voiceTyping: 'Voice Typing',
-    voiceListening: 'Listening in English... Speak clearly',
+    voiceListening: 'Listening... Speak clearly',
     voiceStop: 'Stop Voice',
     voiceNotSupported:
       'Speech recognition is not supported in this browser. Please use Chrome, Safari, or Edge.',
@@ -2084,8 +2084,8 @@ export function GeminiChatbot({
 
             setVoiceLevel(Math.min(100, Math.round(rms * 420)))
 
-            if (elapsedMs > 900) {
-              if (rms > 0.024) {
+            if (elapsedMs > 700) {
+              if (rms > 0.015) {
                 sustainedSpeechFrames += 1
                 if (sustainedSpeechFrames >= 2) {
                   hasDetectedSpeech = true
@@ -2094,7 +2094,7 @@ export function GeminiChatbot({
               } else if (hasDetectedSpeech) {
                 if (!silenceStartMs) {
                   silenceStartMs = now
-                } else if (now - silenceStartMs > 2600) {
+                } else if (now - silenceStartMs > 1800) {
                   stopVoiceCapture()
                 }
               }
@@ -2155,18 +2155,6 @@ export function GeminiChatbot({
     speechGotTranscriptRef.current = false
     audioChunksRef.current = []
 
-    const activeSpeechLang =
-      responseLanguagePreference === 'auto' ? 'en' : responseLanguagePreference
-    const speechLangMap: Record<ChatLanguage, string> = {
-      ml: 'ml-IN',
-      ar: 'ar-SA',
-      ur: 'ur-PK',
-      es: 'es-ES',
-      de: 'de-DE',
-      en: 'en-IN',
-    }
-    const targetBcp47 = speechLangMap[activeSpeechLang] || 'en-IN'
-
     const nativeBridge = (
       window as unknown as {
         ICSNativeBridge?: {
@@ -2176,9 +2164,36 @@ export function GeminiChatbot({
       }
     ).ICSNativeBridge
 
-    // 1. If inside the Android APK, ask Android Native Bridge for runtime RECORD_AUDIO permission or native speech recognizer
     try {
       nativeBridge?.requestMicrophonePermission?.()
+    } catch {
+      // Ignore
+    }
+
+    // When 'Auto' language mode is active, use MediaRecorder + Gemini Multimodal Audio Transcription FIRST
+    // because Web Speech API / Android RecognizerIntent require a single fixed language code (like 'en-IN')
+    // and would otherwise force Malayalam, Arabic, or Urdu speech into English words.
+    if (responseLanguagePreference === 'auto') {
+      const startedMultilingualRecorder = await startMediaRecorderVoiceCapture()
+      if (startedMultilingualRecorder) {
+        return
+      }
+    }
+
+    const activeSpeechLang =
+      responseLanguagePreference === 'auto' ? 'ml' : responseLanguagePreference
+    const speechLangMap: Record<ChatLanguage, string> = {
+      ml: 'ml-IN',
+      ar: 'ar-SA',
+      ur: 'ur-PK',
+      es: 'es-ES',
+      de: 'de-DE',
+      en: 'en-IN',
+    }
+    const targetBcp47 = speechLangMap[activeSpeechLang] || 'ml-IN'
+
+    // 1. If an explicit language is selected inside the Android APK, or if MediaRecorder was unavailable
+    try {
       if (nativeBridge && typeof nativeBridge.startVoiceInput === 'function') {
         const started = nativeBridge.startVoiceInput(targetBcp47)
         if (started) {
@@ -2190,7 +2205,7 @@ export function GeminiChatbot({
       // Continue to browser voice engines
     }
 
-    // 2. Primary Browser Engine: Real-Time Web Speech API (streams spoken words live into the input box like Google Gemini)
+    // 2. Browser Engine for explicit selected language: Real-Time Web Speech API
     const SpeechRecognitionClass =
       (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any })
         .SpeechRecognition ||
@@ -2229,7 +2244,12 @@ export function GeminiChatbot({
             setErrorMessage(
               'No microphone hardware detected on this device. Please connect a microphone or headset.',
             )
-          } else if (errCode === 'not-allowed' || errCode === 'service-not-allowed' || errCode === 'network') {
+          } else if (
+            errCode === 'not-allowed' ||
+            errCode === 'service-not-allowed' ||
+            errCode === 'network' ||
+            errCode === 'language-not-supported'
+          ) {
             // Fall back to MediaRecorder + Gemini Audio Transcription
             void startMediaRecorderVoiceCapture()
           }
@@ -3194,7 +3214,9 @@ export function GeminiChatbot({
                   <span className="truncate font-medium">
                     {isTranscribingVoice
                       ? 'Transcribing your voice...'
-                      : 'Listening... Speak now (tap Done when finished)'}
+                      : responseLanguagePreference === 'auto'
+                        ? 'Listening (Auto: മലയാളം · العربية · English · اردو)... Tap Done ✓ when finished'
+                        : 'Listening... Speak now (tap Done ✓ when finished)'}
                   </span>
                   {isListening ? (
                     <div
