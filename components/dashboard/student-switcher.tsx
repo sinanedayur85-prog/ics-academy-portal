@@ -13,7 +13,17 @@ function initials(name: string) {
     .filter(
       (part) =>
         Boolean(part) &&
-        !['dr.', 'dr', 'usthad', 'prof.', 'prof', 'shaykh', 'maulana'].includes(part.toLowerCase()),
+        ![
+          'dr.',
+          'dr',
+          'usthad',
+          'prof.',
+          'prof',
+          'shaykh',
+          'shaikhuna',
+          'maulana',
+          'hafiz',
+        ].includes(part.toLowerCase()),
     )
   const source = cleanedParts.length > 0 ? cleanedParts : name.split(' ').filter(Boolean)
   return source
@@ -207,7 +217,9 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
         <ProfileInitialsAvatar name={usthad.name} />
         <span className="hidden flex-col leading-tight sm:flex">
           <span className="text-sm font-semibold text-foreground">{usthad.shortName}</span>
-          <span className="text-xs text-muted-foreground">Class {usthad.className}</span>
+          <span className="text-xs text-muted-foreground">
+            {usthad.designation} • Class {usthad.className}
+          </span>
         </span>
         <span className="sr-only">Usthad account profile</span>
         <ChevronDown
@@ -221,13 +233,13 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
           id={popoverId}
           role="dialog"
           aria-label="Logged-in Class Usthad profile"
-          className="absolute right-0 z-50 mt-2 w-[min(20rem,calc(100vw-1.5rem))] origin-top-right rounded-2xl border border-border bg-popover p-4 shadow-2xl shadow-black/50 animate-in fade-in-0 zoom-in-95 duration-150"
+          className="absolute right-0 z-50 mt-2 w-[min(21rem,calc(100vw-1.5rem))] origin-top-right rounded-2xl border border-border bg-popover p-4 shadow-2xl shadow-black/50 animate-in fade-in-0 zoom-in-95 duration-150"
         >
           <div className="flex items-center gap-3.5 border-b border-border pb-4">
             <ProfileInitialsAvatar name={usthad.name} className="size-12 text-sm shadow-sm" />
             <div className="min-w-0 flex-1">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-lime">
-                Logged-in Class Usthad
+                {usthad.designation}
               </p>
               <p className="mt-0.5 truncate font-display text-lg font-semibold text-foreground">
                 {usthad.name}
@@ -280,6 +292,24 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
               </dd>
             </div>
           </dl>
+
+          {usthad.isPrincipalRole ? (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                window.dispatchEvent(
+                  new CustomEvent('ics-switch-role', {
+                    detail: { role: 'principal', usthadId: usthad.id },
+                  }),
+                )
+              }}
+              className="mb-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-cyan/40 bg-cyan/15 px-4 text-xs font-semibold text-cyan transition-colors duration-200 outline-none hover:border-cyan hover:bg-cyan hover:text-slate-950 focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <ShieldCheck className="size-4" aria-hidden="true" />
+              Switch to Principal Command Center
+            </button>
+          ) : null}
 
           <Link
             href="/"
@@ -339,7 +369,9 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
         <ProfileInitialsAvatar name={principal.name} />
         <span className="hidden flex-col leading-tight sm:flex">
           <span className="text-sm font-semibold text-foreground">{principal.name}</span>
-          <span className="text-xs text-muted-foreground">Principal • {principal.staffId}</span>
+          <span className="text-xs text-muted-foreground">
+            Principal &amp; Class Usthad • {principal.staffId}
+          </span>
         </span>
         <span className="sr-only">Principal account profile</span>
         <ChevronDown
@@ -353,13 +385,13 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
           id={popoverId}
           role="dialog"
           aria-label="Logged-in Principal profile"
-          className="absolute right-0 z-50 mt-2 w-[min(20rem,calc(100vw-1.5rem))] origin-top-right rounded-2xl border border-border bg-popover p-4 shadow-2xl shadow-black/50 animate-in fade-in-0 zoom-in-95 duration-150"
+          className="absolute right-0 z-50 mt-2 w-[min(21rem,calc(100vw-1.5rem))] origin-top-right rounded-2xl border border-border bg-popover p-4 shadow-2xl shadow-black/50 animate-in fade-in-0 zoom-in-95 duration-150"
         >
           <div className="flex items-center gap-3.5 border-b border-border pb-4">
             <ProfileInitialsAvatar name={principal.name} className="size-12 text-sm shadow-sm" />
             <div className="min-w-0 flex-1">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-lime">
-                Logged-in Principal
+                Principal &amp; Class Usthad
               </p>
               <p className="mt-0.5 truncate font-display text-lg font-semibold text-foreground">
                 {principal.name}
@@ -381,10 +413,10 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Hash className="size-3.5 text-lime" aria-hidden="true" />
-                Principal ID
+                Principal / Usthad ID
               </dt>
               <dd className="font-mono text-xs font-semibold tabular-nums text-lime">
-                {principal.staffId}
+                {principal.staffId} / {principal.usthadStaffId}
               </dd>
             </div>
 
@@ -393,10 +425,22 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
                 <ShieldCheck className="size-3.5 text-lime" aria-hidden="true" />
-                Role & Scope
+                Executive Scope
               </dt>
               <dd className="text-right text-xs font-medium text-foreground">
                 Principal • All 11 Classes
+              </dd>
+            </div>
+
+            <div className="h-px bg-border/60" aria-hidden="true" />
+
+            <div className="flex items-center justify-between gap-3">
+              <dt className="flex items-center gap-2 text-xs text-muted-foreground">
+                <GraduationCap className="size-3.5 text-cyan" aria-hidden="true" />
+                Class Usthad Role
+              </dt>
+              <dd className="text-right text-xs font-semibold text-cyan">
+                Class {principal.assignedClassName}
               </dd>
             </div>
 
@@ -412,6 +456,22 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
               </dd>
             </div>
           </dl>
+
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              window.dispatchEvent(
+                new CustomEvent('ics-switch-role', {
+                  detail: { role: 'usthad', usthadId: principal.usthadId },
+                }),
+              )
+            }}
+            className="mb-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-cyan/40 bg-cyan/15 px-4 text-xs font-semibold text-cyan transition-colors duration-200 outline-none hover:border-cyan hover:bg-cyan hover:text-slate-950 focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <BookOpen className="size-4" aria-hidden="true" />
+            Switch to My Class Usthad Workspace
+          </button>
 
           <Link
             href="/"

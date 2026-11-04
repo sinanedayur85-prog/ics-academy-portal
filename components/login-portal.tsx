@@ -67,8 +67,8 @@ const teacherRole: Role = {
   title: 'Class Usthad (Teacher)',
   description:
     'Manage your assigned class attendance, leave register, notices, and digital Kitabs.',
-  idLabel: 'Staff ID',
-  idPlaceholder: 'e.g. UST-07 (or UST-14 to UST-05)',
+  idLabel: 'Staff ID or Usthad Name',
+  idPlaceholder: 'e.g. UST-07 (or UST-14 to UST-05 / Usthad Name)',
   icon: BookOpen,
   tone: 'lime',
 }
@@ -76,11 +76,11 @@ const teacherRole: Role = {
 const principalRole: Role = {
   id: 'principal',
   tier: 'Tier 04',
-  title: 'Principal',
+  title: 'Principal & Class Usthad',
   description:
-    'Oversee all 11 classes, monitor unheld periods & assign substitute Usthads, announce official holidays, and manage campus records.',
-  idLabel: 'Principal / Administrator ID',
-  idPlaceholder: 'e.g. ADM-001 (or PRINCIPAL)',
+    'Oversee all 11 classes, assign substitute Usthads, declare official holidays, and manage your own assigned class as Class Usthad.',
+  idLabel: 'Principal / Class Usthad ID',
+  idPlaceholder: 'e.g. ADM-001 or UST-07 (Usthad Muhammed Yasir Ahsani)',
   icon: Crown,
   tone: 'cyan',
 }
@@ -197,6 +197,10 @@ export function LoginPortal({
         window.localStorage.setItem(
           'loggedInPrincipalId',
           ACADEMY_PRINCIPAL.staffId,
+        )
+        window.localStorage.setItem(
+          'loggedInUsthadId',
+          ACADEMY_PRINCIPAL.usthadId,
         )
         window.localStorage.setItem('authRole', 'principal')
         onPrincipalLogin()

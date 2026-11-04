@@ -906,18 +906,18 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { label: 'Period 5', time: '14:00 – 15:00' },
     ],
     semester1: [
-      { subject: 'Mizan & Sarf Foundation', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Fiqh (Mabadi al-Fiqh)', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'Arabic Muhadathah', teacher: 'Prof. Salman Hudawi' },
-      { subject: 'English Foundation', teacher: 'Mr. Roshan Thomas' },
-      { subject: 'Mathematics & Science', teacher: 'Mr. Vivek Menon' },
+      { subject: 'Mizan & Sarf Foundation', teacher: 'Usthad Asif Saqafi' },
+      { subject: 'Fiqh (Mabadi al-Fiqh)', teacher: 'Usthad Alavudheen Ahsani' },
+      { subject: 'Arabic Muhadathah', teacher: 'Usthad Razaq Saqafi' },
+      { subject: 'English Foundation', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Mathematics & Science', teacher: 'Usthad Hashim Saqafi' },
     ],
     semester2: [
-      { subject: 'Ajnas & Sarf Practice', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Aqeedah (Aqeedat al-Awam)', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'Basic Nahw (Al-Ajurrumiyyah)', teacher: 'Prof. Salman Hudawi' },
-      { subject: 'Seerah & Islamic History', teacher: 'Usthad Najeeb Darimi' },
-      { subject: 'Social Studies & English', teacher: 'Mr. Haris K.' },
+      { subject: 'Ajnas & Sarf Practice', teacher: 'Usthad Asif Saqafi' },
+      { subject: 'Aqeedah (Aqeedat al-Awam)', teacher: 'Usthad Favaz Saqafi' },
+      { subject: 'Basic Nahw (Al-Ajurrumiyyah)', teacher: 'Usthad Alavudheen Ahsani' },
+      { subject: 'Seerah & Islamic History', teacher: 'Usthad Hashim Saqafi' },
+      { subject: 'Social Studies & English', teacher: 'Usthad Midhlaj Ahsani' },
     ],
   },
   '9th • Batch 13': {
@@ -929,18 +929,18 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { label: 'Period 5', time: '14:00 – 15:00' },
     ],
     semester1: [
-      { subject: 'Zanjani (Ilm al-Sarf)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Nahw Mir & Tarkib', teacher: 'Prof. Salman Hudawi' },
-      { subject: 'Fiqh (Safinat al-Najah)', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'Hadith (Arba’in al-Nawawiyyah)', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'High School English & IT', teacher: 'Mr. Roshan Thomas' },
+      { subject: 'Zanjani (Ilm al-Sarf)', teacher: 'Usthad Alavudheen Ahsani' },
+      { subject: 'Nahw Mir & Tarkib', teacher: 'Usthad Razaq Saqafi' },
+      { subject: 'Fiqh (Safinat al-Najah)', teacher: 'Usthad Asif Saqafi' },
+      { subject: 'Hadith (Arba’in al-Nawawiyyah)', teacher: 'Usthad Hashim Saqafi' },
+      { subject: 'High School English & IT', teacher: 'Usthad Midhlaj Ahsani' },
     ],
     semester2: [
-      { subject: 'Mi’at Amil (Nahw)', teacher: 'Prof. Salman Hudawi' },
-      { subject: 'Fiqh (Abi Shuja’)', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'Tasawwuf (Bidayat al-Hidayah)', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'Urdu Literature', teacher: 'Maulana Tariq Nadwi' },
-      { subject: 'High School Social Science', teacher: 'Mr. Haris K.' },
+      { subject: 'Mi’at Amil (Nahw)', teacher: 'Usthad Alavudheen Ahsani' },
+      { subject: 'Fiqh (Abi Shuja’)', teacher: 'Usthad Asif Saqafi' },
+      { subject: 'Tasawwuf (Bidayat al-Hidayah)', teacher: 'Usthad Favaz Saqafi' },
+      { subject: 'Arabic & Urdu Literature', teacher: 'Usthad Razaq Saqafi' },
+      { subject: 'High School Social Science', teacher: 'Usthad Hashim Saqafi' },
     ],
   },
   '10th • Batch 12': {
@@ -952,18 +952,18 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { label: 'Period 5', time: '14:00 – 15:10' },
     ],
     semester1: [
-      { subject: 'Qatr al-Nada (Nahw)', teacher: 'Prof. Salman Hudawi' },
-      { subject: 'Fiqh (Umdat al-Salik)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Hadith (Riyad as-Salihin)', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'SSLC Core Subjects', teacher: 'Mr. Vivek Menon' },
-      { subject: 'SSLC English & Lang.', teacher: 'Mr. Roshan Thomas' },
+      { subject: 'Qatr al-Nada (Nahw)', teacher: 'Usthad Razaq Saqafi' },
+      { subject: 'Fiqh (Umdat al-Salik)', teacher: 'Usthad Hashim Saqafi' },
+      { subject: 'Hadith (Riyad as-Salihin)', teacher: 'Usthad Alavudheen Ahsani' },
+      { subject: 'SSLC Core Subjects', teacher: 'Usthad Asif Saqafi' },
+      { subject: 'SSLC English & Lang.', teacher: 'Usthad Midhlaj Ahsani' },
     ],
     semester2: [
-      { subject: 'Sharh al-Jami / Nahw', teacher: 'Prof. Salman Hudawi' },
-      { subject: 'Usul al-Fiqh (Al-Waraqat)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Tafsir Selected Surahs', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'SSLC Exam Intensive', teacher: 'Mr. Vivek Menon' },
-      { subject: 'SSLC Social Science', teacher: 'Mr. Haris K.' },
+      { subject: 'Sharh al-Jami / Nahw', teacher: 'Usthad Razaq Saqafi' },
+      { subject: 'Usul al-Fiqh (Al-Waraqat)', teacher: 'Usthad Favaz Saqafi' },
+      { subject: 'Tafsir Selected Surahs', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'SSLC Exam Intensive', teacher: 'Usthad Asif Saqafi' },
+      { subject: 'SSLC Social Science', teacher: 'Usthad Alavudheen Ahsani' },
     ],
   },
   'HS 1 • Batch 11': {
@@ -975,18 +975,18 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { label: 'Period 5', time: '14:00 – 15:15' },
     ],
     semester1: [
-      { subject: 'Fath al-Mu’in (Ibadat)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Alfiyyah Ibn Malik (Part 1)', teacher: 'Prof. Salman Hudawi' },
-      { subject: 'Hadith (Bulugh al-Maram)', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'Plus One Humanities / Hist.', teacher: 'Mr. Haris K.' },
-      { subject: 'Plus One English', teacher: 'Mr. Roshan Thomas' },
+      { subject: 'Fath al-Mu’in (Ibadat)', teacher: 'Usthad Hashim Saqafi' },
+      { subject: 'Alfiyyah Ibn Malik (Part 1)', teacher: 'Usthad Favaz Saqafi' },
+      { subject: 'Hadith (Bulugh al-Maram)', teacher: 'Usthad Razaq Saqafi' },
+      { subject: 'Plus One Humanities / Hist.', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Plus One English & Da’wa', teacher: 'Usthad Alavudheen Ahsani' },
     ],
     semester2: [
-      { subject: 'Fath al-Mu’in (Salah & Zakah)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Alfiyyah Ibn Malik (Part 2)', teacher: 'Prof. Salman Hudawi' },
-      { subject: 'Mantiq (Mirqat / Sullam)', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'Plus One Sociology & Pol.', teacher: 'Mr. Haris K.' },
-      { subject: 'Arabic & Urdu Rhetoric', teacher: 'Maulana Tariq Nadwi' },
+      { subject: 'Fath al-Mu’in (Salah & Zakah)', teacher: 'Usthad Hashim Saqafi' },
+      { subject: 'Alfiyyah Ibn Malik (Part 2)', teacher: 'Usthad Favaz Saqafi' },
+      { subject: 'Mantiq (Mirqat / Sullam)', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Plus One Sociology & Pol.', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Arabic Rhetoric', teacher: 'Usthad Razaq Saqafi' },
     ],
   },
   'HS 2A • Batch 10': {
@@ -998,18 +998,18 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { label: 'Period 5', time: '14:00 – 15:15' },
     ],
     semester1: [
-      { subject: 'Fath al-Mu’in (Mu’amalat)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Tafsir al-Jalalayn (Part 1)', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'Alfiyyah Ibn Malik (Part 3)', teacher: 'Prof. Salman Hudawi' },
-      { subject: 'Plus Two History & Econ.', teacher: 'Mr. Haris K.' },
-      { subject: 'Plus Two English', teacher: 'Mr. Roshan Thomas' },
+      { subject: 'Fath al-Mu’in (Mu’amalat)', teacher: 'Usthad Favaz Saqafi' },
+      { subject: 'Tafsir al-Jalalayn (Part 1)', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Alfiyyah Ibn Malik (Part 3)', teacher: 'Usthad Hashim Saqafi' },
+      { subject: 'Plus Two History & Econ.', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Plus Two English & Research', teacher: 'Usthad Razaq Saqafi' },
     ],
     semester2: [
-      { subject: 'Fath al-Mu’in (Munakahat)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Tafsir al-Jalalayn (Part 2)', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'Balaghah (Mukhtasar al-Ma’ani)', teacher: 'Prof. Salman Hudawi' },
-      { subject: 'Plus Two Board Revision', teacher: 'Mr. Haris K.' },
-      { subject: 'Da’wa & Elocution Lab', teacher: 'Usthad Najeeb Darimi' },
+      { subject: 'Fath al-Mu’in (Munakahat)', teacher: 'Usthad Favaz Saqafi' },
+      { subject: 'Tafsir al-Jalalayn (Part 2)', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Balaghah (Mukhtasar al-Ma’ani)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Plus Two Board Revision', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Da’wa & Elocution Lab', teacher: 'Usthad Hashim Saqafi' },
     ],
   },
   'HS 2B • Batch 1': {
@@ -1021,18 +1021,18 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { label: 'Period 5', time: '14:00 – 15:15' },
     ],
     semester1: [
-      { subject: 'Tafsir al-Jalalayn (Part 1)', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'Fath al-Mu’in (Mu’amalat)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Hadith (Riyad as-Salihin)', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'Plus Two Commerce / Hist.', teacher: 'Mr. Haris K.' },
-      { subject: 'Plus Two English', teacher: 'Mr. Roshan Thomas' },
+      { subject: 'Tafsir al-Jalalayn (Part 1)', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Fath al-Mu’in (Mu’amalat)', teacher: 'Usthad Favaz Saqafi' },
+      { subject: 'Hadith (Riyad as-Salihin)', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Plus Two Commerce / Hist.', teacher: 'Usthad Hashim Saqafi' },
+      { subject: 'Plus Two English', teacher: 'Usthad Alavudheen Ahsani' },
     ],
     semester2: [
-      { subject: 'Tafsir al-Jalalayn (Part 2)', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'Fath al-Mu’in (Munakahat)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Usul al-Hadith (Nukhbat al-Fikar)', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'Plus Two Final Revision', teacher: 'Mr. Haris K.' },
-      { subject: 'Arabic Composition', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'Tafsir al-Jalalayn (Part 2)', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Fath al-Mu’in (Munakahat)', teacher: 'Usthad Favaz Saqafi' },
+      { subject: 'Usul al-Hadith (Nukhbat al-Fikar)', teacher: 'Usthad Muhammed Yasir Ahsani' },
+      { subject: 'Plus Two Final Revision', teacher: 'Usthad Hashim Saqafi' },
+      { subject: 'Arabic Composition', teacher: 'Usthad Razaq Saqafi' },
     ],
   },
   'BS 1 • Batch 09': {
@@ -1044,18 +1044,18 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { label: 'Period 5', time: '14:00 – 15:15' },
     ],
     semester1: [
-      { subject: 'Mahalli (Kitab al-Taharah & Salah)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Tafsir al-Jalalayn (Juz 1–10)', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'Mishkat al-Masabih (Vol 1)', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'BA Arabic / Islamic History', teacher: 'Prof. Salman Hudawi' },
-      { subject: 'Academic English & Research', teacher: 'Mr. Roshan Thomas' },
+      { subject: 'Mahalli (Kitab al-Taharah & Salah)', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Tafsir al-Jalalayn (Juz 1–10)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Mishkat al-Masabih (Vol 1)', teacher: 'Usthad Muhammed Yasir Ahsani' },
+      { subject: 'BA Arabic / Islamic History', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Academic English & Research', teacher: 'Usthad Favaz Saqafi' },
     ],
     semester2: [
-      { subject: 'Mahalli (Kitab al-Zakah & Sawm)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Tafsir al-Jalalayn (Juz 11–20)', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'Usul al-Fiqh (Lub al-Usul)', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'BA Core Humanities', teacher: 'Mr. Haris K.' },
-      { subject: 'Classical Balaghah', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'Mahalli (Kitab al-Zakah & Sawm)', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Tafsir al-Jalalayn (Juz 11–20)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Usul al-Fiqh (Lub al-Usul)', teacher: 'Usthad Muhammed Yasir Ahsani' },
+      { subject: 'BA Core Humanities', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Classical Balaghah', teacher: 'Usthad Favaz Saqafi' },
     ],
   },
   'BS 2 • Batch 08': {
@@ -1067,18 +1067,18 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { label: 'Period 5', time: '14:00 – 15:15' },
     ],
     semester1: [
-      { subject: 'Mahalli (Kitab al-Buyu’)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Mishkat al-Masabih (Vol 2)', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'Aqeedah (Sharh al-Aqaid)', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'BA Sociology & History', teacher: 'Mr. Haris K.' },
-      { subject: 'Urdu Classical Prose', teacher: 'Maulana Tariq Nadwi' },
+      { subject: 'Mahalli (Kitab al-Buyu’)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Mishkat al-Masabih (Vol 2)', teacher: 'Usthad Muhammed Yasir Ahsani' },
+      { subject: 'Aqeedah (Sharh al-Aqaid)', teacher: 'Usthad Muhammed Naeem Saqafi' },
+      { subject: 'BA Sociology & History', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Classical Arabic Prose', teacher: 'Usthad Midhlaj Ahsani' },
     ],
     semester2: [
-      { subject: 'Mahalli (Kitab al-Fara’id)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Tafsir al-Jalalayn (Juz 21–30)', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'Ilm al-Mantiq & Hikmah', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'BA Degree Paper II', teacher: 'Mr. Roshan Thomas' },
-      { subject: 'Comparative Da’wa Studies', teacher: 'Usthad Najeeb Darimi' },
+      { subject: 'Mahalli (Kitab al-Fara’id)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Tafsir al-Jalalayn (Juz 21–30)', teacher: 'Usthad Muhammed Naeem Saqafi' },
+      { subject: 'Ilm al-Mantiq & Hikmah', teacher: 'Usthad Muhammed Yasir Ahsani' },
+      { subject: 'BA Degree Paper II', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Comparative Da’wa Studies', teacher: 'Usthad Midhlaj Ahsani' },
     ],
   },
   'BS 3 • Batch 07': {
@@ -1090,18 +1090,18 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { label: 'Period 5', time: '14:00 – 15:15' },
     ],
     semester1: [
-      { subject: 'Fiqh (Mahalli — Nikah & Talaq)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Tafsir al-Baydawi & Ulum', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'Jam’ al-Jawami’ (Usul al-Fiqh)', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'Arabic Literature & Criticism', teacher: 'Prof. Salman Hudawi' },
-      { subject: 'BA Final Year Seminar', teacher: 'Mr. Roshan Thomas' },
+      { subject: 'Fiqh (Mahalli — Nikah & Talaq)', teacher: 'Usthad Muhammed Yasir Ahsani' },
+      { subject: 'Tafsir al-Baydawi & Ulum', teacher: 'Usthad Muhammed Naeem Saqafi' },
+      { subject: 'Jam’ al-Jawami’ (Usul al-Fiqh)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Arabic Literature & Criticism', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'BA Final Year Seminar', teacher: 'Usthad Midhlaj Ahsani' },
     ],
     semester2: [
-      { subject: 'Fiqh (Mahalli — Jinayat & Qada)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Sunan al-Tirmidhi (Selected)', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'Jam’ al-Jawami’ (Qiyas & Ijtihad)', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'Islamic Historiography', teacher: 'Usthad Najeeb Darimi' },
-      { subject: 'BA Dissertation & Viva', teacher: 'Mr. Haris K.' },
+      { subject: 'Fiqh (Mahalli — Jinayat & Qada)', teacher: 'Usthad Muhammed Yasir Ahsani' },
+      { subject: 'Sunan al-Tirmidhi (Selected)', teacher: 'Usthad Muhammed Naeem Saqafi' },
+      { subject: 'Jam’ al-Jawami’ (Qiyas & Ijtihad)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Islamic Historiography', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'BA Dissertation & Viva', teacher: 'Usthad Midhlaj Ahsani' },
     ],
   },
   'BS 4 • Batch 06': {
@@ -1113,18 +1113,18 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { label: 'Period 5', time: '14:00 – 15:15' },
     ],
     semester1: [
-      { subject: 'Tuhfat al-Muhtaj (Selected Bab)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Sahih Muslim (Kitab al-Iman)', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'Tafsir al-Nasafi / Baydawi', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'Maqasid al-Shari’ah', teacher: 'Prof. Salman Hudawi' },
-      { subject: 'Postgraduate Research Methods', teacher: 'Usthad Najeeb Darimi' },
+      { subject: 'Tuhfat al-Muhtaj (Valiya Dars)', teacher: 'Shaikhuna Manhappatta Hamza Usthad' },
+      { subject: 'Sahih Muslim (Kitab al-Iman)', teacher: 'Usthad Muhammed Naeem Saqafi' },
+      { subject: 'Tafsir al-Nasafi / Baydawi', teacher: 'Usthad Muhammed Yasir Ahsani' },
+      { subject: 'Maqasid al-Shari’ah', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Postgraduate Research Methods', teacher: 'Usthad Muhammed Musthafa Saqafi' },
     ],
     semester2: [
-      { subject: 'Tuhfat al-Muhtaj (Mu’amalat)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Sunan Abi Dawud (Ahkam)', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'Tasawwuf (Ihya’ Ulum al-Din)', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'Contemporary Fiqh Academy Papers', teacher: 'Prof. Salman Hudawi' },
-      { subject: 'Translation & Publication Lab', teacher: 'Mr. Roshan Thomas' },
+      { subject: 'Tuhfat al-Muhtaj (Mu’amalat — Valiya Dars)', teacher: 'Shaikhuna Manhappatta Hamza Usthad' },
+      { subject: 'Sunan Abi Dawud (Ahkam)', teacher: 'Usthad Muhammed Naeem Saqafi' },
+      { subject: 'Tasawwuf (Ihya’ Ulum al-Din)', teacher: 'Usthad Muhammed Yasir Ahsani' },
+      { subject: 'Contemporary Fiqh Academy Papers', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Translation & Publication Lab', teacher: 'Usthad Muhammed Musthafa Saqafi' },
     ],
   },
   'BS 5 • Batch 05': {
@@ -1136,18 +1136,18 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { label: 'Period 5', time: '14:00 – 15:15' },
     ],
     semester1: [
-      { subject: 'Sahih al-Bukhari (Dawrah Part 1)', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'Tuhfat al-Muhtaj & Fatawa', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Jami’ al-Tirmidhi & Ilal', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'Comparative Religion & Da’wa', teacher: 'Usthad Najeeb Darimi' },
-      { subject: 'Senior Thesis & Ifta’ Practicum', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'Sahih al-Bukhari (Valiya Batch Dawrah Part 1)', teacher: 'Shaikhuna Manhappatta Hamza Usthad' },
+      { subject: 'Tuhfat al-Muhtaj & Fatawa', teacher: 'Shaikhuna Manhappatta Hamza Usthad' },
+      { subject: 'Jami’ al-Tirmidhi & Ilal', teacher: 'Usthad Muhammed Naeem Saqafi' },
+      { subject: 'Comparative Religion & Da’wa', teacher: 'Usthad Muhammed Yasir Ahsani' },
+      { subject: 'Senior Thesis & Ifta’ Practicum', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
     ],
     semester2: [
-      { subject: 'Sahih al-Bukhari (Dawrah Part 2)', teacher: 'Usthad Ibrahim Faizy' },
-      { subject: 'Qawa’id Fiqhiyyah (Al-Ashbah)', teacher: 'Usthad Abdul Hakeem' },
-      { subject: 'Muwatta’ Imam Malik & Sunan', teacher: 'Usthad Zubair Wafy' },
-      { subject: 'Global Da’wa Leadership', teacher: 'Usthad Najeeb Darimi' },
-      { subject: 'Final Thesis Defense & Fatwa Lab', teacher: 'Prof. Salman Hudawi' },
+      { subject: 'Sahih al-Bukhari (Valiya Batch Dawrah Part 2)', teacher: 'Shaikhuna Manhappatta Hamza Usthad' },
+      { subject: 'Qawa’id Fiqhiyyah (Al-Ashbah)', teacher: 'Shaikhuna Manhappatta Hamza Usthad' },
+      { subject: 'Muwatta’ Imam Malik & Sunan', teacher: 'Usthad Muhammed Naeem Saqafi' },
+      { subject: 'Global Da’wa Leadership', teacher: 'Usthad Muhammed Yasir Ahsani' },
+      { subject: 'Final Thesis Defense & Fatwa Lab', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
     ],
   },
 }
@@ -1161,12 +1161,45 @@ export function getClassSemesterTimetable(student: Student): ClassSemesterTimeta
 
 export const EXAM_RESULTS_URL = 'https://jamiathulhind.com/index.php'
 
+export type SupremeScholarProfile = {
+  id: string
+  staffId: string
+  name: string
+  malayalamName: string
+  honorificTitle: string
+  designation: string
+  valiyaBatches: string[]
+  specialization: string
+  description: string
+}
+
+/**
+ * Supreme Scholar & Patron above all Usthads at ICS Academy Manhappatta:
+ * Shaikhuna Manhappatta Hamza Usthad (ശൈഖുനാ മഞ്ഞപ്പറ്റ ഹംസ ഉസ്താദ്)
+ * Teaches in the two senior ("VALIYA") batches: BS 5 • Batch 05 & BS 4 • Batch 06.
+ */
+export const SHAIKHUNA_HAMZA_USTHAD: SupremeScholarProfile = {
+  id: 'shaikhuna-hamza-usthad',
+  staffId: 'SHAIKHUNA-01',
+  name: 'Shaikhuna Manhappatta Hamza Usthad',
+  malayalamName: 'ശൈഖുനാ മഞ്ഞപ്പറ്റ ഹംസ ഉസ്താദ്',
+  honorificTitle: 'SHAIKHUNA HAMZA USTHAD',
+  designation: 'Supreme Scholar & Chief Mudarris (ശൈഖുനാ)',
+  valiyaBatches: ['BS 5 • Batch 05', 'BS 4 • Batch 06'],
+  specialization: 'Sahih al-Bukhari, Tuhfat al-Muhtaj & Senior Valiya Dars (വലിയ രണ്ട് ബാച്ചുകൾ)',
+  description:
+    'Supreme spiritual and scholarly head above all Usthads at ICS Academy Manhappatta, leading the advanced Kitab lessons in the two senior (Valiya) batches.',
+}
+
 export type ClassUsthad = {
   id: string
   staffId: string
   name: string
   shortName: string
   designation: string
+  institutionalRole?: 'Supreme Scholar (Shaikhuna)' | 'Manager' | 'Principal' | 'Swadr' | 'Class Usthad'
+  isPrincipalRole?: boolean
+  teachingBatches?: string[]
   className: string
   fullClassLabel: string
   batchCode: string
@@ -1177,9 +1210,10 @@ export const CLASS_USTHADS: ClassUsthad[] = [
   {
     id: 'usthad-14',
     staffId: 'UST-14',
-    name: 'Usthad Zubair Wafy',
-    shortName: 'Usthad Zubair Wafy',
+    name: 'Usthad Asif Saqafi',
+    shortName: 'Usthad Asif Saqafi',
     designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
     className: '8th • Batch 14',
     fullClassLabel: 'Class 8th • Batch 14',
     batchCode: '14',
@@ -1188,9 +1222,10 @@ export const CLASS_USTHADS: ClassUsthad[] = [
   {
     id: 'usthad-13',
     staffId: 'UST-13',
-    name: 'Usthad Muhsin Hudawi',
-    shortName: 'Usthad Muhsin Hudawi',
+    name: 'Usthad Alavudheen Ahsani',
+    shortName: 'Usthad Alavudheen Ahsani',
     designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
     className: '9th • Batch 13',
     fullClassLabel: 'Class 9th • Batch 13',
     batchCode: '13',
@@ -1199,9 +1234,10 @@ export const CLASS_USTHADS: ClassUsthad[] = [
   {
     id: 'usthad-12',
     staffId: 'UST-12',
-    name: 'Prof. Salman Hudawi',
-    shortName: 'Prof. Salman Hudawi',
+    name: 'Usthad Razaq Saqafi',
+    shortName: 'Usthad Razaq Saqafi',
     designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
     className: '10th • Batch 12',
     fullClassLabel: 'Class 10th • Batch 12',
     batchCode: '12',
@@ -1210,42 +1246,46 @@ export const CLASS_USTHADS: ClassUsthad[] = [
   {
     id: 'usthad-11',
     staffId: 'UST-11',
-    name: 'Usthad Najeeb Darimi',
-    shortName: 'Usthad Najeeb Darimi',
+    name: 'Usthad Hashim Saqafi',
+    shortName: 'Usthad Hashim Saqafi',
     designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
     className: 'HS 1 • Batch 11',
     fullClassLabel: 'Class HS 1 • Batch 11',
     batchCode: '11',
-    specialization: 'Alfiyyah & Hadith Studies',
+    specialization: 'Fath al-Mu’in & Hadith Studies',
   },
   {
     id: 'usthad-10',
     staffId: 'UST-10',
-    name: 'Usthad Rashid Baqawi',
-    shortName: 'Usthad Rashid Baqawi',
+    name: 'Usthad Favaz Saqafi',
+    shortName: 'Usthad Favaz Saqafi',
     designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
     className: 'HS 2A • Batch 10',
     fullClassLabel: 'Class HS 2A • Batch 10',
     batchCode: '10',
-    specialization: 'Fath al-Mu’in & Balaghah',
+    specialization: 'Alfiyyah Ibn Malik & Balaghah',
   },
   {
     id: 'usthad-01',
     staffId: 'UST-01',
-    name: 'Maulana Tariq Nadwi',
-    shortName: 'Maulana Tariq Nadwi',
+    name: 'Usthad Midhlaj Ahsani',
+    shortName: 'Usthad Midhlaj Ahsani',
     designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
     className: 'HS 2B • Batch 1',
     fullClassLabel: 'Class HS 2B • Batch 1',
     batchCode: '01',
-    specialization: 'Tafsir al-Jalalayn & Urdu',
+    specialization: 'Tafsir al-Jalalayn & Islamic History',
   },
   {
     id: 'usthad-09',
     staffId: 'UST-09',
-    name: 'UsthadShihabudheen Faizy',
-    shortName: 'Usthad Shihabudheen Faizy',
+    name: 'Usthad Muhammed Musthafa Saqafi',
+    shortName: 'Usthad Musthafa Saqafi',
     designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
     className: 'BS 1 • Batch 09',
     fullClassLabel: 'Class BS 1 • Batch 09',
     batchCode: '09',
@@ -1254,46 +1294,52 @@ export const CLASS_USTHADS: ClassUsthad[] = [
   {
     id: 'usthad-08',
     staffId: 'UST-08',
-    name: 'Usthad Anas Wafy',
-    shortName: 'Usthad Anas Wafy',
-    designation: 'Class Usthad',
+    name: 'Usthad Hafiz Fazlul Abid Naeemi',
+    shortName: 'Usthad Hafiz Fazlul Abid Naeemi (Swadr)',
+    designation: 'Swadr & Class Usthad',
+    institutionalRole: 'Swadr',
     className: 'BS 2 • Batch 08',
     fullClassLabel: 'Class BS 2 • Batch 08',
     batchCode: '08',
-    specialization: 'Usul al-Fiqh & Mantiq',
+    specialization: 'Swadr • Qur’an Hifz, Tafsir & Usul al-Fiqh',
   },
   {
     id: 'usthad-07',
     staffId: 'UST-07',
-    name: 'Usthad Abdul Hakeem Faizy',
-    shortName: 'Usthad Abdul Hakeem',
-    designation: 'Class Usthad',
+    name: 'Usthad Muhammed Yasir Ahsani',
+    shortName: 'Usthad Muhammed Yasir Ahsani (Principal)',
+    designation: 'Principal & Class Usthad',
+    institutionalRole: 'Principal',
+    isPrincipalRole: true,
     className: 'BS 3 • Batch 07',
     fullClassLabel: 'Class BS 3 • Batch 07',
     batchCode: '07',
-    specialization: 'Shafi’i Jurisprudence & Jam’ al-Jawami’',
+    specialization: 'Principal & Class Usthad • Shafi’i Jurisprudence & Jam’ al-Jawami’',
   },
   {
     id: 'usthad-06',
     staffId: 'UST-06',
-    name: 'Usthad Ibrahim Faizy',
-    shortName: 'Usthad Ibrahim Faizy',
-    designation: 'Class Usthad',
+    name: 'Usthad Muhammed Naeem Saqafi',
+    shortName: 'Usthad Muhammed Naeem Saqafi (Manager)',
+    designation: 'Manager & Class Usthad',
+    institutionalRole: 'Manager',
     className: 'BS 4 • Batch 06',
-    fullClassLabel: 'Class BS 4 • Batch 06',
+    fullClassLabel: 'Class BS 4 • Batch 06 (Valiya Batch)',
     batchCode: '06',
-    specialization: 'Tuhfat al-Muhtaj & Tafsir al-Baydawi',
+    specialization: 'Manager • Sahih Muslim & Tafsir al-Baydawi',
   },
   {
     id: 'usthad-05',
     staffId: 'UST-05',
-    name: 'Shaykh Mahmood Musliyar',
-    shortName: 'Shaykh Mahmood Musliyar',
-    designation: 'Class Usthad',
+    name: 'Shaikhuna Manhappatta Hamza Usthad',
+    shortName: 'Shaikhuna Hamza Usthad',
+    designation: 'Supreme Scholar (ശൈഖുനാ) • Valiya 2 Batches',
+    institutionalRole: 'Supreme Scholar (Shaikhuna)',
+    teachingBatches: ['BS 5 • Batch 05', 'BS 4 • Batch 06'],
     className: 'BS 5 • Batch 05',
-    fullClassLabel: 'Class BS 5 • Batch 05',
+    fullClassLabel: 'Class BS 5 • Batch 05 & BS 4 • Batch 06 (Valiya 2 Batches)',
     batchCode: '05',
-    specialization: 'Sahih al-Bukhari & Fatwa Research',
+    specialization: 'Sahih al-Bukhari & Tuhfat al-Muhtaj (Valiya 2 Batches)',
   },
 ]
 
@@ -1305,7 +1351,31 @@ export function findUsthadByStaffId(identifier: string): ClassUsthad | undefined
   const exact = CLASS_USTHADS.find((u) => normalizeAdmissionKey(u.staffId) === cleaned)
   if (exact) return exact
 
-  // 2. Match TCH-XX or batch number (e.g. "TCH07", "BATCH07", "07", "7")
+  // 2. Support Principal ID / Name logging in as Class Usthad (since Principal is also a Class Usthad)
+  if (
+    cleaned === 'ADM001' ||
+    cleaned === 'ADM1' ||
+    cleaned === 'PRINCIPAL' ||
+    cleaned === 'PRICIPAL' ||
+    cleaned.includes('YASIR')
+  ) {
+    return CLASS_USTHADS.find((u) => u.isPrincipalRole || u.batchCode === '07')
+  }
+
+  // 3. Support matching by Usthad name or title (e.g. "SHAIKHUNA", "HAMZA", "NAEEM", "MANAGER", "SWADR", "ABID", "MUSTHAFA", "MIDHLAJ", "FAVAZ", "HASHIM", "RAZAQ", "ALAVUDHEEN", "ASIF")
+  if (cleaned.includes('SHAIKHUNA') || cleaned.includes('HAMZA')) {
+    return CLASS_USTHADS.find((u) => u.batchCode === '05')
+  }
+  if (cleaned.includes('NAEEM') || cleaned === 'MANAGER') {
+    return CLASS_USTHADS.find((u) => u.batchCode === '06')
+  }
+  if (cleaned.includes('ABID') || cleaned.includes('FAZLUL') || cleaned === 'SWADR' || cleaned === 'SADR') {
+    return CLASS_USTHADS.find((u) => u.batchCode === '08')
+  }
+  const byName = CLASS_USTHADS.find((u) => normalizeAdmissionKey(u.name).includes(cleaned))
+  if (byName && cleaned.length >= 4) return byName
+
+  // 4. Match TCH-XX or batch number (e.g. "TCH07", "BATCH07", "07", "7")
   const digits = cleaned.replace(/[^0-9]/g, '')
   if (digits) {
     const padded = digits.padStart(2, '0')
@@ -1313,7 +1383,7 @@ export function findUsthadByStaffId(identifier: string): ClassUsthad | undefined
     if (byBatch) return byBatch
   }
 
-  // 3. Support default placeholder "TCH-0217" -> defaults to BS 3 • Batch 07 Class Usthad
+  // 5. Support default placeholder "TCH-0217" -> defaults to Principal/Class Usthad (BS 3 • Batch 07)
   if (cleaned === 'TCH0217' || cleaned === 'USTHAD' || cleaned === 'TEACHER') {
     return CLASS_USTHADS.find((u) => u.batchCode === '07') ?? CLASS_USTHADS[0]
   }
@@ -1811,6 +1881,9 @@ export type PeriodAttendanceSubmission = {
 export type PrincipalProfile = {
   id: string
   staffId: string
+  usthadId: string
+  usthadStaffId: string
+  assignedClassName: string
   name: string
   shortName: string
   designation: string
@@ -1822,10 +1895,13 @@ export type PrincipalProfile = {
 export const ACADEMY_PRINCIPAL: PrincipalProfile = {
   id: 'principal-1',
   staffId: 'ADM-001',
-  name: 'Dr. Usthad Sayyid Muhammed Al-Qasimi',
-  shortName: 'Principal (ADM-001)',
-  designation: "Principal • ICS Academy & Da'wa College Manhappatta",
-  qualification: 'PhD in Islamic Jurisprudence & Educational Leadership (Jamiathul Hind)',
+  usthadId: 'usthad-07',
+  usthadStaffId: 'UST-07',
+  assignedClassName: 'BS 3 • Batch 07',
+  name: 'Usthad Muhammed Yasir Ahsani',
+  shortName: 'Usthad Muhammed Yasir Ahsani (Principal)',
+  designation: "Principal & Class Usthad • ICS Academy & Da'wa College Manhappatta",
+  qualification: 'Ahsani Scholar in Islamic Jurisprudence & Educational Leadership (Jamiathul Hind)',
   email: 'principal@icsacademy.edu.in',
   phone: '+91 94470 00101',
 }
@@ -1837,9 +1913,12 @@ export function findPrincipalByIdentifier(identifier: string): PrincipalProfile 
     cleaned === 'ADM001' ||
     cleaned === 'ADM1' ||
     cleaned === 'PRINCIPAL' ||
+    cleaned === 'PRICIPAL' ||
     cleaned === 'ICSADMIN' ||
     cleaned === 'ADMIN' ||
     cleaned === 'PRN001' ||
+    cleaned === 'UST07' ||
+    cleaned.includes('YASIR') ||
     cleaned.startsWith('ADM') ||
     cleaned.startsWith('PRN')
   ) {

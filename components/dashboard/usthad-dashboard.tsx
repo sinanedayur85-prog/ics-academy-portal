@@ -176,6 +176,8 @@ export function UsthadDashboard() {
     return CLASS_USTHADS.find((u) => u.batchCode === '07') ?? CLASS_USTHADS[0]
   })
 
+  const [activeClassName, setActiveClassName] = useState<string>(() => usthad.className)
+
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null)
   const [mobileTab, setMobileTab] = useState<
     'roster' | 'attendance' | 'leave' | 'notices' | 'library'
@@ -210,10 +212,10 @@ export function UsthadDashboard() {
     return () => window.removeEventListener('hashchange', syncHash)
   }, [])
 
-  // Strictly filter students to ONLY the logged-in Class Usthad's assigned class
+  // Strictly filter students to the logged-in Class Usthad's active assigned class
   const classStudents = useMemo(
-    () => students.filter((s) => s.className === usthad.className),
-    [usthad.className],
+    () => students.filter((s) => s.className === activeClassName),
+    [activeClassName],
   )
 
   // Shared Attendance Overrides
@@ -874,9 +876,16 @@ export function UsthadDashboard() {
           )}
         >
           <div>
-            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-lime">
-              Class Usthad Workspace · {usthad.fullClassLabel}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-lime">
+                {usthad.designation} · {usthad.fullClassLabel}
+              </p>
+              {usthad.isPrincipalRole && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-cyan uppercase">
+                  Principal &amp; Class Usthad
+                </span>
+              )}
+            </div>
             <h1 className="mt-1.5 flex flex-col font-display leading-tight text-foreground">
               <span className="text-xl font-normal text-muted-foreground md:text-2xl">
                  السَّلَامُ عَلَيْكُمْ,
@@ -887,14 +896,63 @@ export function UsthadDashboard() {
             </h1>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-sans text-xs text-muted-foreground sm:text-sm">
-            <p>
-              Assigned Class <span className="font-semibold text-foreground">{usthad.className}</span>
-            </p>
-            <span className="text-border" aria-hidden="true">•</span>
-            <p>
-              Staff ID <span className="font-mono font-medium tabular-nums text-foreground">{usthad.staffId}</span>
-            </p>
+          <div className="flex flex-col items-start gap-2.5 md:items-end">
+            {usthad.isPrincipalRole && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  window.dispatchEvent(
+                    new CustomEvent('ics-switch-role', {
+                      detail: { role: 'principal', usthadId: usthad.id },
+                    }),
+                  )
+                }}
+                className="rounded-xl border border-cyan/50 bg-cyan text-xs font-bold text-slate-950 hover:bg-cyan/90"
+              >
+                Switch to Principal Command Center (All 11 Classes)
+              </Button>
+            )}
+
+            {usthad.teachingBatches && usthad.teachingBatches.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-lime/35 bg-lime/10 p-1.5">
+                <span className="px-2 text-[11px] font-bold text-lime uppercase">
+                  Valiya Batches:
+                </span>
+                {usthad.teachingBatches.map((batch) => (
+                  <button
+                    key={batch}
+                    type="button"
+                    onClick={() => {
+                      setActiveClassName(batch)
+                      const firstSt = students.find((s) => s.className === batch)
+                      if (firstSt) {
+                        setSelectedStudentId(firstSt.id)
+                        setLeaveStudentId(firstSt.id)
+                      }
+                    }}
+                    className={cn(
+                      'rounded-lg px-2.5 py-1 text-xs font-semibold transition-all',
+                      activeClassName === batch
+                        ? 'bg-lime text-slate-950 shadow-2xs'
+                        : 'bg-background/80 text-foreground hover:bg-background',
+                    )}
+                  >
+                    {batch}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-sans text-xs text-muted-foreground sm:text-sm">
+              <p>
+                Assigned Class <span className="font-semibold text-foreground">{activeClassName}</span>
+              </p>
+              <span className="text-border" aria-hidden="true">•</span>
+              <p>
+                Staff ID <span className="font-mono font-medium tabular-nums text-foreground">{usthad.staffId}</span>
+              </p>
+            </div>
           </div>
         </div>
 

@@ -46,8 +46,29 @@ export default function Page() {
       window.scrollTo({ top: 0 })
     }
 
+    function handleSwitchRole(event: Event) {
+      const custom = event as CustomEvent<{
+        role: 'principal' | 'usthad'
+        usthadId?: string
+      }>
+      const nextRole = custom.detail?.role
+      if (!nextRole) return
+      if (custom.detail?.usthadId) {
+        window.localStorage.setItem('loggedInUsthadId', custom.detail.usthadId)
+      }
+      window.localStorage.setItem(AUTH_STORAGE_KEY, 'true')
+      window.localStorage.setItem(AUTH_ROLE_STORAGE_KEY, nextRole)
+      setAuthRole(nextRole)
+      setIsLoggedIn(true)
+      window.scrollTo({ top: 0 })
+    }
+
     window.addEventListener('ics-logout', handleLogout)
-    return () => window.removeEventListener('ics-logout', handleLogout)
+    window.addEventListener('ics-switch-role', handleSwitchRole)
+    return () => {
+      window.removeEventListener('ics-logout', handleLogout)
+      window.removeEventListener('ics-switch-role', handleSwitchRole)
+    }
   }, [])
 
   function handleStudentLogin() {
@@ -77,6 +98,7 @@ export default function Page() {
   function handlePrincipalLogin() {
     window.localStorage.setItem(AUTH_STORAGE_KEY, 'true')
     window.localStorage.setItem(AUTH_ROLE_STORAGE_KEY, 'principal')
+    window.localStorage.setItem('loggedInUsthadId', 'usthad-07')
     setAuthRole('principal')
     setIsLoggedIn(true)
     window.scrollTo({ top: 0 })

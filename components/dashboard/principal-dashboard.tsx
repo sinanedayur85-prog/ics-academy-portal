@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Clock,
+  Crown,
   FileText,
   FileUp,
   GraduationCap,
@@ -71,6 +72,7 @@ import {
   CURRENT_SEMESTER,
   HIGH_SCHOOL_CLASS_NAMES,
   NOT_HELD_REASONS,
+  SHAIKHUNA_HAMZA_USTHAD,
   formatTargetClassesBadge,
   getClassLeadersForClass,
   getClassSemesterTimetable,
@@ -187,14 +189,14 @@ export function PrincipalDashboard() {
   const [peopleSubTab, setPeopleSubTab] = useState<PeopleSubTab>('usthads')
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString)
 
-  // Selected class for deep inspection & period control
+  // Selected class for deep inspection & period control (defaults to Principal's own assigned class)
   const [selectedClassName, setSelectedClassName] = useState<string>(
-    () => CLASS_USTHADS[0]?.className ?? '8th • Batch 14',
+    () => principal.assignedClassName || CLASS_USTHADS[0]?.className || 'BS 3 • Batch 07',
   )
 
   // Quick Mark Not Held / Substitute form state
   const [quickClassName, setQuickClassName] = useState<string>(
-    () => CLASS_USTHADS[0]?.className ?? '8th • Batch 14',
+    () => principal.assignedClassName || CLASS_USTHADS[0]?.className || 'BS 3 • Batch 07',
   )
   const [quickPeriodIndex, setQuickPeriodIndex] = useState<number>(1)
   const [quickNotHeldReason, setQuickNotHeldReason] = useState<string>(NOT_HELD_REASONS[0])
@@ -1279,6 +1281,10 @@ export function PrincipalDashboard() {
                   <Award className="size-3.5" aria-hidden="true" />
                   Principal Executive Command Center
                 </span>
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-cyan uppercase">
+                  <GraduationCap className="size-3.5" aria-hidden="true" />
+                  Class Usthad • {principal.assignedClassName} ({principal.usthadStaffId})
+                </span>
                 <span className="text-xs font-medium text-muted-foreground tabular-nums">
                   Date: {selectedDate} • Semester {CURRENT_SEMESTER}
                 </span>
@@ -1287,7 +1293,7 @@ export function PrincipalDashboard() {
                 {principal.name}
               </h1>
               <p className="text-xs text-muted-foreground sm:text-sm">
-                {principal.designation} • Full administrative oversight of all 11 classes, Usthads, Class Leaders, and students.
+                {principal.designation} • Full administrative oversight of all 11 classes &amp; Class Usthad of {principal.assignedClassName}.
               </p>
             </div>
 
@@ -1305,6 +1311,21 @@ export function PrincipalDashboard() {
                   className="bg-transparent text-xs font-semibold text-foreground tabular-nums outline-none"
                 />
               </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  window.dispatchEvent(
+                    new CustomEvent('ics-switch-role', {
+                      detail: { role: 'usthad', usthadId: principal.usthadId },
+                    }),
+                  )
+                }}
+                className="rounded-xl border border-cyan/50 bg-cyan text-xs font-bold text-slate-950 hover:bg-cyan/90"
+              >
+                <BookOpen className="mr-1.5 size-3.5" aria-hidden="true" />
+                My Class Usthad Workspace ({principal.assignedClassName})
+              </Button>
               <Button
                 type="button"
                 size="sm"
@@ -1956,108 +1977,220 @@ export function PrincipalDashboard() {
               </span>
             </div>
 
-            {/* SUB-TAB 1: 11 CLASS USTHADS */}
+            {/* SUB-TAB 1: SUPREME SCHOLAR (SHAIKHUNA HAMZA USTHAD) & 11 CLASS USTHADS */}
             {peopleSubTab === 'usthads' && (
-              <Panel
-                id="principal-usthads-panel"
-                eyebrow="Faculty & Class Usthad Directory (UST-14 to UST-05)"
-                title="All 11 Class Usthads & Session Monitoring"
-                icon={GraduationCap}
-              >
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {classMatrixRows.map((row) => {
-                    const u = row.usthad
-                    return (
-                      <div
-                        key={u.id}
-                        className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-background/60 p-4 transition-colors hover:border-lime/40"
-                      >
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="rounded-lg border border-lime/40 bg-lime/15 px-2.5 py-0.5 text-xs font-bold text-lime tabular-nums">
-                              {u.staffId}
-                            </span>
-                            <span className="text-xs font-semibold text-cyan">
-                              {u.className}
-                            </span>
-                          </div>
+              <div className="flex flex-col gap-6">
+                {/* Supreme Scholar Highlight Card: Shaikhuna Manhappatta Hamza Usthad */}
+                <div className="relative overflow-hidden rounded-2xl border-2 border-lime/50 bg-gradient-to-br from-lime/[0.14] via-card to-cyan/[0.10] p-5 sm:p-6 shadow-lg">
+                  <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-lime/50 bg-lime px-3 py-0.5 text-[11px] font-extrabold tracking-wider text-slate-950 uppercase">
+                          <Crown className="size-3.5" aria-hidden="true" />
+                          {SHAIKHUNA_HAMZA_USTHAD.honorificTitle}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan/40 bg-cyan/15 px-3 py-0.5 text-xs font-bold text-cyan">
+                          എല്ലാ ഉസ്താദുമാർക്കും മുകളിലുള്ള പ്രധാന ഉസ്താദ്
+                        </span>
+                      </div>
 
-                          <div>
-                            <h3 className="font-display text-lg font-bold text-foreground">
-                              {u.name}
-                            </h3>
-                            <p className="text-xs text-muted-foreground">
-                              {u.designation} • {u.fullClassLabel}
-                            </p>
-                          </div>
+                      <div className="mt-1">
+                        <h2 className="font-display text-2xl font-bold text-foreground sm:text-3xl">
+                          {SHAIKHUNA_HAMZA_USTHAD.name}
+                        </h2>
+                        <p className="mt-0.5 text-sm font-semibold text-lime">
+                          {SHAIKHUNA_HAMZA_USTHAD.malayalamName} • {SHAIKHUNA_HAMZA_USTHAD.designation}
+                        </p>
+                      </div>
 
-                          <p className="text-xs font-medium text-foreground/90">
-                            Specialization: <span className="text-muted-foreground">{u.specialization}</span>
-                          </p>
+                      <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                        {SHAIKHUNA_HAMZA_USTHAD.description}
+                      </p>
 
-                          <div className="grid grid-cols-3 gap-2 rounded-xl border border-border/70 bg-card/60 p-2.5 text-center text-xs">
-                            <div>
-                              <span className="block text-[10px] text-muted-foreground">Conducted</span>
-                              <span className="font-mono font-bold text-emerald-600 dark:text-lime tabular-nums">
-                                {row.conductedCount}/5
-                              </span>
-                            </div>
-                            <div>
-                              <span className="block text-[10px] text-muted-foreground">Not Held</span>
-                              <span
-                                className={cn(
-                                  'font-mono font-bold tabular-nums',
-                                  row.notHeldCount > 0
-                                    ? 'text-red-600 dark:text-red-400'
-                                    : 'text-foreground',
-                                )}
-                              >
-                                {row.notHeldCount}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="block text-[10px] text-muted-foreground">Class Rate</span>
-                              <span className="font-mono font-bold text-cyan tabular-nums">
-                                {row.avgAttendance}%
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="text-[11px] text-muted-foreground tabular-nums">
-                            Batch Code: B-{u.batchCode} • Staff ID: {u.staffId}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 border-t border-border/60 pt-3">
-                          <Button
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-bold text-foreground">
+                          VALIYA 2 Batches (വലിയ രണ്ട് ബാച്ചുകളിലെ ക്ലാസുകൾ):
+                        </span>
+                        {SHAIKHUNA_HAMZA_USTHAD.valiyaBatches.map((batchName) => (
+                          <button
+                            key={batchName}
                             type="button"
-                            size="sm"
                             onClick={() => {
-                              setSelectedClassName(u.className)
+                              setSelectedClassName(batchName)
                               setActiveTab('monitor')
                             }}
-                            className="flex-1 rounded-xl text-xs font-semibold"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-lime/40 bg-background/85 px-3 py-1.5 text-xs font-bold text-lime transition-colors hover:bg-lime hover:text-slate-950"
                           >
-                            Control Class & Periods
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setDirectoryClassFilter(u.className)
-                              setPeopleSubTab('students')
-                            }}
-                            className="rounded-xl text-xs font-semibold"
-                          >
-                            Students ({row.totalStudents})
-                          </Button>
-                        </div>
+                            <BookOpen className="size-3.5" aria-hidden="true" />
+                            {batchName} (Valiya Batch)
+                          </button>
+                        ))}
                       </div>
-                    )
-                  })}
+                    </div>
+
+                    <div className="flex flex-col gap-2 rounded-2xl border border-border/80 bg-background/75 p-4 text-xs lg:min-w-[260px]">
+                      <p className="text-[11px] font-bold tracking-wider text-lime uppercase">
+                        Senior Dars Specialization
+                      </p>
+                      <p className="font-semibold text-foreground">
+                        {SHAIKHUNA_HAMZA_USTHAD.specialization}
+                      </p>
+                      <div className="h-px bg-border/70" />
+                      <p className="text-[11px] text-muted-foreground">
+                        Senior Kitabs: <strong className="text-foreground">Sahih al-Bukhari &amp; Tuhfat al-Muhtaj</strong>
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </Panel>
+
+                <Panel
+                  id="principal-usthads-panel"
+                  eyebrow="Official Faculty & Class Usthad Roster (ICS Academy Manhappatta)"
+                  title="Shaikhuna & All 10 Usthads (Manager, Principal, Swadr & Class Usthads)"
+                  icon={GraduationCap}
+                >
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {classMatrixRows.map((row) => {
+                      const u = row.usthad
+                      const roleBadgeTone =
+                        u.institutionalRole === 'Supreme Scholar (Shaikhuna)'
+                          ? 'border-lime bg-lime text-slate-950'
+                          : u.institutionalRole === 'Principal'
+                            ? 'border-cyan/50 bg-cyan/20 text-cyan'
+                            : u.institutionalRole === 'Manager'
+                              ? 'border-amber-500/50 bg-amber-500/20 text-amber-500'
+                              : u.institutionalRole === 'Swadr'
+                                ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-500 dark:text-lime'
+                                : 'border-border bg-muted/60 text-muted-foreground'
+
+                      return (
+                        <div
+                          key={u.id}
+                          className={cn(
+                            'flex flex-col justify-between gap-4 rounded-2xl border bg-background/60 p-4 transition-colors hover:border-lime/40',
+                            u.isPrincipalRole
+                              ? 'border-cyan/50 bg-cyan/[0.04]'
+                              : u.institutionalRole === 'Supreme Scholar (Shaikhuna)'
+                                ? 'border-lime/50 bg-lime/[0.05]'
+                                : 'border-border',
+                          )}
+                        >
+                          <div className="flex flex-col gap-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="rounded-lg border border-lime/40 bg-lime/15 px-2.5 py-0.5 text-xs font-bold text-lime tabular-nums">
+                                  {u.staffId}
+                                </span>
+                                {u.institutionalRole && (
+                                  <span
+                                    className={cn(
+                                      'rounded-lg border px-2 py-0.5 text-[11px] font-bold',
+                                      roleBadgeTone,
+                                    )}
+                                  >
+                                    {u.institutionalRole}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-xs font-semibold text-cyan">
+                                {u.className}
+                              </span>
+                            </div>
+
+                            <div>
+                              <h3 className="font-display text-lg font-bold text-foreground">
+                                {u.name}
+                              </h3>
+                              <p className="text-xs text-muted-foreground">
+                                {u.designation} • {u.fullClassLabel}
+                              </p>
+                            </div>
+
+                            <p className="text-xs font-medium text-foreground/90">
+                              Specialization: <span className="text-muted-foreground">{u.specialization}</span>
+                            </p>
+
+                            <div className="grid grid-cols-3 gap-2 rounded-xl border border-border/70 bg-card/60 p-2.5 text-center text-xs">
+                              <div>
+                                <span className="block text-[10px] text-muted-foreground">Conducted</span>
+                                <span className="font-mono font-bold text-emerald-600 dark:text-lime tabular-nums">
+                                  {row.conductedCount}/5
+                                </span>
+                              </div>
+                              <div>
+                                <span className="block text-[10px] text-muted-foreground">Not Held</span>
+                                <span
+                                  className={cn(
+                                    'font-mono font-bold tabular-nums',
+                                    row.notHeldCount > 0
+                                      ? 'text-red-600 dark:text-red-400'
+                                      : 'text-foreground',
+                                  )}
+                                >
+                                  {row.notHeldCount}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="block text-[10px] text-muted-foreground">Class Rate</span>
+                                <span className="font-mono font-bold text-cyan tabular-nums">
+                                  {row.avgAttendance}%
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="text-[11px] text-muted-foreground tabular-nums">
+                              Batch Code: B-{u.batchCode} • Staff ID: {u.staffId}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedClassName(u.className)
+                                setActiveTab('monitor')
+                              }}
+                              className="flex-1 rounded-xl text-xs font-semibold"
+                            >
+                              Control Class &amp; Periods
+                            </Button>
+                            {u.isPrincipalRole && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  window.dispatchEvent(
+                                    new CustomEvent('ics-switch-role', {
+                                      detail: { role: 'usthad', usthadId: u.id },
+                                    }),
+                                  )
+                                }}
+                                className="rounded-xl border-cyan/40 bg-cyan/10 text-xs font-semibold text-cyan hover:bg-cyan/20"
+                              >
+                                Usthad View
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setDirectoryClassFilter(u.className)
+                                setPeopleSubTab('students')
+                              }}
+                              className="rounded-xl text-xs font-semibold"
+                            >
+                              Students ({row.totalStudents})
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </Panel>
+              </div>
             )}
 
             {/* SUB-TAB 2: 22 CLASS LEADERS */}
