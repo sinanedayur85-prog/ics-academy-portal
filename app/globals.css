@@ -5,7 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: 'Givonic', var(--font-poppins), 'Poppins', 'Tajawal', 'Noto Nastaliq Urdu', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Poppins', var(--font-poppins), 'Tajawal', 'Noto Nastaliq Urdu', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Poppins', var(--font-poppins), 'Tajawal', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-el-messiri), 'Tajawal', 'Noto Serif Malayalam', ui-serif, Georgia, serif;
   --font-malayalam: 'Noto Serif Malayalam', 'Tajawal', var(--font-poppins), 'Poppins', serif;
   --font-arabic: 'Tajawal', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', sans-serif;
@@ -106,8 +107,13 @@
   animation: fadeInUp 1.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.font-poppins {
-  font-family: 'Poppins', var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+.font-poppins,
+.font-mono,
+code,
+kbd,
+samp,
+pre {
+  font-family: 'Poppins', var(--font-poppins), ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .font-malayalam {

@@ -14,6 +14,7 @@ import {
   MessageSquarePlus,
   MessageSquareText,
   Mic,
+  MoreVertical,
   Paperclip,
   Pause,
   Pin,
@@ -27,7 +28,6 @@ import {
   Trash2,
   Unlock,
   Users,
-  Volume2,
   X,
 } from 'lucide-react'
 import {
@@ -357,7 +357,11 @@ function loadLocalMessages(): Record<string, ChatMessage[]> {
     const merged: Record<string, ChatMessage[]> = { ...seeded }
     for (const [roomId, msgs] of Object.entries(parsed)) {
       if (Array.isArray(msgs) && msgs.length > 0) {
-        merged[roomId] = msgs
+        merged[roomId] = msgs.map((m) =>
+          m.mediaType === 'voice' && m.text.includes('Voice Message')
+            ? { ...m, text: '' }
+            : m,
+        )
       }
     }
     return merged
@@ -1047,7 +1051,7 @@ export function CampusMessenger({
                 ? reader.result
                 : createSynthesizedVoiceWavDataUrl(duration)
             dispatchMessage({
-              text: inputText.trim() || '🎤 Voice Message (ശബ്ദ സന്ദേശം)',
+              text: '',
               mediaType: 'voice',
               mediaUrl: dataUrl,
               mediaName: `Voice_Note_${Date.now()}.wav`,
@@ -1057,7 +1061,7 @@ export function CampusMessenger({
           reader.readAsDataURL(blob)
         } else {
           dispatchMessage({
-            text: inputText.trim() || '🎤 Voice Message (ശബ്ദ സന്ദേശം)',
+            text: '',
             mediaType: 'voice',
             mediaUrl: createSynthesizedVoiceWavDataUrl(duration),
             mediaName: `Voice_Note_${Date.now()}.wav`,
@@ -1069,7 +1073,7 @@ export function CampusMessenger({
         recorder.stop()
       } catch {
         dispatchMessage({
-          text: inputText.trim() || '🎤 Voice Message (ശബ്ദ സന്ദേശം)',
+          text: '',
           mediaType: 'voice',
           mediaUrl: createSynthesizedVoiceWavDataUrl(duration),
           mediaName: `Voice_Note_${Date.now()}.wav`,
@@ -1078,7 +1082,7 @@ export function CampusMessenger({
       }
     } else {
       dispatchMessage({
-        text: inputText.trim() || '🎤 Voice Message (ശബ്ദ സന്ദേശം)',
+        text: '',
         mediaType: 'voice',
         mediaUrl: createSynthesizedVoiceWavDataUrl(duration),
         mediaName: `Voice_Note_${Date.now()}.wav`,
@@ -1336,7 +1340,7 @@ export function CampusMessenger({
           <div className="flex items-center justify-between gap-2 border-b border-border bg-card/90 px-4 py-3.5">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:bg-lime/15 dark:text-lime">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
                   <MessageSquareText className="size-4" aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
@@ -1354,7 +1358,7 @@ export function CampusMessenger({
               type="button"
               onClick={() => setShowNewChatModal(true)}
               title="Start a new chat with an Usthad or Student"
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-emerald-500/35 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/25 dark:border-lime/40 dark:bg-lime/15 dark:text-lime shrink-0"
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-emerald-500/35 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-500/25 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100 dark:hover:bg-[#222630] shrink-0"
             >
               <MessageSquarePlus className="size-3.5" aria-hidden="true" />
               <span>New Chat</span>
@@ -1373,7 +1377,7 @@ export function CampusMessenger({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search groups, Usthads, or students..."
-                className="h-9 w-full rounded-xl border border-input bg-card pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-lime focus:outline-none"
+                className="h-9 w-full rounded-xl border border-input bg-card pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 dark:focus:border-zinc-500 focus:outline-none"
               />
             </div>
 
@@ -1394,10 +1398,10 @@ export function CampusMessenger({
                     type="button"
                     onClick={() => setCategoryFilter(tab.id)}
                     className={cn(
-                      'rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors whitespace-nowrap shrink-0',
+                      'rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors whitespace-nowrap shrink-0 border',
                       active
-                        ? 'bg-emerald-600 text-white dark:bg-lime dark:text-[#062023]'
-                        : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
+                        ? 'border-emerald-600 bg-emerald-600 text-white dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100'
+                        : 'border-transparent bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
                     )}
                   >
                     {tab.label}
@@ -1457,7 +1461,7 @@ export function CampusMessenger({
                   className={cn(
                     'flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors min-h-[68px]',
                     isSelected
-                      ? 'bg-emerald-500/12 dark:bg-lime/12'
+                      ? 'bg-emerald-500/12 dark:bg-[#1a1d24]'
                       : 'hover:bg-muted/50',
                   )}
                 >
@@ -1465,14 +1469,14 @@ export function CampusMessenger({
                   <div className="relative shrink-0">
                     <div
                       className={cn(
-                        'flex size-11 items-center justify-center rounded-2xl font-display text-xs font-bold shadow-xs',
+                        'flex size-11 items-center justify-center rounded-2xl font-display text-xs font-bold shadow-xs border border-border dark:border-[#262a33]',
                         room.type === 'staff_group'
-                          ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40'
+                          ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1a1d24] dark:text-amber-300'
                           : room.type === 'batch_group'
-                            ? 'bg-emerald-500/20 text-emerald-700 dark:bg-lime/20 dark:text-lime border border-emerald-500/35'
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:bg-[#1a1d24] dark:text-zinc-100'
                             : room.type === 'direct_usthad'
-                              ? 'bg-cyan/20 text-cyan border border-cyan/35'
-                              : 'bg-muted text-foreground border border-border',
+                              ? 'bg-cyan/15 text-cyan dark:bg-[#1a1d24] dark:text-cyan'
+                              : 'bg-muted text-foreground dark:bg-[#1a1d24] dark:text-zinc-200',
                       )}
                     >
                       {room.type === 'batch_group' ? (
@@ -1506,7 +1510,7 @@ export function CampusMessenger({
                         )}
                       </div>
                       {lastMsg && (
-                        <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+                        <span className="shrink-0 font-poppins text-[10px] tabular-nums text-muted-foreground">
                           {formatChatTime(lastMsg.createdAtMs)}
                         </span>
                       )}
@@ -1518,7 +1522,7 @@ export function CampusMessenger({
 
                     <div className="mt-1 flex items-center justify-between gap-2">
                       {roomTyping ? (
-                        <p className="truncate text-[11px] font-semibold text-emerald-600 dark:text-lime">
+                        <p className="truncate text-[11px] font-semibold text-emerald-600 dark:text-zinc-300">
                           {roomTyping}
                         </p>
                       ) : lastMsg ? (
@@ -1535,7 +1539,7 @@ export function CampusMessenger({
                                   : `${lastMsg.senderName.split(' ').slice(0, 2).join(' ')}: `}
                               </span>
                               {lastMsg.mediaType === 'voice'
-                                ? `🎤 Voice Note (${formatVoiceDuration(lastMsg.mediaDurationSec || 4)})`
+                                ? `🎤 ${formatVoiceDuration(lastMsg.mediaDurationSec || 4)}`
                                 : lastMsg.mediaType === 'pdf'
                                   ? `📄 ${lastMsg.mediaName || 'PDF Note'}`
                                   : lastMsg.mediaType === 'image'
@@ -1551,7 +1555,7 @@ export function CampusMessenger({
                       )}
 
                       {unreadCount > 0 && (
-                        <span className="flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-full bg-emerald-600 px-1.5 font-mono text-[10px] font-bold text-white tabular-nums dark:bg-lime dark:text-[#062023]">
+                        <span className="flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-full bg-emerald-600 px-1.5 font-poppins text-[10px] font-bold text-white tabular-nums dark:bg-zinc-200 dark:text-[#0a0b0e]">
                           {unreadCount}
                         </span>
                       )}
@@ -1585,12 +1589,12 @@ export function CampusMessenger({
               <div className="relative shrink-0">
                 <div
                   className={cn(
-                    'flex size-10 items-center justify-center rounded-2xl font-display text-xs font-bold',
+                    'flex size-10 items-center justify-center rounded-2xl font-display text-xs font-bold border border-border dark:border-[#262a33]',
                     activeRoom.type === 'staff_group'
-                      ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40'
+                      ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1a1d24] dark:text-amber-300'
                       : activeRoom.type === 'batch_group'
-                        ? 'bg-emerald-500/20 text-emerald-700 dark:bg-lime/20 dark:text-lime border border-emerald-500/35'
-                        : 'bg-cyan/20 text-cyan border border-cyan/35',
+                        ? 'bg-emerald-500/15 text-emerald-700 dark:bg-[#1a1d24] dark:text-zinc-100'
+                        : 'bg-cyan/15 text-cyan dark:bg-[#1a1d24] dark:text-cyan',
                   )}
                 >
                   {activeRoom.type === 'batch_group' ? (
@@ -1615,13 +1619,13 @@ export function CampusMessenger({
                 </div>
 
                 {activeTypingBanner ? (
-                  <p className="truncate text-[11px] font-semibold text-emerald-600 dark:text-lime">
+                  <p className="truncate text-[11px] font-semibold text-emerald-600 dark:text-zinc-300">
                     {activeTypingBanner}
                   </p>
                 ) : (
                   <p className="truncate text-[11px] text-muted-foreground">
                     {activeRoom.subtitle} •{' '}
-                    <span className="font-medium text-emerald-600 dark:text-lime">
+                    <span className="font-medium text-emerald-600 dark:text-zinc-400">
                       Online
                     </span>
                   </p>
@@ -1643,7 +1647,7 @@ export function CampusMessenger({
                   className={cn(
                     'inline-flex h-9 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-semibold transition-all whitespace-nowrap shrink-0',
                     activeRoomMeta.onlyAdminsCanPost
-                      ? 'border-amber-500/50 bg-amber-500/15 text-amber-600 dark:text-amber-300'
+                      ? 'border-border bg-amber-500/15 text-amber-600 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-amber-300'
                       : 'border-border bg-background/80 text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -1665,18 +1669,18 @@ export function CampusMessenger({
 
           {/* Pinned Message Banner (If Pinned by Usthad/Principal) */}
           {pinnedMessage && (
-            <div className="flex items-center justify-between gap-2 border-b border-emerald-500/25 bg-emerald-500/10 px-3.5 py-2 dark:border-lime/25 dark:bg-lime/10">
+            <div className="flex items-center justify-between gap-2 border-b border-border bg-emerald-500/10 px-3.5 py-2 dark:border-[#262a33] dark:bg-[#14171d]">
               <button
                 type="button"
                 onClick={() => scrollToMessage(pinnedMessage.id)}
                 className="flex min-w-0 flex-1 items-center gap-2 text-left"
               >
                 <Pin
-                  className="size-3.5 shrink-0 text-emerald-600 dark:text-lime"
+                  className="size-3.5 shrink-0 text-emerald-600 dark:text-muted-foreground"
                   aria-hidden="true"
                 />
                 <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-lime">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-muted-foreground">
                     Pinned by Usthad • {pinnedMessage.senderName}
                   </p>
                   <p className="truncate text-xs text-foreground">
@@ -1700,11 +1704,14 @@ export function CampusMessenger({
           )}
 
           {/* Scrollable Message Stream */}
-          <div className="flex-1 space-y-3 overflow-y-auto px-3 py-4 sm:px-5">
+          <div
+            className="flex-1 space-y-2.5 overflow-y-auto px-3 py-4 sm:px-5"
+            onClick={() => setActiveReactionMessageId(null)}
+          >
             {/* End-to-End Campus Security Banner */}
-            <div className="mx-auto max-w-md rounded-2xl border border-border/70 bg-card/70 px-3.5 py-2 text-center text-[11px] text-muted-foreground">
+            <div className="mx-auto max-w-md rounded-2xl border border-border/70 bg-card/70 px-3.5 py-2 text-center text-[11px] text-muted-foreground dark:border-[#262a33] dark:bg-[#121418]">
               <ShieldCheck
-                className="mr-1 inline-block size-3.5 text-emerald-600 dark:text-lime"
+                className="mr-1 inline-block size-3.5 text-emerald-600 dark:text-muted-foreground"
                 aria-hidden="true"
               />
               Official ICS Academy Manhappatta Campus Messenger. Share study notes, Kitab PDFs, and
@@ -1713,10 +1720,9 @@ export function CampusMessenger({
 
             {activeMessages.map((msg) => {
               const isMine = msg.senderId === actor.id
-              const isSenderStaff =
-                msg.senderRole === 'principal' || msg.senderRole === 'usthad'
               const isPinned = activeRoomMeta.pinnedMessageId === msg.id
               const isReadByOthers = msg.readBy.length > 1
+              const isSelectedMenuOpen = activeReactionMessageId === msg.id
               const reactionEntries = Object.entries(msg.reactions || {}).filter(
                 ([, users]) => Array.isArray(users) && users.length > 0,
               )
@@ -1726,30 +1732,59 @@ export function CampusMessenger({
                   key={msg.id}
                   id={`chat-msg-${msg.id}`}
                   className={cn(
-                    'group flex flex-col transition-all duration-300 rounded-2xl',
+                    'group relative flex flex-col transition-all duration-200 rounded-2xl',
                     isMine ? 'items-end' : 'items-start',
                   )}
                 >
                   <div
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (!msg.isDeleted) {
+                        setActiveReactionMessageId((prev) =>
+                          prev === msg.id ? null : msg.id,
+                        )
+                      }
+                    }}
                     className={cn(
-                      'relative max-w-[88%] sm:max-w-[76%] rounded-2xl px-3.5 py-2.5 shadow-xs border',
+                      'relative max-w-[86%] sm:max-w-[74%] rounded-2xl px-3.5 py-2 shadow-xs border transition-colors cursor-pointer',
                       isMine
-                        ? 'rounded-br-xs border-emerald-500/35 bg-emerald-950/90 text-emerald-50 dark:border-lime/35 dark:bg-[#0D3135] dark:text-white'
-                        : isSenderStaff
-                          ? 'rounded-bl-xs border-amber-500/35 bg-card text-foreground'
-                          : 'rounded-bl-xs border-border bg-card text-foreground',
+                        ? 'rounded-br-xs border-[#bde6b4] bg-[#dcf8c6] text-[#081e21] dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-[#f3f4f6]'
+                        : 'rounded-bl-xs border-border bg-card text-foreground dark:border-[#262a33] dark:bg-[#121418] dark:text-[#f3f4f6]',
+                      isSelectedMenuOpen && 'ring-1 ring-emerald-500/40 dark:ring-zinc-600',
                     )}
                   >
+                    {/* Subtle WhatsApp Three-Dots (⋮) Trigger in Top-Right Corner */}
+                    {!msg.isDeleted && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setActiveReactionMessageId((prev) =>
+                            prev === msg.id ? null : msg.id,
+                          )
+                        }}
+                        aria-label="Message options"
+                        className={cn(
+                          'absolute right-1.5 top-1.5 z-10 flex size-6 items-center justify-center rounded-full transition-opacity',
+                          isSelectedMenuOpen
+                            ? 'opacity-100 bg-black/10 dark:bg-white/10'
+                            : 'opacity-0 group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10',
+                        )}
+                      >
+                        <MoreVertical className="size-3.5 opacity-75" aria-hidden="true" />
+                      </button>
+                    )}
+
                     {/* Sender Name & Role Header */}
                     {!isMine && (
-                      <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                      <div className="mb-1 flex flex-wrap items-center gap-1.5 pr-5">
                         <span
                           className={cn(
                             'text-xs font-bold',
                             msg.senderRole === 'principal'
-                              ? 'text-amber-500'
+                              ? 'text-amber-600 dark:text-amber-400'
                               : msg.senderRole === 'usthad'
-                                ? 'text-emerald-600 dark:text-lime'
+                                ? 'text-emerald-700 dark:text-zinc-200'
                                 : 'text-cyan',
                           )}
                         >
@@ -1774,32 +1809,31 @@ export function CampusMessenger({
                         {msg.replyTo && (
                           <button
                             type="button"
-                            onClick={() => scrollToMessage(msg.replyTo!.messageId)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              scrollToMessage(msg.replyTo!.messageId)
+                            }}
                             className={cn(
-                              'mb-2 flex w-full flex-col rounded-xl border px-2.5 py-1.5 text-left text-[11px] transition-colors',
+                              'mb-1.5 flex w-full flex-col rounded-xl border-l-4 px-2.5 py-1.5 text-left text-[11px] transition-colors',
                               isMine
-                                ? 'border-white/20 bg-black/25 text-emerald-100 hover:bg-black/35'
-                                : 'border-border bg-muted/60 text-foreground hover:bg-muted',
+                                ? 'border-l-emerald-600 bg-black/[0.06] text-[#081e21] dark:border-l-zinc-400 dark:bg-[#0a0b0e]/70 dark:text-zinc-200'
+                                : 'border-l-cyan bg-muted/70 text-foreground dark:bg-[#0a0b0e]/60',
                             )}
                           >
-                            <span className="font-bold text-emerald-400 dark:text-lime">
-                              ↩ {msg.replyTo.senderName}
+                            <span className="font-bold opacity-90">
+                              {msg.replyTo.senderName}
                             </span>
-                            <span className="truncate opacity-85">
+                            <span className="truncate opacity-75">
                               {msg.replyTo.previewText}
                             </span>
                           </button>
                         )}
 
-                        {/* Media Attachment: Voice Note Waveform Player */}
+                        {/* Media Attachment: Clean WhatsApp Voice Note Waveform (No extra text or inner box!) */}
                         {msg.mediaType === 'voice' && (
                           <div
-                            className={cn(
-                              'my-1 flex items-center gap-2.5 rounded-xl border p-2.5',
-                              isMine
-                                ? 'border-white/15 bg-black/20'
-                                : 'border-border bg-muted/50',
-                            )}
+                            className="flex min-w-[220px] sm:min-w-[250px] items-center gap-2.5 py-1 pr-2"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <button
                               type="button"
@@ -1809,7 +1843,12 @@ export function CampusMessenger({
                                   ? 'Pause voice message'
                                   : 'Play voice message'
                               }
-                              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xs transition-transform active:scale-95 dark:bg-lime dark:text-[#062023]"
+                              className={cn(
+                                'flex size-10 shrink-0 items-center justify-center rounded-full shadow-xs transition-transform active:scale-95',
+                                isMine
+                                  ? 'bg-emerald-600 text-white dark:bg-[#262a33] dark:text-zinc-100'
+                                  : 'bg-emerald-600 text-white dark:bg-[#222630] dark:text-zinc-100',
+                              )}
                             >
                               {playingMessageId === msg.id ? (
                                 <Pause className="size-4" aria-hidden="true" />
@@ -1820,13 +1859,13 @@ export function CampusMessenger({
 
                             <div className="min-w-0 flex-1">
                               <div className="flex h-6 items-center gap-0.5">
-                                {Array.from({ length: 24 }).map((_, barIdx) => {
-                                  const barPct = (barIdx / 24) * 100
+                                {Array.from({ length: 26 }).map((_, barIdx) => {
+                                  const barPct = (barIdx / 26) * 100
                                   const isActiveBar =
                                     playingMessageId === msg.id && playbackProgress >= barPct
                                   const heights = [
                                     35, 65, 50, 85, 45, 95, 60, 75, 40, 90, 55, 80, 65, 95, 50, 70,
-                                    85, 45, 60, 90, 50, 70, 55, 40,
+                                    85, 45, 60, 90, 50, 70, 55, 40, 65, 50,
                                   ]
                                   return (
                                     <span
@@ -1835,27 +1874,50 @@ export function CampusMessenger({
                                       className={cn(
                                         'w-1 rounded-full transition-colors',
                                         isActiveBar
-                                          ? 'bg-lime'
+                                          ? 'bg-emerald-700 dark:bg-zinc-100'
                                           : isMine
-                                            ? 'bg-emerald-200/45'
+                                            ? 'bg-emerald-900/35 dark:bg-zinc-400/45'
                                             : 'bg-foreground/30',
                                       )}
                                     />
                                   )
                                 })}
                               </div>
-                              <div className="mt-1 flex items-center justify-between text-[10px] opacity-80">
-                                <span className="font-mono tabular-nums">
-                                  <Volume2 className="mr-1 inline size-3" aria-hidden="true" />
+                              <div className="mt-1 flex items-center justify-between gap-2 text-[10px] opacity-80">
+                                <span className="font-poppins tabular-nums">
                                   {formatVoiceDuration(msg.mediaDurationSec || 4)}
                                 </span>
-                                <button
-                                  type="button"
-                                  onClick={handleCyclePlaybackRate}
-                                  className="rounded bg-black/20 px-1.5 py-0.5 font-mono text-[10px] font-bold"
-                                >
-                                  {playbackRate}x
-                                </button>
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={handleCyclePlaybackRate}
+                                    className="rounded-full bg-black/10 px-1.5 py-0.2 font-poppins text-[10px] font-semibold dark:bg-white/10"
+                                  >
+                                    {playbackRate}x
+                                  </button>
+                                  {isPinned && (
+                                    <Pin className="size-3 opacity-80" aria-label="Pinned message" />
+                                  )}
+                                  <span className="font-poppins tabular-nums">
+                                    {formatChatTime(msg.createdAtMs)}
+                                  </span>
+                                  {isMine && (
+                                    <span
+                                      title={
+                                        isReadByOthers
+                                          ? `Read by ${msg.readBy.length - 1} member(s)`
+                                          : 'Sent'
+                                      }
+                                      className="inline-flex items-center"
+                                    >
+                                      {isReadByOthers ? (
+                                        <CheckCheck className="size-3.5 text-sky-500 dark:text-sky-400" aria-label="Read" />
+                                      ) : (
+                                        <Check className="size-3.5 opacity-70" aria-label="Sent" />
+                                      )}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1864,16 +1926,17 @@ export function CampusMessenger({
                         {/* Media Attachment: PDF Document Card */}
                         {msg.mediaType === 'pdf' && (
                           <div
+                            onClick={(e) => e.stopPropagation()}
                             className={cn(
-                              'my-1.5 flex items-center justify-between gap-3 rounded-xl border p-3',
+                              'my-1 flex items-center justify-between gap-3 rounded-xl border border-border/70 p-2.5 dark:border-[#262a33]',
                               isMine
-                                ? 'border-white/20 bg-black/25'
-                                : 'border-border bg-muted/60',
+                                ? 'bg-black/[0.05] dark:bg-[#0a0b0e]/60'
+                                : 'bg-muted/60 dark:bg-[#0a0b0e]/50',
                             )}
                           >
                             <div className="flex min-w-0 items-center gap-2.5">
-                              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-red-500/20 text-red-400 border border-red-500/30">
-                                <FileText className="size-5" aria-hidden="true" />
+                              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-red-500/15 text-red-600 dark:bg-[#1a1d24] dark:text-red-400">
+                                <FileText className="size-4" aria-hidden="true" />
                               </div>
                               <div className="min-w-0">
                                 <p className="truncate text-xs font-bold">
@@ -1887,7 +1950,7 @@ export function CampusMessenger({
                             <button
                               type="button"
                               onClick={() => handleOpenOrDownloadPdf(msg)}
-                              className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-emerald-500 px-2.5 text-[11px] font-bold text-white transition-colors hover:bg-emerald-600 dark:bg-lime dark:text-[#062023]"
+                              className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-emerald-600 px-2.5 text-[11px] font-bold text-white transition-colors hover:bg-emerald-700 dark:border dark:border-[#262a33] dark:bg-[#222630] dark:text-zinc-100 dark:hover:bg-zinc-700"
                             >
                               <Download className="size-3.5" aria-hidden="true" />
                               <span>PDF</span>
@@ -1897,7 +1960,10 @@ export function CampusMessenger({
 
                         {/* Media Attachment: Photo / Image Preview */}
                         {msg.mediaType === 'image' && msg.mediaUrl && (
-                          <div className="my-1.5 overflow-hidden rounded-xl border border-white/15">
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="my-1 overflow-hidden rounded-xl border border-border/60 dark:border-[#262a33]"
+                          >
                             <button
                               type="button"
                               onClick={() =>
@@ -1918,123 +1984,121 @@ export function CampusMessenger({
                           </div>
                         )}
 
-                        {/* Message Body Text */}
-                        {msg.text && (
-                          <p className="whitespace-pre-wrap break-words text-xs leading-relaxed sm:text-[13.5px]">
+                        {/* Message Body Text (Never shown for voice notes) */}
+                        {msg.mediaType !== 'voice' && msg.text && (
+                          <p className="whitespace-pre-wrap break-words pr-3 text-xs leading-relaxed sm:text-[13.5px]">
                             {msg.text}
                           </p>
                         )}
                       </>
                     )}
 
-                    {/* Timestamp, Pin Icon & WhatsApp Blue Double Tick (✓✓) */}
-                    <div className="mt-1.5 flex items-center justify-end gap-1.5 text-[10px] opacity-80">
-                      {isPinned && (
-                        <Pin className="size-3 text-amber-400" aria-label="Pinned message" />
-                      )}
-                      <span className="font-mono tabular-nums">
-                        {formatChatTime(msg.createdAtMs)}
-                      </span>
-                      {isMine && !msg.isDeleted && (
-                        <span
-                          title={
-                            isReadByOthers
-                              ? `Read by ${msg.readBy.length - 1} member(s)`
-                              : 'Sent'
-                          }
-                          className="inline-flex items-center"
-                        >
-                          {isReadByOthers ? (
-                            <CheckCheck className="size-3.5 text-sky-400" aria-label="Read" />
-                          ) : (
-                            <Check className="size-3.5 text-emerald-200/70" aria-label="Sent" />
-                          )}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Message Action Bar (Reply, Emoji Reaction, Pin, Delete) */}
-                    {!msg.isDeleted && (
-                      <div
-                        className={cn(
-                          'mt-1.5 flex flex-wrap items-center gap-1 border-t pt-1.5 text-[10.5px]',
-                          isMine ? 'border-white/10' : 'border-border/60',
+                    {/* Timestamp & WhatsApp Double Tick (✓✓) for non-voice messages */}
+                    {msg.mediaType !== 'voice' && (
+                      <div className="mt-1 flex items-center justify-end gap-1 text-[10px] opacity-75">
+                        {isPinned && (
+                          <Pin className="size-3 opacity-80" aria-label="Pinned message" />
                         )}
-                      >
+                        <span className="font-poppins tabular-nums">
+                          {formatChatTime(msg.createdAtMs)}
+                        </span>
+                        {isMine && !msg.isDeleted && (
+                          <span
+                            title={
+                              isReadByOthers
+                                ? `Read by ${msg.readBy.length - 1} member(s)`
+                                : 'Sent'
+                            }
+                            className="inline-flex items-center"
+                          >
+                            {isReadByOthers ? (
+                              <CheckCheck className="size-3.5 text-sky-500 dark:text-sky-400" aria-label="Read" />
+                            ) : (
+                              <Check className="size-3.5 opacity-75" aria-label="Sent" />
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Modern WhatsApp Floating Reaction Bar + Three-Dots Context Menu (Shown ONLY when message is selected/tapped) */}
+                  {isSelectedMenuOpen && !msg.isDeleted && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className={cn(
+                        'z-20 mt-1.5 flex flex-col gap-1.5',
+                        isMine ? 'items-end' : 'items-start',
+                      )}
+                    >
+                      {/* Floating Emoji Reaction Pill */}
+                      <div className="flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 shadow-lg dark:border-[#262a33] dark:bg-[#121418]">
+                        {QUICK_REACTIONS.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => handleToggleReaction(msg.id, emoji)}
+                            className="rounded-full p-1 text-base transition-transform hover:scale-125 active:scale-95"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* WhatsApp-Style Action Dropdown Menu */}
+                      <div className="flex min-w-[150px] flex-col overflow-hidden rounded-2xl border border-border bg-card py-1 text-xs shadow-xl dark:border-[#262a33] dark:bg-[#121418]">
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
                             setReplyingTo({
                               messageId: msg.id,
                               senderName: msg.senderName,
                               previewText:
-                                msg.text ||
-                                (msg.mediaType === 'pdf'
-                                  ? `📄 ${msg.mediaName}`
-                                  : msg.mediaType === 'voice'
-                                    ? '🎤 Voice Note'
-                                    : '📷 Photo'),
+                                msg.mediaType === 'voice'
+                                  ? `🎤 Voice Note (${formatVoiceDuration(msg.mediaDurationSec || 4)})`
+                                  : msg.text ||
+                                    (msg.mediaType === 'pdf'
+                                      ? `📄 ${msg.mediaName}`
+                                      : '📷 Photo'),
                             })
-                          }
-                          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 opacity-80 hover:bg-black/15 hover:opacity-100"
+                            setActiveReactionMessageId(null)
+                          }}
+                          className="flex items-center gap-2.5 px-3.5 py-2 text-left font-medium text-foreground transition-colors hover:bg-muted"
                         >
-                          <Reply className="size-3" aria-hidden="true" />
+                          <Reply className="size-3.5 text-muted-foreground" aria-hidden="true" />
                           <span>Reply</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setActiveReactionMessageId((prev) =>
-                              prev === msg.id ? null : msg.id,
-                            )
-                          }
-                          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 opacity-80 hover:bg-black/15 hover:opacity-100"
-                        >
-                          <Smile className="size-3" aria-hidden="true" />
-                          <span>React</span>
                         </button>
 
                         {actor.isStaff && (
                           <button
                             type="button"
-                            onClick={() => handleTogglePinMessage(msg.id)}
-                            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 opacity-80 hover:bg-black/15 hover:opacity-100"
+                            onClick={() => {
+                              handleTogglePinMessage(msg.id)
+                              setActiveReactionMessageId(null)
+                            }}
+                            className="flex items-center gap-2.5 px-3.5 py-2 text-left font-medium text-foreground transition-colors hover:bg-muted"
                           >
-                            <Pin className="size-3" aria-hidden="true" />
-                            <span>{isPinned ? 'Unpin' : 'Pin'}</span>
+                            <Pin className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                            <span>{isPinned ? 'Unpin Message' : 'Pin Message'}</span>
                           </button>
                         )}
 
                         {(actor.isStaff || isMine) && (
                           <button
                             type="button"
-                            onClick={() => handleDeleteMessage(msg.id)}
-                            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-red-400 opacity-80 hover:bg-red-500/15 hover:opacity-100"
+                            onClick={() => {
+                              handleDeleteMessage(msg.id)
+                              setActiveReactionMessageId(null)
+                            }}
+                            className="flex items-center gap-2.5 px-3.5 py-2 text-left font-medium text-red-500 transition-colors hover:bg-red-500/10"
                           >
-                            <Trash2 className="size-3" aria-hidden="true" />
+                            <Trash2 className="size-3.5" aria-hidden="true" />
                             <span>Delete</span>
                           </button>
                         )}
                       </div>
-                    )}
-
-                    {/* Quick Emoji Picker Popover */}
-                    {activeReactionMessageId === msg.id && (
-                      <div className="mt-1.5 flex items-center gap-1 rounded-full border border-border bg-card px-2 py-1 shadow-md">
-                        {QUICK_REACTIONS.map((emoji) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => handleToggleReaction(msg.id, emoji)}
-                            className="rounded-full p-1 text-sm transition-transform hover:scale-125"
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {/* Existing Emoji Reactions Row */}
                   {reactionEntries.length > 0 && (
@@ -2049,12 +2113,12 @@ export function CampusMessenger({
                             className={cn(
                               'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors',
                               iReacted
-                                ? 'border-emerald-500/50 bg-emerald-500/15 text-foreground dark:border-lime/50 dark:bg-lime/15'
-                                : 'border-border bg-card/80 text-muted-foreground hover:text-foreground',
+                                ? 'border-emerald-500/45 bg-emerald-500/15 text-foreground dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100'
+                                : 'border-border bg-card/80 text-muted-foreground hover:text-foreground dark:border-[#262a33] dark:bg-[#121418]',
                             )}
                           >
                             <span>{emoji}</span>
-                            <span className="font-mono text-[10px] tabular-nums">
+                            <span className="font-poppins text-[10px] tabular-nums">
                               {reactorIds.length}
                             </span>
                           </button>
@@ -2070,10 +2134,10 @@ export function CampusMessenger({
 
           {/* Reply Preview Banner or Pending Media Preview */}
           {(replyingTo || pendingAttachment) && (
-            <div className="flex items-center justify-between gap-2 border-t border-border bg-card/95 px-3.5 py-2">
+            <div className="flex items-center justify-between gap-2 border-t border-border bg-card/95 px-3.5 py-2 dark:border-[#262a33] dark:bg-[#121418]">
               {replyingTo ? (
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-bold text-emerald-600 dark:text-lime">
+                  <p className="text-[11px] font-bold text-emerald-700 dark:text-zinc-300">
                     Replying to {replyingTo.senderName}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
@@ -2084,7 +2148,7 @@ export function CampusMessenger({
 
               {pendingAttachment ? (
                 <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                  <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:bg-lime/15 dark:text-lime">
+                  <span className="flex size-8 items-center justify-center rounded-lg border border-border bg-muted text-foreground dark:border-[#262a33] dark:bg-[#1a1d24]">
                     {pendingAttachment.mediaType === 'pdf' ? (
                       <FileText className="size-4" aria-hidden="true" />
                     ) : (
@@ -2118,7 +2182,7 @@ export function CampusMessenger({
 
           {/* Bottom Composer Bar OR Locked Group Banner */}
           {activeRoomMeta.onlyAdminsCanPost && !actor.isStaff ? (
-            <div className="flex items-center justify-center gap-2 border-t border-amber-500/30 bg-amber-500/10 px-4 py-3.5 text-center text-xs font-semibold text-amber-600 dark:text-amber-300">
+            <div className="flex items-center justify-center gap-2 border-t border-border bg-card px-4 py-3.5 text-center text-xs font-semibold text-muted-foreground dark:border-[#262a33] dark:bg-[#121418]">
               <Lock className="size-4 shrink-0" aria-hidden="true" />
               <span>
                 ഈ ഗ്രൂപ്പിൽ ഉസ്താദുമാർക്ക് മാത്രമേ മെസ്സേജ് അയക്കാൻ അനുമതിയുള്ളൂ (Only Usthads can
@@ -2126,7 +2190,7 @@ export function CampusMessenger({
               </span>
             </div>
           ) : (
-            <div className="relative border-t border-border bg-card/95 p-2.5 sm:px-4 sm:py-3">
+            <div className="relative border-t border-border bg-card/95 p-2.5 sm:px-4 sm:py-3 dark:border-[#262a33] dark:bg-[#121418]">
               {/* Hidden file inputs */}
               <input
                 ref={imageInputRef}
@@ -2145,7 +2209,7 @@ export function CampusMessenger({
 
               {/* Attachment Menu Popover */}
               {showAttachMenu && (
-                <div className="absolute bottom-16 left-3 z-30 flex flex-col gap-1 rounded-2xl border border-border bg-card p-2 shadow-xl w-64">
+                <div className="absolute bottom-16 left-3 z-30 flex flex-col gap-1 rounded-2xl border border-border bg-card p-2 shadow-xl w-64 dark:border-[#262a33] dark:bg-[#121418]">
                   <button
                     type="button"
                     onClick={() => pdfInputRef.current?.click()}
@@ -2183,7 +2247,7 @@ export function CampusMessenger({
                     onClick={handleQuickShareSampleKitabPdf}
                     className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted"
                   >
-                    <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:bg-lime/15 dark:text-lime">
+                    <span className="flex size-8 items-center justify-center rounded-lg border border-border bg-muted text-foreground dark:border-[#262a33] dark:bg-[#1a1d24]">
                       <BookOpen className="size-4" aria-hidden="true" />
                     </span>
                     <div>
@@ -2200,7 +2264,7 @@ export function CampusMessenger({
                 <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-500/40 bg-red-500/10 px-3.5 py-2">
                   <div className="flex items-center gap-2.5">
                     <span className="size-2.5 rounded-full bg-red-500 animate-pulse" />
-                    <span className="font-mono text-xs font-bold tabular-nums text-red-500">
+                    <span className="font-poppins text-xs font-bold tabular-nums text-red-500">
                       Recording Voice • {formatVoiceDuration(recordingSeconds)}
                     </span>
                   </div>
@@ -2216,7 +2280,7 @@ export function CampusMessenger({
                     <button
                       type="button"
                       onClick={finishAndSendVoiceRecording}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 text-xs font-bold text-white hover:bg-emerald-500 dark:bg-lime dark:text-[#062023]"
+                      className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 text-xs font-bold text-white hover:bg-emerald-700 dark:border dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100"
                     >
                       <Send className="size-3.5" aria-hidden="true" />
                       <span>Send Audio</span>
@@ -2232,8 +2296,8 @@ export function CampusMessenger({
                     className={cn(
                       'flex size-11 shrink-0 items-center justify-center rounded-2xl border transition-colors',
                       showAttachMenu
-                        ? 'border-lime bg-lime/15 text-lime'
-                        : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                        ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100'
+                        : 'border-border bg-background text-muted-foreground hover:text-foreground dark:border-[#262a33] dark:bg-[#0a0b0e]',
                     )}
                   >
                     <Paperclip className="size-4" aria-hidden="true" />
@@ -2248,7 +2312,7 @@ export function CampusMessenger({
                         ? 'Add a caption for this attachment...'
                         : 'Type a message in Malayalam, English, or Arabic...'
                     }
-                    className="h-11 flex-1 rounded-2xl border border-input bg-background px-3.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-lime focus:outline-none sm:text-sm"
+                    className="h-11 flex-1 rounded-2xl border border-input bg-background px-3.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 dark:focus:border-zinc-500 focus:outline-none sm:text-sm dark:border-[#262a33] dark:bg-[#0a0b0e]"
                   />
 
                   <button
@@ -2256,7 +2320,7 @@ export function CampusMessenger({
                     onClick={startVoiceRecording}
                     title="Record a Voice Message (Audio)"
                     aria-label="Record voice message"
-                    className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-background text-muted-foreground transition-colors hover:border-lime/50 hover:text-lime"
+                    className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-background text-muted-foreground transition-colors hover:border-emerald-500 hover:text-emerald-600 dark:border-[#262a33] dark:bg-[#0a0b0e] dark:hover:border-zinc-500 dark:hover:text-foreground"
                   >
                     <Mic className="size-4" aria-hidden="true" />
                   </button>
@@ -2265,7 +2329,7 @@ export function CampusMessenger({
                     type="submit"
                     disabled={!inputText.trim() && !pendingAttachment}
                     aria-label="Send message"
-                    className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm transition-all hover:bg-emerald-500 disabled:opacity-40 dark:bg-lime dark:text-[#062023]"
+                    className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm transition-all hover:bg-emerald-700 disabled:opacity-40 dark:border dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100 dark:hover:bg-[#2a2f3b]"
                   >
                     <Send className="size-4" aria-hidden="true" />
                   </button>
@@ -2279,8 +2343,8 @@ export function CampusMessenger({
       {/* NEW CHAT DIRECTORY MODAL (Quickly Start Direct Chat with Any Usthad or Student) */}
       {showNewChatModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
               <div>
                 <h3 className="font-display text-base font-bold text-foreground">
                   Start Direct Chat (Usthads & Students)
@@ -2300,7 +2364,7 @@ export function CampusMessenger({
 
             <div className="flex-1 space-y-4 overflow-y-auto p-4">
               <div>
-                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-lime">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Teaching & Class Usthads (9)
                 </p>
                 <div className="grid gap-1.5">
@@ -2313,7 +2377,7 @@ export function CampusMessenger({
                         setMobileShowChatPane(true)
                         setShowNewChatModal(false)
                       }}
-                      className="flex items-center justify-between rounded-2xl border border-border bg-background/70 px-3.5 py-2.5 text-left transition-colors hover:border-lime/50 hover:bg-muted"
+                      className="flex items-center justify-between rounded-2xl border border-border bg-background/70 px-3.5 py-2.5 text-left transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
                     >
                       <div className="min-w-0">
                         <p className="truncate text-xs font-bold text-foreground">{u.name}</p>
@@ -2321,7 +2385,7 @@ export function CampusMessenger({
                           {u.className} • {u.staffId}
                         </p>
                       </div>
-                      <span className="rounded-lg bg-emerald-500/15 px-2 py-1 text-[10px] font-bold text-emerald-600 dark:bg-lime/15 dark:text-lime">
+                      <span className="rounded-lg border border-border bg-muted px-2 py-1 text-[10px] font-bold text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
                         Message
                       </span>
                     </button>
@@ -2331,13 +2395,13 @@ export function CampusMessenger({
 
               <div>
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-xs font-bold uppercase tracking-wider text-cyan">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Students ({studentBatchFilter})
                   </p>
                   <select
                     value={studentBatchFilter}
                     onChange={(e) => setStudentBatchFilter(e.target.value)}
-                    className="h-7 rounded-lg border border-input bg-background px-2 text-[11px] font-semibold"
+                    className="h-7 rounded-lg border border-input bg-background px-2 text-[11px] font-semibold dark:border-[#262a33] dark:bg-[#0a0b0e]"
                   >
                     <option value={actor.className}>My Batch ({actor.className})</option>
                     <option value="ALL">All Batches</option>
@@ -2365,7 +2429,7 @@ export function CampusMessenger({
                           setMobileShowChatPane(true)
                           setShowNewChatModal(false)
                         }}
-                        className="flex items-center justify-between rounded-2xl border border-border bg-background/70 px-3.5 py-2 text-left transition-colors hover:border-cyan/50 hover:bg-muted"
+                        className="flex items-center justify-between rounded-2xl border border-border bg-background/70 px-3.5 py-2 text-left transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
                       >
                         <div className="min-w-0">
                           <p className="truncate text-xs font-bold text-foreground">{st.name}</p>
@@ -2373,7 +2437,7 @@ export function CampusMessenger({
                             {st.className} • {st.admissionNo}
                           </p>
                         </div>
-                        <span className="rounded-lg bg-cyan/15 px-2 py-1 text-[10px] font-bold text-cyan">
+                        <span className="rounded-lg border border-border bg-muted px-2 py-1 text-[10px] font-bold text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
                           Chat
                         </span>
                       </button>
@@ -2392,7 +2456,7 @@ export function CampusMessenger({
           onClick={() => setLightboxImage(null)}
         >
           <div
-            className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-2xl border border-white/20 bg-slate-950 p-2"
+            className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-2xl border border-[#262a33] bg-[#121418] p-2"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-3 py-2 text-xs text-white">
@@ -2401,7 +2465,7 @@ export function CampusMessenger({
                 <a
                   href={lightboxImage.url}
                   download={lightboxImage.name}
-                  className="inline-flex items-center gap-1 rounded-lg bg-lime px-2.5 py-1 text-[11px] font-bold text-[#062023]"
+                  className="inline-flex items-center gap-1 rounded-lg border border-[#343946] bg-[#222630] px-2.5 py-1 text-[11px] font-bold text-zinc-100"
                 >
                   <Download className="size-3.5" aria-hidden="true" />
                   <span>Download</span>

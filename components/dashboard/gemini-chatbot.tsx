@@ -978,7 +978,7 @@ function renderInlineMarkdown(
           key={k}
           className={cn(
             'font-bold [font-synthesis:weight_style]',
-            isUser ? 'text-primary-foreground' : 'text-foreground',
+            isUser ? 'text-[#081e21] dark:text-zinc-100' : 'text-foreground',
           )}
         >
           <em className="not-italic">{renderSlantedWords(inner, k, preferUrduFont)}</em>
@@ -991,7 +991,7 @@ function renderInlineMarkdown(
           key={k}
           className={cn(
             'font-bold [font-synthesis:weight]',
-            isUser ? 'text-primary-foreground' : 'text-foreground',
+            isUser ? 'text-[#081e21] dark:text-zinc-100' : 'text-foreground',
           )}
         >
           {renderScriptRuns(inner, `${k}-b`, preferUrduFont)}
@@ -1004,7 +1004,7 @@ function renderInlineMarkdown(
           key={k}
           className={cn(
             'not-italic [font-synthesis:style]',
-            isUser ? 'text-primary-foreground/95' : 'text-lime/95',
+            isUser ? 'text-[#081e21]/90 dark:text-zinc-200' : 'text-lime/95',
           )}
         >
           {renderSlantedWords(inner, k, preferUrduFont)}
@@ -1016,8 +1016,8 @@ function renderInlineMarkdown(
         <code
           key={k}
           className={cn(
-            'rounded px-1.5 py-0.5 font-mono text-xs',
-            isUser ? 'bg-primary-foreground/15 text-primary-foreground' : 'bg-muted text-lime',
+            'rounded px-1.5 py-0.5 font-poppins text-xs',
+            isUser ? 'bg-black/10 text-[#081e21] dark:bg-black/30 dark:text-zinc-100' : 'bg-muted text-lime',
           )}
         >
           {renderScriptRuns(inner, `${k}-c`, preferUrduFont)}
@@ -1133,7 +1133,7 @@ function FormattedChatText({
               <span
                 className={cn(
                   'mt-1.5 size-1.5 shrink-0 rounded-full',
-                  isUser ? 'bg-primary-foreground' : 'bg-lime',
+                  isUser ? 'bg-emerald-700 dark:bg-zinc-300' : 'bg-lime',
                 )}
                 aria-hidden="true"
               />
@@ -1159,8 +1159,8 @@ function FormattedChatText({
             >
               <span
                 className={cn(
-                  'shrink-0 font-mono text-xs font-bold mt-0.5',
-                  isUser ? 'text-primary-foreground' : 'text-lime',
+                  'shrink-0 font-poppins text-xs font-bold mt-0.5',
+                  isUser ? 'text-emerald-800 dark:text-zinc-300' : 'text-lime',
                 )}
               >
                 {numberedMatch[2]}
@@ -2567,9 +2567,9 @@ export function GeminiChatbot({
       title="Da'wa College Chatbot"
       icon={MessageSquareText}
       className={cn(
-        'border-lime/30',
+        'border-border dark:border-[#262a33]',
         mobileFullScreen &&
-          'max-lg:flex max-lg:flex-1 max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden rounded-none border-0 bg-transparent p-0 sm:p-0 md:p-0 [&>header]:hidden lg:rounded-2xl lg:border lg:border-lime/30 lg:bg-card lg:p-6 lg:[&>header]:flex',
+          'max-lg:flex max-lg:flex-1 max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden rounded-none border-0 bg-transparent p-0 sm:p-0 md:p-0 [&>header]:hidden lg:rounded-2xl lg:border lg:border-border dark:lg:border-[#262a33] lg:bg-card lg:p-6 lg:[&>header]:flex',
       )}
       action={
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
@@ -2691,7 +2691,7 @@ export function GeminiChatbot({
               >
                 {UI_TEXT[language].selectPersona}
               </p>
-              <span className="font-mono text-xs text-lime tabular-nums shrink-0">
+              <span className="font-poppins text-xs text-lime tabular-nums shrink-0">
                 {turnCount}{' '}
                 <span
                   className={cn(
@@ -2736,7 +2736,7 @@ export function GeminiChatbot({
                         <span className="truncate">{persona.title}</span>
                       </span>
                       {msgCount > 0 ? (
-                        <span className="shrink-0 rounded-md bg-lime/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-lime">
+                        <span className="shrink-0 rounded-md bg-lime/15 px-1.5 py-0.5 font-poppins text-[10px] font-semibold text-lime">
                           {msgCount}
                         </span>
                       ) : null}
@@ -2889,7 +2889,7 @@ export function GeminiChatbot({
                       />
                       <span>{persona.title}</span>
                       {msgCount > 0 ? (
-                        <span className="rounded-full bg-lime/20 px-1.5 py-0.2 font-mono text-[9.5px] font-bold text-lime">
+                        <span className="rounded-full bg-lime/20 px-1.5 py-0.2 font-poppins text-[9.5px] font-bold text-lime">
                           {msgCount}
                         </span>
                       ) : null}
@@ -3026,8 +3026,8 @@ export function GeminiChatbot({
                     className={cn(
                       'flex size-8 shrink-0 items-center justify-center rounded-xl border',
                       isUser
-                        ? 'border-primary/40 bg-primary text-primary-foreground'
-                        : 'border-lime/30 bg-lime/15 text-lime',
+                        ? 'border-[#bde6b4] bg-[#dcf8c6] text-[#081e21] dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-[#f3f4f6]'
+                        : 'border-border bg-muted text-foreground dark:border-[#262a33] dark:bg-[#121418] dark:text-zinc-200',
                     )}
                     aria-hidden="true"
                   >
@@ -3044,8 +3044,8 @@ export function GeminiChatbot({
                           : 'text-right font-arabic'
                         : 'text-left font-poppins',
                       isUser
-                        ? 'border-primary/30 bg-primary text-primary-foreground'
-                        : 'border-border bg-card/90 text-foreground',
+                        ? 'border-[#bde6b4] bg-[#dcf8c6] text-[#081e21] dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-[#f3f4f6]'
+                        : 'border-border bg-card/90 text-foreground dark:border-[#262a33] dark:bg-[#121418] dark:text-[#f3f4f6]',
                     )}
                   >
                     {msg.attachments && msg.attachments.length > 0 ? (
@@ -3061,7 +3061,7 @@ export function GeminiChatbot({
                                   name: att.name || 'Study Image',
                                 })
                               }
-                              className="group relative overflow-hidden rounded-xl border border-white/20 bg-black/20 shadow-xs transition-transform hover:scale-[1.02]"
+                              className="group relative overflow-hidden rounded-xl border border-border bg-black/20 shadow-xs transition-transform hover:scale-[1.02] dark:border-[#262a33]"
                             >
                               <img
                                 src={att.previewUrl}
@@ -3075,7 +3075,7 @@ export function GeminiChatbot({
                           ) : (
                             <div
                               key={`${msg.id}-att-${attIdx}`}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-white/25 bg-black/15 px-2.5 py-1.5 text-xs font-medium"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-black/15 px-2.5 py-1.5 text-xs font-medium dark:border-[#262a33]"
                             >
                               <FileText className="size-3.5 shrink-0" aria-hidden="true" />
                               <span className="max-w-[180px] truncate">{att.name}</span>
@@ -3099,14 +3099,14 @@ export function GeminiChatbot({
                     <div
                       dir="ltr"
                       className={cn(
-                        'mt-1 flex flex-wrap items-center justify-between gap-3 border-t pt-2 text-[10px]',
+                        'mt-1 flex flex-wrap items-center justify-between gap-3 pt-1 text-[10px]',
                         isUser
-                          ? 'border-primary-foreground/15 text-primary-foreground/75'
-                          : 'border-border/60 text-muted-foreground',
+                          ? 'text-emerald-950/65 dark:text-zinc-400'
+                          : 'border-t border-border/60 pt-2 text-muted-foreground dark:border-[#262a33]',
                       )}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="font-mono tabular-nums">
+                        <span className="font-poppins tabular-nums">
                           {new Date(msg.timestamp).toLocaleTimeString('en-IN', {
                             hour: '2-digit',
                             minute: '2-digit',
