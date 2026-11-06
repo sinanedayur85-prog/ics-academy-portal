@@ -23,6 +23,7 @@ import {
   Lock,
   LogOut,
   Megaphone,
+  MessageCircle,
   Pin,
   Plus,
   RotateCcw,
@@ -60,9 +61,11 @@ import {
   CampusNotificationBar,
   CampusNotificationBell,
 } from '@/components/campus-notifications'
+import { CampusMessenger } from '@/components/dashboard/campus-messenger'
 import { ClassLeaderAttendanceCard } from '@/components/dashboard/class-leader-attendance-card'
 import {
   ABSENT_REASONS,
+  ACADEMY_MANAGER,
   ACADEMY_PRINCIPAL,
   ALL_ACADEMY_CLASS_NAMES,
   ATTENDANCE_LEAVE_REASONS,
@@ -72,6 +75,7 @@ import {
   CURRENT_SEMESTER,
   HIGH_SCHOOL_CLASS_NAMES,
   NOT_HELD_REASONS,
+  OFFICIAL_CLASS_USTHADS,
   SHAIKHUNA_HAMZA_USTHAD,
   formatTargetClassesBadge,
   getClassLeadersForClass,
@@ -179,7 +183,7 @@ function saveStudentLeaveEntriesToStorage(studentId: string, entries: SavedLeave
   }
 }
 
-type ExecutiveTab = 'monitor' | 'people' | 'notices' | 'library'
+type ExecutiveTab = 'monitor' | 'people' | 'chat' | 'notices' | 'library'
 type PeopleSubTab = 'usthads' | 'leaders' | 'students'
 
 export function PrincipalDashboard() {
@@ -598,9 +602,9 @@ export function PrincipalDashboard() {
 
     if (mode === 'substituted') {
       const subUsthad =
-        CLASS_USTHADS.find((u) => u.id === quickSubstituteUsthadId) ??
-        CLASS_USTHADS.find((u) => u.className !== targetRow.className) ??
-        CLASS_USTHADS[0]
+        OFFICIAL_CLASS_USTHADS.find((u) => u.id === quickSubstituteUsthadId) ??
+        OFFICIAL_CLASS_USTHADS.find((u) => u.className !== targetRow.className) ??
+        OFFICIAL_CLASS_USTHADS[0]
 
       const defaultRecords: Record<string, 'present' | 'absent' | 'leave'> = {}
       for (const st of batchStudents) {
@@ -659,9 +663,9 @@ export function PrincipalDashboard() {
     const subKey = `${selectedDate}__${className}__${periodIndex}`
     const existing = periodSubmissions[subKey]
     const subUsthad =
-      CLASS_USTHADS.find((u) => u.id === usthadId) ??
-      CLASS_USTHADS.find((u) => u.className !== className) ??
-      CLASS_USTHADS[0]
+      OFFICIAL_CLASS_USTHADS.find((u) => u.id === usthadId) ??
+      OFFICIAL_CLASS_USTHADS.find((u) => u.className !== className) ??
+      OFFICIAL_CLASS_USTHADS[0]
 
     const batchStudents = students.filter((s) => s.className === className)
     const defaultRecords: Record<string, 'present' | 'absent' | 'leave'> = {}
@@ -1093,7 +1097,7 @@ export function PrincipalDashboard() {
   }
 
   const principalNavItems: {
-    id: 'monitor' | 'people' | 'notices' | 'library'
+    id: 'monitor' | 'people' | 'chat' | 'notices' | 'library'
     label: string
     shortLabel: string
     icon: typeof Building2
@@ -1111,15 +1115,21 @@ export function PrincipalDashboard() {
       icon: Users,
     },
     {
+      id: 'chat',
+      label: 'Campus Messenger & Staff Room',
+      shortLabel: '3. Campus Messenger & Staff Room',
+      icon: MessageCircle,
+    },
+    {
       id: 'notices',
       label: 'Official Holidays & Notices',
-      shortLabel: '3. Official Holidays & Notices',
+      shortLabel: '4. Official Holidays & Notices',
       icon: Megaphone,
     },
     {
       id: 'library',
       label: 'Digital Library & Portal',
-      shortLabel: '4. Digital Library & Portal',
+      shortLabel: '5. Digital Library & Portal',
       icon: Library,
     },
   ]
@@ -1542,7 +1552,7 @@ export function PrincipalDashboard() {
                         className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <option value="">-- Select Substitute Usthad --</option>
-                        {CLASS_USTHADS.map((u) => (
+                        {OFFICIAL_CLASS_USTHADS.map((u) => (
                           <option key={u.id} value={u.id}>
                             {u.name} ({u.staffId})
                           </option>
@@ -1684,7 +1694,7 @@ export function PrincipalDashboard() {
                               }
                               className="h-9 flex-1 rounded-xl border border-input bg-background px-2.5 text-xs font-semibold text-foreground outline-none"
                             >
-                              {CLASS_USTHADS.map((u) => (
+                              {OFFICIAL_CLASS_USTHADS.map((u) => (
                                 <option key={u.id} value={u.id}>
                                   Sub: {u.name} ({u.staffId})
                                 </option>
@@ -1940,7 +1950,7 @@ export function PrincipalDashboard() {
                   )}
                 >
                   <GraduationCap className="size-4" aria-hidden="true" />
-                  11 Class Usthads
+                  Usthads &amp; Leadership (Shaikhuna, Manager &amp; 9 Class Usthads)
                 </button>
 
                 <button
@@ -1954,7 +1964,7 @@ export function PrincipalDashboard() {
                   )}
                 >
                   <UserCheck className="size-4" aria-hidden="true" />
-                  22 Class Leaders (CL & ACL)
+                  22 Class Leaders (CL &amp; ACL)
                 </button>
 
                 <button
@@ -1968,7 +1978,7 @@ export function PrincipalDashboard() {
                   )}
                 >
                   <Users className="size-4" aria-hidden="true" />
-                  {students.length} Students & Monthly Attendance / Leave Control
+                  {students.length} Students &amp; Monthly Attendance / Leave Control
                 </button>
               </div>
 
@@ -1977,37 +1987,40 @@ export function PrincipalDashboard() {
               </span>
             </div>
 
-            {/* SUB-TAB 1: SUPREME SCHOLAR (SHAIKHUNA HAMZA USTHAD) & 11 CLASS USTHADS */}
+            {/* SUB-TAB 1: SUPREME SCHOLAR, MANAGER & 9 OFFICIAL CLASS USTHADS */}
             {peopleSubTab === 'usthads' && (
               <div className="flex flex-col gap-6">
-                {/* Supreme Scholar Highlight Card: Shaikhuna Manhappatta Hamza Usthad */}
-                <div className="relative overflow-hidden rounded-2xl border-2 border-lime/50 bg-gradient-to-br from-lime/[0.14] via-card to-cyan/[0.10] p-5 sm:p-6 shadow-lg">
-                  <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+                {/* Top Row: Supreme Scholar (SHAIKHUNA HAMZA USTHAD) & Institution Manager (Usthad Muhammed Naeem Saqafi) */}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {/* 1. Supreme Scholar Card: SHAIKHUNA HAMZA USTHAD */}
+                  <div className="relative flex flex-col justify-between gap-4 overflow-hidden rounded-2xl border-2 border-lime/50 bg-gradient-to-br from-lime/[0.14] via-card to-cyan/[0.08] p-5 shadow-lg">
                     <div className="flex flex-col gap-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="inline-flex items-center gap-1.5 rounded-full border border-lime/50 bg-lime px-3 py-0.5 text-[11px] font-extrabold tracking-wider text-slate-950 uppercase">
                           <Crown className="size-3.5" aria-hidden="true" />
                           {SHAIKHUNA_HAMZA_USTHAD.honorificTitle}
                         </span>
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan/40 bg-cyan/15 px-3 py-0.5 text-xs font-bold text-cyan">
-                          എല്ലാ ഉസ്താദുമാർക്കും മുകളിലുള്ള പ്രധാന ഉസ്താദ്
+                        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background/80 px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                          No Login ID • Not a Class Usthad
                         </span>
                       </div>
 
                       <div className="mt-1">
-                        <h2 className="font-display text-2xl font-bold text-foreground sm:text-3xl">
+                        <h2 className="font-display text-xl font-bold text-foreground sm:text-2xl">
                           {SHAIKHUNA_HAMZA_USTHAD.name}
                         </h2>
-                        <p className="mt-0.5 text-sm font-semibold text-lime">
+                        <p className="mt-0.5 text-xs font-semibold text-lime sm:text-sm">
                           {SHAIKHUNA_HAMZA_USTHAD.malayalamName} • {SHAIKHUNA_HAMZA_USTHAD.designation}
                         </p>
                       </div>
 
-                      <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                      <p className="text-xs leading-relaxed text-muted-foreground">
                         {SHAIKHUNA_HAMZA_USTHAD.description}
                       </p>
+                    </div>
 
-                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <div className="flex flex-col gap-2.5 border-t border-border/70 pt-3">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-bold text-foreground">
                           VALIYA 2 Batches (വലിയ രണ്ട് ബാച്ചുകളിലെ ക്ലാസുകൾ):
                         </span>
@@ -2019,60 +2032,82 @@ export function PrincipalDashboard() {
                               setSelectedClassName(batchName)
                               setActiveTab('monitor')
                             }}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-lime/40 bg-background/85 px-3 py-1.5 text-xs font-bold text-lime transition-colors hover:bg-lime hover:text-slate-950"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-lime/40 bg-background/85 px-2.5 py-1 text-xs font-bold text-lime transition-colors hover:bg-lime hover:text-slate-950"
                           >
                             <BookOpen className="size-3.5" aria-hidden="true" />
-                            {batchName} (Valiya Batch)
+                            {batchName}
                           </button>
                         ))}
                       </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Timetable Dars Only: <strong className="text-foreground">{SHAIKHUNA_HAMZA_USTHAD.specialization}</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 2. Institution Manager Card: Usthad Muhammed Naeem Saqafi (Manager) */}
+                  <div className="relative flex flex-col justify-between gap-4 overflow-hidden rounded-2xl border-2 border-amber-500/45 bg-gradient-to-br from-amber-500/[0.12] via-card to-background p-5 shadow-lg">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500 px-3 py-0.5 text-[11px] font-extrabold tracking-wider text-slate-950 uppercase">
+                          <Building2 className="size-3.5" aria-hidden="true" />
+                          Institution Manager (മാനേജർ)
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background/80 px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                          No Login ID • No Classes / Not a Class Usthad
+                        </span>
+                      </div>
+
+                      <div className="mt-1">
+                        <h2 className="font-display text-xl font-bold text-foreground sm:text-2xl">
+                          {ACADEMY_MANAGER.name} (Manager)
+                        </h2>
+                        <p className="mt-0.5 text-xs font-semibold text-amber-500 sm:text-sm">
+                          {ACADEMY_MANAGER.designation}
+                        </p>
+                      </div>
+
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        {ACADEMY_MANAGER.roleSummary}
+                      </p>
                     </div>
 
-                    <div className="flex flex-col gap-2 rounded-2xl border border-border/80 bg-background/75 p-4 text-xs lg:min-w-[260px]">
-                      <p className="text-[11px] font-bold tracking-wider text-lime uppercase">
-                        Senior Dars Specialization
-                      </p>
+                    <div className="flex flex-col gap-1.5 rounded-xl border border-border/70 bg-background/70 p-3 text-xs">
                       <p className="font-semibold text-foreground">
-                        {SHAIKHUNA_HAMZA_USTHAD.specialization}
+                        Role: Overall Institutional Governance &amp; Administration
                       </p>
-                      <div className="h-px bg-border/70" />
                       <p className="text-[11px] text-muted-foreground">
-                        Senior Kitabs: <strong className="text-foreground">Sahih al-Bukhari &amp; Tuhfat al-Muhtaj</strong>
+                        ഒരിക്കലും ക്ലാസ് ഉസ്താദ് ആവാറില്ല • ഒരാളുടെയും ക്ലാസ്സിൽ ഉണ്ടാവാറില്ല • ലോഗിൻ ഐഡി ആവശ്യമില്ല.
                       </p>
                     </div>
                   </div>
                 </div>
 
+                {/* The 9 Official Class Usthads Panel */}
                 <Panel
                   id="principal-usthads-panel"
-                  eyebrow="Official Faculty & Class Usthad Roster (ICS Academy Manhappatta)"
-                  title="Shaikhuna & All 10 Usthads (Manager, Principal, Swadr & Class Usthads)"
+                  eyebrow="Official Class Usthads & Faculty Roster (9 Class Usthads)"
+                  title="All 9 Teaching & Class Usthads (Principal, Swadr & Class Usthads)"
                   icon={GraduationCap}
                 >
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {classMatrixRows.map((row) => {
-                      const u = row.usthad
+                    {OFFICIAL_CLASS_USTHADS.map((u) => {
+                      const row =
+                        classMatrixRows.find((r) => r.className === u.className) ??
+                        classMatrixRows[0]
                       const roleBadgeTone =
-                        u.institutionalRole === 'Supreme Scholar (Shaikhuna)'
-                          ? 'border-lime bg-lime text-slate-950'
-                          : u.institutionalRole === 'Principal'
-                            ? 'border-cyan/50 bg-cyan/20 text-cyan'
-                            : u.institutionalRole === 'Manager'
-                              ? 'border-amber-500/50 bg-amber-500/20 text-amber-500'
-                              : u.institutionalRole === 'Swadr'
-                                ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-500 dark:text-lime'
-                                : 'border-border bg-muted/60 text-muted-foreground'
+                        u.institutionalRole === 'Principal'
+                          ? 'border-cyan/50 bg-cyan/20 text-cyan'
+                          : u.institutionalRole === 'Swadr'
+                            ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-500 dark:text-lime'
+                            : 'border-border bg-muted/60 text-muted-foreground'
 
                       return (
                         <div
                           key={u.id}
                           className={cn(
                             'flex flex-col justify-between gap-4 rounded-2xl border bg-background/60 p-4 transition-colors hover:border-lime/40',
-                            u.isPrincipalRole
-                              ? 'border-cyan/50 bg-cyan/[0.04]'
-                              : u.institutionalRole === 'Supreme Scholar (Shaikhuna)'
-                                ? 'border-lime/50 bg-lime/[0.05]'
-                                : 'border-border',
+                            u.isPrincipalRole ? 'border-cyan/50 bg-cyan/[0.04]' : 'border-border',
                           )}
                         >
                           <div className="flex flex-col gap-2">
@@ -2139,7 +2174,7 @@ export function PrincipalDashboard() {
                             </div>
 
                             <div className="text-[11px] text-muted-foreground tabular-nums">
-                              Batch Code: B-{u.batchCode} • Staff ID: {u.staffId}
+                              Staff ID: {u.staffId} • Assigned Class: {u.className}
                             </div>
                           </div>
 
@@ -3245,6 +3280,17 @@ export function PrincipalDashboard() {
             <LibraryBooks />
           </div>
         )}
+
+        {/* TAB 3: WHATSAPP-STYLE CAMPUS MESSENGER & STAFF ROOM */}
+        {activeTab === 'chat' && (
+          <div className="space-y-6 animate-in fade-in-0 duration-300">
+            <CampusMessenger
+              role="principal"
+              principal={principal}
+              activeClassName={selectedClassName}
+            />
+          </div>
+        )}
         </main>
       </div>
 
@@ -3253,7 +3299,7 @@ export function PrincipalDashboard() {
         aria-label="Principal Mobile & Tablet Bottom Navigation"
         className="z-50 shrink-0 border-t border-border/85 bg-background/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl lg:hidden"
       >
-        <div className="mx-auto grid h-16 max-w-xl grid-cols-4 items-center px-2">
+        <div className="mx-auto grid h-16 max-w-xl grid-cols-5 items-center px-1.5">
           {(
             [
               {
@@ -3263,6 +3309,7 @@ export function PrincipalDashboard() {
                 badge: campusMetrics.periodsNotHeld,
               },
               { id: 'people', label: 'Directory', icon: Users, badge: 0 },
+              { id: 'chat', label: 'Chat', icon: MessageCircle, badge: 0 },
               { id: 'notices', label: 'Notices', icon: Megaphone, badge: 0 },
               { id: 'library', label: 'Library', icon: Library, badge: 0 },
             ] as const
@@ -3285,7 +3332,7 @@ export function PrincipalDashboard() {
               >
                 <span
                   className={cn(
-                    'relative flex h-7 w-14 items-center justify-center rounded-full transition-all',
+                    'relative flex h-7 w-12 items-center justify-center rounded-full transition-all',
                     active && 'bg-lime/15',
                   )}
                 >

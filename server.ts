@@ -1111,6 +1111,295 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     }
   })
 
+  // Real-Time WhatsApp-Style Campus Messenger State (Rooms, Messages, Presence, Typing, Moderation)
+  interface ServerChatReplyRef {
+    messageId: string
+    senderName: string
+    previewText: string
+  }
+
+  interface ServerChatMessage {
+    id: string
+    roomId: string
+    senderId: string
+    senderName: string
+    senderRole: 'student' | 'usthad' | 'principal'
+    senderBadge?: string
+    text: string
+    mediaType: 'none' | 'voice' | 'image' | 'pdf'
+    mediaUrl?: string
+    mediaName?: string
+    mediaSizeLabel?: string
+    mediaDurationSec?: number
+    replyTo?: ServerChatReplyRef
+    reactions: Record<string, string[]>
+    readBy: string[]
+    isDeleted?: boolean
+    deletedBy?: string
+    createdAt: string
+    createdAtMs: number
+  }
+
+  interface ServerChatRoomMeta {
+    roomId: string
+    onlyAdminsCanPost: boolean
+    pinnedMessageId: string | null
+    updatedAtMs: number
+  }
+
+  interface ServerPresenceEntry {
+    actorId: string
+    actorName: string
+    actorRole: 'student' | 'usthad' | 'principal'
+    lastSeenMs: number
+  }
+
+  interface ServerTypingEntry {
+    actorId: string
+    actorName: string
+    mode: 'typing' | 'recording' | 'idle'
+    updatedAtMs: number
+  }
+
+  interface ServerCampusChatState {
+    updatedAtMs: number
+    roomsMeta: Record<string, ServerChatRoomMeta>
+    messagesByRoom: Record<string, ServerChatMessage[]>
+    presenceMap: Record<string, ServerPresenceEntry>
+    typingMap: Record<string, Record<string, ServerTypingEntry>>
+  }
+
+  const campusChatState: ServerCampusChatState = {
+    updatedAtMs: Date.now(),
+    roomsMeta: {},
+    messagesByRoom: {},
+    presenceMap: {},
+    typingMap: {},
+  }
+
+  app.get('/api/campus/chat/state', (_req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    res.setHeader('Cache-Control', 'no-store')
+    // Clean up stale typing indicators older than 8 seconds
+    const now = Date.now()
+    for (const rId of Object.keys(campusChatState.typingMap)) {
+      const roomTyping = campusChatState.typingMap[rId]
+      if (!roomTyping) continue
+      for (const aId of Object.keys(roomTyping)) {
+        if (now - roomTyping[aId].updatedAtMs > 8000 || roomTyping[aId].mode === 'idle') {
+          delete roomTyping[aId]
+        }
+      }
+    }
+    res.json(campusChatState)
+  })
+
+  app.post('/api/campus/chat/action', (req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    try {
+      const {
+        action,
+        roomId,
+        actorId,
+        actorName,
+        actorRole,
+        message,
+        messageId,
+        emoji,
+        onlyAdminsCanPost,
+        pinnedMessageId,
+        typingMode,
+      } = req.body ?? {}
+
+      const now = Date.now()
+
+      if (actorId && typeof actorId === 'string') {
+        campusChatState.presenceMap[actorId] = {
+          actorId,
+          actorName: String(actorName || 'Campus Member').slice(0, 120),
+          actorRole:
+            actorRole === 'principal' || actorRole === 'usthad' ? actorRole : 'student',
+          lastSeenMs: now,
+        }
+      }
+
+      if (action === 'heartbeat') {
+        if (roomId && typeof roomId === 'string' && actorId && typeof actorId === 'string') {
+          if (!campusChatState.typingMap[roomId]) {
+            campusChatState.typingMap[roomId] = {}
+          }
+          if (typingMode === 'typing' || typingMode === 'recording') {
+            campusChatState.typingMap[roomId][actorId] = {
+              actorId,
+              actorName: String(actorName || 'Member').slice(0, 80),
+              mode: typingMode,
+              updatedAtMs: now,
+            }
+          } else {
+            delete campusChatState.typingMap[roomId][actorId]
+          }
+        }
+        res.json({ ok: true, state: campusChatState })
+        return
+      }
+
+      if (!roomId || typeof roomId !== 'string') {
+        res.status(400).json({ error: 'roomId is required' })
+        return
+      }
+
+      if (!campusChatState.roomsMeta[roomId]) {
+        campusChatState.roomsMeta[roomId] = {
+          roomId,
+          onlyAdminsCanPost: false,
+          pinnedMessageId: null,
+          updatedAtMs: now,
+        }
+      }
+
+      if (!Array.isArray(campusChatState.messagesByRoom[roomId])) {
+        campusChatState.messagesByRoom[roomId] = []
+      }
+
+      if (action === 'send_message' && message && typeof message === 'object') {
+        const roomMeta = campusChatState.roomsMeta[roomId]
+        const isStaff = actorRole === 'usthad' || actorRole === 'principal'
+        if (roomMeta.onlyAdminsCanPost && !isStaff) {
+          res.status(403).json({
+            error: 'Only Usthads and Principal can send messages in this group right now.',
+          })
+          return
+        }
+
+        const msgId =
+          typeof message.id === 'string' && message.id
+            ? message.id
+            : `msg_${now}_${Math.random().toString(36).slice(2, 7)}`
+
+        const existingIdx = campusChatState.messagesByRoom[roomId].findIndex(
+          (m) => m.id === msgId,
+        )
+        if (existingIdx === -1) {
+          const newMsg: ServerChatMessage = {
+            id: msgId,
+            roomId,
+            senderId: String(message.senderId || actorId || 'unknown').slice(0, 120),
+            senderName: String(message.senderName || actorName || 'Member').slice(0, 120),
+            senderRole:
+              message.senderRole === 'principal' || message.senderRole === 'usthad'
+                ? message.senderRole
+                : 'student',
+            senderBadge: message.senderBadge ? String(message.senderBadge).slice(0, 80) : undefined,
+            text: String(message.text || '').slice(0, 4000),
+            mediaType: ['none', 'voice', 'image', 'pdf'].includes(message.mediaType)
+              ? message.mediaType
+              : 'none',
+            mediaUrl: message.mediaUrl ? String(message.mediaUrl) : undefined,
+            mediaName: message.mediaName ? String(message.mediaName).slice(0, 180) : undefined,
+            mediaSizeLabel: message.mediaSizeLabel
+              ? String(message.mediaSizeLabel).slice(0, 40)
+              : undefined,
+            mediaDurationSec:
+              typeof message.mediaDurationSec === 'number' ? message.mediaDurationSec : undefined,
+            replyTo:
+              message.replyTo && typeof message.replyTo === 'object'
+                ? {
+                    messageId: String(message.replyTo.messageId || ''),
+                    senderName: String(message.replyTo.senderName || '').slice(0, 100),
+                    previewText: String(message.replyTo.previewText || '').slice(0, 200),
+                  }
+                : undefined,
+            reactions:
+              message.reactions && typeof message.reactions === 'object'
+                ? message.reactions
+                : {},
+            readBy: Array.isArray(message.readBy)
+              ? message.readBy
+              : [String(message.senderId || actorId || '')],
+            isDeleted: false,
+            createdAt: message.createdAt || new Date(now).toISOString(),
+            createdAtMs: Number(message.createdAtMs) || now,
+          }
+          campusChatState.messagesByRoom[roomId] = [
+            ...campusChatState.messagesByRoom[roomId],
+            newMsg,
+          ].slice(-150)
+          campusChatState.roomsMeta[roomId].updatedAtMs = now
+          campusChatState.updatedAtMs = now
+        }
+
+        if (actorId && campusChatState.typingMap[roomId]) {
+          delete campusChatState.typingMap[roomId][actorId]
+        }
+      } else if (action === 'toggle_reaction' && messageId && emoji && actorId) {
+        const list = campusChatState.messagesByRoom[roomId] || []
+        const target = list.find((m) => m.id === messageId)
+        if (target && !target.isDeleted) {
+          const safeEmoji = String(emoji).slice(0, 12)
+          const currentReactors = Array.isArray(target.reactions[safeEmoji])
+            ? target.reactions[safeEmoji]
+            : []
+          if (currentReactors.includes(actorId)) {
+            target.reactions[safeEmoji] = currentReactors.filter((id) => id !== actorId)
+            if (target.reactions[safeEmoji].length === 0) {
+              delete target.reactions[safeEmoji]
+            }
+          } else {
+            target.reactions[safeEmoji] = [...currentReactors, actorId]
+          }
+          campusChatState.updatedAtMs = now
+        }
+      } else if (action === 'mark_read' && actorId) {
+        const list = campusChatState.messagesByRoom[roomId] || []
+        let changed = false
+        for (const msg of list) {
+          if (!Array.isArray(msg.readBy)) msg.readBy = []
+          if (!msg.readBy.includes(actorId)) {
+            msg.readBy.push(actorId)
+            changed = true
+          }
+        }
+        if (changed) {
+          campusChatState.updatedAtMs = now
+        }
+      } else if (action === 'toggle_pin') {
+        const isStaff = actorRole === 'usthad' || actorRole === 'principal'
+        if (isStaff) {
+          campusChatState.roomsMeta[roomId].pinnedMessageId =
+            typeof pinnedMessageId === 'string' && pinnedMessageId ? pinnedMessageId : null
+          campusChatState.roomsMeta[roomId].updatedAtMs = now
+          campusChatState.updatedAtMs = now
+        }
+      } else if (action === 'delete_message' && messageId) {
+        const list = campusChatState.messagesByRoom[roomId] || []
+        const target = list.find((m) => m.id === messageId)
+        const isStaff = actorRole === 'usthad' || actorRole === 'principal'
+        if (target && (isStaff || target.senderId === actorId)) {
+          target.isDeleted = true
+          target.deletedBy = String(actorName || (isStaff ? 'Usthad' : 'Sender')).slice(0, 80)
+          target.text = ''
+          target.mediaType = 'none'
+          target.mediaUrl = undefined
+          if (campusChatState.roomsMeta[roomId].pinnedMessageId === messageId) {
+            campusChatState.roomsMeta[roomId].pinnedMessageId = null
+          }
+          campusChatState.updatedAtMs = now
+        }
+      } else if (action === 'toggle_group_lock') {
+        const isStaff = actorRole === 'usthad' || actorRole === 'principal'
+        if (isStaff) {
+          campusChatState.roomsMeta[roomId].onlyAdminsCanPost = Boolean(onlyAdminsCanPost)
+          campusChatState.roomsMeta[roomId].updatedAtMs = now
+          campusChatState.updatedAtMs = now
+        }
+      }
+
+      res.json({ ok: true, state: campusChatState })
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Chat action failed' })
+    }
+  })
+
   app.get('/api/app/version', async (_req, res) => {
     res.setHeader('Content-Type', 'application/json')
     res.setHeader('Cache-Control', 'no-store')

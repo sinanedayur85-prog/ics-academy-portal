@@ -11,6 +11,7 @@ import {
   Library,
   LogOut,
   Megaphone,
+  MessageCircle,
   MessageSquareText,
   Sparkles,
   UserCheck,
@@ -22,6 +23,7 @@ import {
   CampusNotificationBell,
 } from '@/components/campus-notifications'
 import { AttendanceCard } from '@/components/dashboard/attendance-card'
+import { CampusMessenger } from '@/components/dashboard/campus-messenger'
 import { ClassLeaderAttendanceCard } from '@/components/dashboard/class-leader-attendance-card'
 import {
   getClassLeadersForClass,
@@ -43,6 +45,7 @@ const studentNavItems = [
   { label: 'Notice Board', href: '#notices', icon: Megaphone },
   { label: 'Attendance Status', href: '#attendance', icon: CalendarCheck },
   { label: 'Leave Register', href: '#leave', icon: ClipboardList },
+  { label: 'Campus Messenger', href: '#campus-chat', icon: MessageCircle },
   { label: "Da'wa College Chatbot", href: '#gemini-chatbot', icon: MessageSquareText },
   { label: 'Digital Library', href: '#digital-library', icon: Library },
   { label: 'Library', href: '#library', icon: BookMarked },
@@ -55,6 +58,7 @@ const classLeaderNavItems = [
   { label: 'Attendance Status', href: '#attendance', icon: CalendarCheck },
   { label: 'Class Attendance', href: '#class-attendance', icon: UserCheck },
   { label: 'Leave Register', href: '#leave', icon: ClipboardList },
+  { label: 'Campus Messenger', href: '#campus-chat', icon: MessageCircle },
   { label: "Da'wa College Chatbot", href: '#gemini-chatbot', icon: MessageSquareText },
   { label: 'Digital Library', href: '#digital-library', icon: Library },
   { label: 'Library', href: '#library', icon: BookMarked },
@@ -62,7 +66,7 @@ const classLeaderNavItems = [
   { label: 'University Portal', href: '#university-portal', icon: Globe },
 ]
 
-type MobileTabId = 'home' | 'attendance' | 'chatbot' | 'leave' | 'library'
+type MobileTabId = 'home' | 'attendance' | 'campus-chat' | 'chatbot' | 'leave' | 'library'
 type MobileAttendanceSubTab = 'personal' | 'class-leader'
 type MobileResourceSubTab = 'digital-library' | 'library' | 'timetable' | 'university-portal'
 
@@ -113,6 +117,8 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
       } else if (hash === 'class-attendance') {
         setMobileTab('attendance')
         setMobileAttendanceSubTab('class-leader')
+      } else if (hash === 'campus-chat') {
+        setMobileTab('campus-chat')
       } else if (hash === 'gemini-chatbot') {
         setMobileTab('chatbot')
       } else if (hash === 'leave') {
@@ -223,12 +229,16 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
         ref={mobileScrollRef}
         className={cn(
           'max-lg:flex-1 max-lg:min-h-0 max-lg:w-full',
-          mobileTab === 'chatbot'
+          mobileTab === 'chatbot' || mobileTab === 'campus-chat'
             ? 'max-lg:flex max-lg:flex-col max-lg:overflow-hidden'
             : 'max-lg:overflow-y-auto max-lg:overflow-x-hidden max-lg:overscroll-y-contain',
         )}
       >
-        <div className={cn(mobileTab === 'chatbot' && 'hidden lg:block')}>
+        <div
+          className={cn(
+            (mobileTab === 'chatbot' || mobileTab === 'campus-chat') && 'hidden lg:block',
+          )}
+        >
           <CampusNotificationBar
             studentId={student.id}
             classNameFilter={student.className}
@@ -238,7 +248,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
         <main
           className={cn(
             'mx-auto flex max-w-7xl flex-col gap-5 px-3.5 py-5 sm:gap-6 sm:px-5 sm:py-7 md:px-8 md:py-10',
-            mobileTab === 'chatbot' &&
+            (mobileTab === 'chatbot' || mobileTab === 'campus-chat') &&
               'max-lg:flex-1 max-lg:min-h-0 max-lg:w-full max-lg:max-w-none max-lg:gap-0 max-lg:px-0 max-lg:py-0 max-lg:overflow-hidden',
           )}
         >
@@ -396,6 +406,17 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
           <LeaveRegister student={student} onLeaveStatusChange={setIsOnLeave} />
         </div>
 
+        {/* 3.5. WHATSAPP-STYLE CAMPUS MESSENGER (Students & Usthads Chat) */}
+        <div
+          className={cn(
+            mobileTab === 'campus-chat'
+              ? 'max-lg:flex max-lg:flex-1 max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden block'
+              : 'hidden lg:block',
+          )}
+        >
+          <CampusMessenger role="student" student={student} mobileFullScreen />
+        </div>
+
         {/* 4. FULL-SCREEN AI CHATBOT TAB */}
         <div
           className={cn(
@@ -486,7 +507,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
         aria-label="Mobile & Tablet Bottom Navigation"
         className="z-50 shrink-0 border-t border-border/85 bg-background/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl lg:hidden"
       >
-        <div className="mx-auto grid h-16 max-w-xl grid-cols-5 items-center px-1.5">
+        <div className="mx-auto grid h-16 max-w-xl grid-cols-6 items-center px-1">
           <button
             type="button"
             onClick={() => selectMobileTab('home')}
@@ -499,13 +520,13 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
           >
             <span
               className={cn(
-                'flex h-7 w-12 items-center justify-center rounded-full transition-all',
+                'flex h-7 w-10 items-center justify-center rounded-full transition-all',
                 mobileTab === 'home' && 'bg-lime/15',
               )}
             >
               <Megaphone className="size-4" aria-hidden="true" />
             </span>
-            <span className="text-[10.5px] font-semibold leading-none">Notices</span>
+            <span className="text-[10px] font-semibold leading-none">Notices</span>
           </button>
 
           <button
@@ -520,19 +541,42 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
           >
             <span
               className={cn(
-                'relative flex h-7 w-12 items-center justify-center rounded-full transition-all',
+                'relative flex h-7 w-10 items-center justify-center rounded-full transition-all',
                 mobileTab === 'attendance' && 'bg-lime/15',
               )}
             >
               <CalendarCheck className="size-4" aria-hidden="true" />
               {isClassLeader ? (
-                <span className="absolute -top-0.5 right-1.5 size-2 rounded-full bg-cyan" />
+                <span className="absolute -top-0.5 right-1 size-2 rounded-full bg-cyan" />
               ) : null}
             </span>
-            <span className="text-[10.5px] font-semibold leading-none">Attendance</span>
+            <span className="text-[10px] font-semibold leading-none">Attendance</span>
           </button>
 
-          {/* Center Gemini AI Chatbot Tab */}
+          {/* Campus Chat (WhatsApp-Style Messenger for Usthads & Students) */}
+          <button
+            type="button"
+            onClick={() => selectMobileTab('campus-chat')}
+            className={cn(
+              'flex flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-colors',
+              mobileTab === 'campus-chat'
+                ? 'text-lime'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <span
+              className={cn(
+                'relative flex h-7 w-10 items-center justify-center rounded-full transition-all',
+                mobileTab === 'campus-chat' && 'bg-lime/15',
+              )}
+            >
+              <MessageCircle className="size-4" aria-hidden="true" />
+              <span className="absolute -top-0.5 right-1 size-2 rounded-full bg-emerald-500" />
+            </span>
+            <span className="text-[10px] font-semibold leading-none">Chat</span>
+          </button>
+
+          {/* Gemini AI Chatbot Tab */}
           <button
             type="button"
             onClick={() => selectMobileTab('chatbot')}
@@ -545,7 +589,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
           >
             <span
               className={cn(
-                'flex h-9 w-14 items-center justify-center rounded-2xl border transition-all duration-200',
+                'flex h-8 w-11 items-center justify-center rounded-2xl border transition-all duration-200',
                 mobileTab === 'chatbot'
                   ? 'border-lime/60 bg-lime text-primary-foreground shadow-md shadow-lime/25 scale-105'
                   : 'border-lime/35 bg-lime/10 text-lime hover:bg-lime/20',
@@ -555,7 +599,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
             </span>
             <span
               className={cn(
-                'text-[10.5px] font-bold leading-none',
+                'text-[10px] font-bold leading-none',
                 mobileTab === 'chatbot' ? 'text-lime' : 'text-foreground/90',
               )}
             >

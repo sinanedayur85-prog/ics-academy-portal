@@ -1069,16 +1069,16 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
     semester1: [
       { subject: 'Mahalli (Kitab al-Buyu’)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
       { subject: 'Mishkat al-Masabih (Vol 2)', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'Aqeedah (Sharh al-Aqaid)', teacher: 'Usthad Muhammed Naeem Saqafi' },
-      { subject: 'BA Sociology & History', teacher: 'Usthad Muhammed Musthafa Saqafi' },
-      { subject: 'Classical Arabic Prose', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Aqeedah (Sharh al-Aqaid)', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'BA Sociology & History', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Classical Arabic Prose', teacher: 'Usthad Favaz Saqafi' },
     ],
     semester2: [
       { subject: 'Mahalli (Kitab al-Fara’id)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
-      { subject: 'Tafsir al-Jalalayn (Juz 21–30)', teacher: 'Usthad Muhammed Naeem Saqafi' },
+      { subject: 'Tafsir al-Jalalayn (Juz 21–30)', teacher: 'Usthad Muhammed Musthafa Saqafi' },
       { subject: 'Ilm al-Mantiq & Hikmah', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'BA Degree Paper II', teacher: 'Usthad Muhammed Musthafa Saqafi' },
-      { subject: 'Comparative Da’wa Studies', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'BA Degree Paper II', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Comparative Da’wa Studies', teacher: 'Usthad Favaz Saqafi' },
     ],
   },
   'BS 3 • Batch 07': {
@@ -1091,16 +1091,16 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
     ],
     semester1: [
       { subject: 'Fiqh (Mahalli — Nikah & Talaq)', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'Tafsir al-Baydawi & Ulum', teacher: 'Usthad Muhammed Naeem Saqafi' },
-      { subject: 'Jam’ al-Jawami’ (Usul al-Fiqh)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
-      { subject: 'Arabic Literature & Criticism', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Tafsir al-Baydawi & Ulum', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Jam’ al-Jawami’ (Usul al-Fiqh)', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Arabic Literature & Criticism', teacher: 'Usthad Favaz Saqafi' },
       { subject: 'BA Final Year Seminar', teacher: 'Usthad Midhlaj Ahsani' },
     ],
     semester2: [
       { subject: 'Fiqh (Mahalli — Jinayat & Qada)', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'Sunan al-Tirmidhi (Selected)', teacher: 'Usthad Muhammed Naeem Saqafi' },
-      { subject: 'Jam’ al-Jawami’ (Qiyas & Ijtihad)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
-      { subject: 'Islamic Historiography', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Sunan al-Tirmidhi (Selected)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Jam’ al-Jawami’ (Qiyas & Ijtihad)', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Islamic Historiography', teacher: 'Usthad Favaz Saqafi' },
       { subject: 'BA Dissertation & Viva', teacher: 'Usthad Midhlaj Ahsani' },
     ],
   },
@@ -1113,18 +1113,18 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { label: 'Period 5', time: '14:00 – 15:15' },
     ],
     semester1: [
-      { subject: 'Tuhfat al-Muhtaj (Valiya Dars)', teacher: 'Shaikhuna Manhappatta Hamza Usthad' },
-      { subject: 'Sahih Muslim (Kitab al-Iman)', teacher: 'Usthad Muhammed Naeem Saqafi' },
-      { subject: 'Tafsir al-Nasafi / Baydawi', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'Maqasid al-Shari’ah', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
-      { subject: 'Postgraduate Research Methods', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Tuhfat al-Muhtaj (Valiya Dars)', teacher: 'SHAIKHUNA HAMZA USTHAD' },
+      { subject: 'Sahih Muslim (Kitab al-Iman)', teacher: 'Usthad Muhammed Yasir Ahsani' },
+      { subject: 'Tafsir al-Nasafi / Baydawi', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Maqasid al-Shari’ah', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Postgraduate Research Methods', teacher: 'Usthad Midhlaj Ahsani' },
     ],
     semester2: [
-      { subject: 'Tuhfat al-Muhtaj (Mu’amalat — Valiya Dars)', teacher: 'Shaikhuna Manhappatta Hamza Usthad' },
-      { subject: 'Sunan Abi Dawud (Ahkam)', teacher: 'Usthad Muhammed Naeem Saqafi' },
-      { subject: 'Tasawwuf (Ihya’ Ulum al-Din)', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'Contemporary Fiqh Academy Papers', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
-      { subject: 'Translation & Publication Lab', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Tuhfat al-Muhtaj (Mu’amalat — Valiya Dars)', teacher: 'SHAIKHUNA HAMZA USTHAD' },
+      { subject: 'Sunan Abi Dawud (Ahkam)', teacher: 'Usthad Muhammed Yasir Ahsani' },
+      { subject: 'Tasawwuf (Ihya’ Ulum al-Din)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Contemporary Fiqh Academy Papers', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Translation & Publication Lab', teacher: 'Usthad Midhlaj Ahsani' },
     ],
   },
   'BS 5 • Batch 05': {
@@ -1136,18 +1136,18 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { label: 'Period 5', time: '14:00 – 15:15' },
     ],
     semester1: [
-      { subject: 'Sahih al-Bukhari (Valiya Batch Dawrah Part 1)', teacher: 'Shaikhuna Manhappatta Hamza Usthad' },
-      { subject: 'Tuhfat al-Muhtaj & Fatawa', teacher: 'Shaikhuna Manhappatta Hamza Usthad' },
-      { subject: 'Jami’ al-Tirmidhi & Ilal', teacher: 'Usthad Muhammed Naeem Saqafi' },
-      { subject: 'Comparative Religion & Da’wa', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'Senior Thesis & Ifta’ Practicum', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Sahih al-Bukhari (Valiya Batch Dawrah Part 1)', teacher: 'SHAIKHUNA HAMZA USTHAD' },
+      { subject: 'Tuhfat al-Muhtaj & Fatawa', teacher: 'SHAIKHUNA HAMZA USTHAD' },
+      { subject: 'Jami’ al-Tirmidhi & Ilal', teacher: 'Usthad Muhammed Yasir Ahsani' },
+      { subject: 'Comparative Religion & Da’wa', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Senior Thesis & Ifta’ Practicum', teacher: 'Usthad Muhammed Musthafa Saqafi' },
     ],
     semester2: [
-      { subject: 'Sahih al-Bukhari (Valiya Batch Dawrah Part 2)', teacher: 'Shaikhuna Manhappatta Hamza Usthad' },
-      { subject: 'Qawa’id Fiqhiyyah (Al-Ashbah)', teacher: 'Shaikhuna Manhappatta Hamza Usthad' },
-      { subject: 'Muwatta’ Imam Malik & Sunan', teacher: 'Usthad Muhammed Naeem Saqafi' },
-      { subject: 'Global Da’wa Leadership', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'Final Thesis Defense & Fatwa Lab', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Sahih al-Bukhari (Valiya Batch Dawrah Part 2)', teacher: 'SHAIKHUNA HAMZA USTHAD' },
+      { subject: 'Qawa’id Fiqhiyyah (Al-Ashbah)', teacher: 'SHAIKHUNA HAMZA USTHAD' },
+      { subject: 'Muwatta’ Imam Malik & Sunan', teacher: 'Usthad Muhammed Yasir Ahsani' },
+      { subject: 'Global Da’wa Leadership', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
+      { subject: 'Final Thesis Defense & Fatwa Lab', teacher: 'Usthad Muhammed Musthafa Saqafi' },
     ],
   },
 }
@@ -1163,7 +1163,6 @@ export const EXAM_RESULTS_URL = 'https://jamiathulhind.com/index.php'
 
 export type SupremeScholarProfile = {
   id: string
-  staffId: string
   name: string
   malayalamName: string
   honorificTitle: string
@@ -1171,16 +1170,18 @@ export type SupremeScholarProfile = {
   valiyaBatches: string[]
   specialization: string
   description: string
+  isClassUsthad: false
+  hasLoginId: false
 }
 
 /**
  * Supreme Scholar & Patron above all Usthads at ICS Academy Manhappatta:
- * Shaikhuna Manhappatta Hamza Usthad (ശൈഖുനാ മഞ്ഞപ്പറ്റ ഹംസ ഉസ്താദ്)
- * Teaches in the two senior ("VALIYA") batches: BS 5 • Batch 05 & BS 4 • Batch 06.
+ * SHAIKHUNA HAMZA USTHAD (ശൈഖുനാ മഞ്ഞപ്പറ്റ ഹംസ ഉസ്താദ്)
+ * - Never a Class Usthad and does NOT require a Login ID.
+ * - Teaches classes in the two senior ("VALIYA") batches: BS 5 • Batch 05 & BS 4 • Batch 06 (appears in Timetables).
  */
 export const SHAIKHUNA_HAMZA_USTHAD: SupremeScholarProfile = {
   id: 'shaikhuna-hamza-usthad',
-  staffId: 'SHAIKHUNA-01',
   name: 'Shaikhuna Manhappatta Hamza Usthad',
   malayalamName: 'ശൈഖുനാ മഞ്ഞപ്പറ്റ ഹംസ ഉസ്താദ്',
   honorificTitle: 'SHAIKHUNA HAMZA USTHAD',
@@ -1188,7 +1189,36 @@ export const SHAIKHUNA_HAMZA_USTHAD: SupremeScholarProfile = {
   valiyaBatches: ['BS 5 • Batch 05', 'BS 4 • Batch 06'],
   specialization: 'Sahih al-Bukhari, Tuhfat al-Muhtaj & Senior Valiya Dars (വലിയ രണ്ട് ബാച്ചുകൾ)',
   description:
-    'Supreme spiritual and scholarly head above all Usthads at ICS Academy Manhappatta, leading the advanced Kitab lessons in the two senior (Valiya) batches.',
+    'എല്ലാ ഉസ്താദുമാർക്കും മുകളിലുള്ള പ്രധാന ഉസ്താദ്. വലിയ രണ്ട് ബാച്ചുകളിൽ (BS 5, BS 4) ക്ലാസുകൾ എടുക്കുന്നു (ക്ലാസ് ഉസ്താദ് റോൾ / ലോഗിൻ ഐഡി ആവശ്യമില്ല).',
+  isClassUsthad: false,
+  hasLoginId: false,
+}
+
+export type InstitutionManagerProfile = {
+  id: string
+  name: string
+  designation: string
+  roleSummary: string
+  isClassUsthad: false
+  takesClasses: false
+  hasLoginId: false
+}
+
+/**
+ * Institution Manager at ICS Academy Manhappatta:
+ * Usthad Muhammed Naeem Saqafi (Manager)
+ * - Runs and manages the institution.
+ * - Never a Class Usthad, does NOT take classes in any batch, and does NOT require a Login ID.
+ */
+export const ACADEMY_MANAGER: InstitutionManagerProfile = {
+  id: 'manager-naeem-saqafi',
+  name: 'Usthad Muhammed Naeem Saqafi',
+  designation: 'Manager • ICS Academy & Da’wa College Manhappatta',
+  roleSummary:
+    'സ്ഥാപനം നടത്തിക്കൊണ്ടുപോകുന്ന മാനേജർ (ക്ലാസുകളോ ക്ലാസ് ഉസ്താദ് ചുമതലയോ ലോഗിൻ ഐഡിയോ ആവശ്യമില്ല).',
+  isClassUsthad: false,
+  takesClasses: false,
+  hasLoginId: false,
 }
 
 export type ClassUsthad = {
@@ -1197,7 +1227,7 @@ export type ClassUsthad = {
   name: string
   shortName: string
   designation: string
-  institutionalRole?: 'Supreme Scholar (Shaikhuna)' | 'Manager' | 'Principal' | 'Swadr' | 'Class Usthad'
+  institutionalRole?: 'Principal' | 'Swadr' | 'Class Usthad'
   isPrincipalRole?: boolean
   teachingBatches?: string[]
   className: string
@@ -1206,103 +1236,12 @@ export type ClassUsthad = {
   specialization: string
 }
 
-export const CLASS_USTHADS: ClassUsthad[] = [
-  {
-    id: 'usthad-14',
-    staffId: 'UST-14',
-    name: 'Usthad Asif Saqafi',
-    shortName: 'Usthad Asif Saqafi',
-    designation: 'Class Usthad',
-    institutionalRole: 'Class Usthad',
-    className: '8th • Batch 14',
-    fullClassLabel: 'Class 8th • Batch 14',
-    batchCode: '14',
-    specialization: 'Fiqh & Foundation Sarf',
-  },
-  {
-    id: 'usthad-13',
-    staffId: 'UST-13',
-    name: 'Usthad Alavudheen Ahsani',
-    shortName: 'Usthad Alavudheen Ahsani',
-    designation: 'Class Usthad',
-    institutionalRole: 'Class Usthad',
-    className: '9th • Batch 13',
-    fullClassLabel: 'Class 9th • Batch 13',
-    batchCode: '13',
-    specialization: 'Nahw & Classical Sarf',
-  },
-  {
-    id: 'usthad-12',
-    staffId: 'UST-12',
-    name: 'Usthad Razaq Saqafi',
-    shortName: 'Usthad Razaq Saqafi',
-    designation: 'Class Usthad',
-    institutionalRole: 'Class Usthad',
-    className: '10th • Batch 12',
-    fullClassLabel: 'Class 10th • Batch 12',
-    batchCode: '12',
-    specialization: 'Qatr al-Nada & Arabic Literature',
-  },
-  {
-    id: 'usthad-11',
-    staffId: 'UST-11',
-    name: 'Usthad Hashim Saqafi',
-    shortName: 'Usthad Hashim Saqafi',
-    designation: 'Class Usthad',
-    institutionalRole: 'Class Usthad',
-    className: 'HS 1 • Batch 11',
-    fullClassLabel: 'Class HS 1 • Batch 11',
-    batchCode: '11',
-    specialization: 'Fath al-Mu’in & Hadith Studies',
-  },
-  {
-    id: 'usthad-10',
-    staffId: 'UST-10',
-    name: 'Usthad Favaz Saqafi',
-    shortName: 'Usthad Favaz Saqafi',
-    designation: 'Class Usthad',
-    institutionalRole: 'Class Usthad',
-    className: 'HS 2A • Batch 10',
-    fullClassLabel: 'Class HS 2A • Batch 10',
-    batchCode: '10',
-    specialization: 'Alfiyyah Ibn Malik & Balaghah',
-  },
-  {
-    id: 'usthad-01',
-    staffId: 'UST-01',
-    name: 'Usthad Midhlaj Ahsani',
-    shortName: 'Usthad Midhlaj Ahsani',
-    designation: 'Class Usthad',
-    institutionalRole: 'Class Usthad',
-    className: 'HS 2B • Batch 1',
-    fullClassLabel: 'Class HS 2B • Batch 1',
-    batchCode: '01',
-    specialization: 'Tafsir al-Jalalayn & Islamic History',
-  },
-  {
-    id: 'usthad-09',
-    staffId: 'UST-09',
-    name: 'Usthad Muhammed Musthafa Saqafi',
-    shortName: 'Usthad Musthafa Saqafi',
-    designation: 'Class Usthad',
-    institutionalRole: 'Class Usthad',
-    className: 'BS 1 • Batch 09',
-    fullClassLabel: 'Class BS 1 • Batch 09',
-    batchCode: '09',
-    specialization: 'Mahalli & Mishkat al-Masabih',
-  },
-  {
-    id: 'usthad-08',
-    staffId: 'UST-08',
-    name: 'Usthad Hafiz Fazlul Abid Naeemi',
-    shortName: 'Usthad Hafiz Fazlul Abid Naeemi (Swadr)',
-    designation: 'Swadr & Class Usthad',
-    institutionalRole: 'Swadr',
-    className: 'BS 2 • Batch 08',
-    fullClassLabel: 'Class BS 2 • Batch 08',
-    batchCode: '08',
-    specialization: 'Swadr • Qur’an Hifz, Tafsir & Usul al-Fiqh',
-  },
+/**
+ * The 9 Official Teaching & Class Usthads of ICS Academy Manhappatta
+ * (Excludes SHAIKHUNA HAMZA USTHAD and Manager Usthad Muhammed Naeem Saqafi,
+ * as neither of them are Class Usthads or have Login IDs).
+ */
+export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
   {
     id: 'usthad-07',
     staffId: 'UST-07',
@@ -1317,29 +1256,141 @@ export const CLASS_USTHADS: ClassUsthad[] = [
     specialization: 'Principal & Class Usthad • Shafi’i Jurisprudence & Jam’ al-Jawami’',
   },
   {
+    id: 'usthad-08',
+    staffId: 'UST-08',
+    name: 'Usthad Hafiz Fazlul Abid Naeemi',
+    shortName: 'Usthad Hafiz Fazlul Abid Naeemi (Swadr)',
+    designation: 'Swadr & Class Usthad',
+    institutionalRole: 'Swadr',
+    className: 'BS 2 • Batch 08',
+    fullClassLabel: 'Class BS 2 • Batch 08',
+    batchCode: '08',
+    specialization: 'Swadr • Qur’an Hifz, Tafsir & Usul al-Fiqh',
+  },
+  {
+    id: 'usthad-09',
+    staffId: 'UST-09',
+    name: 'Usthad Muhammed Musthafa Saqafi',
+    shortName: 'Usthad Muhammed Musthafa Saqafi',
+    designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
+    className: 'BS 1 • Batch 09',
+    fullClassLabel: 'Class BS 1 • Batch 09',
+    batchCode: '09',
+    specialization: 'Mahalli & Mishkat al-Masabih',
+  },
+  {
+    id: 'usthad-01',
+    staffId: 'UST-01',
+    name: 'Usthad Midhlaj Ahsani',
+    shortName: 'Usthad Midhlaj Ahsani',
+    designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
+    className: 'HS 2B • Batch 1',
+    fullClassLabel: 'Class HS 2B • Batch 1',
+    batchCode: '01',
+    specialization: 'Tafsir al-Jalalayn & Islamic History',
+  },
+  {
+    id: 'usthad-10',
+    staffId: 'UST-10',
+    name: 'Usthad Favaz Saqafi',
+    shortName: 'Usthad Favaz Saqafi',
+    designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
+    className: 'HS 2A • Batch 10',
+    fullClassLabel: 'Class HS 2A • Batch 10',
+    batchCode: '10',
+    specialization: 'Alfiyyah Ibn Malik & Balaghah',
+  },
+  {
+    id: 'usthad-11',
+    staffId: 'UST-11',
+    name: 'Usthad Hashim Saqafi',
+    shortName: 'Usthad Hashim Saqafi',
+    designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
+    className: 'HS 1 • Batch 11',
+    fullClassLabel: 'Class HS 1 • Batch 11',
+    batchCode: '11',
+    specialization: 'Fath al-Mu’in & Hadith Studies',
+  },
+  {
+    id: 'usthad-12',
+    staffId: 'UST-12',
+    name: 'Usthad Razaq Saqafi',
+    shortName: 'Usthad Razaq Saqafi',
+    designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
+    className: '10th • Batch 12',
+    fullClassLabel: 'Class 10th • Batch 12',
+    batchCode: '12',
+    specialization: 'Qatr al-Nada & Arabic Literature',
+  },
+  {
+    id: 'usthad-13',
+    staffId: 'UST-13',
+    name: 'Usthad Alavudheen Ahsani',
+    shortName: 'Usthad Alavudheen Ahsani',
+    designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
+    className: '9th • Batch 13',
+    fullClassLabel: 'Class 9th • Batch 13',
+    batchCode: '13',
+    specialization: 'Nahw & Classical Sarf',
+  },
+  {
+    id: 'usthad-14',
+    staffId: 'UST-14',
+    name: 'Usthad Asif Saqafi',
+    shortName: 'Usthad Asif Saqafi',
+    designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
+    className: '8th • Batch 14',
+    fullClassLabel: 'Class 8th • Batch 14',
+    batchCode: '14',
+    specialization: 'Fiqh & Foundation Sarf',
+  },
+]
+
+/**
+ * Per-batch Class Usthad mapping across the 11 classes (using ONLY the 9 Class Usthads;
+ * neither SHAIKHUNA HAMZA USTHAD nor Manager Usthad Muhammed Naeem Saqafi is ever a Class Usthad).
+ */
+export const CLASS_USTHADS: ClassUsthad[] = [
+  OFFICIAL_CLASS_USTHADS[8], // 8th • Batch 14 — Usthad Asif Saqafi
+  OFFICIAL_CLASS_USTHADS[7], // 9th • Batch 13 — Usthad Alavudheen Ahsani
+  OFFICIAL_CLASS_USTHADS[6], // 10th • Batch 12 — Usthad Razaq Saqafi
+  OFFICIAL_CLASS_USTHADS[5], // HS 1 • Batch 11 — Usthad Hashim Saqafi
+  OFFICIAL_CLASS_USTHADS[4], // HS 2A • Batch 10 — Usthad Favaz Saqafi
+  OFFICIAL_CLASS_USTHADS[3], // HS 2B • Batch 1 — Usthad Midhlaj Ahsani
+  OFFICIAL_CLASS_USTHADS[2], // BS 1 • Batch 09 — Usthad Muhammed Musthafa Saqafi
+  OFFICIAL_CLASS_USTHADS[1], // BS 2 • Batch 08 — Usthad Hafiz Fazlul Abid Naeemi (Swadr)
+  OFFICIAL_CLASS_USTHADS[0], // BS 3 • Batch 07 — Usthad Muhammed Yasir Ahsani (Principal)
+  {
     id: 'usthad-06',
     staffId: 'UST-06',
-    name: 'Usthad Muhammed Naeem Saqafi',
-    shortName: 'Usthad Muhammed Naeem Saqafi (Manager)',
-    designation: 'Manager & Class Usthad',
-    institutionalRole: 'Manager',
+    name: 'Usthad Hafiz Fazlul Abid Naeemi',
+    shortName: 'Usthad Hafiz Fazlul Abid Naeemi (Swadr)',
+    designation: 'Swadr & Class Usthad',
+    institutionalRole: 'Swadr',
     className: 'BS 4 • Batch 06',
     fullClassLabel: 'Class BS 4 • Batch 06 (Valiya Batch)',
     batchCode: '06',
-    specialization: 'Manager • Sahih Muslim & Tafsir al-Baydawi',
+    specialization: 'Swadr • Tafsir & Usul al-Fiqh',
   },
   {
     id: 'usthad-05',
     staffId: 'UST-05',
-    name: 'Shaikhuna Manhappatta Hamza Usthad',
-    shortName: 'Shaikhuna Hamza Usthad',
-    designation: 'Supreme Scholar (ശൈഖുനാ) • Valiya 2 Batches',
-    institutionalRole: 'Supreme Scholar (Shaikhuna)',
-    teachingBatches: ['BS 5 • Batch 05', 'BS 4 • Batch 06'],
+    name: 'Usthad Muhammed Yasir Ahsani',
+    shortName: 'Usthad Muhammed Yasir Ahsani (Principal)',
+    designation: 'Principal & Class Usthad',
+    institutionalRole: 'Principal',
+    isPrincipalRole: true,
     className: 'BS 5 • Batch 05',
-    fullClassLabel: 'Class BS 5 • Batch 05 & BS 4 • Batch 06 (Valiya 2 Batches)',
+    fullClassLabel: 'Class BS 5 • Batch 05 (Valiya Batch)',
     batchCode: '05',
-    specialization: 'Sahih al-Bukhari & Tuhfat al-Muhtaj (Valiya 2 Batches)',
+    specialization: 'Principal & Class Usthad • Senior Fiqh & Hadith Oversight',
   },
 ]
 
@@ -1347,8 +1398,19 @@ export function findUsthadByStaffId(identifier: string): ClassUsthad | undefined
   const cleaned = normalizeAdmissionKey(identifier)
   if (!cleaned) return undefined
 
+  // Explicitly block Manager (Naeem Usthad) and Shaikhuna Hamza Usthad from Class Usthad login,
+  // as neither is a Class Usthad and neither has a login ID.
+  if (
+    cleaned.includes('NAEEM') ||
+    cleaned === 'MANAGER' ||
+    cleaned.includes('SHAIKHUNA') ||
+    cleaned.includes('HAMZA')
+  ) {
+    return undefined
+  }
+
   // 1. Direct match on staffId (e.g. "UST-07", "UST07", "UST-14")
-  const exact = CLASS_USTHADS.find((u) => normalizeAdmissionKey(u.staffId) === cleaned)
+  const exact = OFFICIAL_CLASS_USTHADS.find((u) => normalizeAdmissionKey(u.staffId) === cleaned)
   if (exact) return exact
 
   // 2. Support Principal ID / Name logging in as Class Usthad (since Principal is also a Class Usthad)
@@ -1359,33 +1421,27 @@ export function findUsthadByStaffId(identifier: string): ClassUsthad | undefined
     cleaned === 'PRICIPAL' ||
     cleaned.includes('YASIR')
   ) {
-    return CLASS_USTHADS.find((u) => u.isPrincipalRole || u.batchCode === '07')
+    return OFFICIAL_CLASS_USTHADS.find((u) => u.isPrincipalRole)
   }
 
-  // 3. Support matching by Usthad name or title (e.g. "SHAIKHUNA", "HAMZA", "NAEEM", "MANAGER", "SWADR", "ABID", "MUSTHAFA", "MIDHLAJ", "FAVAZ", "HASHIM", "RAZAQ", "ALAVUDHEEN", "ASIF")
-  if (cleaned.includes('SHAIKHUNA') || cleaned.includes('HAMZA')) {
-    return CLASS_USTHADS.find((u) => u.batchCode === '05')
-  }
-  if (cleaned.includes('NAEEM') || cleaned === 'MANAGER') {
-    return CLASS_USTHADS.find((u) => u.batchCode === '06')
-  }
+  // 3. Support matching by Class Usthad name or Swadr title
   if (cleaned.includes('ABID') || cleaned.includes('FAZLUL') || cleaned === 'SWADR' || cleaned === 'SADR') {
-    return CLASS_USTHADS.find((u) => u.batchCode === '08')
+    return OFFICIAL_CLASS_USTHADS.find((u) => u.institutionalRole === 'Swadr')
   }
-  const byName = CLASS_USTHADS.find((u) => normalizeAdmissionKey(u.name).includes(cleaned))
+  const byName = OFFICIAL_CLASS_USTHADS.find((u) => normalizeAdmissionKey(u.name).includes(cleaned))
   if (byName && cleaned.length >= 4) return byName
 
   // 4. Match TCH-XX or batch number (e.g. "TCH07", "BATCH07", "07", "7")
   const digits = cleaned.replace(/[^0-9]/g, '')
   if (digits) {
     const padded = digits.padStart(2, '0')
-    const byBatch = CLASS_USTHADS.find((u) => u.batchCode === padded || u.batchCode === digits)
+    const byBatch = OFFICIAL_CLASS_USTHADS.find((u) => u.batchCode === padded || u.batchCode === digits)
     if (byBatch) return byBatch
   }
 
   // 5. Support default placeholder "TCH-0217" -> defaults to Principal/Class Usthad (BS 3 • Batch 07)
   if (cleaned === 'TCH0217' || cleaned === 'USTHAD' || cleaned === 'TEACHER') {
-    return CLASS_USTHADS.find((u) => u.batchCode === '07') ?? CLASS_USTHADS[0]
+    return OFFICIAL_CLASS_USTHADS[0]
   }
 
   return undefined

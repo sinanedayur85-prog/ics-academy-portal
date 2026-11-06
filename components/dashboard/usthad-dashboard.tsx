@@ -32,6 +32,7 @@ import {
   LogIn,
   LogOut,
   Megaphone,
+  MessageCircle,
   Minus,
   Pin,
   Plus,
@@ -48,6 +49,7 @@ import {
   CampusNotificationBar,
   CampusNotificationBell,
 } from '@/components/campus-notifications'
+import { CampusMessenger } from '@/components/dashboard/campus-messenger'
 import {
   ABSENT_REASONS,
   ALL_ACADEMY_CLASS_NAMES,
@@ -109,6 +111,7 @@ const usthadNavItems = [
   { label: 'Class Students', href: '#class-roster', icon: Users },
   { label: 'Attendance Status', href: '#usthad-attendance', icon: CalendarCheck },
   { label: 'Leave Register', href: '#usthad-leave', icon: ClipboardList },
+  { label: 'Campus Messenger', href: '#campus-chat', icon: MessageCircle },
   { label: 'Notice Board', href: '#usthad-notices', icon: Megaphone },
   { label: 'Digital Library PDF', href: '#usthad-kitabs', icon: Library },
   { label: 'University Portal', href: '#university-portal', icon: Globe },
@@ -180,7 +183,7 @@ export function UsthadDashboard() {
 
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null)
   const [mobileTab, setMobileTab] = useState<
-    'roster' | 'attendance' | 'leave' | 'notices' | 'library'
+    'roster' | 'attendance' | 'leave' | 'chat' | 'notices' | 'library'
   >('roster')
   const [mobileLibrarySubTab, setMobileLibrarySubTab] = useState<'kitabs' | 'portal'>('kitabs')
 
@@ -198,6 +201,7 @@ export function UsthadDashboard() {
       else if (hash === 'usthad-attendance' || hash === 'class-attendance')
         setMobileTab('attendance')
       else if (hash === 'usthad-leave') setMobileTab('leave')
+      else if (hash === 'campus-chat') setMobileTab('chat')
       else if (hash === 'usthad-notices') setMobileTab('notices')
       else if (hash === 'usthad-kitabs') {
         setMobileTab('library')
@@ -2558,6 +2562,15 @@ export function UsthadDashboard() {
         </Panel>
         </div>
 
+        {/* WHATSAPP-STYLE CAMPUS MESSENGER FOR USTHAD (Class Group, Staff Room & Direct Chats) */}
+        <div className={cn(mobileTab === 'chat' ? 'block' : 'hidden lg:block')}>
+          <CampusMessenger
+            role="usthad"
+            usthad={usthad}
+            activeClassName={activeClassName}
+          />
+        </div>
+
         <div
           className={cn(
             mobileTab === 'library' && mobileLibrarySubTab === 'portal'
@@ -2575,7 +2588,7 @@ export function UsthadDashboard() {
         aria-label="Usthad Mobile & Tablet Bottom Navigation"
         className="z-50 shrink-0 border-t border-border/85 bg-background/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl lg:hidden"
       >
-        <div className="mx-auto grid h-16 max-w-xl grid-cols-5 items-center px-1.5">
+        <div className="mx-auto grid h-16 max-w-xl grid-cols-6 items-center px-1">
           {(
             [
               { id: 'roster', label: 'Students', icon: Users, badge: 0 },
@@ -2586,6 +2599,7 @@ export function UsthadDashboard() {
                 icon: ClipboardList,
                 badge: studentsCurrentlyOnLeave.length,
               },
+              { id: 'chat', label: 'Chat', icon: MessageCircle, badge: 0 },
               { id: 'notices', label: 'Notices', icon: Megaphone, badge: 0 },
               { id: 'library', label: 'Library', icon: Library, badge: 0 },
             ] as const
@@ -2608,18 +2622,18 @@ export function UsthadDashboard() {
               >
                 <span
                   className={cn(
-                    'relative flex h-7 w-12 items-center justify-center rounded-full transition-all',
+                    'relative flex h-7 w-10 items-center justify-center rounded-full transition-all',
                     active && 'bg-lime/15',
                   )}
                 >
                   <tab.icon className="size-4" aria-hidden="true" />
                   {tab.badge > 0 ? (
-                    <span className="absolute -top-1 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 font-mono text-[9.5px] font-bold text-white tabular-nums">
+                    <span className="absolute -top-1 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 font-mono text-[9.5px] font-bold text-white tabular-nums">
                       {tab.badge}
                     </span>
                   ) : null}
                 </span>
-                <span className="text-[10.5px] font-semibold leading-none">{tab.label}</span>
+                <span className="text-[10px] font-semibold leading-none">{tab.label}</span>
               </button>
             )
           })}
