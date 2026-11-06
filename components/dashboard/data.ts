@@ -296,9 +296,9 @@ export const MONTHS_META = [
     shortMonth: 'Jan',
     year: 2026,
     calendarDays: 31,
-    officialHolidayDays: 7,
-    officialHolidayNote: '2nd Sat Official Leave (Fri Morning – Mon Morning)',
-    baseDays: 24,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
   },
   {
     id: '2026-02',
@@ -306,9 +306,9 @@ export const MONTHS_META = [
     shortMonth: 'Feb',
     year: 2026,
     calendarDays: 28,
-    officialHolidayDays: 6,
-    officialHolidayNote: '2nd Sat Official Leave (Fri Noon – Mon Morning)',
-    baseDays: 22,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
   },
   {
     id: '2026-03',
@@ -316,9 +316,9 @@ export const MONTHS_META = [
     shortMonth: 'Mar',
     year: 2026,
     calendarDays: 31,
-    officialHolidayDays: 11,
-    officialHolidayNote: 'Eid-ul-Fitr Festival Vacation (10d) & Official Leave',
-    baseDays: 20,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
   },
   {
     id: '2026-04',
@@ -326,9 +326,9 @@ export const MONTHS_META = [
     shortMonth: 'Apr',
     year: 2026,
     calendarDays: 30,
-    officialHolidayDays: 7,
-    officialHolidayNote: '2nd Sat Official Leave (Fri Morning – Mon Morning)',
-    baseDays: 23,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
   },
   {
     id: '2026-05',
@@ -336,9 +336,9 @@ export const MONTHS_META = [
     shortMonth: 'May',
     year: 2026,
     calendarDays: 31,
-    officialHolidayDays: 10,
-    officialHolidayNote: 'Eid-ul-Adha (Bakrid) Vacation (7d) & 2nd Sat Leave',
-    baseDays: 21,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
   },
   {
     id: '2026-06',
@@ -346,9 +346,9 @@ export const MONTHS_META = [
     shortMonth: 'Jun',
     year: 2026,
     calendarDays: 30,
-    officialHolidayDays: 6,
-    officialHolidayNote: '2nd Sat Official Leave (Fri Afternoon – Mon Morning)',
-    baseDays: 24,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
   },
   {
     id: '2026-07',
@@ -356,9 +356,9 @@ export const MONTHS_META = [
     shortMonth: 'Jul',
     year: 2026,
     calendarDays: 31,
-    officialHolidayDays: 6,
-    officialHolidayNote: '2nd Sat Official Leave (Fri Morning – Sun Evening)',
-    baseDays: 25,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
   },
   {
     id: '2026-08',
@@ -366,9 +366,9 @@ export const MONTHS_META = [
     shortMonth: 'Aug',
     year: 2026,
     calendarDays: 31,
-    officialHolidayDays: 7,
-    officialHolidayNote: '2nd Sat Official Leave & Milad-un-Nabi Holiday',
-    baseDays: 24,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
   },
   {
     id: '2026-09',
@@ -376,9 +376,9 @@ export const MONTHS_META = [
     shortMonth: 'Sep',
     year: 2026,
     calendarDays: 30,
-    officialHolidayDays: 6,
-    officialHolidayNote: '2nd Sat Official Leave (Fri Noon – Mon Morning)',
-    baseDays: 24,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
   },
   {
     id: '2026-10',
@@ -386,9 +386,9 @@ export const MONTHS_META = [
     shortMonth: 'Oct',
     year: 2026,
     calendarDays: 31,
-    officialHolidayDays: 8,
-    officialHolidayNote: '2nd Sat Official Leave (Thu Evening – Mon Morning)',
-    baseDays: 23,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
   },
   {
     id: '2026-11',
@@ -396,9 +396,9 @@ export const MONTHS_META = [
     shortMonth: 'Nov',
     year: 2026,
     calendarDays: 30,
-    officialHolidayDays: 6,
-    officialHolidayNote: '2nd Sat Official Leave (Fri Morning – Mon Morning)',
-    baseDays: 24,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
   },
   {
     id: '2026-12',
@@ -406,49 +406,36 @@ export const MONTHS_META = [
     shortMonth: 'Dec',
     year: 2026,
     calendarDays: 31,
-    officialHolidayDays: 8,
-    officialHolidayNote: '2nd Sat Official Leave & Term Break',
-    baseDays: 23,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
   },
 ]
 
-function buildStudentMonthlyAttendance(seedIndex: number): {
+function buildStudentMonthlyAttendance(_seedIndex: number): {
   monthlyAttendance: MonthlyAttendance[]
   attendance: { present: number; absent: number; leave: number }
 } {
-  let totalPresent = 0
-  let totalAbsent = 0
-  let totalLeave = 0
-
-  const monthlyAttendance: MonthlyAttendance[] = MONTHS_META.map((m, monthIdx) => {
-    const absent = (seedIndex + monthIdx) % 5 === 0 ? 1 : 0
-    const leave = (seedIndex + monthIdx * 2) % 4 === 0 ? 1 : 0
-    const present = Math.max(15, m.baseDays - absent - leave)
-    const workingDays = present + absent + leave
-    totalPresent += present
-    totalAbsent += absent
-    totalLeave += leave
-    return {
-      id: m.id,
-      month: m.month,
-      shortMonth: m.shortMonth,
-      year: m.year,
-      calendarDays: m.calendarDays,
-      officialHolidayDays: m.officialHolidayDays,
-      officialHolidayNote: m.officialHolidayNote,
-      workingDays,
-      present,
-      absent,
-      leave,
-    }
-  })
+  const monthlyAttendance: MonthlyAttendance[] = MONTHS_META.map((m) => ({
+    id: m.id,
+    month: m.month,
+    shortMonth: m.shortMonth,
+    year: m.year,
+    calendarDays: m.calendarDays,
+    officialHolidayDays: 0,
+    officialHolidayNote: m.officialHolidayNote,
+    workingDays: 0,
+    present: 0,
+    absent: 0,
+    leave: 0,
+  }))
 
   return {
     monthlyAttendance,
     attendance: {
-      present: totalPresent,
-      absent: totalAbsent,
-      leave: totalLeave,
+      present: 0,
+      absent: 0,
+      leave: 0,
     },
   }
 }
@@ -608,68 +595,7 @@ export function formatTargetClassesBadge(targetClasses?: string[]): string {
   return `${targetClasses.length} Batches (${shortNames.join(', ')})`
 }
 
-export const notices: Notice[] = [
-  {
-    id: 'nt-holiday-monthly',
-    date: '2026-10-30',
-    category: 'Hostel',
-    pinned: true,
-    title: 'Official Second-Saturday Monthly Holiday — Departure & Return Schedule',
-    body: 'Official monthly academy leave is scheduled around the Second Saturday. These official holidays are excluded from Academy Working Days and are NOT counted as student personal leaves.',
-    holidayMeta: {
-      isOfficialHoliday: true,
-      holidayType: 'monthly-second-saturday',
-      monthId: '2026-11',
-      departureDate: 'Friday, 13 Nov 2026 (2nd Sat Eve)',
-      departureTime: '12:45 PM (Afternoon — After Jumu’ah)',
-      returnDate: 'Monday, 16 Nov 2026',
-      returnTime: '07:00 AM (Morning — Before Class)',
-      holidayDaysDeducted: 3,
-      announcedBy: 'Principal & Academic Council',
-    },
-  },
-  {
-    id: 'nt-holiday-festival',
-    date: '2026-10-28',
-    category: 'Event',
-    pinned: true,
-    title: 'Festival & Special Celebration Vacation Policy (Excluded from Working Days)',
-    body: 'During Eid (Perunnal) and special academy celebrations (7 to 10 days official vacation), the academy working days for that month are automatically reduced. Only leaves taken personally by students on actual working days are counted in the Student Leave tally.',
-    holidayMeta: {
-      isOfficialHoliday: true,
-      holidayType: 'festival-celebration',
-      monthId: '2026-03',
-      departureDate: 'Thursday, 19 Mar 2026',
-      departureTime: '09:30 AM (Morning)',
-      returnDate: 'Sunday, 29 Mar 2026',
-      returnTime: '06:00 PM (Evening)',
-      holidayDaysDeducted: 10,
-      announcedBy: 'Principal • ICS Academy Manhappatta',
-    },
-  },
-  {
-    id: 'nt-1',
-    date: '2026-10-28',
-    category: 'Exam',
-    pinned: true,
-    title: 'Jamia Hind Odd Semester Examination Schedule Published',
-    body: 'Hall tickets and seating arrangements for all Da’wa batches (Batch 05 – Batch 14) are now available at the academic office.',
-  },
-  {
-    id: 'nt-2',
-    date: '2026-10-24',
-    category: 'Event',
-    title: 'Annual Arabic & Urdu Literary Symposium — Registration Open',
-    body: 'Submit individual and group entries through your respective Class Leaders before Friday, 5:00 PM.',
-  },
-  {
-    id: 'nt-4',
-    date: '2026-10-14',
-    category: 'Academic',
-    title: 'Research Methodology Seminar for Senior Batch',
-    body: 'Mandatory session on classical source citation and dissertation formatting in the Main Auditorium at 2:30 PM.',
-  },
-]
+export const notices: Notice[] = []
 
 export const ABSENT_REASONS: string[] = [
   'Sick / Rest in Hostel',
@@ -1447,8 +1373,42 @@ export function findUsthadByStaffId(identifier: string): ClassUsthad | undefined
   return undefined
 }
 
-export const ATTENDANCE_OVERRIDES_STORAGE_KEY = 'ics_attendance_overrides_v1'
-export const CUSTOM_NOTICES_STORAGE_KEY = 'ics_custom_notices_v1'
+export const OFFICIAL_LAUNCH_TIMESTAMP_MS = 1793980600000
+const OFFICIAL_LAUNCH_RESET_FLAG = 'ics_official_launch_clean_v1'
+
+export function ensureCleanLaunchStorage(): void {
+  if (typeof window === 'undefined') return
+  try {
+    if (window.localStorage.getItem(OFFICIAL_LAUNCH_RESET_FLAG) === 'true') return
+    const keysToRemove: string[] = []
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i)
+      if (!k) continue
+      if (
+        k.startsWith('ics_attendance_overrides') ||
+        k.startsWith('ics_custom_notices') ||
+        k.startsWith('ics_period_attendance') ||
+        k.startsWith('ics_campus_notifications') ||
+        k.startsWith('ics_campus_messenger') ||
+        k.startsWith('ics_leave_records') ||
+        k.startsWith('ics_leave_register') ||
+        k.startsWith('ics_read_notification_ids') ||
+        k.startsWith('ics_last_toasted_notif_id')
+      ) {
+        keysToRemove.push(k)
+      }
+    }
+    for (const k of keysToRemove) {
+      window.localStorage.removeItem(k)
+    }
+    window.localStorage.setItem(OFFICIAL_LAUNCH_RESET_FLAG, 'true')
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export const ATTENDANCE_OVERRIDES_STORAGE_KEY = 'ics_attendance_overrides_v2'
+export const CUSTOM_NOTICES_STORAGE_KEY = 'ics_custom_notices_v2'
 
 export type MonthlyAttendanceOverride = {
   present: number
@@ -1464,6 +1424,7 @@ export type AttendanceOverrideMap = Record<string, MonthlyAttendanceOverride>
 
 export function loadAttendanceOverrides(): AttendanceOverrideMap {
   if (typeof window === 'undefined') return {}
+  ensureCleanLaunchStorage()
   try {
     const raw = window.localStorage.getItem(ATTENDANCE_OVERRIDES_STORAGE_KEY)
     if (!raw) return {}
@@ -1476,6 +1437,7 @@ export function loadAttendanceOverrides(): AttendanceOverrideMap {
 
 export function saveAttendanceOverrides(map: AttendanceOverrideMap): void {
   if (typeof window === 'undefined') return
+  ensureCleanLaunchStorage()
   try {
     const prev = loadAttendanceOverrides()
     window.localStorage.setItem(ATTENDANCE_OVERRIDES_STORAGE_KEY, JSON.stringify(map))
@@ -1529,6 +1491,7 @@ export function saveAttendanceOverrides(map: AttendanceOverrideMap): void {
 
 export function loadCustomNotices(): Notice[] {
   if (typeof window === 'undefined') return []
+  ensureCleanLaunchStorage()
   try {
     const raw = window.localStorage.getItem(CUSTOM_NOTICES_STORAGE_KEY)
     if (!raw) return []
@@ -1541,6 +1504,7 @@ export function loadCustomNotices(): Notice[] {
 
 export function saveCustomNotices(customList: Notice[]): void {
   if (typeof window === 'undefined') return
+  ensureCleanLaunchStorage()
   try {
     const prev = loadCustomNotices()
     const prevIds = new Set(prev.map((n) => n.id))
@@ -1601,8 +1565,44 @@ export function getEffectiveStudentAttendance(
   let calendarDaysTotal = 0
 
   const activeCustomNotices = customNoticesList ?? loadCustomNotices()
+  const activePeriodSubmissions = loadPeriodAttendanceSubmissions()
 
-  // Calculate any extra official holiday deductions announced on Notice Board per month
+  // Aggregate daily attendance from Period Attendance submissions per month (for months without a manual monthly override)
+  const periodDaysByMonth: Record<string, { present: number; absent: number; leave: number }> = {}
+  const dateStatusesByMonth: Record<string, Record<string, PeriodAttendanceStatus[]>> = {}
+
+  for (const sub of Object.values(activePeriodSubmissions)) {
+    if (sub.className !== student.className) continue
+    if (sub.sessionStatus === 'not-held') continue
+    const stStatus = sub.records?.[student.id]
+    if (!stStatus) continue
+    const monthId = sub.date.slice(0, 7)
+    if (!dateStatusesByMonth[monthId]) {
+      dateStatusesByMonth[monthId] = {}
+    }
+    if (!dateStatusesByMonth[monthId][sub.date]) {
+      dateStatusesByMonth[monthId][sub.date] = []
+    }
+    dateStatusesByMonth[monthId][sub.date].push(stStatus)
+  }
+
+  for (const [mId, datesMap] of Object.entries(dateStatusesByMonth)) {
+    let pDays = 0
+    let aDays = 0
+    let lDays = 0
+    for (const statuses of Object.values(datesMap)) {
+      if (statuses.includes('leave')) {
+        lDays += 1
+      } else if (statuses.includes('absent')) {
+        aDays += 1
+      } else if (statuses.includes('present')) {
+        pDays += 1
+      }
+    }
+    periodDaysByMonth[mId] = { present: pDays, absent: aDays, leave: lDays }
+  }
+
+  // Calculate any official holiday deductions announced on Notice Board per month
   // ONLY if the notice applies to this student's class/batch!
   const extraHolidayByMonth: Record<string, { days: number; notes: string[] }> = {}
   for (const nt of activeCustomNotices) {
@@ -1628,26 +1628,33 @@ export function getEffectiveStudentAttendance(
   const monthlyAttendance = student.monthlyAttendance.map((m) => {
     const key = `${student.id}__${m.id}`
     const override = overrides[key]
+    const periodDerived = periodDaysByMonth[m.id]
     const extraHoliday = extraHolidayByMonth[m.id]
     const extraDeducted = extraHoliday ? extraHoliday.days : 0
 
-    let present = override ? Math.max(0, override.present) : m.present
-    const absent = override ? Math.max(0, override.absent) : m.absent
-    const leave = override ? Math.max(0, override.leave) : m.leave
-
-    // If a new Official Holiday notice was posted for this month and no manual override was set after,
-    // automatically reduce the working days (and present days accordingly so workingDays = present + absent + leave)
-    if (extraDeducted > 0 && !override) {
-      present = Math.max(5, present - extraDeducted)
-    }
+    const present = override
+      ? Math.max(0, override.present)
+      : periodDerived
+        ? periodDerived.present
+        : m.present
+    const absent = override
+      ? Math.max(0, override.absent)
+      : periodDerived
+        ? periodDerived.absent
+        : m.absent
+    const leave = override
+      ? Math.max(0, override.leave)
+      : periodDerived
+        ? periodDerived.leave
+        : m.leave
 
     const workingDays = present + absent + leave
     const officialHolidayDays = Math.min(
       m.calendarDays,
-      Math.max(0, m.calendarDays - workingDays),
+      Math.max(0, m.officialHolidayDays + extraDeducted),
     )
     const officialHolidayNote = extraHoliday
-      ? `${m.officialHolidayNote} • Notice: -${extraDeducted}d`
+      ? extraHoliday.notes.join(' • ')
       : m.officialHolidayNote
 
     presentTotal += present
@@ -1983,10 +1990,11 @@ export function findPrincipalByIdentifier(identifier: string): PrincipalProfile 
   return undefined
 }
 
-export const PERIOD_ATTENDANCE_STORAGE_KEY = 'ics_period_attendance_v1'
+export const PERIOD_ATTENDANCE_STORAGE_KEY = 'ics_period_attendance_v2'
 
 export function loadPeriodAttendanceSubmissions(): Record<string, PeriodAttendanceSubmission> {
   if (typeof window === 'undefined') return {}
+  ensureCleanLaunchStorage()
   try {
     const raw = window.localStorage.getItem(PERIOD_ATTENDANCE_STORAGE_KEY)
     if (!raw) return {}
@@ -2001,10 +2009,12 @@ export function savePeriodAttendanceSubmissions(
   map: Record<string, PeriodAttendanceSubmission>,
 ): void {
   if (typeof window === 'undefined') return
+  ensureCleanLaunchStorage()
   try {
     const prev = loadPeriodAttendanceSubmissions()
     window.localStorage.setItem(PERIOD_ATTENDANCE_STORAGE_KEY, JSON.stringify(map))
     window.dispatchEvent(new CustomEvent('ics-period-attendance-updated'))
+    window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
 
     let changedSub: PeriodAttendanceSubmission | null = null
     for (const k of Object.keys(map)) {
@@ -2157,7 +2167,7 @@ function isNotificationRelevantForCurrentBrowserSession(notif: CampusNotificatio
   }
 }
 
-export const CAMPUS_NOTIFICATIONS_STORAGE_KEY = 'ics_campus_notifications_v1'
+export const CAMPUS_NOTIFICATIONS_STORAGE_KEY = 'ics_campus_notifications_v2'
 
 const CLOUD_SYNC_ENDPOINTS = [
   '/api/campus',
@@ -2184,11 +2194,12 @@ function getOrderedSyncBases(): string[] {
 
 export function loadCampusNotifications(): CampusNotification[] {
   if (typeof window === 'undefined') return []
+  ensureCleanLaunchStorage()
   try {
     const raw = window.localStorage.getItem(CAMPUS_NOTIFICATIONS_STORAGE_KEY)
     if (!raw) return getInitialSeedNotifications()
     const parsed = JSON.parse(raw) as CampusNotification[]
-    return Array.isArray(parsed) && parsed.length > 0
+    return Array.isArray(parsed)
       ? parsed
       : getInitialSeedNotifications()
   } catch {
@@ -2197,32 +2208,7 @@ export function loadCampusNotifications(): CampusNotification[] {
 }
 
 function getInitialSeedNotifications(): CampusNotification[] {
-  return [
-    {
-      id: 'seed-nt-holiday-monthly',
-      type: 'notice',
-      title: 'Official Second-Saturday Monthly Holiday Schedule',
-      message:
-        'Official monthly academy leave is scheduled around the Second Saturday and is excluded from Academy Working Days.',
-      category: 'Hostel',
-      actorName: 'Principal & Academic Council',
-      href: '#notices',
-      createdAt: '2026-10-30T09:00:00.000Z',
-      createdAtMs: 1793350800000,
-    },
-    {
-      id: 'seed-nt-exam',
-      type: 'notice',
-      title: 'Jamia Hind Odd Semester Examination Schedule Published',
-      message:
-        'Hall tickets and seating arrangements for all Da’wa batches (Batch 05 – Batch 14) are now available at the academic office.',
-      category: 'Exam',
-      actorName: 'Academic Office',
-      href: '#notices',
-      createdAt: '2026-10-28T10:00:00.000Z',
-      createdAtMs: 1793181600000,
-    },
-  ]
+  return []
 }
 
 export function createAndStoreCampusNotification(input: {

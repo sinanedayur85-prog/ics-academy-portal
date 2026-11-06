@@ -24,8 +24,8 @@ import {
 import { triggerSystemNotification } from '@/lib/mobile-pdf'
 import { cn } from '@/lib/utils'
 
-const READ_NOTIF_IDS_STORAGE_KEY = 'ics_read_notification_ids_v1'
-const LAST_TOASTED_NOTIF_ID_KEY = 'ics_last_toasted_notif_id_v1'
+const READ_NOTIF_IDS_STORAGE_KEY = 'ics_read_notification_ids_v2'
+const LAST_TOASTED_NOTIF_ID_KEY = 'ics_last_toasted_notif_id_v2'
 
 function getScopeStorageSuffix(studentId?: string, classNameFilter?: string): string {
   const raw = studentId || classNameFilter || 'campus'

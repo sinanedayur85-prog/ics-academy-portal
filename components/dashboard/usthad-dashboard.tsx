@@ -58,6 +58,7 @@ import {
   CLASS_USTHADS,
   HIGH_SCHOOL_CLASS_NAMES,
   MONTHS_META,
+  ensureCleanLaunchStorage,
   formatTargetClassesBadge,
   getEffectiveStudentAttendance,
   getNoticeTargetClasses,
@@ -149,8 +150,9 @@ function formatNowParts(): { dateString: string; timeString: string } {
 function loadStudentLeaveEntriesFromStorage(studentId: string): SavedLeaveEntry[] {
   if (typeof window === 'undefined') return []
   try {
+    ensureCleanLaunchStorage()
     const safeId = sanitizeId(studentId)
-    const raw = window.localStorage.getItem(`ics_leave_records_${safeId}`)
+    const raw = window.localStorage.getItem(`ics_leave_records_v2_${safeId}`)
     if (!raw) return []
     const parsed = JSON.parse(raw) as SavedLeaveEntry[]
     return Array.isArray(parsed) ? parsed : []
@@ -162,8 +164,9 @@ function loadStudentLeaveEntriesFromStorage(studentId: string): SavedLeaveEntry[
 function saveStudentLeaveEntriesToStorage(studentId: string, entries: SavedLeaveEntry[]) {
   if (typeof window === 'undefined') return
   try {
+    ensureCleanLaunchStorage()
     const safeId = sanitizeId(studentId)
-    window.localStorage.setItem(`ics_leave_records_${safeId}`, JSON.stringify(entries))
+    window.localStorage.setItem(`ics_leave_records_v2_${safeId}`, JSON.stringify(entries))
   } catch {
     // Ignore storage quota errors
   }
@@ -231,10 +234,10 @@ export function UsthadDashboard() {
   const [selectedStudentId, setSelectedStudentId] = useState<string>(
     () => classStudents[0]?.id ?? students[0].id,
   )
-  const [selectedMonthId, setSelectedMonthId] = useState<string>('2026-10')
-  const [editPresent, setEditPresent] = useState<number>(22)
+  const [selectedMonthId, setSelectedMonthId] = useState<string>('2026-11')
+  const [editPresent, setEditPresent] = useState<number>(0)
   const [editAbsent, setEditAbsent] = useState<number>(0)
-  const [editLeave, setEditLeave] = useState<number>(1)
+  const [editLeave, setEditLeave] = useState<number>(0)
   const [editAbsentReason, setEditAbsentReason] = useState<string>(ABSENT_REASONS[0])
   const [editLeaveReason, setEditLeaveReason] = useState<string>(ATTENDANCE_LEAVE_REASONS[0])
   const [focusedReasonField, setFocusedReasonField] = useState<'absent' | 'leave' | null>(null)
@@ -2256,67 +2259,79 @@ export function UsthadDashboard() {
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Published Notices (Synced with Student Dashboard)
               </h3>
-              <ul className="flex max-h-96 flex-col divide-y divide-border overflow-y-auto rounded-xl border border-border bg-background/40 px-4">
-                {allNoticesCombined.map((item) => {
-                  const isCustom =
-                    item.id.startsWith('nt-usthad-') || item.id.startsWith('nt-principal-')
-                  const itemTargets = getNoticeTargetClasses(item)
-                  const itemTargetLabel = formatTargetClassesBadge(itemTargets)
-                  return (
-                    <li key={item.id} className="flex items-start justify-between gap-3 py-3.5">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className="font-semibold text-lime">{item.category}</span>
-                          <span aria-hidden="true">·</span>
-                          <span className="font-mono tabular-nums text-muted-foreground">{item.date}</span>
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
-                              itemTargets.length > 0
-                                ? 'border-cyan/40 bg-cyan/15 text-cyan'
-                                : 'border-border bg-muted/50 text-muted-foreground',
-                            )}
-                          >
-                            <Users className="size-2.5" aria-hidden="true" />
-                            {itemTargetLabel}
-                          </span>
-                          {item.pinned ? (
-                            <>
-                              <span aria-hidden="true">·</span>
-                              <span className="inline-flex items-center gap-1 font-medium text-cyan">
-                                <Pin className="size-3" aria-hidden="true" /> Pinned
-                              </span>
-                            </>
-                          ) : null}
+              {allNoticesCombined.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/80 bg-background/40 px-4 py-10 text-center">
+                  <Megaphone className="size-6 text-lime" aria-hidden="true" />
+                  <p className="mt-2 text-xs font-semibold text-foreground">
+                    No Announcements Published Yet
+                  </p>
+                  <p className="mt-1 max-w-sm text-[11px] text-muted-foreground">
+                    Publish an announcement or official holiday schedule on the left to display it on the Student Notice Board.
+                  </p>
+                </div>
+              ) : (
+                <ul className="flex max-h-96 flex-col divide-y divide-border overflow-y-auto rounded-xl border border-border bg-background/40 px-4">
+                  {allNoticesCombined.map((item) => {
+                    const isCustom =
+                      item.id.startsWith('nt-usthad-') || item.id.startsWith('nt-principal-')
+                    const itemTargets = getNoticeTargetClasses(item)
+                    const itemTargetLabel = formatTargetClassesBadge(itemTargets)
+                    return (
+                      <li key={item.id} className="flex items-start justify-between gap-3 py-3.5">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <span className="font-semibold text-lime">{item.category}</span>
+                            <span aria-hidden="true">·</span>
+                            <span className="font-mono tabular-nums text-muted-foreground">{item.date}</span>
+                            <span
+                              className={cn(
+                                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                                itemTargets.length > 0
+                                  ? 'border-cyan/40 bg-cyan/15 text-cyan'
+                                  : 'border-border bg-muted/50 text-muted-foreground',
+                              )}
+                            >
+                              <Users className="size-2.5" aria-hidden="true" />
+                              {itemTargetLabel}
+                            </span>
+                            {item.pinned ? (
+                              <>
+                                <span aria-hidden="true">·</span>
+                                <span className="inline-flex items-center gap-1 font-medium text-cyan">
+                                  <Pin className="size-3" aria-hidden="true" /> Pinned
+                                </span>
+                              </>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 text-sm font-semibold text-foreground">{item.title}</p>
+                          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{item.body}</p>
                         </div>
-                        <p className="mt-1 text-sm font-semibold text-foreground">{item.title}</p>
-                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{item.body}</p>
-                      </div>
 
-                      {isCustom ? (
-                        <div className="flex shrink-0 items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleNoticePin(item.id)}
-                            title={item.pinned ? 'Unpin notice' : 'Pin notice'}
-                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                          >
-                            <Pin className="size-3.5" aria-hidden="true" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteCustomNotice(item.id)}
-                            aria-label="Delete notice"
-                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
-                          >
-                            <Trash2 className="size-3.5" aria-hidden="true" />
-                          </button>
-                        </div>
-                      ) : null}
-                    </li>
-                  )
-                })}
-              </ul>
+                        {isCustom ? (
+                          <div className="flex shrink-0 items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleNoticePin(item.id)}
+                              title={item.pinned ? 'Unpin notice' : 'Pin notice'}
+                              className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            >
+                              <Pin className="size-3.5" aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCustomNotice(item.id)}
+                              aria-label="Delete notice"
+                              className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
+                            >
+                              <Trash2 className="size-3.5" aria-hidden="true" />
+                            </button>
+                          </div>
+                        ) : null}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
             </div>
           </div>
         </Panel>

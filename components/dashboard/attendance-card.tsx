@@ -45,7 +45,7 @@ export function AttendanceCard({ student }: { student: Student }) {
     [student, overrides, customNotices],
   )
   const months = effective.monthlyAttendance
-  const defaultMonth = months.find((m) => m.id === '2026-10') ?? months[0]
+  const defaultMonth = months.find((m) => m.id === '2026-11') ?? months[0]
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>(defaultMonth?.id ?? 'overall')
 
   const selectedMonth = months.find((m) => m.id === selectedPeriodId)

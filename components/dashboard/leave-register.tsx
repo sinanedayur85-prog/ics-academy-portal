@@ -28,6 +28,8 @@ import {
 import {
   ABSENT_REASONS,
   ATTENDANCE_LEAVE_REASONS,
+  OFFICIAL_LAUNCH_TIMESTAMP_MS,
+  ensureCleanLaunchStorage,
   getEffectiveStudentAttendance,
   leaveReasons,
   loadAttendanceOverrides,
@@ -224,16 +226,19 @@ export function LeaveRegister({
 
   const safeStudentId = sanitizeId(student.id)
   const activeUid = firebaseUser ? firebaseUser.uid : `portal_${safeStudentId}`
-  const storageKey = `ics_leave_records_${safeStudentId}`
+  const storageKey = `ics_leave_records_v2_${safeStudentId}`
 
   useEffect(() => {
     try {
+      ensureCleanLaunchStorage()
       const saved = window.localStorage.getItem(storageKey)
       if (saved) {
         const parsed = JSON.parse(saved) as SavedLeaveEntry[]
         if (Array.isArray(parsed)) {
           setLocalEntries(parsed)
         }
+      } else {
+        setLocalEntries([])
       }
     } catch {
       // Ignore storage read errors
@@ -268,25 +273,27 @@ export function LeaveRegister({
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const items: SavedLeaveEntry[] = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data()
-          const createdAt = data.createdAt as Timestamp | undefined
-          return {
-            id: docSnap.id,
-            uid: String(data.uid ?? activeUid),
-            studentId: String(data.studentId ?? safeStudentId),
-            studentName: String(data.studentName ?? student.name),
-            admissionNo: String(data.admissionNo ?? student.admissionNo),
-            recordType: data.recordType === 'return' ? 'return' : 'application',
-            dateString: String(data.dateString ?? ''),
-            timeString: String(data.timeString ?? ''),
-            reason: String(data.reason ?? ''),
-            details: String(data.details ?? ''),
-            status: data.status === 'recorded' ? 'recorded' : 'pending',
-            createdAtMs: createdAt?.toMillis ? createdAt.toMillis() : Date.now(),
-            syncedToCloud: true,
-          }
-        })
+        const items: SavedLeaveEntry[] = snapshot.docs
+          .map((docSnap): SavedLeaveEntry => {
+            const data = docSnap.data()
+            const createdAt = data.createdAt as Timestamp | undefined
+            return {
+              id: docSnap.id,
+              uid: String(data.uid ?? activeUid),
+              studentId: String(data.studentId ?? safeStudentId),
+              studentName: String(data.studentName ?? student.name),
+              admissionNo: String(data.admissionNo ?? student.admissionNo),
+              recordType: data.recordType === 'return' ? 'return' : 'application',
+              dateString: String(data.dateString ?? ''),
+              timeString: String(data.timeString ?? ''),
+              reason: String(data.reason ?? ''),
+              details: String(data.details ?? ''),
+              status: data.status === 'recorded' ? 'recorded' : 'pending',
+              createdAtMs: createdAt?.toMillis ? createdAt.toMillis() : Date.now(),
+              syncedToCloud: true,
+            }
+          })
+          .filter((entry) => entry.createdAtMs >= OFFICIAL_LAUNCH_TIMESTAMP_MS)
         items.sort((a, b) => b.createdAtMs - a.createdAtMs)
         setCloudEntries(items)
       },

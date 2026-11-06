@@ -41,7 +41,7 @@ import { Panel } from '@/components/dashboard/panel'
 import { ParentReportModal } from '@/components/dashboard/parent-report-modal'
 import { cn } from '@/lib/utils'
 
-const LEAVE_STORAGE_KEY = 'ics_leave_register_v1'
+const LEAVE_STORAGE_KEY = 'ics_leave_register_v2'
 
 type StoredLeaveRecord = {
   id: string

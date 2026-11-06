@@ -22,6 +22,7 @@ import {
   ATTENDANCE_LEAVE_REASONS,
   CLASS_USTHADS,
   CURRENT_SEMESTER,
+  ensureCleanLaunchStorage,
   getClassSemesterTimetable,
   getEffectiveStudentAttendance,
   loadAttendanceOverrides,
@@ -109,8 +110,9 @@ function getTodayDateString(): string {
 function loadStudentLeaveEntries(studentId: string): SavedLeaveEntry[] {
   if (typeof window === 'undefined') return []
   try {
+    ensureCleanLaunchStorage()
     const safeId = sanitizeId(studentId)
-    const raw = window.localStorage.getItem(`ics_leave_records_${safeId}`)
+    const raw = window.localStorage.getItem(`ics_leave_records_v2_${safeId}`)
     if (!raw) return []
     const parsed = JSON.parse(raw) as SavedLeaveEntry[]
     return Array.isArray(parsed)

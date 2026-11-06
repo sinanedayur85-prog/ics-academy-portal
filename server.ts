@@ -1152,6 +1152,8 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     actorName: string
     actorRole: 'student' | 'usthad' | 'principal'
     lastSeenMs: number
+    isOnline?: boolean
+    hideOnline?: boolean
   }
 
   interface ServerTypingEntry {
@@ -1180,7 +1182,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
   app.get('/api/campus/chat/state', (_req, res) => {
     res.setHeader('Content-Type', 'application/json')
     res.setHeader('Cache-Control', 'no-store')
-    // Clean up stale typing indicators older than 8 seconds
+    // Clean up stale typing indicators older than 8 seconds and mark stale presence (>15s) as offline
     const now = Date.now()
     for (const rId of Object.keys(campusChatState.typingMap)) {
       const roomTyping = campusChatState.typingMap[rId]
@@ -1189,6 +1191,12 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
         if (now - roomTyping[aId].updatedAtMs > 8000 || roomTyping[aId].mode === 'idle') {
           delete roomTyping[aId]
         }
+      }
+    }
+    for (const aId of Object.keys(campusChatState.presenceMap)) {
+      const p = campusChatState.presenceMap[aId]
+      if (p && p.isOnline && now - p.lastSeenMs > 15000) {
+        p.isOnline = false
       }
     }
     res.json(campusChatState)
@@ -1209,17 +1217,43 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
         onlyAdminsCanPost,
         pinnedMessageId,
         typingMode,
+        hideOnline,
       } = req.body ?? {}
 
       const now = Date.now()
 
+      if (action === 'leave_presence') {
+        if (actorId && typeof actorId === 'string') {
+          const existing = campusChatState.presenceMap[actorId]
+          campusChatState.presenceMap[actorId] = {
+            actorId,
+            actorName: String(actorName || existing?.actorName || 'Campus Member').slice(0, 120),
+            actorRole:
+              actorRole === 'principal' || actorRole === 'usthad' ? actorRole : 'student',
+            lastSeenMs: now,
+            isOnline: false,
+            hideOnline: Boolean(hideOnline ?? existing?.hideOnline),
+          }
+          for (const rId of Object.keys(campusChatState.typingMap)) {
+            if (campusChatState.typingMap[rId]?.[actorId]) {
+              delete campusChatState.typingMap[rId][actorId]
+            }
+          }
+        }
+        res.json({ ok: true, state: campusChatState })
+        return
+      }
+
       if (actorId && typeof actorId === 'string') {
+        const shouldHide = Boolean(hideOnline)
         campusChatState.presenceMap[actorId] = {
           actorId,
           actorName: String(actorName || 'Campus Member').slice(0, 120),
           actorRole:
             actorRole === 'principal' || actorRole === 'usthad' ? actorRole : 'student',
           lastSeenMs: now,
+          isOnline: !shouldHide,
+          hideOnline: shouldHide,
         }
       }
 

@@ -77,6 +77,7 @@ import {
   NOT_HELD_REASONS,
   OFFICIAL_CLASS_USTHADS,
   SHAIKHUNA_HAMZA_USTHAD,
+  ensureCleanLaunchStorage,
   formatTargetClassesBadge,
   getClassLeadersForClass,
   getClassSemesterTimetable,
@@ -162,7 +163,8 @@ function formatNowParts() {
 function loadStudentLeaveEntriesFromStorage(studentId: string): SavedLeaveEntry[] {
   if (typeof window === 'undefined') return []
   try {
-    const raw = window.localStorage.getItem(`ics_leave_records_${sanitizeId(studentId)}`)
+    ensureCleanLaunchStorage()
+    const raw = window.localStorage.getItem(`ics_leave_records_v2_${sanitizeId(studentId)}`)
     if (!raw) return []
     const parsed = JSON.parse(raw) as SavedLeaveEntry[]
     return Array.isArray(parsed) ? parsed : []
@@ -174,8 +176,9 @@ function loadStudentLeaveEntriesFromStorage(studentId: string): SavedLeaveEntry[
 function saveStudentLeaveEntriesToStorage(studentId: string, entries: SavedLeaveEntry[]) {
   if (typeof window === 'undefined') return
   try {
+    ensureCleanLaunchStorage()
     window.localStorage.setItem(
-      `ics_leave_records_${sanitizeId(studentId)}`,
+      `ics_leave_records_v2_${sanitizeId(studentId)}`,
       JSON.stringify(entries.slice(0, 50)),
     )
   } catch {
@@ -227,10 +230,10 @@ export function PrincipalDashboard() {
   const [directorySearch, setDirectorySearch] = useState<string>('')
 
   const [selectedStudentId, setSelectedStudentId] = useState<string>(() => students[0]?.id ?? 'std-1')
-  const [selectedMonthId, setSelectedMonthId] = useState<string>('2026-10')
-  const [editPresent, setEditPresent] = useState<number>(22)
+  const [selectedMonthId, setSelectedMonthId] = useState<string>('2026-11')
+  const [editPresent, setEditPresent] = useState<number>(0)
   const [editAbsent, setEditAbsent] = useState<number>(0)
-  const [editLeave, setEditLeave] = useState<number>(1)
+  const [editLeave, setEditLeave] = useState<number>(0)
   const [editAbsentReason, setEditAbsentReason] = useState<string>(ABSENT_REASONS[0])
   const [editLeaveReason, setEditLeaveReason] = useState<string>(ATTENDANCE_LEAVE_REASONS[0])
   const [attendanceSavedToast, setAttendanceSavedToast] = useState<string | null>(null)

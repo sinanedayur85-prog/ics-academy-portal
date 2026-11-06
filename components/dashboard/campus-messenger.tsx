@@ -22,12 +22,14 @@ import {
   Reply,
   Search,
   Send,
+  Settings,
   ShieldCheck,
   Smile,
   Sparkles,
   Trash2,
   Unlock,
   Users,
+  Volume2,
   X,
 } from 'lucide-react'
 import {
@@ -35,6 +37,7 @@ import {
   ACADEMY_PRINCIPAL,
   CLASS_USTHADS,
   OFFICIAL_CLASS_USTHADS,
+  ensureCleanLaunchStorage,
   publishCampusNotification,
   students,
   type ClassUsthad,
@@ -86,6 +89,17 @@ export interface ChatPresenceEntry {
   actorName: string
   actorRole: MessengerRole
   lastSeenMs: number
+  isOnline?: boolean
+  hideOnline?: boolean
+}
+
+export interface ChatUserSettings {
+  showOnlineStatus: boolean
+  sendReadReceipts: boolean
+  enterToSend: boolean
+  soundEffects: boolean
+  chatFontSize: 'small' | 'medium' | 'large'
+  chatWallpaper: 'default' | 'pitch_dark' | 'soft_mint' | 'warm_slate'
 }
 
 export interface ChatTypingEntry {
@@ -108,9 +122,85 @@ export interface ChatRoomDescriptor {
   isStaffOnly?: boolean
 }
 
-const LOCAL_CHAT_MESSAGES_KEY = 'ics_campus_messenger_messages_v1'
-const LOCAL_CHAT_META_KEY = 'ics_campus_messenger_meta_v1'
+const LOCAL_CHAT_MESSAGES_KEY = 'ics_campus_messenger_messages_v2'
+const LOCAL_CHAT_META_KEY = 'ics_campus_messenger_meta_v2'
+const LOCAL_CHAT_SETTINGS_KEY = 'ics_campus_chat_settings_v1'
 const QUICK_REACTIONS = ['👍', '❤️', '🤲', '📚', '✅', '🌟'] as const
+
+const DEFAULT_CHAT_SETTINGS: ChatUserSettings = {
+  showOnlineStatus: true,
+  sendReadReceipts: true,
+  enterToSend: true,
+  soundEffects: true,
+  chatFontSize: 'medium',
+  chatWallpaper: 'default',
+}
+
+function loadChatSettings(): ChatUserSettings {
+  if (typeof window === 'undefined') return DEFAULT_CHAT_SETTINGS
+  try {
+    const raw = window.localStorage.getItem(LOCAL_CHAT_SETTINGS_KEY)
+    if (!raw) return DEFAULT_CHAT_SETTINGS
+    const parsed = JSON.parse(raw) as Partial<ChatUserSettings>
+    return {
+      showOnlineStatus:
+        typeof parsed.showOnlineStatus === 'boolean'
+          ? parsed.showOnlineStatus
+          : DEFAULT_CHAT_SETTINGS.showOnlineStatus,
+      sendReadReceipts:
+        typeof parsed.sendReadReceipts === 'boolean'
+          ? parsed.sendReadReceipts
+          : DEFAULT_CHAT_SETTINGS.sendReadReceipts,
+      enterToSend:
+        typeof parsed.enterToSend === 'boolean'
+          ? parsed.enterToSend
+          : DEFAULT_CHAT_SETTINGS.enterToSend,
+      soundEffects:
+        typeof parsed.soundEffects === 'boolean'
+          ? parsed.soundEffects
+          : DEFAULT_CHAT_SETTINGS.soundEffects,
+      chatFontSize:
+        parsed.chatFontSize === 'small' ||
+        parsed.chatFontSize === 'medium' ||
+        parsed.chatFontSize === 'large'
+          ? parsed.chatFontSize
+          : DEFAULT_CHAT_SETTINGS.chatFontSize,
+      chatWallpaper:
+        parsed.chatWallpaper === 'default' ||
+        parsed.chatWallpaper === 'pitch_dark' ||
+        parsed.chatWallpaper === 'soft_mint' ||
+        parsed.chatWallpaper === 'warm_slate'
+          ? parsed.chatWallpaper
+          : DEFAULT_CHAT_SETTINGS.chatWallpaper,
+    }
+  } catch {
+    return DEFAULT_CHAT_SETTINGS
+  }
+}
+
+function playSubtleSendSound() {
+  if (typeof window === 'undefined') return
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AudioCtx) return
+    const ctx = new AudioCtx()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(520, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(740, ctx.currentTime + 0.06)
+    gain.gain.setValueAtTime(0.04, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.07)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.07)
+  } catch {
+    // Ignore audio context restrictions
+  }
+}
 
 const CHAT_SYNC_BASES = [
   '/api/campus/chat',
@@ -212,143 +302,17 @@ function formatVoiceDuration(sec: number): string {
 }
 
 function buildInitialSeedMessages(): Record<string, ChatMessage[]> {
-  const baseTime = 1793420000000
-  const map: Record<string, ChatMessage[]> = {}
-
-  // 1. Seed Staff Room Group (Exclusive for Principal & 9 Class Usthads)
-  map[STAFF_ROOM_ID] = [
-    {
-      id: 'seed_staff_1',
-      roomId: STAFF_ROOM_ID,
-      senderId: ACADEMY_PRINCIPAL.usthadId,
-      senderName: ACADEMY_PRINCIPAL.name,
-      senderRole: 'principal',
-      senderBadge: 'Principal • ADM-001',
-      text: 'السَّلَامُ عَلَيْكُمْ وَرَحْمَةُ اللَّهِ وَبَرَكَاتُهُ\nപ്രിയപ്പെട്ട ഉസ്താദുമാരേ, നമ്മുടെ എല്ലാ ബാച്ചുകളിലെയും കിതാബ് പഠന പുരോഗതിയും അറ്റൻഡൻസ് വിവരങ്ങളും കൃത്യമായി വിലയിരുത്തണമെന്ന് ഓർമ്മിപ്പിക്കുന്നു. ക്ലാസ് ഗ്രൂപ്പുകളിൽ പ്രധാനപ്പെട്ട PDF നോട്ടുകൾ പിൻ (Pin) ചെയ്തു വെക്കാവുന്നതാണ്.',
-      mediaType: 'none',
-      reactions: { '🤲': ['usthad-08', 'usthad-01'], '✅': ['usthad-09', 'usthad-10'] },
-      readBy: OFFICIAL_CLASS_USTHADS.map((u) => u.id),
-      createdAt: new Date(baseTime - 7200000).toISOString(),
-      createdAtMs: baseTime - 7200000,
-    },
-    {
-      id: 'seed_staff_2',
-      roomId: STAFF_ROOM_ID,
-      senderId: 'usthad-08',
-      senderName: 'Usthad Hafiz Fazlul Abid Naeemi',
-      senderRole: 'usthad',
-      senderBadge: 'Swadr & Class Usthad • UST-08',
-      text: 'وَعَلَيْكُمُ السَّلَامُ وَرَحْمَةُ اللَّهِ وَبَرَكَاتُهُ\nഇൻശാ അല്ലാഹ്, വലിയ ബാച്ചുകളിലെയും മറ്റ് ക്ലാസുകളിലെയും പരീക്ഷാ സിലബസ് PDF നോട്ടുകൾ ഇന്ന് തന്നെ ഗ്രൂപ്പുകളിൽ പങ്കുവെക്കുന്നതാണ്.',
-      mediaType: 'none',
-      replyTo: {
-        messageId: 'seed_staff_1',
-        senderName: ACADEMY_PRINCIPAL.name,
-        previewText: 'പ്രിയപ്പെട്ട ഉസ്താദുമാരേ, നമ്മുടെ എല്ലാ ബാച്ചുകളിലെയും കിതാബ് പഠന പുരോഗതിയും...',
-      },
-      reactions: { '👍': [ACADEMY_PRINCIPAL.usthadId, 'usthad-01'] },
-      readBy: OFFICIAL_CLASS_USTHADS.map((u) => u.id),
-      createdAt: new Date(baseTime - 5400000).toISOString(),
-      createdAtMs: baseTime - 5400000,
-    },
-  ]
-
-  // 2. Seed all 11 Class Batch Groups
-  for (const cls of ACADEMY_CLASSES) {
-    const rId = makeBatchRoomId(cls.className)
-    const assignedUsthad =
-      CLASS_USTHADS.find((u) => u.className === cls.className) ?? OFFICIAL_CLASS_USTHADS[0]
-    const batchStudents = students.filter((s) => s.className === cls.className)
-    const firstLeader = batchStudents[0]
-    const sampleKitab = CURATED_KITABS[0]
-
-    map[rId] = [
-      {
-        id: `seed_${cls.id}_1`,
-        roomId: rId,
-        senderId: assignedUsthad.id,
-        senderName: assignedUsthad.name,
-        senderRole:
-          assignedUsthad.id === ACADEMY_PRINCIPAL.usthadId ? 'principal' : 'usthad',
-        senderBadge: `${assignedUsthad.designation.split('•')[0].trim()} • ${assignedUsthad.staffId}`,
-        text: `السَّلَامُ عَلَيْكُمْ وَرَحْمَةُ اللَّهِ وَبَرَكَاتُهُ\nപ്രിയ വിദ്യാർത്ഥികളേ, ${cls.fullLabel} ഔദ്യോഗിക ക്ലാസ് ഗ്രൂപ്പിലേക്ക് സ്വാഗതം. ക്ലാസ് നോട്ടുകൾ, വോയിസ് വിശദീകരണങ്ങൾ, പഠന സംശയങ്ങൾ എന്നിവ ഇവിടെ പങ്കുവെക്കാം.`,
-        mediaType: 'none',
-        reactions: {
-          '🤲': batchStudents.slice(0, 4).map((s) => s.id),
-          '❤️': batchStudents.slice(0, 2).map((s) => s.id),
-        },
-        readBy: [assignedUsthad.id, ...batchStudents.slice(0, 6).map((s) => s.id)],
-        createdAt: new Date(baseTime - 10800000).toISOString(),
-        createdAtMs: baseTime - 10800000,
-      },
-      {
-        id: `seed_${cls.id}_2`,
-        roomId: rId,
-        senderId: assignedUsthad.id,
-        senderName: assignedUsthad.name,
-        senderRole:
-          assignedUsthad.id === ACADEMY_PRINCIPAL.usthadId ? 'principal' : 'usthad',
-        senderBadge: `${assignedUsthad.designation.split('•')[0].trim()} • ${assignedUsthad.staffId}`,
-        text: `ഇന്നത്തെ ഫിഖ്ഹ് / കിതാബ് പഠനത്തിന് ആവശ്യമായ റഫറൻസ് നോട്ട് (PDF) ചുവടെ ചേർക്കുന്നു. എല്ലാവരും ഡൗൺലോഡ് ചെയ്ത് വായിക്കുക.`,
-        mediaType: 'pdf',
-        mediaName: `${sampleKitab.title.replace(/\s+/g, '_')}_Study_Notes.pdf`,
-        mediaSizeLabel: '1.4 MB • PDF Note',
-        reactions: { '📚': batchStudents.slice(0, 3).map((s) => s.id) },
-        readBy: [assignedUsthad.id, ...batchStudents.slice(0, 5).map((s) => s.id)],
-        createdAt: new Date(baseTime - 7200000).toISOString(),
-        createdAtMs: baseTime - 7200000,
-      },
-      ...(firstLeader
-        ? [
-            {
-              id: `seed_${cls.id}_3`,
-              roomId: rId,
-              senderId: firstLeader.id,
-              senderName: firstLeader.name,
-              senderRole: 'student' as const,
-              senderBadge: `Student • ${firstLeader.admissionNo}`,
-              text: 'وَعَلَيْكُمُ السَّلَامُ وَرَحْمَةُ اللَّهِ وَبَرَكَاتُهُ\nജസാക്കല്ലാഹു ഖൈറൻ ഉസ്താദ്, നോട്ട് ലഭിച്ചു. ഇൻശാ അല്ലാഹ് ഇന്ന് തന്നെ മുത്വാലഅ ചെയ്ത് തയ്യാറാകുന്നതാണ്.',
-              mediaType: 'none' as const,
-              replyTo: {
-                messageId: `seed_${cls.id}_2`,
-                senderName: assignedUsthad.name,
-                previewText: 'ഇന്നത്തെ ഫിഖ്ഹ് / കിതാബ് പഠനത്തിന് ആവശ്യമായ റഫറൻസ് നോട്ട് (PDF)...',
-              },
-              reactions: { '👍': [assignedUsthad.id] },
-              readBy: [assignedUsthad.id, firstLeader.id],
-              createdAt: new Date(baseTime - 3600000).toISOString(),
-              createdAtMs: baseTime - 3600000,
-            },
-          ]
-        : []),
-    ]
-  }
-
-  return map
+  return {}
 }
 
 function buildInitialSeedMeta(): Record<string, ChatRoomMeta> {
-  const meta: Record<string, ChatRoomMeta> = {}
-  for (const cls of ACADEMY_CLASSES) {
-    const rId = makeBatchRoomId(cls.className)
-    meta[rId] = {
-      roomId: rId,
-      onlyAdminsCanPost: false,
-      pinnedMessageId: `seed_${cls.id}_2`,
-      updatedAtMs: 1793420000000,
-    }
-  }
-  meta[STAFF_ROOM_ID] = {
-    roomId: STAFF_ROOM_ID,
-    onlyAdminsCanPost: false,
-    pinnedMessageId: 'seed_staff_1',
-    updatedAtMs: 1793420000000,
-  }
-  return meta
+  return {}
 }
 
 function loadLocalMessages(): Record<string, ChatMessage[]> {
   const seeded = buildInitialSeedMessages()
   if (typeof window === 'undefined') return seeded
+  ensureCleanLaunchStorage()
   try {
     const raw = window.localStorage.getItem(LOCAL_CHAT_MESSAGES_KEY)
     if (!raw) return seeded
@@ -373,6 +337,7 @@ function loadLocalMessages(): Record<string, ChatMessage[]> {
 function loadLocalMeta(): Record<string, ChatRoomMeta> {
   const seeded = buildInitialSeedMeta()
   if (typeof window === 'undefined') return seeded
+  ensureCleanLaunchStorage()
   try {
     const raw = window.localStorage.getItem(LOCAL_CHAT_META_KEY)
     if (!raw) return seeded
@@ -443,6 +408,11 @@ export function CampusMessenger({
   )
   const [presenceMap, setPresenceMap] = useState<Record<string, ChatPresenceEntry>>({})
   const [typingMap, setTypingMap] = useState<Record<string, Record<string, ChatTypingEntry>>>({})
+
+  // User Chat Settings State
+  const [chatSettings, setChatSettings] = useState<ChatUserSettings>(() => loadChatSettings())
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [settingsToast, setSettingsToast] = useState<string | null>(null)
 
   // Filter tabs & search
   const [categoryFilter, setCategoryFilter] = useState<
@@ -631,6 +601,22 @@ export function CampusMessenger({
     }
   }, [roomsMeta])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(LOCAL_CHAT_SETTINGS_KEY, JSON.stringify(chatSettings))
+    } catch {
+      // Ignore quota errors
+    }
+  }, [chatSettings])
+
+  const updateChatSetting = <K extends keyof ChatUserSettings>(
+    key: K,
+    value: ChatUserSettings[K],
+  ) => {
+    setChatSettings((prev) => ({ ...prev, [key]: value }))
+  }
+
   // Real-Time Server Sync Helper
   const sendChatActionToServer = useCallback(
     async (payload: Record<string, unknown>) => {
@@ -644,6 +630,7 @@ export function CampusMessenger({
               actorId: actor.id,
               actorName: actor.name,
               actorRole: actor.role,
+              hideOnline: !chatSettings.showOnlineStatus,
               ...payload,
             }),
           })
@@ -667,7 +654,7 @@ export function CampusMessenger({
         }
       }
     },
-    [actor.id, actor.name, actor.role],
+    [actor.id, actor.name, actor.role, chatSettings.showOnlineStatus],
   )
 
   const pullChatStateFromServer = useCallback(async () => {
@@ -730,21 +717,55 @@ export function CampusMessenger({
     }
   }, [])
 
-  // Poll chat state & send presence heartbeat every 4 seconds
+  // Poll chat state & send presence heartbeat every 4 seconds ONLY while app is actively visible
   useEffect(() => {
     void pullChatStateFromServer()
-    void sendChatActionToServer({ action: 'heartbeat', roomId: selectedRoomId, typingMode: 'idle' })
-
-    const interval = window.setInterval(() => {
-      void pullChatStateFromServer()
+    if (typeof document === 'undefined' || document.visibilityState === 'visible') {
       void sendChatActionToServer({
         action: 'heartbeat',
         roomId: selectedRoomId,
-        typingMode: isRecordingVoice ? 'recording' : 'idle',
+        typingMode: 'idle',
       })
+    }
+
+    const interval = window.setInterval(() => {
+      void pullChatStateFromServer()
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        void sendChatActionToServer({
+          action: 'heartbeat',
+          roomId: selectedRoomId,
+          typingMode: isRecordingVoice ? 'recording' : 'idle',
+        })
+      }
     }, 4000)
 
-    return () => window.clearInterval(interval)
+    const handleVisibilityOrLeave = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        void sendChatActionToServer({ action: 'leave_presence' })
+      } else {
+        void sendChatActionToServer({
+          action: 'heartbeat',
+          roomId: selectedRoomId,
+          typingMode: 'idle',
+        })
+      }
+    }
+
+    const handlePageHide = () => {
+      void sendChatActionToServer({ action: 'leave_presence' })
+    }
+
+    window.addEventListener('visibilitychange', handleVisibilityOrLeave)
+    window.addEventListener('pagehide', handlePageHide)
+    window.addEventListener('beforeunload', handlePageHide)
+
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('visibilitychange', handleVisibilityOrLeave)
+      window.removeEventListener('pagehide', handlePageHide)
+      window.removeEventListener('beforeunload', handlePageHide)
+      void sendChatActionToServer({ action: 'leave_presence' })
+    }
   }, [pullChatStateFromServer, sendChatActionToServer, selectedRoomId, isRecordingVoice])
 
   // Active room descriptor & messages
@@ -778,8 +799,9 @@ export function CampusMessenger({
     )
   }, [activeRoomMeta.pinnedMessageId, activeMessages])
 
-  // Mark messages in active room as read by current actor
+  // Mark messages in active room as read by current actor (if Read Receipts are enabled)
   useEffect(() => {
+    if (!chatSettings.sendReadReceipts) return
     const rId = activeRoom.roomId
     const list = messagesByRoom[rId] ?? []
     const hasUnread = list.some((m) => !m.readBy.includes(actor.id))
@@ -795,7 +817,13 @@ export function CampusMessenger({
       }
     })
     void sendChatActionToServer({ action: 'mark_read', roomId: rId })
-  }, [activeRoom.roomId, actor.id, messagesByRoom, sendChatActionToServer])
+  }, [
+    activeRoom.roomId,
+    actor.id,
+    messagesByRoom,
+    sendChatActionToServer,
+    chatSettings.sendReadReceipts,
+  ])
 
   // Scroll to bottom when messages change in active room
   useEffect(() => {
@@ -835,16 +863,41 @@ export function CampusMessenger({
       })
   }, [allRooms, categoryFilter, searchQuery, actor.className, messagesByRoom])
 
-  // Helper to check if a peer is online (active in last 2 minutes or Usthad/Principal active during campus hours)
+  // Strictly check if a specific peer is actively using the app right now (within last 15 seconds)
   const isPeerOnline = useCallback(
-    (peerId?: string, peerRole?: MessengerRole): boolean => {
-      if (!peerId) return true
+    (peerId?: string): boolean => {
+      if (!peerId) return false
+      if (!chatSettings.showOnlineStatus) return false
       const entry = presenceMap[peerId]
-      if (entry && Date.now() - entry.lastSeenMs < 120000) return true
-      if (peerRole === 'principal' || peerRole === 'usthad') return true
-      return false
+      if (!entry) return false
+      if (entry.hideOnline || entry.isOnline === false) return false
+      return Date.now() - entry.lastSeenMs < 15000
     },
-    [presenceMap],
+    [presenceMap, chatSettings.showOnlineStatus],
+  )
+
+  // Format WhatsApp-style header status for the currently open chat room
+  const getOpenChatHeaderStatus = useCallback(
+    (room: ChatRoomDescriptor): { isOnlineNow: boolean; text: string } => {
+      if (room.type === 'batch_group' || room.type === 'staff_group') {
+        return { isOnlineNow: false, text: room.subtitle }
+      }
+      if (!room.peerId || !chatSettings.showOnlineStatus) {
+        return { isOnlineNow: false, text: room.subtitle }
+      }
+      if (isPeerOnline(room.peerId)) {
+        return { isOnlineNow: true, text: 'online' }
+      }
+      const entry = presenceMap[room.peerId]
+      if (entry && !entry.hideOnline && entry.lastSeenMs > 0) {
+        return {
+          isOnlineNow: false,
+          text: `last seen today at ${formatChatTime(entry.lastSeenMs)}`,
+        }
+      }
+      return { isOnlineNow: false, text: room.subtitle }
+    },
+    [chatSettings.showOnlineStatus, isPeerOnline, presenceMap],
   )
 
   // Active typing / recording users in a room (excluding current user)
@@ -907,7 +960,7 @@ export function CampusMessenger({
         mediaDurationSec: params.mediaDurationSec,
         replyTo: replyingTo ?? undefined,
         reactions: {},
-        readBy: [actor.id, ...(activeRoom.peerId ? [activeRoom.peerId] : [])],
+        readBy: [actor.id],
         isDeleted: false,
         createdAt: new Date(now).toISOString(),
         createdAtMs: now,
@@ -917,6 +970,10 @@ export function CampusMessenger({
         ...prev,
         [activeRoom.roomId]: [...(prev[activeRoom.roomId] ?? []), newMsg],
       }))
+
+      if (chatSettings.soundEffects) {
+        playSubtleSendSound()
+      }
 
       setInputText('')
       setReplyingTo(null)
@@ -947,7 +1004,14 @@ export function CampusMessenger({
         })
       }
     },
-    [activeRoom, activeRoomMeta.onlyAdminsCanPost, actor, replyingTo, sendChatActionToServer],
+    [
+      activeRoom,
+      activeRoomMeta.onlyAdminsCanPost,
+      actor,
+      replyingTo,
+      sendChatActionToServer,
+      chatSettings.soundEffects,
+    ],
   )
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -1354,15 +1418,26 @@ export function CampusMessenger({
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowNewChatModal(true)}
-              title="Start a new chat with an Usthad or Student"
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-emerald-500/35 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-500/25 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100 dark:hover:bg-[#222630] shrink-0"
-            >
-              <MessageSquarePlus className="size-3.5" aria-hidden="true" />
-              <span>New Chat</span>
-            </button>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setShowNewChatModal(true)}
+                title="Start a new chat with an Usthad or Student"
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-emerald-500/35 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-500/25 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100 dark:hover:bg-[#222630] shrink-0"
+              >
+                <MessageSquarePlus className="size-3.5" aria-hidden="true" />
+                <span>New Chat</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSettingsModal(true)}
+                title="Chat Settings (ചാറ്റ് സെറ്റിംഗ്സ്)"
+                aria-label="Open Chat Settings"
+                className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-200 dark:hover:bg-[#222630]"
+              >
+                <Settings className="size-4" aria-hidden="true" />
+              </button>
+            </div>
           </div>
 
           {/* Search & Category Filter Bar */}
@@ -1445,10 +1520,6 @@ export function CampusMessenger({
               ).length
               const roomMeta = roomsMeta[room.roomId]
               const roomTyping = getRoomTypingText(room.roomId)
-              const online =
-                room.type === 'batch_group' || room.type === 'staff_group'
-                  ? true
-                  : isPeerOnline(room.peerId, room.peerRole)
 
               return (
                 <button
@@ -1465,11 +1536,11 @@ export function CampusMessenger({
                       : 'hover:bg-muted/50',
                   )}
                 >
-                  {/* Avatar with Online Status */}
+                  {/* Avatar (Clean WhatsApp style — no green dot on avatar) */}
                   <div className="relative shrink-0">
                     <div
                       className={cn(
-                        'flex size-11 items-center justify-center rounded-2xl font-display text-xs font-bold shadow-xs border border-border dark:border-[#262a33]',
+                        'flex size-11 items-center justify-center rounded-2xl font-poppins text-xs font-bold shadow-xs border border-border dark:border-[#262a33]',
                         room.type === 'staff_group'
                           ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1a1d24] dark:text-amber-300'
                           : room.type === 'batch_group'
@@ -1487,12 +1558,6 @@ export function CampusMessenger({
                         room.avatarText
                       )}
                     </div>
-                    {online && (
-                      <span
-                        title="Online"
-                        className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-background bg-emerald-500"
-                      />
-                    )}
                   </div>
 
                   {/* Title, Last Message & Badges */}
@@ -1589,7 +1654,7 @@ export function CampusMessenger({
               <div className="relative shrink-0">
                 <div
                   className={cn(
-                    'flex size-10 items-center justify-center rounded-2xl font-display text-xs font-bold border border-border dark:border-[#262a33]',
+                    'flex size-10 items-center justify-center rounded-2xl font-poppins text-xs font-bold border border-border dark:border-[#262a33]',
                     activeRoom.type === 'staff_group'
                       ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1a1d24] dark:text-amber-300'
                       : activeRoom.type === 'batch_group'
@@ -1605,12 +1670,11 @@ export function CampusMessenger({
                     activeRoom.avatarText
                   )}
                 </div>
-                <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-background bg-emerald-500" />
               </div>
 
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <h3 className="truncate font-display text-sm font-bold text-foreground sm:text-base">
+                  <h3 className="truncate font-poppins text-sm font-bold text-foreground sm:text-base">
                     {activeRoom.title}
                   </h3>
                   <span className="hidden rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground sm:inline-block">
@@ -1622,18 +1686,24 @@ export function CampusMessenger({
                   <p className="truncate text-[11px] font-semibold text-emerald-600 dark:text-zinc-300">
                     {activeTypingBanner}
                   </p>
-                ) : (
-                  <p className="truncate text-[11px] text-muted-foreground">
-                    {activeRoom.subtitle} •{' '}
-                    <span className="font-medium text-emerald-600 dark:text-zinc-400">
-                      Online
-                    </span>
-                  </p>
-                )}
+                ) : (() => {
+                    const headerStatus = getOpenChatHeaderStatus(activeRoom)
+                    return (
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        {headerStatus.isOnlineNow ? (
+                          <span className="font-medium text-emerald-600 dark:text-zinc-300">
+                            online
+                          </span>
+                        ) : (
+                          headerStatus.text
+                        )}
+                      </p>
+                    )
+                  })()}
               </div>
             </div>
 
-            {/* Right Controls: Usthad / Principal Group Lock Toggle */}
+            {/* Right Controls: Usthad / Principal Group Lock Toggle + Chat Settings */}
             <div className="flex shrink-0 items-center gap-1.5">
               {actor.isStaff && activeRoom.type === 'batch_group' && (
                 <button
@@ -1664,6 +1734,16 @@ export function CampusMessenger({
                   )}
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={() => setShowSettingsModal(true)}
+                title="Chat Settings (ചാറ്റ് സെറ്റിംഗ്സ്)"
+                aria-label="Open Chat Settings"
+                className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-200 dark:hover:bg-[#222630]"
+              >
+                <Settings className="size-4" aria-hidden="true" />
+              </button>
             </div>
           </div>
 
@@ -1705,7 +1785,15 @@ export function CampusMessenger({
 
           {/* Scrollable Message Stream */}
           <div
-            className="flex-1 space-y-2.5 overflow-y-auto px-3 py-4 sm:px-5"
+            className={cn(
+              'flex-1 space-y-2.5 overflow-y-auto px-3 py-4 sm:px-5 transition-colors',
+              chatSettings.chatWallpaper === 'pitch_dark' &&
+                'bg-[#f1f5f9] dark:bg-[#07080a]',
+              chatSettings.chatWallpaper === 'soft_mint' &&
+                'bg-[#eef8f0] dark:bg-[#0c1110]',
+              chatSettings.chatWallpaper === 'warm_slate' &&
+                'bg-[#f5f3ef] dark:bg-[#101115]',
+            )}
             onClick={() => setActiveReactionMessageId(null)}
           >
             {/* End-to-End Campus Security Banner */}
@@ -1986,7 +2074,16 @@ export function CampusMessenger({
 
                         {/* Message Body Text (Never shown for voice notes) */}
                         {msg.mediaType !== 'voice' && msg.text && (
-                          <p className="whitespace-pre-wrap break-words pr-3 text-xs leading-relaxed sm:text-[13.5px]">
+                          <p
+                            className={cn(
+                              'whitespace-pre-wrap break-words pr-3 leading-relaxed',
+                              chatSettings.chatFontSize === 'small'
+                                ? 'text-[11.5px] sm:text-xs'
+                                : chatSettings.chatFontSize === 'large'
+                                  ? 'text-sm sm:text-[15px]'
+                                  : 'text-xs sm:text-[13.5px]',
+                            )}
+                          >
                             {msg.text}
                           </p>
                         )}
@@ -2444,6 +2541,264 @@ export function CampusMessenger({
                     ))}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WHATSAPP-STYLE CHAT SETTINGS MODAL (ചാറ്റ് സെറ്റിംഗ്സ്) */}
+      {showSettingsModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-xs"
+          onClick={() => setShowSettingsModal(false)}
+        >
+          <div
+            className="flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
+              <div className="flex items-center gap-2.5">
+                <span className="flex size-9 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
+                  <Settings className="size-4" aria-hidden="true" />
+                </span>
+                <div>
+                  <h3 className="font-poppins text-base font-bold text-foreground">
+                    Chat Settings (ചാറ്റ് സെറ്റിംഗ്സ്)
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Privacy, display, font size &amp; chat history controls
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSettingsModal(false)}
+                aria-label="Close Chat Settings"
+                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            {/* Settings Content */}
+            <div className="flex-1 space-y-5 overflow-y-auto p-5">
+              {/* 1. Privacy Settings */}
+              <div className="space-y-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  1. പ്രൈവസി ക്രമീകരണങ്ങൾ (Privacy &amp; Presence)
+                </p>
+
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-border bg-background/70 p-3.5 transition-colors hover:bg-muted/40 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-foreground">
+                      Show Online &amp; Last Seen Status (ഓൺലൈൻ സ്റ്റാറ്റസ്)
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      ആപ്പ് ഉപയോഗിക്കുമ്പോൾ മാത്രം ചാറ്റിന് മുകളിൽ &ldquo;online&rdquo; എന്ന് കാണിക്കുക
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={chatSettings.showOnlineStatus}
+                    onChange={(e) => updateChatSetting('showOnlineStatus', e.target.checked)}
+                    className="size-4 shrink-0 accent-emerald-600"
+                  />
+                </label>
+
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-border bg-background/70 p-3.5 transition-colors hover:bg-muted/40 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-foreground">
+                      Read Receipts / Blue Ticks (ബ്ലൂ ഡബിൾ ടിക്ക് ✓✓)
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      മെസ്സേജുകൾ വായിക്കുമ്പോൾ അയച്ചയാൾക്ക് നീല ഡബിൾ ടിക്ക് കാണിക്കുക
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={chatSettings.sendReadReceipts}
+                    onChange={(e) => updateChatSetting('sendReadReceipts', e.target.checked)}
+                    className="size-4 shrink-0 accent-emerald-600"
+                  />
+                </label>
+              </div>
+
+              {/* 2. Chat Appearance & Font Size */}
+              <div className="space-y-3">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  2. ചാറ്റ് ഡിസ്പ്ലേ &amp; അക്ഷരങ്ങൾ (Appearance &amp; Font)
+                </p>
+
+                <div className="rounded-2xl border border-border bg-background/70 p-3.5 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+                  <p className="text-xs font-bold text-foreground">
+                    Message Font Size (അക്ഷരങ്ങളുടെ വലിപ്പം)
+                  </p>
+                  <div className="mt-2.5 grid grid-cols-3 gap-2">
+                    {(
+                      [
+                        { id: 'small', label: 'Small (ചെറുത്)' },
+                        { id: 'medium', label: 'Medium (സാധാരണ)' },
+                        { id: 'large', label: 'Large (വലുത്)' },
+                      ] as const
+                    ).map((opt) => {
+                      const active = chatSettings.chatFontSize === opt.id
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => updateChatSetting('chatFontSize', opt.id)}
+                          className={cn(
+                            'rounded-xl border px-2.5 py-2 text-xs font-semibold transition-colors',
+                            active
+                              ? 'border-emerald-600 bg-emerald-600 text-white dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100'
+                              : 'border-border bg-card text-muted-foreground hover:text-foreground dark:border-[#262a33] dark:bg-[#14171d]',
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border bg-background/70 p-3.5 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+                  <p className="text-xs font-bold text-foreground">
+                    Chat Background Theme (ചാറ്റ് വാൾപേപ്പർ)
+                  </p>
+                  <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {(
+                      [
+                        { id: 'default', label: 'Default Clean' },
+                        { id: 'pitch_dark', label: 'Pitch Dark / Slate' },
+                        { id: 'soft_mint', label: 'Soft Mint' },
+                        { id: 'warm_slate', label: 'Warm Paper' },
+                      ] as const
+                    ).map((opt) => {
+                      const active = chatSettings.chatWallpaper === opt.id
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => updateChatSetting('chatWallpaper', opt.id)}
+                          className={cn(
+                            'rounded-xl border px-2.5 py-2 text-[11px] font-semibold transition-colors',
+                            active
+                              ? 'border-emerald-600 bg-emerald-600 text-white dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100'
+                              : 'border-border bg-card text-muted-foreground hover:text-foreground dark:border-[#262a33] dark:bg-[#14171d]',
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Keyboard & Sound Settings */}
+              <div className="space-y-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  3. കീബോർഡ് &amp; ശബ്ദം (Keyboard &amp; Sound)
+                </p>
+
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-border bg-background/70 p-3.5 transition-colors hover:bg-muted/40 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-foreground">
+                      Enter Key Sends Message (Enter അമർത്തുമ്പോൾ അയക്കുക)
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      കീബോർഡിൽ Enter അമർത്തുമ്പോൾ മെസ്സേജ് ഉടൻ അയക്കുന്നു
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={chatSettings.enterToSend}
+                    onChange={(e) => updateChatSetting('enterToSend', e.target.checked)}
+                    className="size-4 shrink-0 accent-emerald-600"
+                  />
+                </label>
+
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-border bg-background/70 p-3.5 transition-colors hover:bg-muted/40 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <Volume2 className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-foreground">
+                        Message Sound Effects (ചാറ്റ് ശബ്ദം)
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        മെസ്സേജ് അയക്കുമ്പോൾ ചെറിയ നോട്ടിഫിക്കേഷൻ ശബ്ദം
+                      </p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={chatSettings.soundEffects}
+                    onChange={(e) => updateChatSetting('soundEffects', e.target.checked)}
+                    className="size-4 shrink-0 accent-emerald-600"
+                  />
+                </label>
+              </div>
+
+              {/* 4. Chat Storage & Clear Controls */}
+              <div className="space-y-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  4. ചാറ്റ് ഡാറ്റ ക്രമീകരണം (Chat History Management)
+                </p>
+
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMessagesByRoom((prev) => ({
+                        ...prev,
+                        [activeRoom.roomId]: [],
+                      }))
+                      setSettingsToast(`Cleared messages in "${activeRoom.title}".`)
+                      window.setTimeout(() => setSettingsToast(null), 3500)
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3.5 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                  >
+                    <Trash2 className="size-3.5 text-amber-500" aria-hidden="true" />
+                    <span>Clear Current Chat (ഈ ചാറ്റ് ക്ലിയർ ചെയ്യുക)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMessagesByRoom({})
+                      try {
+                        window.localStorage.removeItem(LOCAL_CHAT_MESSAGES_KEY)
+                      } catch {
+                        // Ignore
+                      }
+                      setSettingsToast('All local chat history has been cleared.')
+                      window.setTimeout(() => setSettingsToast(null), 3500)
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-semibold text-red-500 transition-colors hover:bg-red-500/20"
+                  >
+                    <Trash2 className="size-3.5" aria-hidden="true" />
+                    <span>Clear All Chats (എല്ലാ ചാറ്റുകളും ക്ലിയർ ചെയ്യുക)</span>
+                  </button>
+                </div>
+
+                {settingsToast && (
+                  <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-700 dark:border-[#343946] dark:bg-[#1a1d24] dark:text-zinc-200">
+                    {settingsToast}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end border-t border-border bg-background/60 px-5 py-3 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+              <button
+                type="button"
+                onClick={() => setShowSettingsModal(false)}
+                className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-700 dark:border dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100 dark:hover:bg-[#2a2f3b]"
+              >
+                Done (സേവ് ചെയ്യുക)
+              </button>
             </div>
           </div>
         </div>
