@@ -415,7 +415,7 @@ export function AppUpdateBanner() {
         aria-label="Install ICS Academy on iPhone"
         className="fixed inset-x-3 bottom-4 z-[95] mx-auto max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300"
       >
-        <div className="flex items-start justify-between gap-3 rounded-2xl border border-lime/50 bg-[#081E21]/95 p-3.5 text-white shadow-2xl backdrop-blur-md">
+        <div className="flex items-start justify-between gap-3 rounded-2xl border border-lime/50 bg-[#121418]/95 p-3.5 text-white shadow-2xl backdrop-blur-md">
           <div className="flex min-w-0 items-start gap-3">
             <img
               src="/icons/apple-touch-icon.png"
@@ -461,7 +461,7 @@ export function AppUpdateBanner() {
       aria-label="App Update Available"
       className="fixed inset-x-3 bottom-4 z-[95] mx-auto max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300 sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-full"
     >
-      <div className="flex flex-col gap-2.5 rounded-2xl border border-lime/50 bg-[#081E21]/95 p-3.5 text-white shadow-2xl backdrop-blur-md">
+      <div className="flex flex-col gap-2.5 rounded-2xl border border-lime/50 bg-[#121418]/95 p-3.5 text-white shadow-2xl backdrop-blur-md">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-lime/20 text-lime">

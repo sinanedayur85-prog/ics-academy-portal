@@ -209,7 +209,7 @@ export function CampusNotificationBar({
       aria-live="polite"
       className="fixed inset-x-3 top-[calc(max(var(--safe-top,0px),28px)+0.65rem)] z-[98] mx-auto max-w-lg animate-in fade-in slide-in-from-top-4 duration-300"
     >
-      <div className="flex items-start gap-3 rounded-2xl border border-lime/45 bg-[#081E21]/95 p-3.5 text-white shadow-2xl backdrop-blur-md">
+      <div className="flex items-start gap-3 rounded-2xl border border-lime/45 bg-[#121418]/95 p-3.5 text-white shadow-2xl backdrop-blur-md">
         <div
           className={cn(
             'mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl',

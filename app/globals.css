@@ -67,23 +67,23 @@
 
 .dark {
   color-scheme: dark;
-  --background: #081e21;
-  --foreground: #e8f1ef;
-  --card: #0c282c;
-  --card-foreground: #e8f1ef;
-  --popover: #0c282c;
-  --popover-foreground: #e8f1ef;
+  --background: #0a0b0e;
+  --foreground: #f3f4f6;
+  --card: #121418;
+  --card-foreground: #f3f4f6;
+  --popover: #121418;
+  --popover-foreground: #f3f4f6;
   --primary: #8cc63f;
-  --primary-foreground: #081e21;
+  --primary-foreground: #0a0b0e;
   --secondary: #00aeef;
-  --secondary-foreground: #081e21;
-  --muted: #11333a;
-  --muted-foreground: #93aeab;
-  --accent: #11333a;
-  --accent-foreground: #e8f1ef;
+  --secondary-foreground: #0a0b0e;
+  --muted: #1a1d24;
+  --muted-foreground: #9ca3af;
+  --accent: #1a1d24;
+  --accent-foreground: #f3f4f6;
   --destructive: #f06a5f;
-  --border: rgb(232 241 239 / 0.1);
-  --input: rgb(232 241 239 / 0.14);
+  --border: #262a33;
+  --input: #262a33;
   --ring: #00aeef;
   --lime: #8cc63f;
   --cyan: #00aeef;

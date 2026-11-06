@@ -10,7 +10,7 @@ function syncSystemStatusBar(dark: boolean) {
   if (typeof document !== 'undefined') {
     const metaTheme = document.querySelector('meta[name="theme-color"]')
     if (metaTheme) {
-      metaTheme.setAttribute('content', dark ? '#081E21' : '#FFFFFF')
+      metaTheme.setAttribute('content', dark ? '#0A0B0E' : '#FFFFFF')
     }
   }
   if (typeof window !== 'undefined' && window.ICSNativeBridge?.setStatusBarTheme) {

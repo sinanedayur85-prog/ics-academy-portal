@@ -71,7 +71,7 @@ export function Hero() {
       {/* Full-bleed Background Image Slider with Ken Burns Zoom & Crossfade */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-0 bg-white transition-colors duration-300 dark:bg-[#081e21]"
+        className="pointer-events-none absolute inset-0 z-0 bg-white transition-colors duration-300 dark:bg-[#0a0b0e]"
       >
         {HERO_SLIDES.map((slide, index) => {
           const isActive = index === activeIndex
@@ -98,11 +98,11 @@ export function Hero() {
           )
         })}
 
-        {/* Dynamic Theme Overlay: Lighter white/55 in Light mode so the campus image is vibrantly visible, rich dark green in Dark mode */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/55 via-white/50 to-white/60 transition-colors duration-300 dark:from-[#081e21]/85 dark:via-emerald-950/75 dark:to-[#081e21]/85" />
+        {/* Dynamic Theme Overlay: Lighter white/55 in Light mode so the campus image is vibrantly visible, rich black-grey in Dark mode */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/55 via-white/50 to-white/60 transition-colors duration-300 dark:from-[#0a0b0e]/85 dark:via-[#121418]/80 dark:to-[#0a0b0e]/90" />
 
-        {/* Seamless Bottom Blending Gradient fading from white (Light mode) or #081e21 (Dark mode) to transparent */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white via-white/65 to-white/0 transition-colors duration-300 md:h-40 dark:from-[#081e21] dark:via-[#081e21]/75 dark:to-[#081e21]/0" />
+        {/* Seamless Bottom Blending Gradient fading from white (Light mode) or #0a0b0e (Dark mode) to transparent */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white via-white/65 to-white/0 transition-colors duration-300 md:h-40 dark:from-[#0a0b0e] dark:via-[#0a0b0e]/75 dark:to-[#0a0b0e]/0" />
       </div>
 
       {/* Centered Hero Content with Pure Black (Light Mode) and White (Dark Mode) Typography */}
@@ -115,7 +115,7 @@ export function Hero() {
             style={{ animationDelay: isInView ? '150ms' : '0ms' }}
             className={cn(
               revealClass,
-              'inline-flex items-center gap-2 rounded-full border border-emerald-800/35 bg-white/75 px-4 py-1.5 text-xs font-semibold tracking-wider text-emerald-900 uppercase backdrop-blur-xs transition-colors duration-300 dark:border-lime/40 dark:bg-[#081e21]/50 dark:text-lime',
+              'inline-flex items-center gap-2 rounded-full border border-emerald-800/35 bg-white/75 px-4 py-1.5 text-xs font-semibold tracking-wider text-emerald-900 uppercase backdrop-blur-xs transition-colors duration-300 dark:border-lime/40 dark:bg-[#121418]/70 dark:text-lime',
             )}
           >
             <span className="size-1.5 rounded-full bg-emerald-800 dark:bg-lime" aria-hidden="true" />
@@ -159,7 +159,7 @@ export function Hero() {
             </Button>
             <a
               href="#contact"
-              className="rounded-full border border-black/25 bg-white/75 px-6 py-3 text-sm font-semibold tracking-wide text-black backdrop-blur-xs transition-colors duration-300 hover:border-cyan hover:bg-white hover:underline dark:border-white/25 dark:bg-[#081e21]/40 dark:text-cyan dark:hover:bg-[#081e21]/65"
+              className="rounded-full border border-black/25 bg-white/75 px-6 py-3 text-sm font-semibold tracking-wide text-black backdrop-blur-xs transition-colors duration-300 hover:border-cyan hover:bg-white hover:underline dark:border-white/25 dark:bg-[#121418]/65 dark:text-cyan dark:hover:bg-[#1a1d24]/85"
             >
               Talk to the office
             </a>
@@ -174,7 +174,7 @@ export function Hero() {
             )}
           >
           <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-center sm:gap-3.5 sm:text-left">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-black/15 bg-white/75 text-cyan backdrop-blur-xs transition-colors duration-300 dark:border-white/15 dark:bg-[#081e21]/45">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-black/15 bg-white/75 text-cyan backdrop-blur-xs transition-colors duration-300 dark:border-white/15 dark:bg-[#121418]/65">
               <Users className="size-5 text-cyan" aria-hidden="true" />
             </span>
             <div>
@@ -188,7 +188,7 @@ export function Hero() {
           </div>
 
           <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-center sm:gap-3.5 sm:text-left">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-black/15 bg-white/75 text-emerald-800 backdrop-blur-xs transition-colors duration-300 dark:border-white/15 dark:bg-[#081e21]/45 dark:text-lime">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-black/15 bg-white/75 text-emerald-800 backdrop-blur-xs transition-colors duration-300 dark:border-white/15 dark:bg-[#121418]/65 dark:text-lime">
               <BookOpen className="size-5 text-emerald-800 dark:text-lime" aria-hidden="true" />
             </span>
             <div>
