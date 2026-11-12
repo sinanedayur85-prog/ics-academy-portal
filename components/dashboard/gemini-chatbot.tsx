@@ -2953,11 +2953,11 @@ export function GeminiChatbot({
               mobileFullScreen && 'hidden lg:flex',
             )}
           >
-            <div className="flex min-w-[220px] flex-1 items-center gap-2.5">
+            <div className="flex min-w-0 max-w-full items-center gap-2.5">
               <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-lime/15 text-lime">
                 <currentPersona.icon className="size-4" aria-hidden="true" />
               </div>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0">
                 <h3 className="text-xs font-semibold text-foreground sm:text-sm">
                   {currentPersona.title}{' '}
                   <span className="font-normal text-muted-foreground">
@@ -3290,7 +3290,7 @@ export function GeminiChatbot({
                     }
                     className="shrink-0 rounded-full border border-lime/40 bg-lime/15 px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:bg-lime hover:text-primary-foreground"
                   >
-                    Translate Page (മലയാളം / EN)
+                    Translate Page
                   </button>
                   <button
                     type="button"

@@ -1109,13 +1109,13 @@ export type SupremeScholarProfile = {
 export const SHAIKHUNA_HAMZA_USTHAD: SupremeScholarProfile = {
   id: 'shaikhuna-hamza-usthad',
   name: 'Shaikhuna Manhappatta Hamza Usthad',
-  malayalamName: 'ശൈഖുനാ മഞ്ഞപ്പറ്റ ഹംസ ഉസ്താദ്',
+  malayalamName: 'Shaikhuna Manhappatta Hamza Usthad',
   honorificTitle: 'SHAIKHUNA HAMZA USTHAD',
-  designation: 'Supreme Scholar & Chief Mudarris (ശൈഖുനാ)',
+  designation: 'Supreme Scholar & Chief Mudarris',
   valiyaBatches: ['BS 5 • Batch 05', 'BS 4 • Batch 06'],
-  specialization: 'Sahih al-Bukhari, Tuhfat al-Muhtaj & Senior Valiya Dars (വലിയ രണ്ട് ബാച്ചുകൾ)',
+  specialization: 'Sahih al-Bukhari, Tuhfat al-Muhtaj & Senior Valiya Dars',
   description:
-    'എല്ലാ ഉസ്താദുമാർക്കും മുകളിലുള്ള പ്രധാന ഉസ്താദ്. വലിയ രണ്ട് ബാച്ചുകളിൽ (BS 5, BS 4) ക്ലാസുകൾ എടുക്കുന്നു (ക്ലാസ് ഉസ്താദ് റോൾ / ലോഗിൻ ഐഡി ആവശ്യമില്ല).',
+    'Supreme Scholar and Chief Mudarris above all Usthads. Teaches senior classes in the two Valiya batches (BS 5 & BS 4).',
   isClassUsthad: false,
   hasLoginId: false,
 }
@@ -1141,7 +1141,7 @@ export const ACADEMY_MANAGER: InstitutionManagerProfile = {
   name: 'Usthad Muhammed Naeem Saqafi',
   designation: 'Manager • ICS Academy & Da’wa College Manhappatta',
   roleSummary:
-    'സ്ഥാപനം നടത്തിക്കൊണ്ടുപോകുന്ന മാനേജർ (ക്ലാസുകളോ ക്ലാസ് ഉസ്താദ് ചുമതലയോ ലോഗിൻ ഐഡിയോ ആവശ്യമില്ല).',
+    'Institution Manager overseeing administration and operations at ICS Academy & Da’wa College Manhappatta.',
   isClassUsthad: false,
   takesClasses: false,
   hasLoginId: false,

@@ -1252,9 +1252,9 @@ export function UsthadDashboard() {
           }
         >
           {selectedStudent && selectedStudentEffective && selectedMonthRecord ? (
-            <div className="grid gap-6 lg:grid-cols-12">
+            <div className="grid gap-6 xl:grid-cols-12">
               {/* Left Column: Selected Student Monthly Gauge + Editor Form */}
-              <div className="flex flex-col gap-5 lg:col-span-7">
+              <div className="flex flex-col gap-5 xl:col-span-7">
                 <div className="flex flex-col items-center gap-5 rounded-xl border border-border bg-background/50 p-4 sm:flex-row">
                   <div className="relative size-28 shrink-0">
                     <svg viewBox="0 0 120 120" className="size-full -rotate-90" aria-hidden="true">
@@ -1574,9 +1574,9 @@ export function UsthadDashboard() {
               </div>
 
               {/* Right Column: All 12 Months Breakdown for Selected Student */}
-              <div className="flex flex-col lg:col-span-5">
+              <div className="flex flex-col xl:col-span-5">
                 <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {selectedStudent.firstName}&apos;s Monthly Breakdown (Jan – Dec)
+                  {selectedStudent.firstName}&apos;s Monthly Breakdown (June – May)
                 </p>
                 <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto pr-1">
                   {selectedStudentEffective.monthlyAttendance.map((m) => {
@@ -1641,9 +1641,9 @@ export function UsthadDashboard() {
             </span>
           }
         >
-          <div className="grid gap-6 lg:grid-cols-12">
+          <div className="grid gap-6 xl:grid-cols-12">
             {/* Live List of Students Currently On Leave + Recent Class Logs */}
-            <div className="flex flex-col gap-5 lg:col-span-7">
+            <div className="flex flex-col gap-5 xl:col-span-7">
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Students Currently On Leave ({studentsCurrentlyOnLeave.length})
@@ -1759,7 +1759,7 @@ export function UsthadDashboard() {
             {/* Record Leave or Return Form for a Class Student */}
             <form
               onSubmit={handleSubmitLeaveForm}
-              className="flex flex-col gap-4 rounded-xl border border-border bg-background/60 p-4 lg:col-span-5"
+              className="flex flex-col gap-4 rounded-xl border border-border bg-background/60 p-4 xl:col-span-5"
             >
               <h3 className="text-sm font-semibold text-foreground">
                 Record Student Leave / Return
@@ -1890,11 +1890,11 @@ export function UsthadDashboard() {
             </span>
           }
         >
-          <div className="grid gap-6 lg:grid-cols-12">
+          <div className="grid gap-6 xl:grid-cols-12">
             {/* Publish New Notice Form */}
             <form
               onSubmit={handlePublishNotice}
-              className="flex flex-col gap-4 rounded-xl border border-border bg-background/60 p-4 lg:col-span-5"
+              className="flex flex-col gap-4 rounded-xl border border-border bg-background/60 p-4 xl:col-span-5"
             >
               <h3 className="text-sm font-semibold text-foreground">
                 Publish New Notice
@@ -1965,7 +1965,7 @@ export function UsthadDashboard() {
               <div className="flex flex-col gap-2.5 rounded-xl border border-cyan/30 bg-cyan/[0.05] p-3">
                 <div className="flex flex-col gap-0.5">
                   <Label className="text-xs font-bold text-foreground">
-                    Target Batches / Classes (ആർക്കാണ് ഈ അറിയിപ്പ് / ലീവ്?)
+                    Target Batches / Classes
                   </Label>
                   <p className="text-[11px] text-muted-foreground">
                     Select whether this notice or holiday applies to all 11 batches or only selected batches.
@@ -1977,7 +1977,7 @@ export function UsthadDashboard() {
                     [
                       {
                         id: 'all',
-                        label: 'All 11 Batches (എല്ലാ ബാച്ചുകൾക്കും)',
+                        label: 'All 11 Batches',
                       },
                       {
                         id: 'my-class',
@@ -1993,7 +1993,7 @@ export function UsthadDashboard() {
                       },
                       {
                         id: 'custom',
-                        label: 'Select Specific Batches (തിരഞ്ഞെടുത്ത ബാച്ചുകൾ)',
+                        label: 'Select Specific Batches',
                       },
                     ] as const
                   ).map((opt) => {
@@ -2255,7 +2255,7 @@ export function UsthadDashboard() {
             </form>
 
             {/* Existing Notices List */}
-            <div className="flex flex-col gap-2.5 lg:col-span-7">
+            <div className="flex flex-col gap-2.5 xl:col-span-7">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Published Notices (Synced with Student Dashboard)
               </h3>

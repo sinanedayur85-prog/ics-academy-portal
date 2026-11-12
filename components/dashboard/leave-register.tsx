@@ -763,8 +763,8 @@ export function LeaveRegister({
         </div>
 
         {/* Search Input + Month / Year / Day / Time / Category Filters */}
-        <div className="grid gap-2.5 rounded-2xl border border-border bg-background/50 p-3.5 sm:grid-cols-2 lg:grid-cols-6">
-          <div className="relative sm:col-span-2">
+        <div className="grid gap-2.5 rounded-2xl border border-border bg-background/50 p-3.5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+          <div className="relative sm:col-span-2 md:col-span-3 xl:col-span-2">
             <Search
               className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"

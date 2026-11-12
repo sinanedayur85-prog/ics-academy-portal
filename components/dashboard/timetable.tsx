@@ -53,7 +53,7 @@ export function Timetable({ student }: { student: Student }) {
         </span>
       }
     >
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
         {classSchedule.periods.map((period, periodIndex) => {
           const slot = slots[periodIndex]
           if (!slot) return null

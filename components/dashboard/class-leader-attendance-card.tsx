@@ -555,7 +555,7 @@ export function ClassLeaderAttendanceCard({
           <div
             role="tablist"
             aria-label="Class periods"
-            className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5"
+            className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-5"
           >
             {periods.map((period) => {
               const periodKey = `${selectedDate}__${leader.className}__${period.index}`
@@ -822,7 +822,7 @@ export function ClassLeaderAttendanceCard({
         </div>
 
         {/* Active Period Banner + Live Counters */}
-        <div className="grid gap-4 rounded-2xl border border-border bg-background/60 p-4 lg:grid-cols-[1.2fr_1fr] lg:items-center">
+        <div className="grid gap-4 rounded-2xl border border-border bg-background/60 p-4 xl:grid-cols-[1.2fr_1fr] xl:items-center">
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span className="font-semibold text-lime uppercase">{activePeriod.label}</span>
