@@ -199,12 +199,12 @@ export function PrincipalDashboard() {
 
   // Selected class for deep inspection & period control (defaults to Principal's own assigned class)
   const [selectedClassName, setSelectedClassName] = useState<string>(
-    () => principal.assignedClassName || CLASS_USTHADS[0]?.className || 'BS 3 • Batch 07',
+    () => principal.assignedClassName || CLASS_USTHADS[0]?.className || 'BS 3',
   )
 
   // Quick Mark Not Held / Substitute form state
   const [quickClassName, setQuickClassName] = useState<string>(
-    () => principal.assignedClassName || CLASS_USTHADS[0]?.className || 'BS 3 • Batch 07',
+    () => principal.assignedClassName || CLASS_USTHADS[0]?.className || 'BS 3',
   )
   const [quickPeriodIndex, setQuickPeriodIndex] = useState<number>(1)
   const [quickNotHeldReason, setQuickNotHeldReason] = useState<string>(NOT_HELD_REASONS[0])
@@ -288,7 +288,7 @@ export function PrincipalDashboard() {
   const [kitabAuthor, setKitabAuthor] = useState('')
   const [kitabCategory, setKitabCategory] = useState<KitabCategory>('fiqh')
   const [kitabBatchLabel, setKitabBatchLabel] = useState(
-    CLASS_USTHADS[0]?.fullClassLabel ?? 'Class 8th • Batch 14',
+    CLASS_USTHADS[0]?.fullClassLabel ?? 'Class 8th',
   )
   const [kitabPages, setKitabPages] = useState('180')
   const [kitabLanguage, setKitabLanguage] = useState('Arabic & Malayalam')
@@ -1375,7 +1375,7 @@ export function PrincipalDashboard() {
                 {campusMetrics.totalStudents}
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
-                Across {campusMetrics.totalBatches} Batches (B14–B05)
+                Across {campusMetrics.totalBatches} Classes
               </p>
             </div>
 
@@ -1493,7 +1493,7 @@ export function PrincipalDashboard() {
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="quick-class-select" className="text-xs">
-                        Select Class / Batch
+                        Select Class
                       </Label>
                       <select
                         id="quick-class-select"
@@ -1746,7 +1746,7 @@ export function PrincipalDashboard() {
             {/* B. 11-Class Live Period & Attendance Matrix */}
             <Panel
               id="campus-class-matrix"
-              eyebrow={`All 11 Batches Live Matrix • ${selectedDate}`}
+              eyebrow={`All 11 Classes Live Matrix • ${selectedDate}`}
               title="11-Class Period Session & Attendance Overview"
               icon={Building2}
               action={
@@ -1759,7 +1759,7 @@ export function PrincipalDashboard() {
                 <table className="w-full min-w-[920px] border-collapse text-left text-xs">
                   <thead>
                     <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                      <th className="px-3.5 py-3">Class & Batch</th>
+                      <th className="px-3.5 py-3">Class</th>
                       <th className="px-3.5 py-3">Class Usthad</th>
                       <th className="px-3.5 py-3">Class Leaders (CL & ACL)</th>
                       <th className="px-3 py-3 text-right">Students</th>
@@ -2026,7 +2026,7 @@ export function PrincipalDashboard() {
                     <div className="flex flex-col gap-2.5 border-t border-border/70 pt-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-bold text-foreground">
-                          VALIYA 2 Batches (വലിയ രണ്ട് ബാച്ചുകളിലെ ക്ലാസുകൾ):
+                          Senior Classes:
                         </span>
                         {SHAIKHUNA_HAMZA_USTHAD.valiyaBatches.map((batchName) => (
                           <button
@@ -2248,7 +2248,7 @@ export function PrincipalDashboard() {
                         <th className="px-4 py-3">Role Title</th>
                         <th className="px-4 py-3">Student Name</th>
                         <th className="px-4 py-3">Admission No.</th>
-                        <th className="px-4 py-3">Class & Batch</th>
+                        <th className="px-4 py-3">Class</th>
                         <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
@@ -2631,7 +2631,7 @@ export function PrincipalDashboard() {
                           <tr className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                             <th className="px-3.5 py-3">Student Name</th>
                             <th className="px-3.5 py-3">Admission No.</th>
-                            <th className="px-3.5 py-3">Class & Batch</th>
+                            <th className="px-3.5 py-3">Class</th>
                             <th className="px-3 py-3 text-right">Attendance</th>
                             <th className="px-3.5 py-3">Campus Status</th>
                             <th className="px-3.5 py-3 text-right">Principal Actions</th>
@@ -2887,14 +2887,14 @@ export function PrincipalDashboard() {
                   />
                 </div>
 
-                {/* Target Batches / Classes Selector */}
+                {/* Target Classes Selector */}
                 <div className="flex flex-col gap-2.5 rounded-2xl border border-cyan/30 bg-cyan/[0.05] p-3.5">
                   <div className="flex flex-col gap-0.5">
                     <Label className="text-xs font-bold text-foreground">
-                      Target Batches / Classes (ആർക്കാണ് ഈ അറിയിപ്പ് / ലീവ് ബാധകം?)
+                      Target Classes
                     </Label>
                     <p className="text-[11px] text-muted-foreground">
-                      Choose whether this notice or official holiday applies to all 11 batches or only selected batches (other batches will continue normal classes).
+                      Choose whether this notice or official holiday applies to all 11 classes or only selected classes.
                     </p>
                   </div>
 
@@ -2903,7 +2903,7 @@ export function PrincipalDashboard() {
                       [
                         {
                           id: 'all',
-                          label: 'All 11 Batches (എല്ലാ ബാച്ചുകൾക്കും)',
+                          label: 'All 11 Classes',
                         },
                         {
                           id: 'high-school',
@@ -2915,7 +2915,7 @@ export function PrincipalDashboard() {
                         },
                         {
                           id: 'custom',
-                          label: 'Select Specific Batches (തിരഞ്ഞെടുത്തവ)',
+                          label: 'Select Specific Classes',
                         },
                       ] as const
                     ).map((opt) => {
@@ -2950,7 +2950,7 @@ export function PrincipalDashboard() {
                     <div className="mt-1 flex flex-col gap-2 rounded-xl border border-border/70 bg-background/80 p-3">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs font-semibold text-foreground">
-                          Select Batches ({noticeCustomBatches.length} selected):
+                          Select Classes ({noticeCustomBatches.length} selected):
                         </span>
                         <div className="flex items-center gap-2">
                           <button
@@ -3149,7 +3149,7 @@ export function PrincipalDashboard() {
 
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="pr-kitab-batch" className="text-xs">
-                      Target Batch / Class
+                      Target Class
                     </Label>
                     <select
                       id="pr-kitab-batch"
@@ -3157,7 +3157,7 @@ export function PrincipalDashboard() {
                       onChange={(e) => setKitabBatchLabel(e.target.value)}
                       className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground"
                     >
-                      <option value="All Batches (B14–B05)">All Batches (B14–B05)</option>
+                      <option value="All Classes">All Classes</option>
                       {CLASS_USTHADS.map((u) => (
                         <option key={u.className} value={u.fullClassLabel}>
                           {u.fullClassLabel}

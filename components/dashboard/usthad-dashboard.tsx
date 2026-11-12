@@ -924,7 +924,7 @@ export function UsthadDashboard() {
             {usthad.teachingBatches && usthad.teachingBatches.length > 1 && (
               <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-lime/35 bg-lime/10 p-1.5">
                 <span className="px-2 text-[11px] font-bold text-lime uppercase">
-                  Valiya Batches:
+                  Assigned Classes:
                 </span>
                 {usthad.teachingBatches.map((batch) => (
                   <button
@@ -1624,6 +1624,7 @@ export function UsthadDashboard() {
             eyebrowLabel={`${usthad.fullClassLabel} · Period-by-Period Attendance`}
             submittedByNameOverride={usthad.shortName}
             highlightLeaderBadge={false}
+            actorRoleLabel="Class Usthad"
           />
         ) : null}
         </div>
@@ -1961,14 +1962,14 @@ export function UsthadDashboard() {
                 />
               </div>
 
-              {/* Target Batches / Classes Selector */}
+              {/* Target Classes Selector */}
               <div className="flex flex-col gap-2.5 rounded-xl border border-cyan/30 bg-cyan/[0.05] p-3">
                 <div className="flex flex-col gap-0.5">
                   <Label className="text-xs font-bold text-foreground">
-                    Target Batches / Classes
+                    Target Classes
                   </Label>
                   <p className="text-[11px] text-muted-foreground">
-                    Select whether this notice or holiday applies to all 11 batches or only selected batches.
+                    Select whether this notice or holiday applies to all 11 classes or only selected classes.
                   </p>
                 </div>
 
@@ -1977,23 +1978,23 @@ export function UsthadDashboard() {
                     [
                       {
                         id: 'all',
-                        label: 'All 11 Batches',
+                        label: 'All 11 Classes',
                       },
                       {
                         id: 'my-class',
-                        label: `My Batch Only (${usthad.className})`,
+                        label: `My Class Only (${usthad.className})`,
                       },
                       {
                         id: 'high-school',
-                        label: 'High School Batches (8th – HS 2)',
+                        label: 'High School Classes (8th – HS 2)',
                       },
                       {
                         id: 'bs-degree',
-                        label: 'BS Degree Batches (BS 1 – BS 5)',
+                        label: 'BS Degree Classes (BS 1 – BS 5)',
                       },
                       {
                         id: 'custom',
-                        label: 'Select Specific Batches',
+                        label: 'Select Specific Classes',
                       },
                     ] as const
                   ).map((opt) => {
@@ -2029,7 +2030,7 @@ export function UsthadDashboard() {
                   <div className="mt-1 flex flex-col gap-2 rounded-lg border border-border/70 bg-background/80 p-2.5">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[11px] font-semibold text-foreground">
-                        Select Batches ({noticeCustomBatches.length} selected):
+                        Select Classes ({noticeCustomBatches.length} selected):
                       </span>
                       <div className="flex items-center gap-1.5">
                         <button

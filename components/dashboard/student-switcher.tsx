@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Award, BookOpen, ChevronDown, GraduationCap, Hash, LogOut, ShieldCheck, User } from 'lucide-react'
+import { Award, BookOpen, ChevronDown, Eye, EyeOff, GraduationCap, Hash, KeyRound, LogOut, ShieldCheck, User } from 'lucide-react'
 import type { ClassUsthad, PrincipalProfile, Student } from '@/components/dashboard/data'
 import { cn } from '@/lib/utils'
 
@@ -63,11 +63,20 @@ type StudentSwitcherProps = {
 
 export function StudentSwitcher({ student }: StudentSwitcherProps) {
   const [open, setOpen] = useState(false)
+  const [showOwnPassword, setShowOwnPassword] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const popoverId = useId()
 
+  const ownPassword =
+    (typeof window !== 'undefined' &&
+      window.localStorage.getItem(`ics_own_password_${student.id}`)) ||
+    student.admissionNo
+
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      setShowOwnPassword(false)
+      return
+    }
     function handlePointerDown(event: PointerEvent) {
       if (!containerRef.current?.contains(event.target as Node)) setOpen(false)
     }
@@ -118,7 +127,7 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
             <StudentAvatar student={student} className="size-12 text-sm shadow-sm" />
             <div className="min-w-0 flex-1">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-lime">
-                Logged-in Student
+                Logged-in Student (Private)
               </p>
               <p className="mt-0.5 truncate font-display text-lg font-semibold text-foreground">
                 {student.name}
@@ -140,10 +149,34 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Hash className="size-3.5 text-lime" aria-hidden="true" />
-                Admission / Reg. No.
+                My Admission ID
               </dt>
               <dd className="font-mono text-xs font-semibold tabular-nums text-lime">
                 {student.admissionNo}
+              </dd>
+            </div>
+
+            <div className="h-px bg-border/60" aria-hidden="true" />
+
+            <div className="flex items-center justify-between gap-3">
+              <dt className="flex items-center gap-2 text-xs text-muted-foreground">
+                <KeyRound className="size-3.5 text-lime" aria-hidden="true" />
+                My Password
+              </dt>
+              <dd className="flex items-center gap-1.5 font-mono text-xs font-semibold text-foreground">
+                <span>{showOwnPassword ? ownPassword : '••••••••'}</span>
+                <button
+                  type="button"
+                  onClick={() => setShowOwnPassword((v) => !v)}
+                  aria-label={showOwnPassword ? 'Hide password' : 'Show password'}
+                  className="rounded p-0.5 text-muted-foreground hover:text-lime"
+                >
+                  {showOwnPassword ? (
+                    <EyeOff className="size-3.5" aria-hidden="true" />
+                  ) : (
+                    <Eye className="size-3.5" aria-hidden="true" />
+                  )}
+                </button>
               </dd>
             </div>
 
@@ -155,7 +188,7 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
                 Class / Batch
               </dt>
               <dd className="text-right text-xs font-medium text-foreground">
-                Class {student.className}
+                Class {student.className} • {student.batch}
               </dd>
             </div>
           </dl>
@@ -167,6 +200,7 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
               setOpen(false)
               window.localStorage.removeItem('isAuthenticated')
               window.localStorage.removeItem('loggedInStudentId')
+              window.localStorage.removeItem(`ics_own_password_${student.id}`)
               window.dispatchEvent(new CustomEvent('ics-logout'))
             }}
             className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-lime/30 bg-lime/10 px-4 text-xs font-semibold text-lime transition-colors duration-200 outline-none hover:border-lime hover:bg-lime hover:text-primary-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -273,10 +307,10 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
                 <GraduationCap className="size-3.5 text-lime" aria-hidden="true" />
-                Assigned Class
+                Assigned Class / Batch
               </dt>
               <dd className="text-right text-xs font-medium text-foreground">
-                Class {usthad.className}
+                Class {usthad.className} • {usthad.batch}
               </dd>
             </div>
 
@@ -440,7 +474,7 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
                 Class Usthad Role
               </dt>
               <dd className="text-right text-xs font-semibold text-cyan">
-                Class {principal.assignedClassName}
+                Class {principal.assignedClassName} • {principal.assignedBatch}
               </dd>
             </div>
 

@@ -44,7 +44,7 @@ const studentRole: Role = {
   title: 'Student',
   description: 'View timetables, submit assignments and track your results.',
   idLabel: 'Admission number',
-  idPlaceholder: 'e.g. ICS2K261401',
+  idPlaceholder: 'Enter your Admission Number',
   icon: GraduationCap,
   tone: 'lime',
 }
@@ -56,7 +56,7 @@ const classLeaderRole: Role = {
   description:
     'Each class has 2 leaders (Main Leader & Assistant Leader) with identical permissions to submit period attendance.',
   idLabel: 'Leader ID (Main / Assistant) or Admission number',
-  idPlaceholder: 'e.g. CL-14 or ACL-14 (or ICS2K261401 / ICS2K261402)',
+  idPlaceholder: 'Enter your Class Leader ID or Admission Number',
   icon: Users,
   tone: 'cyan',
 }
@@ -68,7 +68,7 @@ const teacherRole: Role = {
   description:
     'Manage your assigned class attendance, leave register, notices, and digital Kitabs.',
   idLabel: 'Staff ID or Usthad Name',
-  idPlaceholder: 'e.g. UST-07 (or UST-14 to UST-05 / Usthad Name)',
+  idPlaceholder: 'Enter your Staff ID',
   icon: BookOpen,
   tone: 'lime',
 }
@@ -80,7 +80,7 @@ const principalRole: Role = {
   description:
     'Oversee all 11 classes, assign substitute Usthads, declare official holidays, and manage your own assigned class as Class Usthad.',
   idLabel: 'Principal / Class Usthad ID',
-  idPlaceholder: 'e.g. ADM-001 or UST-07 (Usthad Muhammed Yasir Ahsani)',
+  idPlaceholder: 'Enter your Principal ID',
   icon: Crown,
   tone: 'cyan',
 }
@@ -140,6 +140,7 @@ export function LoginPortal({
       if (matchedStudent && onStudentLogin) {
         setInvalidRoleId(null)
         window.localStorage.setItem('loggedInStudentId', matchedStudent.id)
+        window.localStorage.setItem(`ics_own_password_${matchedStudent.id}`, password)
         window.localStorage.setItem('authRole', 'student')
         onStudentLogin()
         return
@@ -151,6 +152,7 @@ export function LoginPortal({
       ) {
         setInvalidRoleId(null)
         window.localStorage.setItem('loggedInStudentId', students[0].id)
+        window.localStorage.setItem(`ics_own_password_${students[0].id}`, password)
         window.localStorage.setItem('authRole', 'student')
         onStudentLogin()
         return
@@ -162,6 +164,7 @@ export function LoginPortal({
       if (matchedLeader && (onClassLeaderLogin || onStudentLogin)) {
         setInvalidRoleId(null)
         window.localStorage.setItem('loggedInStudentId', matchedLeader.student.id)
+        window.localStorage.setItem(`ics_own_password_${matchedLeader.student.id}`, password)
         window.localStorage.setItem('loggedInLeaderId', matchedLeader.leaderId)
         window.localStorage.setItem(
           'loggedInLeaderRoleTitle',

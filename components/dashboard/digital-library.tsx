@@ -670,7 +670,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
         ? student.className.startsWith('Class ')
           ? student.className
           : `Class ${student.className}`
-        : 'Class BS 3 • Batch 07'
+        : 'Class BS 3'
   }, [student.className])
 
   // Firebase Auth, Firestore & Storage State

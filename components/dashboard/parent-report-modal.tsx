@@ -437,8 +437,8 @@ export function ParentReportModal({
 
       setFont('normal', 8.2)
       pdf.setTextColor(71, 85, 105)
-      pdf.text('Class & Batch: ', 16.5, 59)
-      const clsLabelW = pdf.getTextWidth('Class & Batch: ')
+      pdf.text('Class: ', 16.5, 59)
+      const clsLabelW = pdf.getTextWidth('Class: ')
       setFont('semibold', 8.2)
       pdf.setTextColor(15, 23, 42)
       pdf.text(student.className, 16.5 + clsLabelW, 59)
@@ -1125,7 +1125,7 @@ export function ParentReportModal({
                     </span>
                   </p>
                   <p className="text-slate-600">
-                    Class & Batch:{' '}
+                    Class:{' '}
                     <span className="font-semibold text-slate-900">
                       {student.className}
                     </span>

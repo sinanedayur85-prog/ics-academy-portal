@@ -72,7 +72,7 @@ function getNotificationScopeBadge(notif: CampusNotification, studentId?: string
   if (notif.targetClass && notif.targetClass !== 'ALL') {
     return `${notif.targetClass} Only`
   }
-  return 'All Batches'
+  return 'All Classes'
 }
 
 function getNotificationMeta(type: CampusNotificationType) {

@@ -1811,10 +1811,17 @@ export function GeminiChatbot({
         ...(apiAttachments.length > 0 ? { attachments: apiAttachments } : {}),
       })
 
+      const sanitizedBotReply = String(data.reply ?? '')
+        .trim()
+        .replace(/\bICS2K\d{2}[A-Z0-9]*\b/gi, '[Private Admission ID]')
+        .replace(/\bICS-\d{4}-\d+\b/gi, '[Private Admission ID]')
+        .replace(/\b(?:ACL|CL)-\d{1,3}(?:-[A-Z0-9]+)?\b/gi, '[Private Leader ID]')
+        .replace(/\b(?:UST|ADM)-\d{1,4}\b/gi, '[Private Staff ID]')
+
       const botMsg: ChatTurnMessage = {
         id: `model-${Date.now()}`,
         role: 'model',
-        text: String(data.reply ?? '').trim(),
+        text: sanitizedBotReply,
         timestamp: Date.now(),
         modelUsed: String(
           data.modelUsed ??
@@ -2965,7 +2972,7 @@ export function GeminiChatbot({
                   </span>
                 </h3>
                 <p className="truncate text-[11px] text-muted-foreground">
-                  Private chat for {student.firstName} ({student.admissionNo})
+                  Private chat for {student.name} · {student.className}
                 </p>
               </div>
             </div>

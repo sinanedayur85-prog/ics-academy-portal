@@ -464,7 +464,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
               <Cloud className="size-3.5" aria-hidden="true" />
               {firebaseUser?.email
                 ? `Cloud Synced (${firebaseUser.email.split('@')[0]})`
-                : `Firebase Cloud Synced (${student.admissionNo})`}
+                : `Firebase Cloud Synced (${student.firstName})`}
             </span>
           ) : (
             <Button

@@ -136,6 +136,8 @@ export function ClassLeaderAttendanceCard({
 
   const effectiveRoleLabel =
     actorRoleLabel ?? (highlightLeaderBadge ? 'Class Leader' : 'Class Usthad')
+  const isStaffViewer =
+    effectiveRoleLabel === 'Class Usthad' || effectiveRoleLabel === 'Principal'
 
   const classStudents = useMemo(
     () => students.filter((s) => s.className === leader.className),
@@ -247,9 +249,10 @@ export function ClassLeaderAttendanceCard({
     return classStudents.filter(
       (s) =>
         s.name.toLowerCase().includes(q) ||
-        s.admissionNo.toLowerCase().includes(q),
+        ((isStaffViewer || s.id === leader.id) &&
+          s.admissionNo.toLowerCase().includes(q)),
     )
-  }, [classStudents, searchQuery])
+  }, [classStudents, searchQuery, isStaffViewer, leader.id])
 
   const summaryCounts = useMemo(() => {
     if (isSessionNotHeld) {
@@ -517,7 +520,10 @@ export function ClassLeaderAttendanceCard({
                   <span key={cl.leaderId}>
                     {idx > 0 ? '  •  ' : ''}
                     <strong className="text-cyan">
-                      {cl.roleTitle}: {cl.studentName} ({cl.leaderId})
+                      {cl.roleTitle}: {cl.studentName}
+                      {isStaffViewer || cl.studentId === leader.id
+                        ? ` (${cl.leaderId})`
+                        : ''}
                     </strong>
                   </span>
                 ))}
@@ -863,7 +869,11 @@ export function ClassLeaderAttendanceCard({
               >
                 {existingSubmission.sessionStatus === 'not-held'
                   ? `Marked as Class Not Held by ${existingSubmission.markedNotHeldBy ?? existingSubmission.submittedByName} • Reason: ${existingSubmission.notHeldReason ?? NOT_HELD_REASONS[0]}`
-                  : `Last submitted by ${existingSubmission.submittedByName} (${existingSubmission.submittedByLeaderId}) at ${new Date(
+                  : `Last submitted by ${existingSubmission.submittedByName}${
+                      isStaffViewer || existingSubmission.submittedByLeaderId === leaderId
+                        ? ` (${existingSubmission.submittedByLeaderId})`
+                        : ''
+                    } at ${new Date(
                       existingSubmission.submittedAt,
                     ).toLocaleTimeString([], {
                       hour: '2-digit',
@@ -916,7 +926,11 @@ export function ClassLeaderAttendanceCard({
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search student name or admission no..."
+              placeholder={
+                isStaffViewer
+                  ? 'Search student name or admission no...'
+                  : 'Search student name...'
+              }
               className="h-10 rounded-xl pl-10 text-sm"
             />
           </div>
@@ -969,7 +983,7 @@ export function ClassLeaderAttendanceCard({
           <div className="hidden grid-cols-[2.5rem_1.5fr_1fr_1.4fr] items-center gap-4 border-b border-border bg-muted/40 px-4 py-2.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase sm:grid">
             <span>#</span>
             <span>Student Name</span>
-            <span>Admission No.</span>
+            <span>{isStaffViewer ? 'Admission No.' : 'Class'}</span>
             <span className="text-right">{activePeriod.label} Status</span>
           </div>
 
@@ -1014,7 +1028,11 @@ export function ClassLeaderAttendanceCard({
                           const isCurrent = highlightLeaderBadge && student.id === leader.id
                           return (
                             <span className="rounded-md bg-cyan/15 px-1.5 py-0.5 text-[10px] font-bold text-cyan">
-                              {clMatch.roleTitle} ({clMatch.leaderId}){isCurrent ? ' • You' : ''}
+                              {clMatch.roleTitle}
+                              {isStaffViewer || student.id === leader.id
+                                ? ` (${clMatch.leaderId})`
+                                : ''}
+                              {isCurrent ? ' • You' : ''}
                             </span>
                           )
                         })()}
@@ -1025,12 +1043,16 @@ export function ClassLeaderAttendanceCard({
                         )}
                       </div>
                       <span className="text-xs text-muted-foreground tabular-nums sm:hidden">
-                        {student.admissionNo}
+                        {isStaffViewer || student.id === leader.id
+                          ? student.admissionNo
+                          : student.className}
                       </span>
                     </div>
 
                     <span className="hidden text-xs font-medium text-muted-foreground tabular-nums sm:inline">
-                      {student.admissionNo}
+                      {isStaffViewer || student.id === leader.id
+                        ? student.admissionNo
+                        : student.className}
                     </span>
 
                     <div
@@ -1095,15 +1117,17 @@ export function ClassLeaderAttendanceCard({
                         </>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={() => setReportStudent(student)}
-                        title={`Generate Parent PDF Report for ${student.name}`}
-                        className="inline-flex items-center gap-1 rounded-lg border border-cyan/40 bg-cyan/10 px-2.5 py-1.5 text-xs font-semibold text-cyan transition-all hover:bg-cyan/20 whitespace-nowrap shrink-0"
-                      >
-                        <FileText className="size-3.5" aria-hidden="true" />
-                        Parent PDF
-                      </button>
+                      {(isStaffViewer || student.id === leader.id) && (
+                        <button
+                          type="button"
+                          onClick={() => setReportStudent(student)}
+                          title={`Generate Parent PDF Report for ${student.name}`}
+                          className="inline-flex items-center gap-1 rounded-lg border border-cyan/40 bg-cyan/10 px-2.5 py-1.5 text-xs font-semibold text-cyan transition-all hover:bg-cyan/20 whitespace-nowrap shrink-0"
+                        >
+                          <FileText className="size-3.5" aria-hidden="true" />
+                          Parent PDF
+                        </button>
+                      )}
                     </div>
                   </div>
 

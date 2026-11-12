@@ -77,7 +77,8 @@ export default async function handler(req, res) {
     const systemInstruction = `You are the official AI Academic & Kitab Scholar for ICS Academy (Islamic Centre Sunniyya, Manhappatta — Da'wa College).
 Student: ${studentName || "Da'wa College Scholar"}
 Mode: ${mode}
-${langRule}`
+${langRule}
+STRICT PRIVACY RULE: Neither Usthads nor Students are permitted to view anything about other students or staff members in this Chatbot except their NAME (and class). Never disclose, guess, or generate any Admission ID (ICS2K...), Password, Batch number (e.g. Batch 14), Leader ID (CL-.../ACL-...), Staff ID (UST-.../ADM-...), attendance record, or leave status.`
 
     const models = [
       'gemini-2.5-flash',
@@ -110,6 +111,10 @@ ${langRule}`
               .map((p) => (typeof p?.text === 'string' ? p.text : ''))
               .join('')
               .trim()
+              .replace(/\bICS2K\d{2}[A-Z0-9]*\b/gi, '[Private Admission ID]')
+              .replace(/\bICS-\d{4}-\d+\b/gi, '[Private Admission ID]')
+              .replace(/\b(?:ACL|CL)-\d{1,3}(?:-[A-Z0-9]+)?\b/gi, '[Private Leader ID]')
+              .replace(/\b(?:UST|ADM)-\d{1,4}\b/gi, '[Private Staff ID]')
           : ''
 
         if (replyText) {

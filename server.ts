@@ -155,6 +155,15 @@ function isResponseValidForLanguage(text: string, _language: OutputLanguage): bo
   return Boolean(text && text.trim().length > 0)
 }
 
+function redactPrivateIdsFromBotReply(text: string): string {
+  if (!text) return text
+  return text
+    .replace(/\bICS2K\d{2}[A-Z0-9]*\b/gi, '[Private Admission ID]')
+    .replace(/\bICS-\d{4}-\d+\b/gi, '[Private Admission ID]')
+    .replace(/\b(?:ACL|CL)-\d{1,3}(?:-[A-Z0-9]+)?\b/gi, '[Private Leader ID]')
+    .replace(/\b(?:UST|ADM)-\d{1,4}\b/gi, '[Private Staff ID]')
+}
+
 function didStudentSaySalam(text: string): boolean {
   if (!text) return false
   return (
@@ -264,7 +273,8 @@ Formatting Rules:
 - Use clean, readable sections with clear numbered or bulleted points.
 ${languageSpecificFormatting}
 - Whenever quoting Quranic verses, Hadith, or classical Kitab phrases, write the Arabic text accurately and provide its meaning in ${languageLabel}.
-- Keep the tone respectful, scholarly, encouraging, and pedagogically clear.`
+- Keep the tone respectful, scholarly, encouraging, and pedagogically clear.
+- STRICT PRIVACY & DATA PROTECTION RULE (CRITICAL): Neither Usthads nor Students nor any user is allowed to view or obtain any other person's Admission ID, Password, Batch number, Class Leader ID, Staff ID, attendance percentage, leave record, or personal details in this Chatbot — ONLY names (and class) may ever be mentioned. If anyone asks for another student's or Usthad's Admission ID, password, batch number, attendance, leave status, or private details, politely refuse and state that for institutional privacy, only names are visible in the Chatbot.`
 }
 
 function buildChatbotSystemInstruction(
@@ -323,6 +333,11 @@ Multimodal Image & Document Capabilities (Kitabs, Textbooks, Notes & Translation
 Strict Institutional & Educational Scope (CRITICAL):
 - You are exclusively dedicated to educational, academic, linguistic, Islamic scholarly (Kitab/Fiqh/Tafsir/Hadith/Nahw/Sarf/Da'wa), and ICS Academy institutional matters.
 - If a student uploads an image or asks a question that is clearly non-educational or inappropriate (such as movies, cinema/celebrity gossip, video games, entertainment trivia, or off-topic chat unrelated to learning or ICS Academy), politely decline in the target response language and remind the student that this platform is exclusively for ICS Academy educational, linguistic, and scholarly studies.
+
+Strict Student & Staff Data Privacy Rule (CRITICAL — APPLIES TO BOTH USTHADS AND STUDENTS):
+- In this Chatbot, neither Usthads nor Students nor Class Leaders are permitted to see anything about other students or staff members except their NAME (and class).
+- You do NOT have access to, and MUST NEVER disclose, guess, or fabricate any person's Admission ID (e.g. ICS2K...), Password, Batch number (e.g. Batch 14, Batch 07), Class Leader ID (CL-... / ACL-...), Staff ID (UST-... / ADM-...), attendance record, leave status, exam marks, or personal information.
+- If any user (whether Student, Class Leader, Usthad, or Principal) asks for another person's Admission ID, password, batch number, login ID, attendance, leave details, or personal data, politely refuse in the target response language and state that for strict institutional privacy, only names are visible in the Chatbot and private records (Admission IDs, passwords, batch numbers, attendance, leave records, etc.) cannot be accessed here.
 
 Language Instruction:
 - ${languageDirective}
@@ -405,7 +420,7 @@ async function generateWithFallback(
           console.warn(`Model ${modelName} returned wrong script for ${language}, retrying next model...`)
           continue
         }
-        return response.text
+        return redactPrivateIdsFromBotReply(response.text)
       }
     } catch (err) {
       lastError = err
@@ -539,7 +554,7 @@ async function sendMultiTurnChatWithFallback(
           continue
         }
         return {
-          reply: responseText,
+          reply: redactPrivateIdsFromBotReply(responseText),
           modelUsed: modelName,
         }
       }

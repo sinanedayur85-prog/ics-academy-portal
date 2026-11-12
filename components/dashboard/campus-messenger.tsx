@@ -231,7 +231,8 @@ export function makeDirectRoomId(idA: string, idB: string): string {
 }
 
 export function makeBatchRoomId(className: string): string {
-  return `batch_group__${className}`
+  const clean = className.split('•')[0].replace(/^Class\s+/i, '').trim()
+  return `batch_group__${clean}`
 }
 
 export const STAFF_ROOM_ID = 'staff_group__usthads'
@@ -373,8 +374,8 @@ export function CampusMessenger({
         id: principal.usthadId || 'usthad-07',
         name: principal.name,
         role: 'principal' as MessengerRole,
-        badge: `Principal • ${principal.staffId}`,
-        className: principal.assignedClassName || 'BS 3 • Batch 07',
+        badge: 'Principal',
+        className: principal.assignedClassName || 'BS 3',
         isStaff: true,
       }
     }
@@ -384,7 +385,7 @@ export function CampusMessenger({
         id: usthad.id,
         name: usthad.name,
         role: (isPrincipalDual ? 'principal' : 'usthad') as MessengerRole,
-        badge: `${usthad.designation.split('•')[0].trim()} • ${usthad.staffId}`,
+        badge: usthad.designation.split('•')[0].trim(),
         className: activeClassName || usthad.className,
         isStaff: true,
       }
@@ -394,7 +395,7 @@ export function CampusMessenger({
       id: activeStudent.id,
       name: activeStudent.name,
       role: 'student' as MessengerRole,
-      badge: `${activeStudent.className} • ${activeStudent.admissionNo}`,
+      badge: activeStudent.className,
       className: activeStudent.className,
       isStaff: false,
     }
@@ -521,13 +522,13 @@ export function CampusMessenger({
           type: 'batch_group',
           title: `${cls.fullLabel} • Official Group`,
           subtitle: `${assignedUsthad?.name || 'Class Usthad'} • ${count} Students`,
-          badgeLabel: cls.batch,
+          badgeLabel: cls.fullLabel,
           batchName: cls.className,
-          avatarText: cls.batch.replace('Batch ', 'B'),
+          avatarText: cls.className.replace(/\s+/g, '').slice(0, 3).toUpperCase(),
         })
       }
     } else {
-      // Student sees ONLY their own batch group
+      // Student sees ONLY their own class group
       const myCls =
         ACADEMY_CLASSES.find((c) => c.className === actor.className) ?? ACADEMY_CLASSES[0]
       const assignedUsthad = CLASS_USTHADS.find((u) => u.className === myCls.className)
@@ -537,9 +538,9 @@ export function CampusMessenger({
         type: 'batch_group',
         title: `${myCls.fullLabel} • Class Group`,
         subtitle: `Class Usthad: ${assignedUsthad?.name || 'Usthad'} • ${count} Students`,
-        badgeLabel: myCls.batch,
+        badgeLabel: myCls.fullLabel,
         batchName: myCls.className,
-        avatarText: myCls.batch.replace('Batch ', 'B'),
+        avatarText: myCls.className.replace(/\s+/g, '').slice(0, 3).toUpperCase(),
       })
     }
 
@@ -588,7 +589,7 @@ export function CampusMessenger({
         roomId: makeDirectRoomId(actor.id, st.id),
         type: 'direct_student',
         title: st.name,
-        subtitle: `Student • ${st.className} (${st.admissionNo})`,
+        subtitle: `Student • ${st.className}`,
         badgeLabel: st.className.split('•')[0].trim(),
         batchName: st.className,
         peerId: st.id,
@@ -1519,20 +1520,20 @@ export function CampusMessenger({
               })}
             </div>
 
-            {/* Batch selector when viewing Students tab */}
+            {/* Class selector when viewing Students tab */}
             {categoryFilter === 'students' && (
               <div className="flex items-center justify-between gap-2 pt-0.5">
                 <span className="text-[11px] font-medium text-muted-foreground">
-                  Filter Batch:
+                  Filter Class:
                 </span>
                 <select
                   value={studentBatchFilter}
                   onChange={(e) => setStudentBatchFilter(e.target.value)}
-                  aria-label="Filter students by batch"
+                  aria-label="Filter students by class"
                   className="h-8 flex-1 rounded-lg border border-input bg-card px-2.5 text-xs font-semibold text-foreground"
                 >
                   <option value={actor.className}>My Class ({actor.className})</option>
-                  <option value="ALL">All 11 Batches ({students.length} Students)</option>
+                  <option value="ALL">All 11 Classes ({students.length} Students)</option>
                   {ACADEMY_CLASSES.map((c) => (
                     <option key={c.id} value={c.className}>
                       {c.fullLabel}
@@ -1938,7 +1939,7 @@ export function CampusMessenger({
                         </span>
                         {msg.senderBadge && (
                           <span className="text-[10px] text-muted-foreground">
-                            · {msg.senderBadge}
+                            · {msg.senderBadge.replace(/\s*•\s*(?:ICS|UST|ADM|CL|ACL)[^\s]*/gi, '')}
                           </span>
                         )}
                       </div>
@@ -2590,11 +2591,11 @@ export function CampusMessenger({
                     onChange={(e) => setStudentBatchFilter(e.target.value)}
                     className="h-7 rounded-lg border border-input bg-background px-2 text-[11px] font-semibold dark:border-[#262a33] dark:bg-[#0a0b0e]"
                   >
-                    <option value={actor.className}>My Batch ({actor.className})</option>
-                    <option value="ALL">All Batches</option>
+                    <option value={actor.className}>My Class ({actor.className})</option>
+                    <option value="ALL">All Classes</option>
                     {ACADEMY_CLASSES.map((c) => (
                       <option key={c.id} value={c.className}>
-                        {c.className}
+                        Class {c.className}
                       </option>
                     ))}
                   </select>
@@ -2621,7 +2622,7 @@ export function CampusMessenger({
                         <div className="min-w-0">
                           <p className="truncate text-xs font-bold text-foreground">{st.name}</p>
                           <p className="truncate text-[11px] text-muted-foreground">
-                            {st.className} • {st.admissionNo}
+                            {st.className}
                           </p>
                         </div>
                         <span className="rounded-lg border border-border bg-muted px-2 py-1 text-[10px] font-bold text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">

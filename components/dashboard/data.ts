@@ -17,6 +17,7 @@ export type Student = {
   name: string
   firstName: string
   className: string
+  batch: string
   admissionNo: string
   attendance: {
     present: number
@@ -34,25 +35,36 @@ export type AcademyClassInfo = {
 }
 
 export const ACADEMY_CLASSES: AcademyClassInfo[] = [
-  { id: 'batch-14', className: '8th • Batch 14', fullLabel: 'Class 8th • Batch 14', batch: 'Batch 14' },
-  { id: 'batch-13', className: '9th • Batch 13', fullLabel: 'Class 9th • Batch 13', batch: 'Batch 13' },
-  { id: 'batch-12', className: '10th • Batch 12', fullLabel: 'Class 10th • Batch 12', batch: 'Batch 12' },
-  { id: 'batch-11', className: 'HS 1 • Batch 11', fullLabel: 'Class HS 1 • Batch 11', batch: 'Batch 11' },
-  { id: 'batch-10', className: 'HS 2A • Batch 10', fullLabel: 'Class HS 2A • Batch 10', batch: 'Batch 10' },
-  { id: 'batch-01', className: 'HS 2B • Batch 1', fullLabel: 'Class HS 2B • Batch 1', batch: 'Batch 1' },
-  { id: 'batch-09', className: 'BS 1 • Batch 09', fullLabel: 'Class BS 1 • Batch 09', batch: 'Batch 09' },
-  { id: 'batch-08', className: 'BS 2 • Batch 08', fullLabel: 'Class BS 2 • Batch 08', batch: 'Batch 08' },
-  { id: 'batch-07', className: 'BS 3 • Batch 07', fullLabel: 'Class BS 3 • Batch 07', batch: 'Batch 07' },
-  { id: 'batch-06', className: 'BS 4 • Batch 06', fullLabel: 'Class BS 4 • Batch 06', batch: 'Batch 06' },
-  { id: 'batch-05', className: 'BS 5 • Batch 05', fullLabel: 'Class BS 5 • Batch 05', batch: 'Batch 05' },
+  { id: 'batch-14', className: '8th', fullLabel: 'Class 8th', batch: 'Batch 14' },
+  { id: 'batch-13', className: '9th', fullLabel: 'Class 9th', batch: 'Batch 13' },
+  { id: 'batch-12', className: '10th', fullLabel: 'Class 10th', batch: 'Batch 12' },
+  { id: 'batch-11', className: 'HS 1', fullLabel: 'Class HS 1', batch: 'Batch 11' },
+  { id: 'batch-10', className: 'HS 2A', fullLabel: 'Class HS 2A', batch: 'Batch 10' },
+  { id: 'batch-01', className: 'HS 2B', fullLabel: 'Class HS 2B', batch: 'Batch 1' },
+  { id: 'batch-09', className: 'BS 1', fullLabel: 'Class BS 1', batch: 'Batch 09' },
+  { id: 'batch-08', className: 'BS 2', fullLabel: 'Class BS 2', batch: 'Batch 08' },
+  { id: 'batch-07', className: 'BS 3', fullLabel: 'Class BS 3', batch: 'Batch 07' },
+  { id: 'batch-06', className: 'BS 4', fullLabel: 'Class BS 4', batch: 'Batch 06' },
+  { id: 'batch-05', className: 'BS 5', fullLabel: 'Class BS 5', batch: 'Batch 05' },
 ]
+
+export function normalizeClassName(raw?: string): string {
+  if (!raw) return ''
+  if (raw === 'ALL') return 'ALL'
+  return raw
+    .split('•')[0]
+    .replace(/^Class\s+/i, '')
+    .trim()
+}
 
 const RAW_CLASS_ROSTERS: {
   className: string
+  batch: string
   entries: [admissionNo: string, name: string][]
 }[] = [
   {
-    className: '8th • Batch 14',
+    className: '8th',
+    batch: 'Batch 14',
     entries: [
       ['ICS•2K26•14•01', 'Hassan'],
       ['ICS•2K26•14•02', 'Swalahudheen CK'],
@@ -83,7 +95,8 @@ const RAW_CLASS_ROSTERS: {
     ],
   },
   {
-    className: '9th • Batch 13',
+    className: '9th',
+    batch: 'Batch 13',
     entries: [
       ['ICS•2K25•13•01', 'Muhammed Ziyad. K T'],
       ['ICS•2K25•13•02', 'Muhammed Mirshad'],
@@ -113,7 +126,8 @@ const RAW_CLASS_ROSTERS: {
     ],
   },
   {
-    className: '10th • Batch 12',
+    className: '10th',
+    batch: 'Batch 12',
     entries: [
       ['ICS•2K24•12•01', 'Ahmed Shammas. K'],
       ['ICS•2K24•12•02', 'Muhammed Fathah. EK'],
@@ -146,7 +160,8 @@ const RAW_CLASS_ROSTERS: {
     ],
   },
   {
-    className: 'HS 1 • Batch 11',
+    className: 'HS 1',
+    batch: 'Batch 11',
     entries: [
       ['ICS•2K23•11•01', 'Ahmed Ziyad. K'],
       ['ICS•2K23•11•02', 'Ismaeel Faheem. MP'],
@@ -171,7 +186,8 @@ const RAW_CLASS_ROSTERS: {
     ],
   },
   {
-    className: 'HS 2A • Batch 10',
+    className: 'HS 2A',
+    batch: 'Batch 10',
     entries: [
       ['ICS•2K22•10•01', 'Mihraz. VP'],
       ['ICS•2K22•10•02', 'Muhammed Sinan. P'],
@@ -198,7 +214,8 @@ const RAW_CLASS_ROSTERS: {
     ],
   },
   {
-    className: 'HS 2B • Batch 1',
+    className: 'HS 2B',
+    batch: 'Batch 1',
     entries: [
       ['ICS•2K25•01•01', 'Shahid. PK'],
       ['ICS•2K25•01•02', 'Shibil Yashid. K'],
@@ -208,7 +225,8 @@ const RAW_CLASS_ROSTERS: {
     ],
   },
   {
-    className: 'BS 1 • Batch 09',
+    className: 'BS 1',
+    batch: 'Batch 09',
     entries: [
       ['ICS•2K21•09•01', 'Muhammed Rabeeh. C'],
       ['ICS•2K21•09•02', "Muhammed Sa'ad. KM"],
@@ -235,7 +253,8 @@ const RAW_CLASS_ROSTERS: {
     ],
   },
   {
-    className: 'BS 2 • Batch 08',
+    className: 'BS 2',
+    batch: 'Batch 08',
     entries: [
       ['ICS•2K20•08•01', 'Muhammed Hibathullah. K'],
       ['ICS•2K23•08•02', 'Muhammed Muzammil. MK'],
@@ -247,7 +266,8 @@ const RAW_CLASS_ROSTERS: {
     ],
   },
   {
-    className: 'BS 3 • Batch 07',
+    className: 'BS 3',
+    batch: 'Batch 07',
     entries: [
       ['ICS•2K19•07•01', 'Muhammed Junaid. P'],
       ['ICS•2K19•07•02', 'Muhammed Saeed. M'],
@@ -258,7 +278,8 @@ const RAW_CLASS_ROSTERS: {
     ],
   },
   {
-    className: 'BS 4 • Batch 06',
+    className: 'BS 4',
+    batch: 'Batch 06',
     entries: [
       ['ICS•2K22•06•01', 'Muhammed Sinan. NT'],
       ['ICS•2K18•06•02', 'Abdul Bais. V'],
@@ -278,7 +299,8 @@ const RAW_CLASS_ROSTERS: {
     ],
   },
   {
-    className: 'BS 5 • Batch 05',
+    className: 'BS 5',
+    batch: 'Batch 05',
     entries: [
       ['ICS•2K17•05•01', 'Ahmed Swalih. N'],
       ['ICS•2K17•05•02', 'Muhammed Jalaludheen. MP'],
@@ -451,6 +473,7 @@ export const students: Student[] = (() => {
         name,
         firstName: name,
         className: group.className,
+        batch: group.batch,
         admissionNo,
         attendance,
         monthlyAttendance,
@@ -522,34 +545,34 @@ export type Notice = {
 }
 
 export const ALL_ACADEMY_CLASS_NAMES: string[] = [
-  '8th • Batch 14',
-  '9th • Batch 13',
-  '10th • Batch 12',
-  'HS 1 • Batch 11',
-  'HS 2A • Batch 10',
-  'HS 2B • Batch 1',
-  'BS 1 • Batch 09',
-  'BS 2 • Batch 08',
-  'BS 3 • Batch 07',
-  'BS 4 • Batch 06',
-  'BS 5 • Batch 05',
+  '8th',
+  '9th',
+  '10th',
+  'HS 1',
+  'HS 2A',
+  'HS 2B',
+  'BS 1',
+  'BS 2',
+  'BS 3',
+  'BS 4',
+  'BS 5',
 ]
 
 export const HIGH_SCHOOL_CLASS_NAMES: string[] = [
-  '8th • Batch 14',
-  '9th • Batch 13',
-  '10th • Batch 12',
-  'HS 1 • Batch 11',
-  'HS 2A • Batch 10',
-  'HS 2B • Batch 1',
+  '8th',
+  '9th',
+  '10th',
+  'HS 1',
+  'HS 2A',
+  'HS 2B',
 ]
 
 export const BS_DEGREE_CLASS_NAMES: string[] = [
-  'BS 1 • Batch 09',
-  'BS 2 • Batch 08',
-  'BS 3 • Batch 07',
-  'BS 4 • Batch 06',
-  'BS 5 • Batch 05',
+  'BS 1',
+  'BS 2',
+  'BS 3',
+  'BS 4',
+  'BS 5',
 ]
 
 export function getNoticeTargetClasses(notice: Notice): string[] {
@@ -557,42 +580,41 @@ export function getNoticeTargetClasses(notice: Notice): string[] {
   if (!raw || !Array.isArray(raw) || raw.length === 0 || raw.includes('ALL')) {
     return []
   }
-  return raw
+  return raw.map((c) => normalizeClassName(c))
 }
 
 export function isNoticeVisibleForClass(notice: Notice, studentClass?: string): boolean {
   if (!studentClass || studentClass === 'ALL') return true
   const targets = getNoticeTargetClasses(notice)
   if (targets.length === 0) return true
-  return targets.includes(studentClass)
+  return targets.includes(normalizeClassName(studentClass))
 }
 
 export function formatTargetClassesBadge(targetClasses?: string[]): string {
+  const normalized = (targetClasses ?? []).map((c) => normalizeClassName(c)).filter(Boolean)
   if (
-    !targetClasses ||
-    targetClasses.length === 0 ||
-    targetClasses.includes('ALL') ||
-    targetClasses.length >= ALL_ACADEMY_CLASS_NAMES.length
+    normalized.length === 0 ||
+    normalized.includes('ALL') ||
+    normalized.length >= ALL_ACADEMY_CLASS_NAMES.length
   ) {
-    return 'All 11 Batches'
+    return 'All 11 Classes'
   }
-  if (targetClasses.length === 1) {
-    return `${targetClasses[0]} Only`
+  if (normalized.length === 1) {
+    return `Class ${normalized[0]} Only`
   }
   const isExactHighSchool =
-    targetClasses.length === HIGH_SCHOOL_CLASS_NAMES.length &&
-    HIGH_SCHOOL_CLASS_NAMES.every((c) => targetClasses.includes(c))
+    normalized.length === HIGH_SCHOOL_CLASS_NAMES.length &&
+    HIGH_SCHOOL_CLASS_NAMES.every((c) => normalized.includes(c))
   if (isExactHighSchool) {
-    return 'High School Batches (8th–HS 2)'
+    return 'High School Classes (8th–HS 2)'
   }
   const isExactBsDegree =
-    targetClasses.length === BS_DEGREE_CLASS_NAMES.length &&
-    BS_DEGREE_CLASS_NAMES.every((c) => targetClasses.includes(c))
+    normalized.length === BS_DEGREE_CLASS_NAMES.length &&
+    BS_DEGREE_CLASS_NAMES.every((c) => normalized.includes(c))
   if (isExactBsDegree) {
-    return 'BS Degree Batches (BS 1–BS 5)'
+    return 'BS Degree Classes (BS 1–BS 5)'
   }
-  const shortNames = targetClasses.map((c) => c.split('•')[0].trim())
-  return `${targetClasses.length} Batches (${shortNames.join(', ')})`
+  return `${normalized.length} Classes (${normalized.join(', ')})`
 }
 
 export const notices: Notice[] = []
@@ -823,7 +845,7 @@ export type ClassSemesterTimetable = {
 export const CURRENT_SEMESTER: 1 | 2 = 1
 
 const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
-  '8th • Batch 14': {
+  '8th': {
     periods: [
       { label: 'Period 1', time: '07:15 – 08:05' },
       { label: 'Period 2', time: '08:30 – 09:20' },
@@ -846,7 +868,7 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { subject: 'Social Studies & English', teacher: 'Usthad Midhlaj Ahsani' },
     ],
   },
-  '9th • Batch 13': {
+  '9th': {
     periods: [
       { label: 'Period 1', time: '07:15 – 08:05' },
       { label: 'Period 2', time: '08:30 – 09:20' },
@@ -869,7 +891,7 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { subject: 'High School Social Science', teacher: 'Usthad Hashim Saqafi' },
     ],
   },
-  '10th • Batch 12': {
+  '10th': {
     periods: [
       { label: 'Period 1', time: '07:00 – 08:00' },
       { label: 'Period 2', time: '08:30 – 09:25' },
@@ -892,7 +914,7 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { subject: 'SSLC Social Science', teacher: 'Usthad Alavudheen Ahsani' },
     ],
   },
-  'HS 1 • Batch 11': {
+  'HS 1': {
     periods: [
       { label: 'Period 1', time: '07:00 – 08:00' },
       { label: 'Period 2', time: '08:30 – 09:30' },
@@ -915,7 +937,7 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { subject: 'Arabic Rhetoric', teacher: 'Usthad Razaq Saqafi' },
     ],
   },
-  'HS 2A • Batch 10': {
+  'HS 2A': {
     periods: [
       { label: 'Period 1', time: '07:00 – 08:00' },
       { label: 'Period 2', time: '08:30 – 09:30' },
@@ -938,7 +960,7 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { subject: 'Da’wa & Elocution Lab', teacher: 'Usthad Hashim Saqafi' },
     ],
   },
-  'HS 2B • Batch 1': {
+  'HS 2B': {
     periods: [
       { label: 'Period 1', time: '07:00 – 08:00' },
       { label: 'Period 2', time: '08:30 – 09:30' },
@@ -961,7 +983,7 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { subject: 'Arabic Composition', teacher: 'Usthad Razaq Saqafi' },
     ],
   },
-  'BS 1 • Batch 09': {
+  'BS 1': {
     periods: [
       { label: 'Period 1', time: '06:45 – 07:50' },
       { label: 'Period 2', time: '08:30 – 09:30' },
@@ -984,7 +1006,7 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { subject: 'Classical Balaghah', teacher: 'Usthad Favaz Saqafi' },
     ],
   },
-  'BS 2 • Batch 08': {
+  'BS 2': {
     periods: [
       { label: 'Period 1', time: '06:45 – 07:50' },
       { label: 'Period 2', time: '08:30 – 09:30' },
@@ -1007,7 +1029,7 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { subject: 'Comparative Da’wa Studies', teacher: 'Usthad Favaz Saqafi' },
     ],
   },
-  'BS 3 • Batch 07': {
+  'BS 3': {
     periods: [
       { label: 'Period 1', time: '06:45 – 07:50' },
       { label: 'Period 2', time: '08:30 – 09:30' },
@@ -1030,7 +1052,7 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { subject: 'BA Dissertation & Viva', teacher: 'Usthad Midhlaj Ahsani' },
     ],
   },
-  'BS 4 • Batch 06': {
+  'BS 4': {
     periods: [
       { label: 'Period 1', time: '06:30 – 07:45' },
       { label: 'Period 2', time: '08:30 – 09:35' },
@@ -1053,7 +1075,7 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { subject: 'Translation & Publication Lab', teacher: 'Usthad Midhlaj Ahsani' },
     ],
   },
-  'BS 5 • Batch 05': {
+  'BS 5': {
     periods: [
       { label: 'Period 1', time: '06:30 – 07:45' },
       { label: 'Period 2', time: '08:30 – 09:35' },
@@ -1062,14 +1084,14 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
       { label: 'Period 5', time: '14:00 – 15:15' },
     ],
     semester1: [
-      { subject: 'Sahih al-Bukhari (Valiya Batch Dawrah Part 1)', teacher: 'SHAIKHUNA HAMZA USTHAD' },
+      { subject: 'Sahih al-Bukhari (Valiya Dars Part 1)', teacher: 'SHAIKHUNA HAMZA USTHAD' },
       { subject: 'Tuhfat al-Muhtaj & Fatawa', teacher: 'SHAIKHUNA HAMZA USTHAD' },
       { subject: 'Jami’ al-Tirmidhi & Ilal', teacher: 'Usthad Muhammed Yasir Ahsani' },
       { subject: 'Comparative Religion & Da’wa', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
       { subject: 'Senior Thesis & Ifta’ Practicum', teacher: 'Usthad Muhammed Musthafa Saqafi' },
     ],
     semester2: [
-      { subject: 'Sahih al-Bukhari (Valiya Batch Dawrah Part 2)', teacher: 'SHAIKHUNA HAMZA USTHAD' },
+      { subject: 'Sahih al-Bukhari (Valiya Dars Part 2)', teacher: 'SHAIKHUNA HAMZA USTHAD' },
       { subject: 'Qawa’id Fiqhiyyah (Al-Ashbah)', teacher: 'SHAIKHUNA HAMZA USTHAD' },
       { subject: 'Muwatta’ Imam Malik & Sunan', teacher: 'Usthad Muhammed Yasir Ahsani' },
       { subject: 'Global Da’wa Leadership', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
@@ -1079,9 +1101,10 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
 }
 
 export function getClassSemesterTimetable(student: Student): ClassSemesterTimetable {
+  const key = normalizeClassName(student.className)
   return (
-    CLASS_SEMESTER_SCHEDULES[student.className] ??
-    CLASS_SEMESTER_SCHEDULES['BS 3 • Batch 07']
+    CLASS_SEMESTER_SCHEDULES[key] ??
+    CLASS_SEMESTER_SCHEDULES['BS 3']
   )
 }
 
@@ -1112,10 +1135,10 @@ export const SHAIKHUNA_HAMZA_USTHAD: SupremeScholarProfile = {
   malayalamName: 'Shaikhuna Manhappatta Hamza Usthad',
   honorificTitle: 'SHAIKHUNA HAMZA USTHAD',
   designation: 'Supreme Scholar & Chief Mudarris',
-  valiyaBatches: ['BS 5 • Batch 05', 'BS 4 • Batch 06'],
+  valiyaBatches: ['BS 5', 'BS 4'],
   specialization: 'Sahih al-Bukhari, Tuhfat al-Muhtaj & Senior Valiya Dars',
   description:
-    'Supreme Scholar and Chief Mudarris above all Usthads. Teaches senior classes in the two Valiya batches (BS 5 & BS 4).',
+    'Supreme Scholar and Chief Mudarris above all Usthads. Teaches senior classes in the two senior classes (BS 5 & BS 4).',
   isClassUsthad: false,
   hasLoginId: false,
 }
@@ -1158,6 +1181,7 @@ export type ClassUsthad = {
   teachingBatches?: string[]
   className: string
   fullClassLabel: string
+  batch: string
   batchCode: string
   specialization: string
 }
@@ -1176,8 +1200,10 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     designation: 'Principal & Class Usthad',
     institutionalRole: 'Principal',
     isPrincipalRole: true,
-    className: 'BS 3 • Batch 07',
-    fullClassLabel: 'Class BS 3 • Batch 07',
+    teachingBatches: ['BS 3', 'BS 5'],
+    className: 'BS 3',
+    fullClassLabel: 'Class BS 3',
+    batch: 'Batch 07',
     batchCode: '07',
     specialization: 'Principal & Class Usthad • Shafi’i Jurisprudence & Jam’ al-Jawami’',
   },
@@ -1188,8 +1214,10 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     shortName: 'Usthad Hafiz Fazlul Abid Naeemi (Swadr)',
     designation: 'Swadr & Class Usthad',
     institutionalRole: 'Swadr',
-    className: 'BS 2 • Batch 08',
-    fullClassLabel: 'Class BS 2 • Batch 08',
+    teachingBatches: ['BS 2', 'BS 4'],
+    className: 'BS 2',
+    fullClassLabel: 'Class BS 2',
+    batch: 'Batch 08',
     batchCode: '08',
     specialization: 'Swadr • Qur’an Hifz, Tafsir & Usul al-Fiqh',
   },
@@ -1200,8 +1228,9 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     shortName: 'Usthad Muhammed Musthafa Saqafi',
     designation: 'Class Usthad',
     institutionalRole: 'Class Usthad',
-    className: 'BS 1 • Batch 09',
-    fullClassLabel: 'Class BS 1 • Batch 09',
+    className: 'BS 1',
+    fullClassLabel: 'Class BS 1',
+    batch: 'Batch 09',
     batchCode: '09',
     specialization: 'Mahalli & Mishkat al-Masabih',
   },
@@ -1212,8 +1241,9 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     shortName: 'Usthad Midhlaj Ahsani',
     designation: 'Class Usthad',
     institutionalRole: 'Class Usthad',
-    className: 'HS 2B • Batch 1',
-    fullClassLabel: 'Class HS 2B • Batch 1',
+    className: 'HS 2B',
+    fullClassLabel: 'Class HS 2B',
+    batch: 'Batch 1',
     batchCode: '01',
     specialization: 'Tafsir al-Jalalayn & Islamic History',
   },
@@ -1224,8 +1254,9 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     shortName: 'Usthad Favaz Saqafi',
     designation: 'Class Usthad',
     institutionalRole: 'Class Usthad',
-    className: 'HS 2A • Batch 10',
-    fullClassLabel: 'Class HS 2A • Batch 10',
+    className: 'HS 2A',
+    fullClassLabel: 'Class HS 2A',
+    batch: 'Batch 10',
     batchCode: '10',
     specialization: 'Alfiyyah Ibn Malik & Balaghah',
   },
@@ -1236,8 +1267,9 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     shortName: 'Usthad Hashim Saqafi',
     designation: 'Class Usthad',
     institutionalRole: 'Class Usthad',
-    className: 'HS 1 • Batch 11',
-    fullClassLabel: 'Class HS 1 • Batch 11',
+    className: 'HS 1',
+    fullClassLabel: 'Class HS 1',
+    batch: 'Batch 11',
     batchCode: '11',
     specialization: 'Fath al-Mu’in & Hadith Studies',
   },
@@ -1248,8 +1280,9 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     shortName: 'Usthad Razaq Saqafi',
     designation: 'Class Usthad',
     institutionalRole: 'Class Usthad',
-    className: '10th • Batch 12',
-    fullClassLabel: 'Class 10th • Batch 12',
+    className: '10th',
+    fullClassLabel: 'Class 10th',
+    batch: 'Batch 12',
     batchCode: '12',
     specialization: 'Qatr al-Nada & Arabic Literature',
   },
@@ -1260,8 +1293,9 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     shortName: 'Usthad Alavudheen Ahsani',
     designation: 'Class Usthad',
     institutionalRole: 'Class Usthad',
-    className: '9th • Batch 13',
-    fullClassLabel: 'Class 9th • Batch 13',
+    className: '9th',
+    fullClassLabel: 'Class 9th',
+    batch: 'Batch 13',
     batchCode: '13',
     specialization: 'Nahw & Classical Sarf',
   },
@@ -1272,27 +1306,28 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     shortName: 'Usthad Asif Saqafi',
     designation: 'Class Usthad',
     institutionalRole: 'Class Usthad',
-    className: '8th • Batch 14',
-    fullClassLabel: 'Class 8th • Batch 14',
+    className: '8th',
+    fullClassLabel: 'Class 8th',
+    batch: 'Batch 14',
     batchCode: '14',
     specialization: 'Fiqh & Foundation Sarf',
   },
 ]
 
 /**
- * Per-batch Class Usthad mapping across the 11 classes (using ONLY the 9 Class Usthads;
+ * Per-class Class Usthad mapping across the 11 classes (using ONLY the 9 Class Usthads;
  * neither SHAIKHUNA HAMZA USTHAD nor Manager Usthad Muhammed Naeem Saqafi is ever a Class Usthad).
  */
 export const CLASS_USTHADS: ClassUsthad[] = [
-  OFFICIAL_CLASS_USTHADS[8], // 8th • Batch 14 — Usthad Asif Saqafi
-  OFFICIAL_CLASS_USTHADS[7], // 9th • Batch 13 — Usthad Alavudheen Ahsani
-  OFFICIAL_CLASS_USTHADS[6], // 10th • Batch 12 — Usthad Razaq Saqafi
-  OFFICIAL_CLASS_USTHADS[5], // HS 1 • Batch 11 — Usthad Hashim Saqafi
-  OFFICIAL_CLASS_USTHADS[4], // HS 2A • Batch 10 — Usthad Favaz Saqafi
-  OFFICIAL_CLASS_USTHADS[3], // HS 2B • Batch 1 — Usthad Midhlaj Ahsani
-  OFFICIAL_CLASS_USTHADS[2], // BS 1 • Batch 09 — Usthad Muhammed Musthafa Saqafi
-  OFFICIAL_CLASS_USTHADS[1], // BS 2 • Batch 08 — Usthad Hafiz Fazlul Abid Naeemi (Swadr)
-  OFFICIAL_CLASS_USTHADS[0], // BS 3 • Batch 07 — Usthad Muhammed Yasir Ahsani (Principal)
+  OFFICIAL_CLASS_USTHADS[8], // 8th — Usthad Asif Saqafi
+  OFFICIAL_CLASS_USTHADS[7], // 9th — Usthad Alavudheen Ahsani
+  OFFICIAL_CLASS_USTHADS[6], // 10th — Usthad Razaq Saqafi
+  OFFICIAL_CLASS_USTHADS[5], // HS 1 — Usthad Hashim Saqafi
+  OFFICIAL_CLASS_USTHADS[4], // HS 2A — Usthad Favaz Saqafi
+  OFFICIAL_CLASS_USTHADS[3], // HS 2B — Usthad Midhlaj Ahsani
+  OFFICIAL_CLASS_USTHADS[2], // BS 1 — Usthad Muhammed Musthafa Saqafi
+  OFFICIAL_CLASS_USTHADS[1], // BS 2 — Usthad Hafiz Fazlul Abid Naeemi (Swadr)
+  OFFICIAL_CLASS_USTHADS[0], // BS 3 — Usthad Muhammed Yasir Ahsani (Principal)
   {
     id: 'usthad-06',
     staffId: 'UST-06',
@@ -1300,8 +1335,9 @@ export const CLASS_USTHADS: ClassUsthad[] = [
     shortName: 'Usthad Hafiz Fazlul Abid Naeemi (Swadr)',
     designation: 'Swadr & Class Usthad',
     institutionalRole: 'Swadr',
-    className: 'BS 4 • Batch 06',
-    fullClassLabel: 'Class BS 4 • Batch 06 (Valiya Batch)',
+    className: 'BS 4',
+    fullClassLabel: 'Class BS 4',
+    batch: 'Batch 06',
     batchCode: '06',
     specialization: 'Swadr • Tafsir & Usul al-Fiqh',
   },
@@ -1313,8 +1349,9 @@ export const CLASS_USTHADS: ClassUsthad[] = [
     designation: 'Principal & Class Usthad',
     institutionalRole: 'Principal',
     isPrincipalRole: true,
-    className: 'BS 5 • Batch 05',
-    fullClassLabel: 'Class BS 5 • Batch 05 (Valiya Batch)',
+    className: 'BS 5',
+    fullClassLabel: 'Class BS 5',
+    batch: 'Batch 05',
     batchCode: '05',
     specialization: 'Principal & Class Usthad • Senior Fiqh & Hadith Oversight',
   },
@@ -1572,7 +1609,7 @@ export function getEffectiveStudentAttendance(
   const dateStatusesByMonth: Record<string, Record<string, PeriodAttendanceStatus[]>> = {}
 
   for (const sub of Object.values(activePeriodSubmissions)) {
-    if (sub.className !== student.className) continue
+    if (normalizeClassName(sub.className) !== normalizeClassName(student.className)) continue
     if (sub.sessionStatus === 'not-held') continue
     const stStatus = sub.records?.[student.id]
     if (!stStatus) continue
@@ -1708,17 +1745,17 @@ export type ClassLeaderInfo = {
  */
 export const CLASS_LEADERS: ClassLeaderInfo[] = (() => {
   const batchMapping: { className: string; batchCode: string }[] = [
-    { className: '8th • Batch 14', batchCode: '14' },
-    { className: '9th • Batch 13', batchCode: '13' },
-    { className: '10th • Batch 12', batchCode: '12' },
-    { className: 'HS 1 • Batch 11', batchCode: '11' },
-    { className: 'HS 2A • Batch 10', batchCode: '10' },
-    { className: 'HS 2B • Batch 1', batchCode: '01' },
-    { className: 'BS 1 • Batch 09', batchCode: '09' },
-    { className: 'BS 2 • Batch 08', batchCode: '08' },
-    { className: 'BS 3 • Batch 07', batchCode: '07' },
-    { className: 'BS 4 • Batch 06', batchCode: '06' },
-    { className: 'BS 5 • Batch 05', batchCode: '05' },
+    { className: '8th', batchCode: '14' },
+    { className: '9th', batchCode: '13' },
+    { className: '10th', batchCode: '12' },
+    { className: 'HS 1', batchCode: '11' },
+    { className: 'HS 2A', batchCode: '10' },
+    { className: 'HS 2B', batchCode: '01' },
+    { className: 'BS 1', batchCode: '09' },
+    { className: 'BS 2', batchCode: '08' },
+    { className: 'BS 3', batchCode: '07' },
+    { className: 'BS 4', batchCode: '06' },
+    { className: 'BS 5', batchCode: '05' },
   ]
 
   const leaders: ClassLeaderInfo[] = []
@@ -1754,17 +1791,19 @@ export const CLASS_LEADERS: ClassLeaderInfo[] = (() => {
 })()
 
 export function getClassLeadersForClass(className: string): ClassLeaderInfo[] {
-  return CLASS_LEADERS.filter((item) => item.className === className)
+  const norm = normalizeClassName(className)
+  return CLASS_LEADERS.filter((item) => normalizeClassName(item.className) === norm)
 }
 
 export function getLeaderIdForClass(className: string, studentId?: string): string {
+  const norm = normalizeClassName(className)
   if (studentId) {
     const byStudent = CLASS_LEADERS.find(
-      (item) => item.className === className && item.studentId === studentId,
+      (item) => normalizeClassName(item.className) === norm && item.studentId === studentId,
     )
     if (byStudent) return byStudent.leaderId
   }
-  const found = CLASS_LEADERS.find((item) => item.className === className)
+  const found = CLASS_LEADERS.find((item) => normalizeClassName(item.className) === norm)
   return found?.leaderId ?? 'CL-14'
 }
 
@@ -1831,7 +1870,7 @@ export function findClassLeaderByIdentifier(
     }
   }
 
-  // 3. Check if the user entered a Student Admission Number (e.g. ICS2K261401 or ICS2K261402)
+  // 3. Check if the user entered an authorized Class Leader's Student Admission Number
   const matchedByAdmission = findStudentByAdmissionNo(identifier)
   if (matchedByAdmission) {
     const matchingLeader = CLASS_LEADERS.find(
@@ -1844,15 +1883,7 @@ export function findClassLeaderByIdentifier(
         roleTitle: matchingLeader.roleTitle,
       }
     }
-    const fallbackLeaderId = getLeaderIdForClass(
-      matchedByAdmission.className,
-      matchedByAdmission.id,
-    )
-    return {
-      student: matchedByAdmission,
-      leaderId: fallbackLeaderId,
-      roleTitle: 'Main Class Leader',
-    }
+    return undefined
   }
 
   // 4. Support legacy placeholder "CL-8B-03" or "LEADER" / "ASSISTANT"
@@ -1950,6 +1981,7 @@ export type PrincipalProfile = {
   usthadId: string
   usthadStaffId: string
   assignedClassName: string
+  assignedBatch: string
   name: string
   shortName: string
   designation: string
@@ -1963,7 +1995,8 @@ export const ACADEMY_PRINCIPAL: PrincipalProfile = {
   staffId: 'ADM-001',
   usthadId: 'usthad-07',
   usthadStaffId: 'UST-07',
-  assignedClassName: 'BS 3 • Batch 07',
+  assignedClassName: 'BS 3',
+  assignedBatch: 'Batch 07',
   name: 'Usthad Muhammed Yasir Ahsani',
   shortName: 'Usthad Muhammed Yasir Ahsani (Principal)',
   designation: "Principal & Class Usthad • ICS Academy & Da'wa College Manhappatta",
@@ -2093,6 +2126,10 @@ export function isNotificationVisibleForStudent(
   studentId?: string,
   classNameFilter?: string,
 ): boolean {
+  const normFilter = normalizeClassName(classNameFilter)
+  const normTargetClass = normalizeClassName(notif.targetClass)
+  const normTargetClasses = (notif.targetClasses ?? []).map((c) => normalizeClassName(c))
+
   if (studentId) {
     // 1. Any notification explicitly targeting a student ID must match this logged-in student
     if (notif.targetStudentId && notif.targetStudentId !== studentId) {
@@ -2102,19 +2139,18 @@ export function isNotificationVisibleForStudent(
     if (notif.type === 'attendance' || notif.type === 'leave') {
       return notif.targetStudentId === studentId
     }
-    // 3. Multi-batch target filtering (for batch-specific notices/holidays)
+    // 3. Multi-class target filtering (for class-specific notices/holidays)
     if (
-      notif.targetClasses &&
-      notif.targetClasses.length > 0 &&
-      !notif.targetClasses.includes('ALL')
+      normTargetClasses.length > 0 &&
+      !normTargetClasses.includes('ALL')
     ) {
-      if (classNameFilter && !notif.targetClasses.includes(classNameFilter)) {
+      if (normFilter && !normTargetClasses.includes(normFilter)) {
         return false
       }
     }
     // 4. Single-class target filtering (for period-attendance or single-class notices)
-    if (notif.targetClass && notif.targetClass !== 'ALL') {
-      if (classNameFilter && notif.targetClass !== classNameFilter) {
+    if (normTargetClass && normTargetClass !== 'ALL') {
+      if (normFilter && normTargetClass !== normFilter) {
         return false
       }
     }
@@ -2122,19 +2158,18 @@ export function isNotificationVisibleForStudent(
   }
 
   // Staff / Usthad / Principal view:
-  if (classNameFilter && classNameFilter !== 'ALL') {
+  if (normFilter && normFilter !== 'ALL') {
     if (
-      notif.targetClasses &&
-      notif.targetClasses.length > 0 &&
-      !notif.targetClasses.includes('ALL') &&
-      !notif.targetClasses.includes(classNameFilter)
+      normTargetClasses.length > 0 &&
+      !normTargetClasses.includes('ALL') &&
+      !normTargetClasses.includes(normFilter)
     ) {
       return false
     }
     if (
-      notif.targetClass &&
-      notif.targetClass !== 'ALL' &&
-      notif.targetClass !== classNameFilter
+      normTargetClass &&
+      normTargetClass !== 'ALL' &&
+      normTargetClass !== normFilter
     ) {
       return false
     }

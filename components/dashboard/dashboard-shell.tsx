@@ -332,7 +332,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
                   Class Leaders:{' '}
                   <span className="font-medium text-cyan">
                     {classLeaders
-                      .map((cl) => `${cl.studentName} (${cl.leaderId})`)
+                      .map((cl) => cl.studentName)
                       .join(' & ')}
                   </span>
                 </p>

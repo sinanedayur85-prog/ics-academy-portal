@@ -145,9 +145,20 @@ CRITICAL CONVERSATIONAL & FOLLOW-UP INTELLIGENCE (ACT LIKE REAL GOOGLE GEMINI):
    - Read and transcribe the exact text visible in the image.
    - Translate it clearly into the requested language(s) (including Malayalam and English when requested) and explain the word-by-word meanings, Nahw/Sarf grammar, or Fiqh/academic rulings.
 5. Institutional Scope: Dedicate responses to educational, academic, linguistic, Islamic scholarly, and ICS Academy matters.
+6. STRICT STUDENT & STAFF PRIVACY RULE (CRITICAL — APPLIES TO BOTH USTHADS AND STUDENTS): In this Chatbot, neither Usthads nor Students nor anyone is permitted to view anything about other students or staff members except their NAME (and class). Never disclose, guess, or generate any person's Admission ID (ICS2K...), Password, Batch number (e.g. Batch 14, Batch 07), Class Leader ID (CL-... / ACL-...), Staff ID (UST-... / ADM-...), attendance record, leave status, or personal data. If anyone asks for another person's Admission ID, password, batch number, attendance, leave details, or private information, politely refuse and state that for institutional privacy, only names are visible in the Chatbot.
 
 Language Rule:
 ${langRule}`
+}
+
+function redactPrivateIds(text) {
+  if (!text) return text
+  return String(text)
+    .replace(/\bICS2K\d{2}[A-Z0-9]*\b/gi, '[Private Admission ID]')
+    .replace(/\bICS-\d{4}-\d+\b/gi, '[Private Admission ID]')
+    .replace(/\b(?:ACL|CL)-\d{1,3}(?:-[A-Z0-9]+)?\b/gi, '[Private Leader ID]')
+    .replace(/\b(?:UST|ADM)-\d{1,4}\b/gi, '[Private Staff ID]')
+    .replace(/\s*•\s*Batch\s+\d+\b/gi, '')
 }
 
 async function callGeminiGenerateContent(apiKey, modelName, contents, systemInstruction) {
@@ -182,10 +193,12 @@ async function callGeminiGenerateContent(apiKey, modelName, contents, systemInst
   const data = await res.json()
   const parts = data?.candidates?.[0]?.content?.parts
   if (!Array.isArray(parts)) return ''
-  return parts
-    .map((p) => (typeof p?.text === 'string' ? p.text : ''))
-    .join('')
-    .trim()
+  return redactPrivateIds(
+    parts
+      .map((p) => (typeof p?.text === 'string' ? p.text : ''))
+      .join('')
+      .trim(),
+  )
 }
 
 export default async function handler(req, res) {

@@ -588,19 +588,19 @@ export async function exportStudyNoteDirectPdf({
 
   setFont('normal', 8.2)
   pdf.setTextColor(71, 85, 105)
-  pdf.text('Admission No.: ', 16.5, 54)
-  const admLabelW = pdf.getTextWidth('Admission No.: ')
-  setFont('bold', 8.2)
+  pdf.text('Class: ', 16.5, 54)
+  const clsLabelW = pdf.getTextWidth('Class: ')
+  setFont('semibold', 8.2)
   pdf.setTextColor(15, 23, 42)
-  pdf.text(safeStudent.admissionNo, 16.5 + admLabelW, 54)
+  pdf.text(safeStudent.className, 16.5 + clsLabelW, 54)
 
   setFont('normal', 8.2)
   pdf.setTextColor(71, 85, 105)
-  pdf.text('Class & Batch: ', 16.5, 59)
-  const clsLabelW = pdf.getTextWidth('Class & Batch: ')
+  pdf.text('Institution: ', 16.5, 59)
+  const instLabelW = pdf.getTextWidth('Institution: ')
   setFont('semibold', 8.2)
   pdf.setTextColor(15, 23, 42)
-  pdf.text(safeStudent.className, 16.5 + clsLabelW, 59)
+  pdf.text("ICS Academy (Da'wa College)", 16.5 + instLabelW, 59)
 
   setFont('normal', 8.2)
   pdf.setTextColor(71, 85, 105)
@@ -777,7 +777,7 @@ export async function exportStudyNoteDirectPdf({
     setFont('bold', 10)
     pdf.setTextColor(255, 255, 255)
     pdf.text(
-      `${safeStudent.name} (${safeStudent.admissionNo})  •  ${safeStudent.className}`,
+      `${safeStudent.name}  •  ${safeStudent.className}`,
       31,
       25.2,
     )
@@ -1139,7 +1139,7 @@ export async function exportStudyNoteDirectPdf({
     setFont('normal', 7.5)
     pdf.setTextColor(100, 116, 139)
     pdf.text(
-      `ICS Academy Manhappatta  |  ${safeStudent.name} (${safeStudent.admissionNo})`,
+      `ICS Academy Manhappatta  |  ${safeStudent.name} • ${safeStudent.className}`,
       13,
       283.5,
     )
