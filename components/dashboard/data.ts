@@ -291,56 +291,6 @@ const RAW_CLASS_ROSTERS: {
 
 export const MONTHS_META = [
   {
-    id: '2026-01',
-    month: 'January',
-    shortMonth: 'Jan',
-    year: 2026,
-    calendarDays: 31,
-    officialHolidayDays: 0,
-    officialHolidayNote: 'No official holidays announced yet',
-    baseDays: 0,
-  },
-  {
-    id: '2026-02',
-    month: 'February',
-    shortMonth: 'Feb',
-    year: 2026,
-    calendarDays: 28,
-    officialHolidayDays: 0,
-    officialHolidayNote: 'No official holidays announced yet',
-    baseDays: 0,
-  },
-  {
-    id: '2026-03',
-    month: 'March',
-    shortMonth: 'Mar',
-    year: 2026,
-    calendarDays: 31,
-    officialHolidayDays: 0,
-    officialHolidayNote: 'No official holidays announced yet',
-    baseDays: 0,
-  },
-  {
-    id: '2026-04',
-    month: 'April',
-    shortMonth: 'Apr',
-    year: 2026,
-    calendarDays: 30,
-    officialHolidayDays: 0,
-    officialHolidayNote: 'No official holidays announced yet',
-    baseDays: 0,
-  },
-  {
-    id: '2026-05',
-    month: 'May',
-    shortMonth: 'May',
-    year: 2026,
-    calendarDays: 31,
-    officialHolidayDays: 0,
-    officialHolidayNote: 'No official holidays announced yet',
-    baseDays: 0,
-  },
-  {
     id: '2026-06',
     month: 'June',
     shortMonth: 'Jun',
@@ -405,6 +355,56 @@ export const MONTHS_META = [
     month: 'December',
     shortMonth: 'Dec',
     year: 2026,
+    calendarDays: 31,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
+  },
+  {
+    id: '2027-01',
+    month: 'January',
+    shortMonth: 'Jan',
+    year: 2027,
+    calendarDays: 31,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
+  },
+  {
+    id: '2027-02',
+    month: 'February',
+    shortMonth: 'Feb',
+    year: 2027,
+    calendarDays: 28,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
+  },
+  {
+    id: '2027-03',
+    month: 'March',
+    shortMonth: 'Mar',
+    year: 2027,
+    calendarDays: 31,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
+  },
+  {
+    id: '2027-04',
+    month: 'April',
+    shortMonth: 'Apr',
+    year: 2027,
+    calendarDays: 30,
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
+  },
+  {
+    id: '2027-05',
+    month: 'May',
+    shortMonth: 'May',
+    year: 2027,
     calendarDays: 31,
     officialHolidayDays: 0,
     officialHolidayNote: 'No official holidays announced yet',
@@ -1626,10 +1626,13 @@ export function getEffectiveStudentAttendance(
   }
 
   const monthlyAttendance = student.monthlyAttendance.map((m) => {
+    const monthSuffix = m.id.slice(5)
+    const altMonthId = m.id.startsWith('2027-') ? `2026-${monthSuffix}` : `2027-${monthSuffix}`
     const key = `${student.id}__${m.id}`
-    const override = overrides[key]
-    const periodDerived = periodDaysByMonth[m.id]
-    const extraHoliday = extraHolidayByMonth[m.id]
+    const altKey = `${student.id}__${altMonthId}`
+    const override = overrides[key] ?? overrides[altKey]
+    const periodDerived = periodDaysByMonth[m.id] ?? periodDaysByMonth[altMonthId]
+    const extraHoliday = extraHolidayByMonth[m.id] ?? extraHolidayByMonth[altMonthId]
     const extraDeducted = extraHoliday ? extraHoliday.days : 0
 
     const present = override

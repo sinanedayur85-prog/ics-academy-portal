@@ -468,7 +468,25 @@ export function CampusMessenger({
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const imageInputRef = useRef<HTMLInputElement | null>(null)
   const pdfInputRef = useRef<HTMLInputElement | null>(null)
+  const attachMenuRef = useRef<HTMLDivElement | null>(null)
+  const attachButtonRef = useRef<HTMLButtonElement | null>(null)
   const lastTypingSentMsRef = useRef<number>(0)
+
+  // Automatically close Attachment Menu when tapping any other icon or anywhere outside
+  useEffect(() => {
+    if (!showAttachMenu) return
+    const handleGlobalPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null
+      if (!target) return
+      if (attachMenuRef.current?.contains(target)) return
+      if (attachButtonRef.current?.contains(target)) return
+      setShowAttachMenu(false)
+    }
+    document.addEventListener('pointerdown', handleGlobalPointerDown, true)
+    return () => {
+      document.removeEventListener('pointerdown', handleGlobalPointerDown, true)
+    }
+  }, [showAttachMenu])
 
   // Build available rooms for this user
   const allRooms = useMemo<ChatRoomDescriptor[]>(() => {
@@ -1033,6 +1051,10 @@ export function CampusMessenger({
   // Voice Note Recording Handlers
   const startVoiceRecording = async () => {
     if (activeRoomMeta.onlyAdminsCanPost && !actor.isStaff) return
+    setShowAttachMenu(false)
+    setActiveReactionMessageId(null)
+    setShowSettingsModal(false)
+    setShowNewChatModal(false)
     setIsRecordingVoice(true)
     setRecordingSeconds(0)
     recordedChunksRef.current = []
@@ -1239,7 +1261,7 @@ export function CampusMessenger({
     const pdfBlob = buildKitabPdfBlob(kitab)
     const url = URL.createObjectURL(pdfBlob)
     dispatchMessage({
-      text: `📚 ${kitab.title} (${kitab.arabicTitle}) — ക്ലാസ് പഠനത്തിനുള്ള സിലബസ് നോട്ട് (PDF).`,
+      text: `📚 ${kitab.title} (${kitab.arabicTitle}) — Syllabus Study Note (PDF).`,
       mediaType: 'pdf',
       mediaUrl: url,
       mediaName: `${kitab.title.replace(/\s+/g, '_')}_Notes.pdf`,
@@ -1396,7 +1418,7 @@ export function CampusMessenger({
         {/* LEFT PANE: WHATSAPP CONVERSATION ROSTER */}
         <div
           className={cn(
-            'flex h-full w-full flex-col border-r border-border bg-background/80 lg:w-[360px] xl:w-[390px] lg:shrink-0',
+            'flex h-full w-full flex-col border-r border-border bg-background/80 lg:w-[290px] xl:w-[360px] lg:shrink-0',
             mobileShowChatPane ? 'hidden lg:flex' : 'flex',
           )}
         >
@@ -1421,7 +1443,13 @@ export function CampusMessenger({
             <div className="flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => setShowNewChatModal(true)}
+                onClick={() => {
+                  setShowAttachMenu(false)
+                  setActiveReactionMessageId(null)
+                  setShowSettingsModal(false)
+                  if (isRecordingVoice) cancelVoiceRecording()
+                  setShowNewChatModal((prev) => !prev)
+                }}
                 title="Start a new chat with an Usthad or Student"
                 className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-emerald-500/35 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-500/25 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100 dark:hover:bg-[#222630] shrink-0"
               >
@@ -1430,8 +1458,14 @@ export function CampusMessenger({
               </button>
               <button
                 type="button"
-                onClick={() => setShowSettingsModal(true)}
-                title="Chat Settings (ചാറ്റ് സെറ്റിംഗ്സ്)"
+                onClick={() => {
+                  setShowAttachMenu(false)
+                  setActiveReactionMessageId(null)
+                  setShowNewChatModal(false)
+                  if (isRecordingVoice) cancelVoiceRecording()
+                  setShowSettingsModal((prev) => !prev)
+                }}
+                title="Chat Settings"
                 aria-label="Open Chat Settings"
                 className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-200 dark:hover:bg-[#222630]"
               >
@@ -1526,6 +1560,9 @@ export function CampusMessenger({
                   key={room.roomId}
                   type="button"
                   onClick={() => {
+                    setShowAttachMenu(false)
+                    setActiveReactionMessageId(null)
+                    if (isRecordingVoice) cancelVoiceRecording()
                     setSelectedRoomId(room.roomId)
                     setMobileShowChatPane(true)
                   }}
@@ -1644,7 +1681,12 @@ export function CampusMessenger({
             <div className="flex min-w-0 items-center gap-2.5">
               <button
                 type="button"
-                onClick={() => setMobileShowChatPane(false)}
+                onClick={() => {
+                  setShowAttachMenu(false)
+                  setActiveReactionMessageId(null)
+                  if (isRecordingVoice) cancelVoiceRecording()
+                  setMobileShowChatPane(false)
+                }}
                 aria-label="Back to chat list"
                 className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-foreground hover:bg-muted lg:hidden"
               >
@@ -1708,7 +1750,12 @@ export function CampusMessenger({
               {actor.isStaff && activeRoom.type === 'batch_group' && (
                 <button
                   type="button"
-                  onClick={handleToggleGroupLock}
+                  onClick={() => {
+                    setShowAttachMenu(false)
+                    setActiveReactionMessageId(null)
+                    if (isRecordingVoice) cancelVoiceRecording()
+                    handleToggleGroupLock()
+                  }}
                   title={
                     activeRoomMeta.onlyAdminsCanPost
                       ? 'Group is locked to Usthads only. Click to allow all students to message.'
@@ -1737,8 +1784,14 @@ export function CampusMessenger({
 
               <button
                 type="button"
-                onClick={() => setShowSettingsModal(true)}
-                title="Chat Settings (ചാറ്റ് സെറ്റിംഗ്സ്)"
+                onClick={() => {
+                  setShowAttachMenu(false)
+                  setActiveReactionMessageId(null)
+                  setShowNewChatModal(false)
+                  if (isRecordingVoice) cancelVoiceRecording()
+                  setShowSettingsModal((prev) => !prev)
+                }}
+                title="Chat Settings"
                 aria-label="Open Chat Settings"
                 className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-200 dark:hover:bg-[#222630]"
               >
@@ -1794,7 +1847,10 @@ export function CampusMessenger({
               chatSettings.chatWallpaper === 'warm_slate' &&
                 'bg-[#f5f3ef] dark:bg-[#101115]',
             )}
-            onClick={() => setActiveReactionMessageId(null)}
+            onClick={() => {
+              setActiveReactionMessageId(null)
+              setShowAttachMenu(false)
+            }}
           >
             {/* End-to-End Campus Security Banner */}
             <div className="mx-auto max-w-md rounded-2xl border border-border/70 bg-card/70 px-3.5 py-2 text-center text-[11px] text-muted-foreground dark:border-[#262a33] dark:bg-[#121418]">
@@ -1827,6 +1883,7 @@ export function CampusMessenger({
                   <div
                     onClick={(e) => {
                       e.stopPropagation()
+                      setShowAttachMenu(false)
                       if (!msg.isDeleted) {
                         setActiveReactionMessageId((prev) =>
                           prev === msg.id ? null : msg.id,
@@ -1847,6 +1904,7 @@ export function CampusMessenger({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation()
+                          setShowAttachMenu(false)
                           setActiveReactionMessageId((prev) =>
                             prev === msg.id ? null : msg.id,
                           )
@@ -2282,8 +2340,7 @@ export function CampusMessenger({
             <div className="flex items-center justify-center gap-2 border-t border-border bg-card px-4 py-3.5 text-center text-xs font-semibold text-muted-foreground dark:border-[#262a33] dark:bg-[#121418]">
               <Lock className="size-4 shrink-0" aria-hidden="true" />
               <span>
-                ഈ ഗ്രൂപ്പിൽ ഉസ്താദുമാർക്ക് മാത്രമേ മെസ്സേജ് അയക്കാൻ അനുമതിയുള്ളൂ (Only Usthads can
-                send messages)
+                Only Usthads and Principal can send messages in this group
               </span>
             </div>
           ) : (
@@ -2306,10 +2363,16 @@ export function CampusMessenger({
 
               {/* Attachment Menu Popover */}
               {showAttachMenu && (
-                <div className="absolute bottom-16 left-3 z-30 flex flex-col gap-1 rounded-2xl border border-border bg-card p-2 shadow-xl w-64 dark:border-[#262a33] dark:bg-[#121418]">
+                <div
+                  ref={attachMenuRef}
+                  className="absolute bottom-16 left-2.5 sm:left-4 z-30 flex flex-col gap-1 rounded-2xl border border-border bg-card p-2 shadow-xl w-64 dark:border-[#262a33] dark:bg-[#121418]"
+                >
                   <button
                     type="button"
-                    onClick={() => pdfInputRef.current?.click()}
+                    onClick={() => {
+                      setShowAttachMenu(false)
+                      pdfInputRef.current?.click()
+                    }}
                     className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted"
                   >
                     <span className="flex size-8 items-center justify-center rounded-lg bg-red-500/15 text-red-500">
@@ -2325,7 +2388,10 @@ export function CampusMessenger({
 
                   <button
                     type="button"
-                    onClick={() => imageInputRef.current?.click()}
+                    onClick={() => {
+                      setShowAttachMenu(false)
+                      imageInputRef.current?.click()
+                    }}
                     className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted"
                   >
                     <span className="flex size-8 items-center justify-center rounded-lg bg-cyan/15 text-cyan">
@@ -2341,7 +2407,10 @@ export function CampusMessenger({
 
                   <button
                     type="button"
-                    onClick={handleQuickShareSampleKitabPdf}
+                    onClick={() => {
+                      setShowAttachMenu(false)
+                      handleQuickShareSampleKitabPdf()
+                    }}
                     className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted"
                   >
                     <span className="flex size-8 items-center justify-center rounded-lg border border-border bg-muted text-foreground dark:border-[#262a33] dark:bg-[#1a1d24]">
@@ -2358,18 +2427,18 @@ export function CampusMessenger({
               )}
 
               {isRecordingVoice ? (
-                <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-500/40 bg-red-500/10 px-3.5 py-2">
-                  <div className="flex items-center gap-2.5">
-                    <span className="size-2.5 rounded-full bg-red-500 animate-pulse" />
-                    <span className="font-poppins text-xs font-bold tabular-nums text-red-500">
-                      Recording Voice • {formatVoiceDuration(recordingSeconds)}
+                <div className="flex items-center justify-between gap-2 sm:gap-3 rounded-2xl border border-red-500/40 bg-red-500/10 px-3 py-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="size-2.5 shrink-0 rounded-full bg-red-500 animate-pulse" />
+                    <span className="truncate font-poppins text-xs font-bold tabular-nums text-red-500">
+                      Recording • {formatVoiceDuration(recordingSeconds)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                     <button
                       type="button"
                       onClick={cancelVoiceRecording}
-                      className="inline-flex h-9 items-center gap-1 rounded-xl border border-border bg-background px-3 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      className="inline-flex h-9 items-center gap-1 rounded-xl border border-border bg-background px-2.5 sm:px-3 text-xs font-semibold text-muted-foreground hover:text-foreground"
                     >
                       <Trash2 className="size-3.5" aria-hidden="true" />
                       <span>Cancel</span>
@@ -2377,21 +2446,30 @@ export function CampusMessenger({
                     <button
                       type="button"
                       onClick={finishAndSendVoiceRecording}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 text-xs font-bold text-white hover:bg-emerald-700 dark:border dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100"
+                      className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-emerald-600 px-3 text-xs font-bold text-white hover:bg-emerald-700 dark:border dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100"
                     >
                       <Send className="size-3.5" aria-hidden="true" />
-                      <span>Send Audio</span>
+                      <span>Send</span>
                     </button>
                   </div>
                 </div>
               ) : (
-                <form onSubmit={handleFormSubmit} className="flex items-center gap-2">
+                <form
+                  onSubmit={handleFormSubmit}
+                  className="flex min-w-0 w-full items-center gap-1.5 sm:gap-2"
+                >
                   <button
+                    ref={attachButtonRef}
                     type="button"
-                    onClick={() => setShowAttachMenu((prev) => !prev)}
+                    onClick={() => {
+                      setActiveReactionMessageId(null)
+                      setShowSettingsModal(false)
+                      setShowNewChatModal(false)
+                      setShowAttachMenu((prev) => !prev)
+                    }}
                     aria-label="Attach PDF or Photo"
                     className={cn(
-                      'flex size-11 shrink-0 items-center justify-center rounded-2xl border transition-colors',
+                      'flex size-10 sm:size-11 shrink-0 items-center justify-center rounded-2xl border transition-colors',
                       showAttachMenu
                         ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100'
                         : 'border-border bg-background text-muted-foreground hover:text-foreground dark:border-[#262a33] dark:bg-[#0a0b0e]',
@@ -2403,13 +2481,21 @@ export function CampusMessenger({
                   <input
                     type="text"
                     value={inputText}
+                    onFocus={() => {
+                      setShowAttachMenu(false)
+                      setActiveReactionMessageId(null)
+                    }}
+                    onClick={() => {
+                      setShowAttachMenu(false)
+                      setActiveReactionMessageId(null)
+                    }}
                     onChange={(e) => handleInputChange(e.target.value)}
                     placeholder={
                       pendingAttachment
-                        ? 'Add a caption for this attachment...'
-                        : 'Type a message in Malayalam, English, or Arabic...'
+                        ? 'Add a caption....'
+                        : 'type a message....'
                     }
-                    className="h-11 flex-1 rounded-2xl border border-input bg-background px-3.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 dark:focus:border-zinc-500 focus:outline-none sm:text-sm dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                    className="h-10 sm:h-11 min-w-0 flex-1 rounded-2xl border border-input bg-background px-3 sm:px-3.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 dark:focus:border-zinc-500 focus:outline-none sm:text-sm dark:border-[#262a33] dark:bg-[#0a0b0e]"
                   />
 
                   <button
@@ -2417,16 +2503,20 @@ export function CampusMessenger({
                     onClick={startVoiceRecording}
                     title="Record a Voice Message (Audio)"
                     aria-label="Record voice message"
-                    className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-background text-muted-foreground transition-colors hover:border-emerald-500 hover:text-emerald-600 dark:border-[#262a33] dark:bg-[#0a0b0e] dark:hover:border-zinc-500 dark:hover:text-foreground"
+                    className="flex size-10 sm:size-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-background text-muted-foreground transition-colors hover:border-emerald-500 hover:text-emerald-600 dark:border-[#262a33] dark:bg-[#0a0b0e] dark:hover:border-zinc-500 dark:hover:text-foreground"
                   >
                     <Mic className="size-4" aria-hidden="true" />
                   </button>
 
                   <button
                     type="submit"
+                    onClick={() => {
+                      setShowAttachMenu(false)
+                      setActiveReactionMessageId(null)
+                    }}
                     disabled={!inputText.trim() && !pendingAttachment}
                     aria-label="Send message"
-                    className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm transition-all hover:bg-emerald-700 disabled:opacity-40 dark:border dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100 dark:hover:bg-[#2a2f3b]"
+                    className="flex size-10 sm:size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm transition-all hover:bg-emerald-700 disabled:opacity-40 dark:border dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100 dark:hover:bg-[#2a2f3b]"
                   >
                     <Send className="size-4" aria-hidden="true" />
                   </button>
@@ -2546,7 +2636,7 @@ export function CampusMessenger({
         </div>
       )}
 
-      {/* WHATSAPP-STYLE CHAT SETTINGS MODAL (ചാറ്റ് സെറ്റിംഗ്സ്) */}
+      {/* WHATSAPP-STYLE CHAT SETTINGS MODAL */}
       {showSettingsModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-xs"
@@ -2564,7 +2654,7 @@ export function CampusMessenger({
                 </span>
                 <div>
                   <h3 className="font-poppins text-base font-bold text-foreground">
-                    Chat Settings (ചാറ്റ് സെറ്റിംഗ്സ്)
+                    Chat Settings
                   </h3>
                   <p className="text-xs text-muted-foreground">
                     Privacy, display, font size &amp; chat history controls
@@ -2586,16 +2676,16 @@ export function CampusMessenger({
               {/* 1. Privacy Settings */}
               <div className="space-y-2.5">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  1. പ്രൈവസി ക്രമീകരണങ്ങൾ (Privacy &amp; Presence)
+                  1. Privacy &amp; Presence
                 </p>
 
                 <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-border bg-background/70 p-3.5 transition-colors hover:bg-muted/40 dark:border-[#262a33] dark:bg-[#0a0b0e]">
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-foreground">
-                      Show Online &amp; Last Seen Status (ഓൺലൈൻ സ്റ്റാറ്റസ്)
+                      Show Online &amp; Last Seen Status
                     </p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      ആപ്പ് ഉപയോഗിക്കുമ്പോൾ മാത്രം ചാറ്റിന് മുകളിൽ &ldquo;online&rdquo; എന്ന് കാണിക്കുക
+                      Display &ldquo;online&rdquo; in the chat header only while actively using the app
                     </p>
                   </div>
                   <input
@@ -2609,10 +2699,10 @@ export function CampusMessenger({
                 <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-border bg-background/70 p-3.5 transition-colors hover:bg-muted/40 dark:border-[#262a33] dark:bg-[#0a0b0e]">
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-foreground">
-                      Read Receipts / Blue Ticks (ബ്ലൂ ഡബിൾ ടിക്ക് ✓✓)
+                      Read Receipts / Blue Ticks
                     </p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      മെസ്സേജുകൾ വായിക്കുമ്പോൾ അയച്ചയാൾക്ക് നീല ഡബിൾ ടിക്ക് കാണിക്കുക
+                      Show blue double ticks when messages are opened and read
                     </p>
                   </div>
                   <input
@@ -2627,19 +2717,19 @@ export function CampusMessenger({
               {/* 2. Chat Appearance & Font Size */}
               <div className="space-y-3">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  2. ചാറ്റ് ഡിസ്പ്ലേ &amp; അക്ഷരങ്ങൾ (Appearance &amp; Font)
+                  2. Appearance &amp; Font
                 </p>
 
                 <div className="rounded-2xl border border-border bg-background/70 p-3.5 dark:border-[#262a33] dark:bg-[#0a0b0e]">
                   <p className="text-xs font-bold text-foreground">
-                    Message Font Size (അക്ഷരങ്ങളുടെ വലിപ്പം)
+                    Message Font Size
                   </p>
                   <div className="mt-2.5 grid grid-cols-3 gap-2">
                     {(
                       [
-                        { id: 'small', label: 'Small (ചെറുത്)' },
-                        { id: 'medium', label: 'Medium (സാധാരണ)' },
-                        { id: 'large', label: 'Large (വലുത്)' },
+                        { id: 'small', label: 'Small' },
+                        { id: 'medium', label: 'Medium' },
+                        { id: 'large', label: 'Large' },
                       ] as const
                     ).map((opt) => {
                       const active = chatSettings.chatFontSize === opt.id
@@ -2664,7 +2754,7 @@ export function CampusMessenger({
 
                 <div className="rounded-2xl border border-border bg-background/70 p-3.5 dark:border-[#262a33] dark:bg-[#0a0b0e]">
                   <p className="text-xs font-bold text-foreground">
-                    Chat Background Theme (ചാറ്റ് വാൾപേപ്പർ)
+                    Chat Background Theme
                   </p>
                   <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {(
@@ -2699,16 +2789,16 @@ export function CampusMessenger({
               {/* 3. Keyboard & Sound Settings */}
               <div className="space-y-2.5">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  3. കീബോർഡ് &amp; ശബ്ദം (Keyboard &amp; Sound)
+                  3. Keyboard &amp; Sound
                 </p>
 
                 <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-border bg-background/70 p-3.5 transition-colors hover:bg-muted/40 dark:border-[#262a33] dark:bg-[#0a0b0e]">
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-foreground">
-                      Enter Key Sends Message (Enter അമർത്തുമ്പോൾ അയക്കുക)
+                      Enter Key Sends Message
                     </p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      കീബോർഡിൽ Enter അമർത്തുമ്പോൾ മെസ്സേജ് ഉടൻ അയക്കുന്നു
+                      Pressing Enter on the keyboard immediately sends the message
                     </p>
                   </div>
                   <input
@@ -2724,10 +2814,10 @@ export function CampusMessenger({
                     <Volume2 className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-foreground">
-                        Message Sound Effects (ചാറ്റ് ശബ്ദം)
+                        Message Sound Effects
                       </p>
                       <p className="mt-0.5 text-[11px] text-muted-foreground">
-                        മെസ്സേജ് അയക്കുമ്പോൾ ചെറിയ നോട്ടിഫിക്കേഷൻ ശബ്ദം
+                        Play a subtle notification sound when sending messages
                       </p>
                     </div>
                   </div>
@@ -2743,7 +2833,7 @@ export function CampusMessenger({
               {/* 4. Chat Storage & Clear Controls */}
               <div className="space-y-2.5">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  4. ചാറ്റ് ഡാറ്റ ക്രമീകരണം (Chat History Management)
+                  4. Chat History Management
                 </p>
 
                 <div className="flex flex-wrap items-center gap-2.5">
@@ -2760,7 +2850,7 @@ export function CampusMessenger({
                     className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3.5 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
                   >
                     <Trash2 className="size-3.5 text-amber-500" aria-hidden="true" />
-                    <span>Clear Current Chat (ഈ ചാറ്റ് ക്ലിയർ ചെയ്യുക)</span>
+                    <span>Clear Current Chat</span>
                   </button>
 
                   <button
@@ -2778,7 +2868,7 @@ export function CampusMessenger({
                     className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-semibold text-red-500 transition-colors hover:bg-red-500/20"
                   >
                     <Trash2 className="size-3.5" aria-hidden="true" />
-                    <span>Clear All Chats (എല്ലാ ചാറ്റുകളും ക്ലിയർ ചെയ്യുക)</span>
+                    <span>Clear All Chats</span>
                   </button>
                 </div>
 
@@ -2797,7 +2887,7 @@ export function CampusMessenger({
                 onClick={() => setShowSettingsModal(false)}
                 className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-700 dark:border dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100 dark:hover:bg-[#2a2f3b]"
               >
-                Done (സേവ് ചെയ്യുക)
+                Done
               </button>
             </div>
           </div>

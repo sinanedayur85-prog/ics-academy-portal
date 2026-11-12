@@ -2667,7 +2667,7 @@ export function GeminiChatbot({
     >
       <div
         className={cn(
-          'grid min-w-0 gap-6 lg:grid-cols-12',
+          'grid min-w-0 gap-6 xl:grid-cols-12',
           mobileFullScreen &&
             'max-lg:flex max-lg:flex-1 max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden gap-0 lg:grid lg:gap-6',
         )}
@@ -2675,7 +2675,7 @@ export function GeminiChatbot({
         {/* Left Sidebar: Chatbot Roles (System Instructions) & Language Controls */}
         <div
           className={cn(
-            'flex min-w-0 flex-col justify-between gap-4 lg:col-span-4',
+            'flex min-w-0 flex-col justify-between gap-4 xl:col-span-4',
             mobileFullScreen && 'hidden lg:flex',
           )}
         >
@@ -2705,7 +2705,7 @@ export function GeminiChatbot({
               </span>
             </div>
 
-            <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1">
               {PERSONAS.map((persona) => {
                 const active = role === persona.id
                 const msgCount = Math.max(
@@ -2741,8 +2741,8 @@ export function GeminiChatbot({
                         </span>
                       ) : null}
                     </div>
-                    <p className="w-full break-words text-xs font-medium text-lime/90">{persona.subTitle}</p>
-                    <p className="line-clamp-2 w-full break-words text-[11px] leading-relaxed text-muted-foreground">
+                    <p className="w-full text-xs font-medium text-lime/90">{persona.subTitle}</p>
+                    <p className="line-clamp-2 w-full text-[11px] leading-relaxed text-muted-foreground">
                       {persona.description}
                     </p>
                   </button>
@@ -2824,7 +2824,7 @@ export function GeminiChatbot({
         {/* Right Column: Scrollable Conversation Thread & Composer */}
         <div
           className={cn(
-            'flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-background/60 lg:col-span-8',
+            'flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-background/60 xl:col-span-8',
             mobileFullScreen &&
               'max-lg:flex-1 max-lg:min-h-0 max-lg:h-full rounded-none border-0 bg-background/95 lg:h-auto lg:rounded-2xl lg:border lg:border-border lg:bg-background/60',
           )}
@@ -2953,12 +2953,12 @@ export function GeminiChatbot({
               mobileFullScreen && 'hidden lg:flex',
             )}
           >
-            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <div className="flex min-w-[220px] flex-1 items-center gap-2.5">
               <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-lime/15 text-lime">
                 <currentPersona.icon className="size-4" aria-hidden="true" />
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="break-words text-xs font-semibold text-foreground sm:text-sm">
+                <h3 className="text-xs font-semibold text-foreground sm:text-sm">
                   {currentPersona.title}{' '}
                   <span className="font-normal text-muted-foreground">
                     · {currentPersona.subTitle}

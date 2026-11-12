@@ -234,7 +234,7 @@ export function UsthadDashboard() {
   const [selectedStudentId, setSelectedStudentId] = useState<string>(
     () => classStudents[0]?.id ?? students[0].id,
   )
-  const [selectedMonthId, setSelectedMonthId] = useState<string>('2026-11')
+  const [selectedMonthId, setSelectedMonthId] = useState<string>('2026-06')
   const [editPresent, setEditPresent] = useState<number>(0)
   const [editAbsent, setEditAbsent] = useState<number>(0)
   const [editLeave, setEditLeave] = useState<number>(0)
@@ -274,7 +274,7 @@ export function UsthadDashboard() {
   const [holidayType, setHolidayType] = useState<OfficialHolidayMeta['holidayType']>(
     'monthly-second-saturday',
   )
-  const [holidayMonthId, setHolidayMonthId] = useState('2026-11')
+  const [holidayMonthId, setHolidayMonthId] = useState('2026-06')
   const [holidayDepartureDate, setHolidayDepartureDate] = useState(
     'Friday, 13 Nov 2026 (2nd Saturday Eve)',
   )

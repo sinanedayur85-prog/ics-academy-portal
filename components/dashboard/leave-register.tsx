@@ -71,6 +71,21 @@ const MONTHS = [
 ] as const
 type MonthShort = (typeof MONTHS)[number]
 
+const ACADEMIC_MONTHS: readonly MonthShort[] = [
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+]
+
 const BASE_YEARS = ['2025', '2026', '2027', '2028']
 
 const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))
@@ -807,8 +822,8 @@ export function LeaveRegister({
               }}
               className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none dark:[color-scheme:dark]"
             >
-              <option value="all">All Months</option>
-              {MONTHS.map((m) => (
+              <option value="all">All Months (June – May)</option>
+              {ACADEMIC_MONTHS.map((m) => (
                 <option key={m} value={m}>
                   {m}
                 </option>
@@ -1002,7 +1017,7 @@ function DateSelectGroup({ idPrefix, label, value, onChange }: DateSelectGroupPr
             onChange={(e) => onChange({ ...value, month: e.target.value as MonthShort })}
             className={selectTriggerClassName}
           >
-            {MONTHS.map((month) => (
+            {ACADEMIC_MONTHS.map((month) => (
               <option key={month} value={month} className="bg-card text-foreground">
                 {month}
               </option>

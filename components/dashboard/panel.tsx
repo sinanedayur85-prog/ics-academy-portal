@@ -22,19 +22,19 @@ export function Panel({ id, title, eyebrow, icon: Icon, action, className, child
       )}
     >
       <header className="mb-5 flex flex-wrap items-start justify-between gap-3 sm:items-center sm:gap-4">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex min-w-[220px] flex-1 items-center gap-3 sm:min-w-[260px]">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-lime">
             <Icon className="size-5" aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
             {eyebrow ? (
-              <p className="break-words text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground sm:text-[0.7rem] sm:tracking-[0.18em]">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground sm:text-[0.7rem] sm:tracking-[0.18em]">
                 {eyebrow}
               </p>
             ) : null}
             <h2
               id={`${id}-title`}
-              className="break-words font-display text-lg font-semibold leading-tight text-foreground sm:text-xl"
+              className="font-display text-lg font-semibold leading-tight text-foreground sm:text-xl"
             >
               {title}
             </h2>

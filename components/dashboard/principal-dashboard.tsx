@@ -74,6 +74,7 @@ import {
   CLASS_USTHADS,
   CURRENT_SEMESTER,
   HIGH_SCHOOL_CLASS_NAMES,
+  MONTHS_META,
   NOT_HELD_REASONS,
   OFFICIAL_CLASS_USTHADS,
   SHAIKHUNA_HAMZA_USTHAD,
@@ -230,7 +231,7 @@ export function PrincipalDashboard() {
   const [directorySearch, setDirectorySearch] = useState<string>('')
 
   const [selectedStudentId, setSelectedStudentId] = useState<string>(() => students[0]?.id ?? 'std-1')
-  const [selectedMonthId, setSelectedMonthId] = useState<string>('2026-11')
+  const [selectedMonthId, setSelectedMonthId] = useState<string>('2026-06')
   const [editPresent, setEditPresent] = useState<number>(0)
   const [editAbsent, setEditAbsent] = useState<number>(0)
   const [editLeave, setEditLeave] = useState<number>(0)
@@ -263,7 +264,7 @@ export function PrincipalDashboard() {
   const [holidayType, setHolidayType] = useState<OfficialHolidayMeta['holidayType']>(
     'monthly-second-saturday',
   )
-  const [holidayMonthId, setHolidayMonthId] = useState('2026-11')
+  const [holidayMonthId, setHolidayMonthId] = useState('2026-06')
   const [holidayDepartureDate, setHolidayDepartureDate] = useState(
     'Friday, 13 Nov 2026 (2nd Saturday Eve)',
   )
@@ -2349,7 +2350,7 @@ export function PrincipalDashboard() {
 
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor="pr-edit-month" className="text-xs">
-                            Select Month (2026)
+                            Select Month (June – May)
                           </Label>
                           <select
                             id="pr-edit-month"
@@ -2780,7 +2781,7 @@ export function PrincipalDashboard() {
                   <div className="grid gap-3 rounded-2xl border border-border bg-background/60 p-4 sm:grid-cols-3">
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="pr-holiday-month" className="text-xs">
-                        Target Month (2026)
+                        Target Month (June – May)
                       </Label>
                       <select
                         id="pr-holiday-month"
@@ -2788,18 +2789,11 @@ export function PrincipalDashboard() {
                         onChange={(e) => setHolidayMonthId(e.target.value)}
                         className="h-9 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground"
                       >
-                        <option value="2026-01">January 2026</option>
-                        <option value="2026-02">February 2026</option>
-                        <option value="2026-03">March 2026</option>
-                        <option value="2026-04">April 2026</option>
-                        <option value="2026-05">May 2026</option>
-                        <option value="2026-06">June 2026</option>
-                        <option value="2026-07">July 2026</option>
-                        <option value="2026-08">August 2026</option>
-                        <option value="2026-09">September 2026</option>
-                        <option value="2026-10">October 2026</option>
-                        <option value="2026-11">November 2026</option>
-                        <option value="2026-12">December 2026</option>
+                        {MONTHS_META.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.month} {m.year}
+                          </option>
+                        ))}
                       </select>
                     </div>
 

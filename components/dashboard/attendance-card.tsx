@@ -45,7 +45,7 @@ export function AttendanceCard({ student }: { student: Student }) {
     [student, overrides, customNotices],
   )
   const months = effective.monthlyAttendance
-  const defaultMonth = months.find((m) => m.id === '2026-11') ?? months[0]
+  const defaultMonth = months[0]
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>(defaultMonth?.id ?? 'overall')
 
   const selectedMonth = months.find((m) => m.id === selectedPeriodId)
@@ -61,7 +61,7 @@ export function AttendanceCard({ student }: { student: Student }) {
 
   const periodLabel = selectedMonth
     ? `${selectedMonth.month} ${selectedMonth.year}`
-    : 'Academic Year 2026 (Overall)'
+    : 'Academic Year 2026–27 (June – May)'
 
   const metrics = [
     {
