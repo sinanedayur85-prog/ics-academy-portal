@@ -943,21 +943,75 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
   app.post('/api/ai/tts', async (req, res) => {
     res.setHeader('Content-Type', 'application/json')
     try {
-      const { text = '', language = 'ml', voiceGender = 'male' } = req.body ?? {}
+      const { text = '', language = 'ml', voiceName = 'Orbit' } = req.body ?? {}
       const cleanText = typeof text === 'string' ? text.trim().slice(0, 1800) : ''
       if (!cleanText) {
         res.status(400).json({ error: 'Text is required for speech synthesis.' })
         return
       }
 
-      const cacheKey = `male-v2:${voiceGender}:${language}:${cleanText}`
+      const selectedVoice =
+        typeof voiceName === 'string' && voiceName.trim() ? voiceName.trim() : 'Orbit'
+      const cacheKey = `orbit-v3:${selectedVoice}:${language}:${cleanText}`
       const cached = ttsCache.get(cacheKey)
       if (cached) {
         res.json(cached)
         return
       }
 
-      // 1. Primary ultra-fast native Malayalam/multilingual speech synthesis converted to natural Male Usthad voice
+      // 1. Primary: Official Gemini 3.8 Flash Lite TTS (`gemini-3.8-flash-lite-tts`) with 'Orbit' male voice
+      try {
+        const ai = getAiClient()
+        const ttsResponse = await withTimeout(
+          ai.models.generateContent({
+            model: 'gemini-3.8-flash-lite-tts',
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  {
+                    text: cleanText,
+                    speechMetadata: {
+                      style:
+                        'Warm, clear, confident male Malayalam narrator explaining app features naturally step by step',
+                    },
+                  },
+                ],
+              },
+            ],
+            config: {
+              responseModalities: ['AUDIO'],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: { voiceName: selectedVoice },
+                },
+              },
+            },
+          }),
+          18000,
+          'gemini-3.8-flash-lite-tts',
+        )
+
+        const inlineAudio =
+          ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData
+        if (inlineAudio?.data) {
+          const payload = {
+            audioBase64: inlineAudio.data,
+            mimeType: inlineAudio.mimeType || 'audio/wav',
+          }
+          if (ttsCache.size > 100) {
+            const firstKey = ttsCache.keys().next().value
+            if (firstKey) ttsCache.delete(firstKey)
+          }
+          ttsCache.set(cacheKey, payload)
+          res.json(payload)
+          return
+        }
+      } catch (err) {
+        console.warn('Gemini Orbit TTS fallback triggered:', err instanceof Error ? err.message : err)
+      }
+
+      // 2. Fallback: Native Malayalam speech synthesis transformed to Male baritone voice
       try {
         const rawSentences = cleanText
           .split(/(?<=[.!?।])\s+|\n+/)
@@ -1007,10 +1061,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
 
         if (buffers.length > 0) {
           const combinedRaw = Buffer.concat(buffers)
-          const finalMp3 =
-            voiceGender === 'female'
-              ? combinedRaw
-              : await transformToMaleVoiceMp3(combinedRaw)
+          const finalMp3 = await transformToMaleVoiceMp3(combinedRaw)
           const payload = {
             audioBase64: finalMp3.toString('base64'),
             mimeType: 'audio/mpeg',
@@ -1024,51 +1075,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
           return
         }
       } catch {
-        // Fall through to Gemini 3.8 Flash Lite TTS
-      }
-
-      // 2. Fallback: Gemini 3.8 Flash Lite TTS (`gemini-3.8-flash-lite-tts`) with Male voice ('Charon')
-      const ai = getAiClient()
-      const ttsResponse = await withTimeout(
-        ai.models.generateContent({
-          model: 'gemini-3.8-flash-lite-tts',
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  text: cleanText,
-                  speechMetadata: {
-                    style:
-                      'Warm, clear, respectful male Malayalam Usthad instructor explaining app features step by step',
-                  },
-                },
-              ],
-            },
-          ],
-          config: {
-            responseModalities: ['AUDIO'],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: { voiceName: 'Charon' },
-              },
-            },
-          },
-        }),
-        12000,
-        'gemini-3.8-flash-lite-tts',
-      )
-
-      const inlineAudio =
-        ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData
-      if (inlineAudio?.data) {
-        const payload = {
-          audioBase64: inlineAudio.data,
-          mimeType: inlineAudio.mimeType || 'audio/wav',
-        }
-        ttsCache.set(cacheKey, payload)
-        res.json(payload)
-        return
+        // Ignore fallback error
       }
 
       res.status(500).json({ error: 'Unable to synthesize speech audio.' })

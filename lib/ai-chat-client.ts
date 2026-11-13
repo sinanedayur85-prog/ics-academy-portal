@@ -237,13 +237,14 @@ export async function fetchTtsSpeechAudio(payload: {
   text: string
   language?: 'ml' | 'en' | 'ar'
   voiceGender?: 'male' | 'female'
+  voiceName?: string
 }): Promise<{ audioBase64: string; mimeType: string } | null> {
   const clean = payload.text.trim()
   if (!clean) return null
 
-  const gender = payload.voiceGender ?? 'male'
+  const voiceName = payload.voiceName ?? 'Orbit'
   const lang = payload.language ?? 'ml'
-  const cacheKey = `male-v2:${gender}:${lang}:${clean}`
+  const cacheKey = `orbit-v3:${voiceName}:${lang}:${clean}`
   const cached = clientTtsAudioCache.get(cacheKey)
   if (cached) return cached
 
@@ -251,7 +252,7 @@ export async function fetchTtsSpeechAudio(payload: {
 
   for (const url of urls) {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 14000)
+    const timeoutId = setTimeout(() => controller.abort(), 20000)
 
     try {
       const res = await fetch(url, {
@@ -261,7 +262,7 @@ export async function fetchTtsSpeechAudio(payload: {
         body: JSON.stringify({
           text: clean,
           language: lang,
-          voiceGender: gender,
+          voiceName,
         }),
       })
       clearTimeout(timeoutId)
@@ -275,7 +276,7 @@ export async function fetchTtsSpeechAudio(payload: {
         if (data?.audioBase64) {
           const result = {
             audioBase64: data.audioBase64,
-            mimeType: data.mimeType || 'audio/mpeg',
+            mimeType: data.mimeType || 'audio/wav',
           }
           clientTtsAudioCache.set(cacheKey, result)
           return result

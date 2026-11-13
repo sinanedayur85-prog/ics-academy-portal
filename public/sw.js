@@ -1,5 +1,5 @@
 // ICS Academy Service Worker for PWA & Offline Support
-const CACHE_NAME = 'ics-academy-pwa-v11';
+const CACHE_NAME = 'ics-academy-pwa-v12';
 const PRECACHE_URLS = [
   '/manifest.json',
   '/images/ics-mark.svg',

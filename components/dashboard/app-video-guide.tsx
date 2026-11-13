@@ -1373,8 +1373,18 @@ export function AppVideoGuideModal({
       const ttsData = await fetchTtsSpeechAudio({
         text: chapter.voiceScriptMl,
         language: 'ml',
-        voiceGender: 'male',
+        voiceName: 'Orbit',
       })
+
+      // Pre-warm the next chapter's Orbit audio in background so next chapter plays with zero delay
+      const nextChapter = roleChapters[targetIdx + 1]
+      if (nextChapter) {
+        void fetchTtsSpeechAudio({
+          text: nextChapter.voiceScriptMl,
+          language: 'ml',
+          voiceName: 'Orbit',
+        })
+      }
 
       if (sessionId !== playSessionRef.current) return
       setIsLoadingAudio(false)
