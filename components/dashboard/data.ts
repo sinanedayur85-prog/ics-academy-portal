@@ -217,7 +217,7 @@ const RAW_CLASS_ROSTERS: {
     className: 'HS 2B',
     batch: 'Batch 1',
     entries: [
-      ['ICS•2K25•01•01', 'Shahid. PK'],
+      ['ICS•2K25•01•01', 'Sahd. PK'],
       ['ICS•2K25•01•02', 'Shibil Yashid. K'],
       ['ICS•2K25•01•03', "Muhammed Sa'ad"],
       ['ICS•2K25•01•04', 'Jaseem. P'],
@@ -306,7 +306,7 @@ const RAW_CLASS_ROSTERS: {
       ['ICS•2K17•05•02', 'Muhammed Jalaludheen. MP'],
       ['ICS•2K17•05•03', 'Muhammed Jouhar Saheel. TK'],
       ['ICS•2K17•05•04', 'Muhammed Muslih. MV'],
-      ['ICS•2K17•05•05', 'Muhammed Shabeer. CP'],
+      ['ICS•2K17•05•05', 'Muhammed Shabeer. MPT'],
     ],
   },
 ]
@@ -1200,7 +1200,7 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     designation: 'Principal',
     institutionalRole: 'Principal',
     isPrincipalRole: true,
-    teachingBatches: ['BS 3', 'BS 5'],
+    teachingBatches: ['BS 3'],
     className: 'BS 3',
     fullClassLabel: 'Class BS 3',
     batch: 'Batch 07',
@@ -1208,96 +1208,74 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     specialization: 'Principal • Shafi’i Jurisprudence & Jam’ al-Jawami’',
   },
   {
-    id: 'usthad-08',
-    staffId: 'UST-08',
+    id: 'usthad-05',
+    staffId: 'UST-05',
     name: 'Usthad Hafiz Fazlul Abid Naeemi',
     shortName: 'Usthad Hafiz Fazlul Abid Naeemi',
     designation: 'Swadr & Class Usthad',
     institutionalRole: 'Swadr',
-    teachingBatches: ['BS 2', 'BS 4'],
-    className: 'BS 2',
-    fullClassLabel: 'Class BS 2',
-    batch: 'Batch 08',
-    batchCode: '08',
+    teachingBatches: ['BS 5'],
+    className: 'BS 5',
+    fullClassLabel: 'Class BS 5',
+    batch: 'Batch 05',
+    batchCode: '05',
     specialization: 'Swadr • Qur’an Hifz, Tafsir & Usul al-Fiqh',
   },
   {
-    id: 'usthad-09',
-    staffId: 'UST-09',
-    name: 'Usthad Muhammed Musthafa Saqafi',
-    shortName: 'Usthad Muhammed Musthafa Saqafi',
-    designation: 'Class Usthad',
-    institutionalRole: 'Class Usthad',
-    className: 'BS 1',
-    fullClassLabel: 'Class BS 1',
-    batch: 'Batch 09',
-    batchCode: '09',
-    specialization: 'Mahalli & Mishkat al-Masabih',
-  },
-  {
-    id: 'usthad-01',
-    staffId: 'UST-01',
-    name: 'Usthad Midhlaj Ahsani',
-    shortName: 'Usthad Midhlaj Ahsani',
-    designation: 'Class Usthad',
-    institutionalRole: 'Class Usthad',
-    className: 'HS 2B',
-    fullClassLabel: 'Class HS 2B',
-    batch: 'Batch 1',
-    batchCode: '01',
-    specialization: 'Tafsir al-Jalalayn & Islamic History',
-  },
-  {
-    id: 'usthad-10',
-    staffId: 'UST-10',
-    name: 'Usthad Favaz Saqafi',
-    shortName: 'Usthad Favaz Saqafi',
-    designation: 'Class Usthad',
-    institutionalRole: 'Class Usthad',
-    className: 'HS 2A',
-    fullClassLabel: 'Class HS 2A',
-    batch: 'Batch 10',
-    batchCode: '10',
-    specialization: 'Alfiyyah Ibn Malik & Balaghah',
-  },
-  {
-    id: 'usthad-11',
-    staffId: 'UST-11',
-    name: 'Usthad Asif Saqafi',
-    shortName: 'Usthad Asif Saqafi',
-    designation: 'Class Usthad',
-    institutionalRole: 'Class Usthad',
-    className: 'HS 1',
-    fullClassLabel: 'Class HS 1',
-    batch: 'Batch 11',
-    batchCode: '11',
-    specialization: 'Fath al-Mu’in & Hadith Studies',
-  },
-  {
-    id: 'usthad-12',
-    staffId: 'UST-12',
+    id: 'usthad-06',
+    staffId: 'UST-06',
     name: 'Usthad Razaq Saqafi',
     shortName: 'Usthad Razaq Saqafi',
     designation: 'Class Usthad',
     institutionalRole: 'Class Usthad',
+    teachingBatches: ['BS 4', 'HS 2A', 'HS 2B'],
+    className: 'BS 4',
+    fullClassLabel: 'Class BS 4',
+    batch: 'Batch 06',
+    batchCode: '06',
+    specialization: 'Qatr al-Nada, Tafsir & Arabic Literature',
+  },
+  {
+    id: 'usthad-11',
+    staffId: 'UST-11',
+    name: 'Usthad Muhammed Musthafa Saqafi',
+    shortName: 'Usthad Muhammed Musthafa Saqafi',
+    designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
+    teachingBatches: ['HS 1'],
+    className: 'HS 1',
+    fullClassLabel: 'Class HS 1',
+    batch: 'Batch 11',
+    batchCode: '11',
+    specialization: 'Mahalli & Mishkat al-Masabih',
+  },
+  {
+    id: 'usthad-12',
+    staffId: 'UST-12',
+    name: 'Usthad Favaz Saqafi',
+    shortName: 'Usthad Favaz Saqafi',
+    designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
+    teachingBatches: ['10th'],
     className: '10th',
     fullClassLabel: 'Class 10th',
     batch: 'Batch 12',
     batchCode: '12',
-    specialization: 'Qatr al-Nada & Arabic Literature',
+    specialization: 'Alfiyyah Ibn Malik & Balaghah',
   },
   {
     id: 'usthad-13',
     staffId: 'UST-13',
-    name: 'Usthad Alavudheen Ahsani',
-    shortName: 'Usthad Alavudheen Ahsani',
+    name: 'Usthad Midhlaj Ahsani',
+    shortName: 'Usthad Midhlaj Ahsani',
     designation: 'Class Usthad',
     institutionalRole: 'Class Usthad',
+    teachingBatches: ['9th'],
     className: '9th',
     fullClassLabel: 'Class 9th',
     batch: 'Batch 13',
     batchCode: '13',
-    specialization: 'Nahw & Classical Sarf',
+    specialization: 'Tafsir al-Jalalayn & Islamic History',
   },
   {
     id: 'usthad-14',
@@ -1306,11 +1284,40 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     shortName: 'Usthad Muhammed Hashim Saqafi',
     designation: 'Class Usthad',
     institutionalRole: 'Class Usthad',
+    teachingBatches: ['8th'],
     className: '8th',
     fullClassLabel: 'Class 8th',
     batch: 'Batch 14',
     batchCode: '14',
     specialization: 'Fiqh & Foundation Sarf',
+  },
+  {
+    id: 'usthad-08',
+    staffId: 'UST-08',
+    name: 'Usthad Alavudheen Ahsani',
+    shortName: 'Usthad Alavudheen Ahsani',
+    designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
+    teachingBatches: ['BS 2'],
+    className: 'BS 2',
+    fullClassLabel: 'Class BS 2',
+    batch: 'Batch 08',
+    batchCode: '08',
+    specialization: 'Nahw & Classical Sarf',
+  },
+  {
+    id: 'usthad-09',
+    staffId: 'UST-09',
+    name: 'Usthad Asif Saqafi',
+    shortName: 'Usthad Asif Saqafi',
+    designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
+    teachingBatches: ['BS 1'],
+    className: 'BS 1',
+    fullClassLabel: 'Class BS 1',
+    batch: 'Batch 09',
+    batchCode: '09',
+    specialization: 'Fath al-Mu’in & Hadith Studies',
   },
 ]
 
@@ -1319,42 +1326,43 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
  * neither SHAIKHUNA HAMZA USTHAD nor Manager Usthad Muhammed Naeem Saqafi is ever a Class Usthad).
  */
 export const CLASS_USTHADS: ClassUsthad[] = [
-  OFFICIAL_CLASS_USTHADS[8], // 8th — Usthad Muhammed Hashim Saqafi
-  OFFICIAL_CLASS_USTHADS[7], // 9th — Usthad Alavudheen Ahsani
-  OFFICIAL_CLASS_USTHADS[6], // 10th — Usthad Razaq Saqafi
-  OFFICIAL_CLASS_USTHADS[5], // HS 1 — Usthad Asif Saqafi
-  OFFICIAL_CLASS_USTHADS[4], // HS 2A — Usthad Favaz Saqafi
-  OFFICIAL_CLASS_USTHADS[3], // HS 2B — Usthad Midhlaj Ahsani
-  OFFICIAL_CLASS_USTHADS[2], // BS 1 — Usthad Muhammed Musthafa Saqafi
-  OFFICIAL_CLASS_USTHADS[1], // BS 2 — Usthad Hafiz Fazlul Abid Naeemi (Swadr)
-  OFFICIAL_CLASS_USTHADS[0], // BS 3 — Usthad Muhammed Yasir Ahsani (Principal)
+  OFFICIAL_CLASS_USTHADS[6], // 8th (Batch 14) — Usthad Muhammed Hashim Saqafi (UST-14)
+  OFFICIAL_CLASS_USTHADS[5], // 9th (Batch 13) — Usthad Midhlaj Ahsani (UST-13)
+  OFFICIAL_CLASS_USTHADS[4], // 10th (Batch 12) — Usthad Favaz Saqafi (UST-12)
+  OFFICIAL_CLASS_USTHADS[3], // HS 1 (Batch 11) — Usthad Muhammed Musthafa Saqafi (UST-11)
   {
-    id: 'usthad-06',
-    staffId: 'UST-06',
-    name: 'Usthad Hafiz Fazlul Abid Naeemi',
-    shortName: 'Usthad Hafiz Fazlul Abid Naeemi',
-    designation: 'Swadr & Class Usthad',
-    institutionalRole: 'Swadr',
-    className: 'BS 4',
-    fullClassLabel: 'Class BS 4',
-    batch: 'Batch 06',
-    batchCode: '06',
-    specialization: 'Swadr • Tafsir & Usul al-Fiqh',
+    id: 'usthad-10',
+    staffId: 'UST-10',
+    name: 'Usthad Razaq Saqafi',
+    shortName: 'Usthad Razaq Saqafi',
+    designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
+    teachingBatches: ['HS 2A', 'HS 2B', 'BS 4'],
+    className: 'HS 2A',
+    fullClassLabel: 'Class HS 2A',
+    batch: 'Batch 10',
+    batchCode: '10',
+    specialization: 'Qatr al-Nada, Tafsir & Arabic Literature',
   },
   {
-    id: 'usthad-05',
-    staffId: 'UST-05',
-    name: 'Usthad Muhammed Yasir Ahsani',
-    shortName: 'Usthad Muhammed Yasir Ahsani',
-    designation: 'Principal',
-    institutionalRole: 'Principal',
-    isPrincipalRole: true,
-    className: 'BS 5',
-    fullClassLabel: 'Class BS 5',
-    batch: 'Batch 05',
-    batchCode: '05',
-    specialization: 'Principal • Senior Fiqh & Hadith Oversight',
+    id: 'usthad-01',
+    staffId: 'UST-01',
+    name: 'Usthad Razaq Saqafi',
+    shortName: 'Usthad Razaq Saqafi',
+    designation: 'Class Usthad',
+    institutionalRole: 'Class Usthad',
+    teachingBatches: ['HS 2B', 'HS 2A', 'BS 4'],
+    className: 'HS 2B',
+    fullClassLabel: 'Class HS 2B',
+    batch: 'Batch 1',
+    batchCode: '01',
+    specialization: 'Qatr al-Nada, Tafsir & Arabic Literature',
   },
+  OFFICIAL_CLASS_USTHADS[8], // BS 1 (Batch 09) — Usthad Asif Saqafi (UST-09)
+  OFFICIAL_CLASS_USTHADS[7], // BS 2 (Batch 08) — Usthad Alavudheen Ahsani (UST-08)
+  OFFICIAL_CLASS_USTHADS[0], // BS 3 (Batch 07) — Usthad Muhammed Yasir Ahsani (Principal, UST-07)
+  OFFICIAL_CLASS_USTHADS[2], // BS 4 (Batch 06) — Usthad Razaq Saqafi (UST-06)
+  OFFICIAL_CLASS_USTHADS[1], // BS 5 (Batch 05) — Usthad Hafiz Fazlul Abid Naeemi (Swadr, UST-05)
 ]
 
 export function findUsthadByStaffId(identifier: string): ClassUsthad | undefined {
@@ -1372,9 +1380,16 @@ export function findUsthadByStaffId(identifier: string): ClassUsthad | undefined
     return undefined
   }
 
-  // 1. Direct match on staffId (e.g. "UST-07", "UST07", "UST-14")
-  const exact = OFFICIAL_CLASS_USTHADS.find((u) => normalizeAdmissionKey(u.staffId) === cleaned)
-  if (exact) return exact
+  // 1. Direct match on staffId across all 11 class assignments (e.g. "UST-05", "UST-06", "UST-07", "UST-14")
+  const exactClassUsthad = CLASS_USTHADS.find(
+    (u) => normalizeAdmissionKey(u.staffId) === cleaned,
+  )
+  if (exactClassUsthad) return exactClassUsthad
+
+  const exactOfficial = OFFICIAL_CLASS_USTHADS.find(
+    (u) => normalizeAdmissionKey(u.staffId) === cleaned,
+  )
+  if (exactOfficial) return exactOfficial
 
   // 2. Support Principal ID / Name logging in as Class Usthad (since Principal is also a Class Usthad)
   if (
@@ -1388,17 +1403,27 @@ export function findUsthadByStaffId(identifier: string): ClassUsthad | undefined
   }
 
   // 3. Support matching by Class Usthad name or Swadr title
-  if (cleaned.includes('ABID') || cleaned.includes('FAZLUL') || cleaned === 'SWADR' || cleaned === 'SADR') {
+  if (
+    cleaned.includes('ABID') ||
+    cleaned.includes('FAZL') ||
+    cleaned.includes('NAEEMI') ||
+    cleaned === 'SWADR' ||
+    cleaned === 'SADR'
+  ) {
     return OFFICIAL_CLASS_USTHADS.find((u) => u.institutionalRole === 'Swadr')
   }
-  const byName = OFFICIAL_CLASS_USTHADS.find((u) => normalizeAdmissionKey(u.name).includes(cleaned))
+  const byName = OFFICIAL_CLASS_USTHADS.find((u) =>
+    normalizeAdmissionKey(u.name).includes(cleaned),
+  )
   if (byName && cleaned.length >= 4) return byName
 
   // 4. Match TCH-XX or batch number (e.g. "TCH07", "BATCH07", "07", "7")
   const digits = cleaned.replace(/[^0-9]/g, '')
   if (digits) {
     const padded = digits.padStart(2, '0')
-    const byBatch = OFFICIAL_CLASS_USTHADS.find((u) => u.batchCode === padded || u.batchCode === digits)
+    const byBatch =
+      CLASS_USTHADS.find((u) => u.batchCode === padded || u.batchCode === digits) ??
+      OFFICIAL_CLASS_USTHADS.find((u) => u.batchCode === padded || u.batchCode === digits)
     if (byBatch) return byBatch
   }
 
@@ -1756,16 +1781,66 @@ export const CLASS_LEADERS: ClassLeaderInfo[] = (() => {
       mainAdmissionNo: 'ICS•2K26•14•07', // Fuad Saneen
       assistantAdmissionNo: 'ICS•2K26•14•10', // Muhammed Savad
     },
-    { className: '9th', batchCode: '13' },
-    { className: '10th', batchCode: '12' },
-    { className: 'HS 1', batchCode: '11' },
-    { className: 'HS 2A', batchCode: '10' },
-    { className: 'HS 2B', batchCode: '01' },
-    { className: 'BS 1', batchCode: '09' },
-    { className: 'BS 2', batchCode: '08' },
-    { className: 'BS 3', batchCode: '07' },
-    { className: 'BS 4', batchCode: '06' },
-    { className: 'BS 5', batchCode: '05' },
+    {
+      className: '9th',
+      batchCode: '13',
+      mainAdmissionNo: 'ICS•2K25•13•17', // Muhammed Shaheem. M
+      assistantAdmissionNo: 'ICS•2K25•13•05', // Muhammed Saneeh. OK
+    },
+    {
+      className: '10th',
+      batchCode: '12',
+      mainAdmissionNo: 'ICS•2K24•12•02', // Muhammed Fathah. EK
+      assistantAdmissionNo: 'ICS•2K24•12•14', // Shamnad. C
+    },
+    {
+      className: 'HS 1',
+      batchCode: '11',
+      mainAdmissionNo: 'ICS•2K23•11•02', // Ismaeel Faheem. MP
+      assistantAdmissionNo: 'ICS•2K23•11•19', // Muhammed Bishal. P
+    },
+    {
+      className: 'HS 2A',
+      batchCode: '10',
+      mainAdmissionNo: 'ICS•2K22•10•11', // Muhammed Shamil. P
+      assistantAdmissionNo: 'ICS•2K22•10•13', // Muhammed Mubeen. V
+    },
+    {
+      className: 'HS 2B',
+      batchCode: '01',
+      mainAdmissionNo: 'ICS•2K25•01•01', // Sahd. PK
+      assistantAdmissionNo: 'ICS•2K25•01•05', // Ahmed Arif Fawaz
+    },
+    {
+      className: 'BS 1',
+      batchCode: '09',
+      mainAdmissionNo: 'ICS•2K21•09•01', // Muhammed Rabeeh. C
+      assistantAdmissionNo: 'ICS•2K21•09•02', // Muhammed Sa'ad. KM
+    },
+    {
+      className: 'BS 2',
+      batchCode: '08',
+      mainAdmissionNo: 'ICS•2K20•08•01', // Muhammed Hibathullah. K
+      assistantAdmissionNo: 'ICS•2K23•08•02', // Muhammed Muzammil. MK
+    },
+    {
+      className: 'BS 3',
+      batchCode: '07',
+      mainAdmissionNo: 'ICS•2K19•07•06', // Muhammed Shahid. M
+      assistantAdmissionNo: 'ICS•2K19•07•01', // Muhammed Junaid. P
+    },
+    {
+      className: 'BS 4',
+      batchCode: '06',
+      mainAdmissionNo: 'ICS•2K18•06•09', // Muhammed Rafi. V
+      assistantAdmissionNo: 'ICS•2K18•06•02', // Abdul Bais. V
+    },
+    {
+      className: 'BS 5',
+      batchCode: '05',
+      mainAdmissionNo: 'ICS•2K17•05•05', // Muhammed Shabeer. MPT
+      assistantAdmissionNo: 'ICS•2K17•05•04', // Muhammed Muslih. MV
+    },
   ]
 
   const leaders: ClassLeaderInfo[] = []

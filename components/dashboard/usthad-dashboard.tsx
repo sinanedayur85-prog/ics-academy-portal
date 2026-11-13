@@ -173,7 +173,7 @@ function saveStudentLeaveEntriesToStorage(studentId: string, entries: SavedLeave
 }
 
 export function UsthadDashboard() {
-  const [usthad] = useState<ClassUsthad>(() => {
+  const [baseUsthad] = useState<ClassUsthad>(() => {
     if (typeof window !== 'undefined') {
       const savedId = window.localStorage.getItem('loggedInUsthadId')
       const matched = CLASS_USTHADS.find((u) => u.id === savedId)
@@ -182,7 +182,22 @@ export function UsthadDashboard() {
     return CLASS_USTHADS.find((u) => u.batchCode === '07') ?? CLASS_USTHADS[0]
   })
 
-  const [activeClassName, setActiveClassName] = useState<string>(() => usthad.className)
+  const [activeClassName, setActiveClassName] = useState<string>(() => baseUsthad.className)
+
+  const usthad = useMemo<ClassUsthad>(() => {
+    const classMatch = CLASS_USTHADS.find((u) => u.className === activeClassName)
+    if (classMatch && classMatch.name === baseUsthad.name) {
+      return {
+        ...classMatch,
+        teachingBatches: baseUsthad.teachingBatches ?? classMatch.teachingBatches,
+      }
+    }
+    return {
+      ...baseUsthad,
+      className: activeClassName,
+      fullClassLabel: `Class ${activeClassName}`,
+    }
+  }, [baseUsthad, activeClassName])
 
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null)
   const [mobileTab, setMobileTab] = useState<
