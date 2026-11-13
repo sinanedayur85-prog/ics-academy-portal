@@ -940,6 +940,48 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     })
   }
 
+  function convertWavToMp3(inputWav: Buffer): Promise<{ buffer: Buffer; mimeType: string }> {
+    return new Promise((resolve) => {
+      try {
+        const ff = spawn('ffmpeg', [
+          '-hide_banner',
+          '-loglevel',
+          'error',
+          '-i',
+          'pipe:0',
+          '-ar',
+          '44100',
+          '-ac',
+          '1',
+          '-codec:a',
+          'libmp3lame',
+          '-b:a',
+          '64k',
+          '-f',
+          'mp3',
+          'pipe:1',
+        ])
+        const outChunks: Buffer[] = []
+        ff.stdout.on('data', (chunk: Buffer) => outChunks.push(chunk))
+        ff.on('error', () => resolve({ buffer: inputWav, mimeType: 'audio/wav' }))
+        ff.on('close', (code) => {
+          if (code === 0 && outChunks.length > 0) {
+            resolve({ buffer: Buffer.concat(outChunks), mimeType: 'audio/mpeg' })
+          } else {
+            resolve({ buffer: inputWav, mimeType: 'audio/wav' })
+          }
+        })
+        ff.stdin.on('error', () => {
+          // ignore broken pipe
+        })
+        ff.stdin.write(inputWav)
+        ff.stdin.end()
+      } catch {
+        resolve({ buffer: inputWav, mimeType: 'audio/wav' })
+      }
+    })
+  }
+
   app.post('/api/ai/tts', async (req, res) => {
     res.setHeader('Content-Type', 'application/json')
     try {
@@ -952,7 +994,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
 
       const selectedVoice =
         typeof voiceName === 'string' && voiceName.trim() ? voiceName.trim() : 'Orbit'
-      const cacheKey = `orbit-v3:${selectedVoice}:${language}:${cleanText}`
+      const cacheKey = `orbit-v4:${selectedVoice}:${language}:${cleanText}`
       const cached = ttsCache.get(cacheKey)
       if (cached) {
         res.json(cached)
@@ -995,9 +1037,12 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
         const inlineAudio =
           ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData
         if (inlineAudio?.data) {
+          const rawWavBuf = Buffer.from(inlineAudio.data, 'base64')
+          const converted = await convertWavToMp3(rawWavBuf)
           const payload = {
-            audioBase64: inlineAudio.data,
-            mimeType: inlineAudio.mimeType || 'audio/wav',
+            audioBase64: converted.buffer.toString('base64'),
+            mimeType: converted.mimeType,
+            voiceUsed: selectedVoice,
           }
           if (ttsCache.size > 100) {
             const firstKey = ttsCache.keys().next().value

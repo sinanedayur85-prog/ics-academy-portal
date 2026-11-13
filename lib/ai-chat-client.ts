@@ -17,8 +17,9 @@ export interface ClientChatAttachment {
 }
 
 const REMOTE_BACKEND_ORIGINS = [
-  'https://ics-academy-manhappatta.vercel.app',
+  'https://ais-dev-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app',
   'https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app',
+  'https://ics-academy-manhappatta.vercel.app',
 ]
 
 function isLocalCapacitorBundleOrigin(): boolean {
@@ -231,20 +232,23 @@ export async function normalizeSpokenVoiceText(payload: {
   return clean
 }
 
-const clientTtsAudioCache = new Map<string, { audioBase64: string; mimeType: string }>()
+const clientTtsAudioCache = new Map<
+  string,
+  { audioBase64: string; mimeType: string; voiceUsed?: string }
+>()
 
 export async function fetchTtsSpeechAudio(payload: {
   text: string
   language?: 'ml' | 'en' | 'ar'
   voiceGender?: 'male' | 'female'
   voiceName?: string
-}): Promise<{ audioBase64: string; mimeType: string } | null> {
+}): Promise<{ audioBase64: string; mimeType: string; voiceUsed?: string } | null> {
   const clean = payload.text.trim()
   if (!clean) return null
 
   const voiceName = payload.voiceName ?? 'Orbit'
   const lang = payload.language ?? 'ml'
-  const cacheKey = `orbit-v3:${voiceName}:${lang}:${clean}`
+  const cacheKey = `orbit-v4:${voiceName}:${lang}:${clean}`
   const cached = clientTtsAudioCache.get(cacheKey)
   if (cached) return cached
 
@@ -272,11 +276,13 @@ export async function fetchTtsSpeechAudio(payload: {
         const data = (await res.json()) as {
           audioBase64?: string
           mimeType?: string
+          voiceUsed?: string
         }
         if (data?.audioBase64) {
           const result = {
             audioBase64: data.audioBase64,
-            mimeType: data.mimeType || 'audio/wav',
+            mimeType: data.mimeType || 'audio/mpeg',
+            voiceUsed: data.voiceUsed || voiceName,
           }
           clientTtsAudioCache.set(cacheKey, result)
           return result

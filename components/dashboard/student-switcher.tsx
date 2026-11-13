@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Award, BookOpen, ChevronDown, Eye, EyeOff, GraduationCap, Hash, KeyRound, LogOut, PlayCircle, ShieldCheck, User, Volume2 } from 'lucide-react'
 import type { ClassUsthad, PrincipalProfile, Student } from '@/components/dashboard/data'
-import { AppVideoGuideModal } from '@/components/dashboard/app-video-guide'
+import { AppVideoGuideModal, unlockAndroidAudioOnGesture } from '@/components/dashboard/app-video-guide'
 import { cn } from '@/lib/utils'
 
 function initials(name: string) {
@@ -201,6 +201,7 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
           <button
             type="button"
             onClick={() => {
+              unlockAndroidAudioOnGesture()
               setOpen(false)
               setGuideOpen(true)
             }}
@@ -367,6 +368,7 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
           <button
             type="button"
             onClick={() => {
+              unlockAndroidAudioOnGesture()
               setOpen(false)
               setGuideOpen(true)
             }}
@@ -563,6 +565,7 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
           <button
             type="button"
             onClick={() => {
+              unlockAndroidAudioOnGesture()
               setOpen(false)
               setGuideOpen(true)
             }}

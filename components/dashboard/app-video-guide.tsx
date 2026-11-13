@@ -1263,6 +1263,116 @@ const ROLE_LABELS: Record<GuideRole, { titleMl: string; titleEn: string }> = {
   },
 }
 
+const SILENT_WAV_DATA_URI =
+  'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
+
+let sharedAudioCtx: AudioContext | null = null
+let sharedUnlockedAudioEl: HTMLAudioElement | null = null
+let isAudioElementUnlocked = false
+
+export function unlockAndroidAudioOnGesture(): void {
+  if (typeof window === 'undefined') return
+  try {
+    const AudioCtxClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (AudioCtxClass) {
+      if (!sharedAudioCtx) {
+        sharedAudioCtx = new AudioCtxClass()
+      }
+      if (sharedAudioCtx.state === 'suspended') {
+        void sharedAudioCtx.resume()
+      }
+      const silentBuf = sharedAudioCtx.createBuffer(1, 1, 22050)
+      const src = sharedAudioCtx.createBufferSource()
+      src.buffer = silentBuf
+      src.connect(sharedAudioCtx.destination)
+      src.start(0)
+    }
+  } catch {
+    // Ignore AudioContext init error
+  }
+
+  try {
+    if (!sharedUnlockedAudioEl) {
+      sharedUnlockedAudioEl = new Audio()
+      sharedUnlockedAudioEl.setAttribute('playsinline', 'true')
+      sharedUnlockedAudioEl.preload = 'auto'
+    }
+    if (!isAudioElementUnlocked) {
+      sharedUnlockedAudioEl.src = SILENT_WAV_DATA_URI
+      sharedUnlockedAudioEl.volume = 0.01
+      const p = sharedUnlockedAudioEl.play()
+      if (p && typeof p.then === 'function') {
+        p.then(() => {
+          isAudioElementUnlocked = true
+          if (sharedUnlockedAudioEl) {
+            sharedUnlockedAudioEl.pause()
+            sharedUnlockedAudioEl.volume = 1
+          }
+        }).catch(() => {
+          // Ignore initial unlock rejection
+        })
+      }
+    }
+  } catch {
+    // Ignore HTMLAudioElement init error
+  }
+}
+
+function base64ToUint8Array(base64: string): Uint8Array {
+  const cleaned = base64.replace(/^data:[^;]+;base64,/, '').trim()
+  const binaryStr = window.atob(cleaned)
+  const len = binaryStr.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryStr.charCodeAt(i)
+  }
+  return bytes
+}
+
+function decodePcmWavManual(ctx: AudioContext, bytes: Uint8Array): AudioBuffer | null {
+  try {
+    if (bytes.length < 44) return null
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+    const numChannels = view.getUint16(22, true) || 1
+    const sampleRate = view.getUint32(24, true) || 24000
+    const bitsPerSample = view.getUint16(34, true) || 16
+    if (bitsPerSample !== 16) return null
+
+    // Find 'data' chunk offset
+    let dataOffset = 44
+    for (let i = 12; i < Math.min(bytes.length - 8, 200); i++) {
+      if (
+        bytes[i] === 0x64 && // 'd'
+        bytes[i + 1] === 0x61 && // 'a'
+        bytes[i + 2] === 0x74 && // 't'
+        bytes[i + 3] === 0x61 // 'a'
+      ) {
+        dataOffset = i + 8
+        break
+      }
+    }
+
+    const pcmByteLength = bytes.length - dataOffset
+    const totalSamples = Math.floor(pcmByteLength / (2 * numChannels))
+    if (totalSamples <= 0) return null
+
+    const audioBuffer = ctx.createBuffer(numChannels, totalSamples, sampleRate)
+    for (let ch = 0; ch < numChannels; ch++) {
+      const channelData = audioBuffer.getChannelData(ch)
+      for (let i = 0; i < totalSamples; i++) {
+        const sampleOffset = dataOffset + (i * numChannels + ch) * 2
+        const int16 = view.getInt16(sampleOffset, true)
+        channelData[i] = int16 / 32768
+      }
+    }
+    return audioBuffer
+  } catch {
+    return null
+  }
+}
+
 export function AppVideoGuideTriggerButton({
   defaultRole,
   onBeforeOpen,
@@ -1277,6 +1387,7 @@ export function AppVideoGuideTriggerButton({
       <button
         type="button"
         onClick={() => {
+          unlockAndroidAudioOnGesture()
           onBeforeOpen?.()
           setOpen(true)
         }}
@@ -1314,6 +1425,9 @@ export function AppVideoGuideModal({
   const [progressPercent, setProgressPercent] = useState(0)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const webAudioSourceRef = useRef<AudioBufferSourceNode | null>(null)
+  const webAudioTimerRef = useRef<number | null>(null)
+  const objectUrlRef = useRef<string | null>(null)
   const hotspotTimerRef = useRef<number | null>(null)
   const playSessionRef = useRef(0)
 
@@ -1331,13 +1445,41 @@ export function AppVideoGuideModal({
       window.clearInterval(hotspotTimerRef.current)
       hotspotTimerRef.current = null
     }
+    if (webAudioTimerRef.current) {
+      window.clearInterval(webAudioTimerRef.current)
+      webAudioTimerRef.current = null
+    }
+    if (webAudioSourceRef.current) {
+      try {
+        webAudioSourceRef.current.onended = null
+        webAudioSourceRef.current.stop()
+        webAudioSourceRef.current.disconnect()
+      } catch {
+        // Ignore already stopped source
+      }
+      webAudioSourceRef.current = null
+    }
     if (audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current.src = ''
+      try {
+        audioRef.current.onended = null
+        audioRef.current.onerror = null
+        audioRef.current.ontimeupdate = null
+        audioRef.current.pause()
+      } catch {
+        // Ignore pause error
+      }
       audioRef.current = null
     }
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current)
+      objectUrlRef.current = null
+    }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
+      try {
+        window.speechSynthesis.cancel()
+      } catch {
+        // Ignore speechSynthesis cancel error
+      }
     }
     setIsPlaying(false)
     setIsLoadingAudio(false)
@@ -1395,6 +1537,10 @@ export function AppVideoGuideModal({
           window.clearInterval(hotspotTimerRef.current)
           hotspotTimerRef.current = null
         }
+        if (webAudioTimerRef.current) {
+          window.clearInterval(webAudioTimerRef.current)
+          webAudioTimerRef.current = null
+        }
         setProgressPercent(100)
         setIsPlaying(false)
         if (autoAdvanceChapters && targetIdx + 1 < roleChapters.length) {
@@ -1407,10 +1553,82 @@ export function AppVideoGuideModal({
       }
 
       if (ttsData?.audioBase64) {
+        const bytes = base64ToUint8Array(ttsData.audioBase64)
+        const isRawFallback = ttsData.voiceUsed === 'fallback-raw'
+
+        // Engine 1: Web Audio API (100% immune to Android WebView async fetch autoplay blocks)
         try {
-          const audio = new Audio(
-            `data:${ttsData.mimeType};base64,${ttsData.audioBase64}`,
-          )
+          const AudioCtxClass =
+            window.AudioContext ||
+            (window as unknown as { webkitAudioContext?: typeof AudioContext })
+              .webkitAudioContext
+          if (AudioCtxClass) {
+            if (!sharedAudioCtx) {
+              sharedAudioCtx = new AudioCtxClass()
+            }
+            if (sharedAudioCtx.state === 'suspended') {
+              await sharedAudioCtx.resume()
+            }
+            let decodedBuffer: AudioBuffer | null = null
+            try {
+              const copyBuf = bytes.buffer.slice(
+                bytes.byteOffset,
+                bytes.byteOffset + bytes.byteLength,
+              )
+              decodedBuffer = await sharedAudioCtx.decodeAudioData(copyBuf)
+            } catch {
+              decodedBuffer = decodePcmWavManual(sharedAudioCtx, bytes)
+            }
+
+            if (decodedBuffer && sessionId === playSessionRef.current) {
+              const source = sharedAudioCtx.createBufferSource()
+              source.buffer = decodedBuffer
+              if (isRawFallback && source.detune) {
+                source.detune.value = -360
+              }
+              source.connect(sharedAudioCtx.destination)
+              webAudioSourceRef.current = source
+
+              const durationSec = Math.max(0.5, decodedBuffer.duration)
+              const startTime = sharedAudioCtx.currentTime
+              webAudioTimerRef.current = window.setInterval(() => {
+                if (!sharedAudioCtx || sessionId !== playSessionRef.current) return
+                const elapsed = Math.max(0, sharedAudioCtx.currentTime - startTime)
+                const pct = Math.min(100, Math.round((elapsed / durationSec) * 100))
+                setProgressPercent(pct)
+                const hotspotIdx = Math.min(
+                  totalHotspots - 1,
+                  Math.floor((elapsed / durationSec) * totalHotspots),
+                )
+                setActiveHotspotIndex(hotspotIdx)
+              }, 200)
+
+              source.onended = handleChapterFinished
+              source.start(0)
+              return
+            }
+          }
+        } catch {
+          // Fall through to Engine 2 (pre-unlocked HTMLAudioElement with Blob URL)
+        }
+
+        // Engine 2: Pre-unlocked HTMLAudioElement with Blob Object URL
+        try {
+          const blob = new Blob([bytes], { type: ttsData.mimeType || 'audio/mpeg' })
+          const blobUrl = URL.createObjectURL(blob)
+          objectUrlRef.current = blobUrl
+
+          const audio = sharedUnlockedAudioEl ?? new Audio()
+          audio.setAttribute('playsinline', 'true')
+          audio.volume = 1
+          audio.src = blobUrl
+          if (isRawFallback) {
+            ;(audio as HTMLAudioElement & { preservesPitch?: boolean; webkitPreservesPitch?: boolean }).preservesPitch = false
+            ;(audio as HTMLAudioElement & { preservesPitch?: boolean; webkitPreservesPitch?: boolean }).webkitPreservesPitch = false
+            audio.playbackRate = 0.84
+          } else {
+            audio.playbackRate = 1.0
+          }
           audioRef.current = audio
           audio.ontimeupdate = () => {
             if (audio.duration && Number.isFinite(audio.duration)) {
@@ -1431,11 +1649,11 @@ export function AppVideoGuideModal({
           await audio.play()
           return
         } catch {
-          // Fall through to browser speechSynthesis if autoplay or audio element fails
+          // Fall through to browser speechSynthesis
         }
       }
 
-      // Fallback: Browser Web Speech API (`ml-IN`) with Male Voice Pitch
+      // Engine 3: Browser Web Speech API (`ml-IN`) with Male Voice Pitch
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         try {
           window.speechSynthesis.cancel()
@@ -1466,10 +1684,11 @@ export function AppVideoGuideModal({
 
   useEffect(() => {
     setMounted(true)
+    unlockAndroidAudioOnGesture()
     // Auto-start chapter 1 playback when modal opens
     const timer = window.setTimeout(() => {
       void startChapterNarration(initialRole, 0)
-    }, 250)
+    }, 100)
     return () => {
       window.clearTimeout(timer)
       stopAllAudioAndTimers()
@@ -1482,6 +1701,8 @@ export function AppVideoGuideModal({
 
   return createPortal(
     <div
+      onPointerDown={() => unlockAndroidAudioOnGesture()}
+      onTouchStart={() => unlockAndroidAudioOnGesture()}
       className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 p-2.5 sm:p-4 backdrop-blur-sm animate-in fade-in-0 duration-200"
       onClick={() => {
         stopAllAudioAndTimers()

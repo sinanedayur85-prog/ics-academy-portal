@@ -42,6 +42,10 @@
       "destination": "/api/ai/transcribe.js"
     },
     {
+      "source": "/api/ai/tts",
+      "destination": "/api/ai/tts.js"
+    },
+    {
       "source": "/api/ai/study-assistant",
       "destination": "/api/ai/study-assistant.js"
     },
