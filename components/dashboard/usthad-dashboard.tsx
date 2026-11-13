@@ -871,10 +871,26 @@ export function UsthadDashboard() {
         </div>
       </header>
 
-      <div className="max-lg:flex-1 max-lg:min-h-0 max-lg:w-full max-lg:overflow-y-auto max-lg:overflow-x-hidden max-lg:overscroll-y-contain">
-        <CampusNotificationBar classNameFilter={usthad.className} />
+      <div
+        className={cn(
+          'max-lg:flex-1 max-lg:min-h-0 max-lg:w-full',
+          mobileTab === 'chat'
+            ? 'max-lg:flex max-lg:flex-col max-lg:overflow-hidden'
+            : 'max-lg:overflow-y-auto max-lg:overflow-x-hidden max-lg:overscroll-y-contain',
+        )}
+      >
+        <div className={cn(mobileTab === 'chat' && 'hidden lg:block')}>
+          <CampusNotificationBar classNameFilter={usthad.className} />
+        </div>
 
-        <main className="mx-auto flex max-w-7xl flex-col gap-5 px-3.5 py-5 sm:gap-6 sm:px-5 sm:py-7 md:px-8 md:py-10">
+        <main
+          className={cn(
+            'mx-auto flex max-w-7xl flex-col lg:gap-6 lg:px-8 lg:py-10',
+            mobileTab === 'chat'
+              ? 'max-lg:flex-1 max-lg:min-h-0 max-lg:w-full max-lg:max-w-none max-lg:gap-0 max-lg:p-0 max-lg:overflow-hidden'
+              : 'gap-5 px-3.5 py-5 sm:gap-6 sm:px-5 sm:py-7 md:px-8 md:py-10',
+          )}
+        >
         {/* Usthad Welcome & Class Summary Header — Shown on Roster Tab on Phone/Tablet, Always Shown on Desktop */}
         <div
           className={cn(
@@ -2579,11 +2595,18 @@ export function UsthadDashboard() {
         </div>
 
         {/* WHATSAPP-STYLE CAMPUS MESSENGER FOR USTHAD (Class Group, Staff Room & Direct Chats) */}
-        <div className={cn(mobileTab === 'chat' ? 'block' : 'hidden lg:block')}>
+        <div
+          className={cn(
+            mobileTab === 'chat'
+              ? 'max-lg:flex max-lg:flex-1 max-lg:min-h-0 max-lg:w-full max-lg:flex-col max-lg:overflow-hidden block'
+              : 'hidden lg:block',
+          )}
+        >
           <CampusMessenger
             role="usthad"
             usthad={usthad}
             activeClassName={activeClassName}
+            mobileFullScreen
           />
         </div>
 

@@ -1277,15 +1277,33 @@ export function PrincipalDashboard() {
         </nav>
       </header>
 
-      <div className="max-lg:flex-1 max-lg:min-h-0 max-lg:w-full max-lg:overflow-y-auto max-lg:overflow-x-hidden max-lg:overscroll-y-contain">
-        <CampusNotificationBar />
+      <div
+        className={cn(
+          'max-lg:flex-1 max-lg:min-h-0 max-lg:w-full',
+          activeTab === 'chat'
+            ? 'max-lg:flex max-lg:flex-col max-lg:overflow-hidden'
+            : 'max-lg:overflow-y-auto max-lg:overflow-x-hidden max-lg:overscroll-y-contain',
+        )}
+      >
+        <div className={cn(activeTab === 'chat' && 'hidden lg:block')}>
+          <CampusNotificationBar />
+        </div>
 
-        <main className="mx-auto flex max-w-7xl flex-col gap-5 px-3.5 py-5 sm:gap-6 sm:px-5 sm:py-7 md:px-8 md:py-10">
+        <main
+          className={cn(
+            'mx-auto flex max-w-7xl flex-col lg:gap-6 lg:px-8 lg:py-10',
+            activeTab === 'chat'
+              ? 'max-lg:flex-1 max-lg:min-h-0 max-lg:w-full max-lg:max-w-none max-lg:gap-0 max-lg:p-0 max-lg:overflow-hidden'
+              : 'gap-5 px-3.5 py-5 sm:gap-6 sm:px-5 sm:py-7 md:px-8 md:py-10',
+          )}
+        >
         {/* Executive Banner & 6 Live Campus Telemetry KPIs — Shown on Monitor Tab on Phone/Tablet, Always Shown on Desktop */}
         <section
           className={cn(
             'relative overflow-hidden rounded-2xl border border-border bg-card/65 p-5 sm:p-6',
-            activeTab !== 'monitor' && 'hidden lg:block',
+            activeTab === 'chat'
+              ? 'hidden'
+              : activeTab !== 'monitor' && 'hidden lg:block',
           )}
         >
           <div className="flex flex-col justify-between gap-4 border-b border-border/70 pb-5 lg:flex-row lg:items-center">
@@ -3280,11 +3298,12 @@ export function PrincipalDashboard() {
 
         {/* TAB 3: WHATSAPP-STYLE CAMPUS MESSENGER & STAFF ROOM */}
         {activeTab === 'chat' && (
-          <div className="space-y-6 animate-in fade-in-0 duration-300">
+          <div className="max-lg:flex max-lg:flex-1 max-lg:min-h-0 max-lg:w-full max-lg:flex-col max-lg:overflow-hidden animate-in fade-in-0 duration-300">
             <CampusMessenger
               role="principal"
               principal={principal}
               activeClassName={selectedClassName}
+              mobileFullScreen
             />
           </div>
         )}

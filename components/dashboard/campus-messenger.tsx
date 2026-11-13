@@ -365,7 +365,7 @@ export function CampusMessenger({
   usthad,
   principal = ACADEMY_PRINCIPAL,
   activeClassName,
-  mobileFullScreen = false,
+  mobileFullScreen = true,
 }: CampusMessengerProps) {
   // Resolve current actor identity
   const actor = useMemo(() => {
@@ -1409,9 +1409,9 @@ export function CampusMessenger({
       id="campus-chat"
       aria-label="ICS Academy Campus Messenger"
       className={cn(
-        'flex flex-col overflow-hidden rounded-3xl border border-border bg-card/95 shadow-lg transition-colors',
+        'flex flex-col overflow-hidden bg-background transition-colors lg:rounded-3xl lg:border lg:border-border lg:bg-card/95 lg:shadow-lg',
         mobileFullScreen
-          ? 'max-lg:h-full max-lg:flex-1 max-lg:rounded-none max-lg:border-0 lg:h-[760px]'
+          ? 'h-full w-full flex-1 rounded-none border-0 shadow-none lg:h-[760px]'
           : 'h-[720px] sm:h-[760px]',
       )}
     >
@@ -1419,7 +1419,7 @@ export function CampusMessenger({
         {/* LEFT PANE: WHATSAPP CONVERSATION ROSTER */}
         <div
           className={cn(
-            'flex h-full w-full flex-col border-r border-border bg-background/80 lg:w-[290px] xl:w-[360px] lg:shrink-0',
+            'flex h-full w-full flex-col bg-background lg:w-[290px] xl:w-[360px] lg:shrink-0 lg:border-r lg:border-border lg:bg-background/80',
             mobileShowChatPane ? 'hidden lg:flex' : 'flex',
           )}
         >
@@ -1673,8 +1673,10 @@ export function CampusMessenger({
         {/* RIGHT PANE: ACTIVE WHATSAPP CONVERSATION WINDOW */}
         <div
           className={cn(
-            'flex h-full min-w-0 flex-1 flex-col bg-background/95',
-            !mobileShowChatPane ? 'hidden lg:flex' : 'flex',
+            'flex h-full min-w-0 flex-1 flex-col bg-background lg:bg-background/95',
+            !mobileShowChatPane
+              ? 'hidden lg:flex'
+              : 'flex max-lg:fixed max-lg:inset-0 max-lg:z-[55] max-lg:h-dvh max-lg:w-screen max-lg:pt-[var(--safe-top)] max-lg:pb-[env(safe-area-inset-bottom,0px)]',
           )}
         >
           {/* Active Chat Header */}
@@ -2530,7 +2532,7 @@ export function CampusMessenger({
 
       {/* NEW CHAT DIRECTORY MODAL (Quickly Start Direct Chat with Any Usthad or Student) */}
       {showNewChatModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]">
             <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
               <div>
@@ -2640,7 +2642,7 @@ export function CampusMessenger({
       {/* WHATSAPP-STYLE CHAT SETTINGS MODAL */}
       {showSettingsModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/65 p-4 backdrop-blur-xs"
           onClick={() => setShowSettingsModal(false)}
         >
           <div
@@ -2898,7 +2900,7 @@ export function CampusMessenger({
       {/* PHOTO LIGHTBOX MODAL */}
       {lightboxImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4"
           onClick={() => setLightboxImage(null)}
         >
           <div

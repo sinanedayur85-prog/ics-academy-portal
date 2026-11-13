@@ -247,9 +247,10 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
 
         <main
           className={cn(
-            'mx-auto flex max-w-7xl flex-col gap-5 px-3.5 py-5 sm:gap-6 sm:px-5 sm:py-7 md:px-8 md:py-10',
-            (mobileTab === 'chatbot' || mobileTab === 'campus-chat') &&
-              'max-lg:flex-1 max-lg:min-h-0 max-lg:w-full max-lg:max-w-none max-lg:gap-0 max-lg:px-0 max-lg:py-0 max-lg:overflow-hidden',
+            'mx-auto flex max-w-7xl flex-col lg:gap-6 lg:px-8 lg:py-10',
+            mobileTab === 'chatbot' || mobileTab === 'campus-chat'
+              ? 'max-lg:flex-1 max-lg:min-h-0 max-lg:w-full max-lg:max-w-none max-lg:gap-0 max-lg:p-0 max-lg:overflow-hidden'
+              : 'gap-5 px-3.5 py-5 sm:gap-6 sm:px-5 sm:py-7 md:px-8 md:py-10',
           )}
         >
         {/* Welcome Student Header — Shown on Home Tab on Phone/Tablet, Always Shown on Desktop */}
@@ -410,7 +411,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
         <div
           className={cn(
             mobileTab === 'campus-chat'
-              ? 'max-lg:flex max-lg:flex-1 max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden block'
+              ? 'max-lg:flex max-lg:flex-1 max-lg:min-h-0 max-lg:w-full max-lg:flex-col max-lg:overflow-hidden block'
               : 'hidden lg:block',
           )}
         >
