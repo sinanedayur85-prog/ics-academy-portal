@@ -1029,9 +1029,6 @@ export function ClassLeaderAttendanceCard({
                           return (
                             <span className="rounded-md bg-cyan/15 px-1.5 py-0.5 text-[10px] font-bold text-cyan">
                               {clMatch.roleTitle}
-                              {isStaffViewer || student.id === leader.id
-                                ? ` (${clMatch.leaderId})`
-                                : ''}
                               {isCurrent ? ' • You' : ''}
                             </span>
                           )
@@ -1058,7 +1055,7 @@ export function ClassLeaderAttendanceCard({
                     <div
                       role="radiogroup"
                       aria-label={`Attendance status for ${student.name} in ${activePeriod.label}`}
-                      className="flex items-center justify-end gap-1.5"
+                      className="flex flex-wrap items-center justify-start gap-1.5 sm:justify-end"
                     >
                       {isSessionNotHeld ? (
                         <span className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400">
@@ -1073,13 +1070,13 @@ export function ClassLeaderAttendanceCard({
                             aria-checked={status === 'present'}
                             onClick={() => handleStatusChange(student.id, 'present')}
                             className={cn(
-                              'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-all',
+                              'inline-flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold whitespace-nowrap transition-all sm:px-2.5 sm:text-xs',
                               status === 'present'
                                 ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:border-lime dark:bg-lime/20 dark:text-lime'
                                 : 'border-border bg-background text-muted-foreground hover:text-foreground',
                             )}
                           >
-                            <UserCheck className="size-3.5" aria-hidden="true" />
+                            <UserCheck className="size-3.5 shrink-0" aria-hidden="true" />
                             Present
                           </button>
 
@@ -1089,13 +1086,13 @@ export function ClassLeaderAttendanceCard({
                             aria-checked={status === 'absent'}
                             onClick={() => handleStatusChange(student.id, 'absent')}
                             className={cn(
-                              'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-all',
+                              'inline-flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold whitespace-nowrap transition-all sm:px-2.5 sm:text-xs',
                               status === 'absent'
                                 ? 'border-red-500 bg-red-500/15 text-red-600 dark:border-red-400 dark:bg-red-500/20 dark:text-red-400'
                                 : 'border-border bg-background text-muted-foreground hover:text-foreground',
                             )}
                           >
-                            <UserX className="size-3.5" aria-hidden="true" />
+                            <UserX className="size-3.5 shrink-0" aria-hidden="true" />
                             Absent
                           </button>
 
@@ -1105,13 +1102,13 @@ export function ClassLeaderAttendanceCard({
                             aria-checked={status === 'leave'}
                             onClick={() => handleStatusChange(student.id, 'leave')}
                             className={cn(
-                              'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-all',
+                              'inline-flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold whitespace-nowrap transition-all sm:px-2.5 sm:text-xs',
                               status === 'leave'
                                 ? 'border-amber-500 bg-amber-500/15 text-amber-700 dark:border-amber-400 dark:bg-amber-500/20 dark:text-amber-300'
                                 : 'border-border bg-background text-muted-foreground hover:text-foreground',
                             )}
                           >
-                            <UserMinus className="size-3.5" aria-hidden="true" />
+                            <UserMinus className="size-3.5 shrink-0" aria-hidden="true" />
                             Leave
                           </button>
                         </>
@@ -1122,9 +1119,9 @@ export function ClassLeaderAttendanceCard({
                           type="button"
                           onClick={() => setReportStudent(student)}
                           title={`Generate Parent PDF Report for ${student.name}`}
-                          className="inline-flex items-center gap-1 rounded-lg border border-cyan/40 bg-cyan/10 px-2.5 py-1.5 text-xs font-semibold text-cyan transition-all hover:bg-cyan/20 whitespace-nowrap shrink-0"
+                          className="inline-flex items-center justify-center gap-1 rounded-lg border border-cyan/40 bg-cyan/10 px-2 py-1.5 text-[11px] font-semibold text-cyan transition-all hover:bg-cyan/20 whitespace-nowrap shrink-0 sm:px-2.5 sm:text-xs"
                         >
-                          <FileText className="size-3.5" aria-hidden="true" />
+                          <FileText className="size-3.5 shrink-0" aria-hidden="true" />
                           Parent PDF
                         </button>
                       )}
