@@ -404,7 +404,7 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
         <span className="hidden flex-col leading-tight sm:flex">
           <span className="text-sm font-semibold text-foreground">{principal.name}</span>
           <span className="text-xs text-muted-foreground">
-            Principal &amp; Class Usthad • {principal.staffId}
+            Principal • {principal.staffId}
           </span>
         </span>
         <span className="sr-only">Principal account profile</span>
@@ -425,7 +425,7 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
             <ProfileInitialsAvatar name={principal.name} className="size-12 text-sm shadow-sm" />
             <div className="min-w-0 flex-1">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-lime">
-                Principal &amp; Class Usthad
+                Principal
               </p>
               <p className="mt-0.5 truncate font-display text-lg font-semibold text-foreground">
                 {principal.name}

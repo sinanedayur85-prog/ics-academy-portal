@@ -52,10 +52,10 @@ const studentRole: Role = {
 const classLeaderRole: Role = {
   id: 'class-leader',
   tier: 'Tier 02',
-  title: 'Class Leader (Main & Assistant)',
+  title: 'Class Leader',
   description:
-    'Each class has 2 leaders (Main Leader & Assistant Leader) with identical permissions to submit period attendance.',
-  idLabel: 'Leader ID (Main / Assistant) or Admission number',
+    'Each class has 2 leaders with identical permissions to submit period attendance.',
+  idLabel: 'Class Leader ID or Admission number',
   idPlaceholder: 'Enter your Class Leader ID or Admission Number',
   icon: Users,
   tone: 'cyan',
@@ -64,7 +64,7 @@ const classLeaderRole: Role = {
 const teacherRole: Role = {
   id: 'teacher',
   tier: 'Tier 03',
-  title: 'Class Usthad (Teacher)',
+  title: 'Class Usthad',
   description:
     'Manage your assigned class attendance, leave register, notices, and digital Kitabs.',
   idLabel: 'Staff ID or Usthad Name',
@@ -73,13 +73,25 @@ const teacherRole: Role = {
   tone: 'lime',
 }
 
+const englishTeacherRole: Role = {
+  id: 'teacher',
+  tier: 'Tier 02',
+  title: 'Class Teacher',
+  description:
+    'Manage your assigned class attendance, leave register, notices, and study materials.',
+  idLabel: 'Staff ID or Teacher Name',
+  idPlaceholder: 'Enter your Staff ID',
+  icon: BookOpen,
+  tone: 'cyan',
+}
+
 const principalRole: Role = {
   id: 'principal',
   tier: 'Tier 04',
-  title: 'Principal & Class Usthad',
+  title: 'Principal',
   description:
-    'Oversee all 11 classes, assign substitute Usthads, declare official holidays, and manage your own assigned class as Class Usthad.',
-  idLabel: 'Principal / Class Usthad ID',
+    'Oversee all 11 classes, assign substitute Usthads, and declare official holidays.',
+  idLabel: 'Principal ID',
   idPlaceholder: 'Enter your Principal ID',
   icon: Crown,
   tone: 'cyan',
@@ -94,8 +106,14 @@ export const dawaCollegeRoles: Role[] = [
 
 export const englishSchoolRoles: Role[] = [
   studentRole,
-  { ...teacherRole, tier: 'Tier 02', tone: 'cyan' },
-  { ...principalRole, tier: 'Tier 03', tone: 'lime' },
+  englishTeacherRole,
+  {
+    ...principalRole,
+    tier: 'Tier 03',
+    tone: 'lime',
+    description:
+      'Oversee all classes, assign substitute teachers, and declare official holidays.',
+  },
 ]
 
 type LoginPortalProps = {

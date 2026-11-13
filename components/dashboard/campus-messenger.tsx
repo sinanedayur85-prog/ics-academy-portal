@@ -554,7 +554,7 @@ export function CampusMessenger({
         type: 'direct_usthad',
         title: u.name,
         subtitle: isPrincipalUsthad
-          ? `Principal & Class Usthad (${u.className})`
+          ? 'Principal'
           : isMyClassUsthad
             ? `Your Class Usthad • ${u.className}`
             : `${u.designation.split('•')[0].trim()} • ${u.className}`,

@@ -286,7 +286,7 @@ export function UsthadDashboard() {
     '07:30 AM (Morning — Before Class)',
   )
   const [holidayDaysDeducted, setHolidayDaysDeducted] = useState('3')
-  const [holidayAnnouncedBy, setHolidayAnnouncedBy] = useState('Principal & Class Usthad')
+  const [holidayAnnouncedBy, setHolidayAnnouncedBy] = useState('Principal')
   const [noticeToast, setNoticeToast] = useState<string | null>(null)
 
   // Digital Library Kitab Uploader State
@@ -889,7 +889,7 @@ export function UsthadDashboard() {
               </p>
               {usthad.isPrincipalRole && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-cyan uppercase">
-                  Principal &amp; Class Usthad
+                  Principal
                 </span>
               )}
             </div>

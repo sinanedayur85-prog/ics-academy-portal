@@ -277,7 +277,7 @@ export function PrincipalDashboard() {
   )
   const [holidayDaysDeducted, setHolidayDaysDeducted] = useState('3')
   const [holidayAnnouncedBy, setHolidayAnnouncedBy] = useState(
-    `${principal.name} (Principal • ADM-001)`,
+    `${principal.name} • Principal`,
   )
   const [noticeToast, setNoticeToast] = useState<string | null>(null)
 
@@ -2090,8 +2090,8 @@ export function PrincipalDashboard() {
                 {/* The 9 Official Class Usthads Panel */}
                 <Panel
                   id="principal-usthads-panel"
-                  eyebrow="Official Class Usthads & Faculty Roster (9 Class Usthads)"
-                  title="All 9 Teaching & Class Usthads (Principal, Swadr & Class Usthads)"
+                  eyebrow="Official Class Usthads & Faculty Roster"
+                  title="All 9 Teaching & Class Usthads"
                   icon={GraduationCap}
                 >
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -2236,7 +2236,7 @@ export function PrincipalDashboard() {
             {peopleSubTab === 'leaders' && (
               <Panel
                 id="principal-leaders-panel"
-                eyebrow="Main & Assistant Class Leaders (CL-14..05 & ACL-14..05)"
+                eyebrow="Class Leaders"
                 title="All 22 Authorized Class Leaders"
                 icon={UserCheck}
               >
