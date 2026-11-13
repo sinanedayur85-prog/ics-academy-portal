@@ -230,3 +230,62 @@ export async function normalizeSpokenVoiceText(payload: {
 
   return clean
 }
+
+const clientTtsAudioCache = new Map<string, { audioBase64: string; mimeType: string }>()
+
+export async function fetchTtsSpeechAudio(payload: {
+  text: string
+  language?: 'ml' | 'en' | 'ar'
+  voiceGender?: 'male' | 'female'
+}): Promise<{ audioBase64: string; mimeType: string } | null> {
+  const clean = payload.text.trim()
+  if (!clean) return null
+
+  const gender = payload.voiceGender ?? 'male'
+  const lang = payload.language ?? 'ml'
+  const cacheKey = `male-v2:${gender}:${lang}:${clean}`
+  const cached = clientTtsAudioCache.get(cacheKey)
+  if (cached) return cached
+
+  const urls = getCandidateApiUrls('/api/ai/tts')
+
+  for (const url of urls) {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 14000)
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          text: clean,
+          language: lang,
+          voiceGender: gender,
+        }),
+      })
+      clearTimeout(timeoutId)
+
+      const contentType = res.headers.get('content-type') || ''
+      if (res.ok && contentType.includes('application/json')) {
+        const data = (await res.json()) as {
+          audioBase64?: string
+          mimeType?: string
+        }
+        if (data?.audioBase64) {
+          const result = {
+            audioBase64: data.audioBase64,
+            mimeType: data.mimeType || 'audio/mpeg',
+          }
+          clientTtsAudioCache.set(cacheKey, result)
+          return result
+        }
+      }
+    } catch {
+      clearTimeout(timeoutId)
+    }
+  }
+
+  return null
+}
+

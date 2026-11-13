@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { spawn } from 'child_process'
 import express from 'express'
 import { createServer as createHttpServer } from 'http'
 import path from 'path'
@@ -891,6 +892,189 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     } catch (error) {
       const errMessage =
         error instanceof Error ? error.message : 'Failed to transcribe voice input.'
+      res.status(500).json({ error: errMessage })
+    }
+  })
+
+  const ttsCache = new Map<string, { audioBase64: string; mimeType: string }>()
+
+  function transformToMaleVoiceMp3(inputMp3: Buffer): Promise<Buffer> {
+    return new Promise((resolve) => {
+      try {
+        const ff = spawn('ffmpeg', [
+          '-hide_banner',
+          '-loglevel',
+          'error',
+          '-f',
+          'mp3',
+          '-i',
+          'pipe:0',
+          '-af',
+          'rubberband=pitch=0.775:formant=shifted:tempo=1.03,equalizer=f=135:width_type=o:width=1.4:g=3.5,equalizer=f=3200:width_type=o:width=2.0:g=-1.5',
+          '-codec:a',
+          'libmp3lame',
+          '-b:a',
+          '64k',
+          '-f',
+          'mp3',
+          'pipe:1',
+        ])
+        const outChunks: Buffer[] = []
+        ff.stdout.on('data', (chunk: Buffer) => outChunks.push(chunk))
+        ff.on('error', () => resolve(inputMp3))
+        ff.on('close', (code) => {
+          if (code === 0 && outChunks.length > 0) {
+            resolve(Buffer.concat(outChunks))
+          } else {
+            resolve(inputMp3)
+          }
+        })
+        ff.stdin.on('error', () => {
+          // ignore broken pipe
+        })
+        ff.stdin.write(inputMp3)
+        ff.stdin.end()
+      } catch {
+        resolve(inputMp3)
+      }
+    })
+  }
+
+  app.post('/api/ai/tts', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    try {
+      const { text = '', language = 'ml', voiceGender = 'male' } = req.body ?? {}
+      const cleanText = typeof text === 'string' ? text.trim().slice(0, 1800) : ''
+      if (!cleanText) {
+        res.status(400).json({ error: 'Text is required for speech synthesis.' })
+        return
+      }
+
+      const cacheKey = `male-v2:${voiceGender}:${language}:${cleanText}`
+      const cached = ttsCache.get(cacheKey)
+      if (cached) {
+        res.json(cached)
+        return
+      }
+
+      // 1. Primary ultra-fast native Malayalam/multilingual speech synthesis converted to natural Male Usthad voice
+      try {
+        const rawSentences = cleanText
+          .split(/(?<=[.!?।])\s+|\n+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+
+        const chunks: string[] = []
+        for (const sentence of rawSentences) {
+          if (sentence.length <= 180) {
+            chunks.push(sentence)
+          } else {
+            const words = sentence.split(/\s+/)
+            let current = ''
+            for (const w of words) {
+              if ((current + ' ' + w).trim().length > 180) {
+                if (current) chunks.push(current.trim())
+                current = w
+              } else {
+                current = (current + ' ' + w).trim()
+              }
+            }
+            if (current) chunks.push(current.trim())
+          }
+        }
+
+        const tl = language === 'ml' ? 'ml' : language === 'ar' ? 'ar' : 'en'
+        const buffers = await Promise.all(
+          chunks.map(async (chunk) => {
+            const ttsUrl = `https://translate.googleapis.com/translate_tts?ie=UTF-8&tl=${tl}&client=gtx&q=${encodeURIComponent(chunk)}`
+            const ttsRes = await withTimeout(
+              fetch(ttsUrl, {
+                headers: {
+                  'User-Agent':
+                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                },
+              }),
+              5000,
+              'native-tts',
+            )
+            if (!ttsRes.ok) {
+              throw new Error(`TTS upstream status ${ttsRes.status}`)
+            }
+            const arrBuf = await ttsRes.arrayBuffer()
+            return Buffer.from(arrBuf)
+          }),
+        )
+
+        if (buffers.length > 0) {
+          const combinedRaw = Buffer.concat(buffers)
+          const finalMp3 =
+            voiceGender === 'female'
+              ? combinedRaw
+              : await transformToMaleVoiceMp3(combinedRaw)
+          const payload = {
+            audioBase64: finalMp3.toString('base64'),
+            mimeType: 'audio/mpeg',
+          }
+          if (ttsCache.size > 100) {
+            const firstKey = ttsCache.keys().next().value
+            if (firstKey) ttsCache.delete(firstKey)
+          }
+          ttsCache.set(cacheKey, payload)
+          res.json(payload)
+          return
+        }
+      } catch {
+        // Fall through to Gemini 3.8 Flash Lite TTS
+      }
+
+      // 2. Fallback: Gemini 3.8 Flash Lite TTS (`gemini-3.8-flash-lite-tts`) with Male voice ('Charon')
+      const ai = getAiClient()
+      const ttsResponse = await withTimeout(
+        ai.models.generateContent({
+          model: 'gemini-3.8-flash-lite-tts',
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  text: cleanText,
+                  speechMetadata: {
+                    style:
+                      'Warm, clear, respectful male Malayalam Usthad instructor explaining app features step by step',
+                  },
+                },
+              ],
+            },
+          ],
+          config: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: 'Charon' },
+              },
+            },
+          },
+        }),
+        12000,
+        'gemini-3.8-flash-lite-tts',
+      )
+
+      const inlineAudio =
+        ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData
+      if (inlineAudio?.data) {
+        const payload = {
+          audioBase64: inlineAudio.data,
+          mimeType: inlineAudio.mimeType || 'audio/wav',
+        }
+        ttsCache.set(cacheKey, payload)
+        res.json(payload)
+        return
+      }
+
+      res.status(500).json({ error: 'Unable to synthesize speech audio.' })
+    } catch (error) {
+      const errMessage =
+        error instanceof Error ? error.message : 'Failed to synthesize speech.'
       res.status(500).json({ error: errMessage })
     }
   })

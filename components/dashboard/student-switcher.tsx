@@ -2,8 +2,9 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Award, BookOpen, ChevronDown, Eye, EyeOff, GraduationCap, Hash, KeyRound, LogOut, ShieldCheck, User } from 'lucide-react'
+import { Award, BookOpen, ChevronDown, Eye, EyeOff, GraduationCap, Hash, KeyRound, LogOut, PlayCircle, ShieldCheck, User, Volume2 } from 'lucide-react'
 import type { ClassUsthad, PrincipalProfile, Student } from '@/components/dashboard/data'
+import { AppVideoGuideModal } from '@/components/dashboard/app-video-guide'
 import { cn } from '@/lib/utils'
 
 function initials(name: string) {
@@ -63,6 +64,7 @@ type StudentSwitcherProps = {
 
 export function StudentSwitcher({ student }: StudentSwitcherProps) {
   const [open, setOpen] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
   const [showOwnPassword, setShowOwnPassword] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const popoverId = useId()
@@ -71,6 +73,9 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
     (typeof window !== 'undefined' &&
       window.localStorage.getItem(`ics_own_password_${student.id}`)) ||
     student.admissionNo
+
+  const isClassLeader =
+    typeof window !== 'undefined' && window.localStorage.getItem('authRole') === 'class-leader'
 
   useEffect(() => {
     if (!open) {
@@ -193,6 +198,30 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
             </div>
           </dl>
 
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              setGuideOpen(true)
+            }}
+            className="mb-2 flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-lime/40 bg-gradient-to-r from-lime/15 via-cyan/10 to-lime/15 px-3.5 text-left transition-all duration-200 outline-none hover:border-lime hover:from-lime/25 hover:to-cyan/20 focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <span className="flex items-center gap-2.5 min-w-0">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-lime/20 text-lime">
+                <PlayCircle className="size-4" aria-hidden="true" />
+              </span>
+              <span className="flex flex-col leading-tight min-w-0">
+                <span className="truncate text-xs font-bold text-foreground">
+                  App Video Guide
+                </span>
+                <span className="truncate text-[10px] font-medium text-lime">
+                  മലയാളം ശബ്ദ സഹായി • Screen Demo
+                </span>
+              </span>
+            </span>
+            <Volume2 className="size-4 shrink-0 text-lime animate-pulse" aria-hidden="true" />
+          </button>
+
           <Link
             href="/"
             onClick={(event) => {
@@ -210,12 +239,20 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
           </Link>
         </div>
       ) : null}
+
+      {guideOpen ? (
+        <AppVideoGuideModal
+          onClose={() => setGuideOpen(false)}
+          initialRole={isClassLeader ? 'class-leader' : 'student'}
+        />
+      ) : null}
     </div>
   )
 }
 
 export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
   const [open, setOpen] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const popoverId = useId()
 
@@ -327,6 +364,30 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
             </div>
           </dl>
 
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              setGuideOpen(true)
+            }}
+            className="mb-2 flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-lime/40 bg-gradient-to-r from-lime/15 via-cyan/10 to-lime/15 px-3.5 text-left transition-all duration-200 outline-none hover:border-lime hover:from-lime/25 hover:to-cyan/20 focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <span className="flex items-center gap-2.5 min-w-0">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-lime/20 text-lime">
+                <PlayCircle className="size-4" aria-hidden="true" />
+              </span>
+              <span className="flex flex-col leading-tight min-w-0">
+                <span className="truncate text-xs font-bold text-foreground">
+                  App Video Guide
+                </span>
+                <span className="truncate text-[10px] font-medium text-lime">
+                  മലയാളം ശബ്ദ സഹായി • Screen Demo
+                </span>
+              </span>
+            </span>
+            <Volume2 className="size-4 shrink-0 text-lime animate-pulse" aria-hidden="true" />
+          </button>
+
           {usthad.isPrincipalRole ? (
             <button
               type="button"
@@ -362,12 +423,20 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
           </Link>
         </div>
       ) : null}
+
+      {guideOpen ? (
+        <AppVideoGuideModal
+          onClose={() => setGuideOpen(false)}
+          initialRole="usthad"
+        />
+      ) : null}
     </div>
   )
 }
 
 export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }) {
   const [open, setOpen] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const popoverId = useId()
 
@@ -495,6 +564,30 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
             type="button"
             onClick={() => {
               setOpen(false)
+              setGuideOpen(true)
+            }}
+            className="mb-2 flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-lime/40 bg-gradient-to-r from-lime/15 via-cyan/10 to-lime/15 px-3.5 text-left transition-all duration-200 outline-none hover:border-lime hover:from-lime/25 hover:to-cyan/20 focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <span className="flex items-center gap-2.5 min-w-0">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-lime/20 text-lime">
+                <PlayCircle className="size-4" aria-hidden="true" />
+              </span>
+              <span className="flex flex-col leading-tight min-w-0">
+                <span className="truncate text-xs font-bold text-foreground">
+                  App Video Guide
+                </span>
+                <span className="truncate text-[10px] font-medium text-lime">
+                  മലയാളം ശബ്ദ സഹായി • Screen Demo
+                </span>
+              </span>
+            </span>
+            <Volume2 className="size-4 shrink-0 text-lime animate-pulse" aria-hidden="true" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
               window.dispatchEvent(
                 new CustomEvent('ics-switch-role', {
                   detail: { role: 'usthad', usthadId: principal.usthadId },
@@ -522,6 +615,13 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
             Log out
           </Link>
         </div>
+      ) : null}
+
+      {guideOpen ? (
+        <AppVideoGuideModal
+          onClose={() => setGuideOpen(false)}
+          initialRole="principal"
+        />
       ) : null}
     </div>
   )
