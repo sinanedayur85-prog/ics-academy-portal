@@ -1361,16 +1361,6 @@ export function PrincipalDashboard() {
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
-                onClick={() => setPdfReportStudent(selectedStudent)}
-                className="rounded-xl border-cyan/40 bg-cyan/10 text-xs font-semibold text-cyan hover:bg-cyan/20"
-              >
-                <FileText className="mr-1.5 size-3.5" aria-hidden="true" />
-                Open Parent PDF Report
-              </Button>
-              <Button
-                type="button"
-                size="sm"
                 onClick={() => {
                   setActiveTab('notices')
                   setIsHolidayNotice(true)
