@@ -66,32 +66,32 @@ const RAW_CLASS_ROSTERS: {
     className: '8th',
     batch: 'Batch 14',
     entries: [
-      ['ICS•2K26•14•01', 'Hassan'],
-      ['ICS•2K26•14•02', 'Swalahudheen CK'],
-      ['ICS•2K26•14•03', 'Muhammed Zafin'],
+      ['ICS•2K26•14•01', 'Muhammed Hassan C'],
+      ['ICS•2K26•14•02', 'Swalahudeen CK'],
+      ['ICS•2K26•14•03', 'Muhammed Rifin'],
       ['ICS•2K26•14•04', 'Muhammed Ajwad'],
       ['ICS•2K26•14•05', 'Muhammed Jishan'],
-      ['ICS•2K26•14•06', 'Muhammed Bishr. TP'],
-      ['ICS•2K26•14•07', 'Muhammed Saneen'],
+      ['ICS•2K26•14•06', 'Muhammed Bishr TP'],
+      ['ICS•2K26•14•07', 'Fuad Saneen'],
       ['ICS•2K26•14•08', 'Muhammed Jeelani'],
-      ['ICS•2K26•14•09', 'Muhammed Swabeeh. K'],
-      ['ICS•2K26•14•10', 'Muhammed Sawad'],
-      ['ICS•2K26•14•11', 'Aiman. KM'],
-      ['ICS•2K26•14•12', 'Muhammed Hisham. MK'],
-      ['ICS•2K26•14•13', 'Rayid Rashid'],
-      ['ICS•2K26•14•14', 'Ashmal Mustafa'],
-      ['ICS•2K26•14•15', 'Ashmal Nasir'],
-      ['ICS•2K26•14•16', 'Muhammed Ziyan'],
-      ['ICS•2K26•14•17', 'Muhammed Thwalha K'],
-      ['ICS•2K26•14•18', 'Muhammed Sabiq'],
-      ['ICS•2K26•14•19', 'Muhammed Ashiq Ali'],
-      ['ICS•2K26•14•20', 'Bishr Muhammed. CP'],
-      ['ICS•2K26•14•21', 'Muhammed Sabeeh. CK'],
-      ['ICS•2K26•14•22', 'Muhammed Razeen'],
-      ['ICS•2K26•14•23', 'Sirajudheen Hadi'],
-      ['ICS•2K26•14•24', 'Muhammed Bishr. E'],
-      ['ICS•2K26•14•25', 'Muhammed Sinan. A'],
-      ['ICS•2K26•14•26', 'Muhammed Shameem'],
+      ['ICS•2K26•14•09', 'Muhammed Swabeeh K'],
+      ['ICS•2K26•14•10', 'Muhammed Savad'],
+      ['ICS•2K26•14•11', 'Ayman KM'],
+      ['ICS•2K26•14•12', 'Muhammed Hisham MK'],
+      ['ICS•2K26•14•13', 'Rayid Rasheed'],
+      ['ICS•2K26•14•14', 'Ashmil Musthafa'],
+      ['ICS•2K26•14•15', 'Ashmil Nasar'],
+      ['ICS•2K26•14•16', 'Swalahudeen CK'],
+      ['ICS•2K26•14•17', 'Muhammed Zayyan'],
+      ['ICS•2K26•14•18', 'Muhammed Twalha K'],
+      ['ICS•2K26•14•19', 'Muhammed Sabiq'],
+      ['ICS•2K26•14•20', 'Muhammed Ashiq Ali'],
+      ['ICS•2K26•14•21', 'Bishr Muhammed CP'],
+      ['ICS•2K26•14•22', 'Muhammed Swabeeh CK'],
+      ['ICS•2K26•14•23', 'Muhammed Razeen'],
+      ['ICS•2K26•14•24', 'Sirajuddeen Hadi'],
+      ['ICS•2K26•14•25', 'Muhammed Bishr E'],
+      ['ICS•2K26•14•26', 'Muhammed Sinan A'],
     ],
   },
   {
@@ -1263,8 +1263,8 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
   {
     id: 'usthad-11',
     staffId: 'UST-11',
-    name: 'Usthad Hashim Saqafi',
-    shortName: 'Usthad Hashim Saqafi',
+    name: 'Usthad Asif Saqafi',
+    shortName: 'Usthad Asif Saqafi',
     designation: 'Class Usthad',
     institutionalRole: 'Class Usthad',
     className: 'HS 1',
@@ -1302,8 +1302,8 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
   {
     id: 'usthad-14',
     staffId: 'UST-14',
-    name: 'Usthad Asif Saqafi',
-    shortName: 'Usthad Asif Saqafi',
+    name: 'Usthad Muhammed Hashim Saqafi',
+    shortName: 'Usthad Muhammed Hashim Saqafi',
     designation: 'Class Usthad',
     institutionalRole: 'Class Usthad',
     className: '8th',
@@ -1319,10 +1319,10 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
  * neither SHAIKHUNA HAMZA USTHAD nor Manager Usthad Muhammed Naeem Saqafi is ever a Class Usthad).
  */
 export const CLASS_USTHADS: ClassUsthad[] = [
-  OFFICIAL_CLASS_USTHADS[8], // 8th — Usthad Asif Saqafi
+  OFFICIAL_CLASS_USTHADS[8], // 8th — Usthad Muhammed Hashim Saqafi
   OFFICIAL_CLASS_USTHADS[7], // 9th — Usthad Alavudheen Ahsani
   OFFICIAL_CLASS_USTHADS[6], // 10th — Usthad Razaq Saqafi
-  OFFICIAL_CLASS_USTHADS[5], // HS 1 — Usthad Hashim Saqafi
+  OFFICIAL_CLASS_USTHADS[5], // HS 1 — Usthad Asif Saqafi
   OFFICIAL_CLASS_USTHADS[4], // HS 2A — Usthad Favaz Saqafi
   OFFICIAL_CLASS_USTHADS[3], // HS 2B — Usthad Midhlaj Ahsani
   OFFICIAL_CLASS_USTHADS[2], // BS 1 — Usthad Muhammed Musthafa Saqafi
@@ -1744,8 +1744,18 @@ export type ClassLeaderInfo = {
  * 2. Assistant Class Leader (ACL-XX) — Roll #02 of the class
  */
 export const CLASS_LEADERS: ClassLeaderInfo[] = (() => {
-  const batchMapping: { className: string; batchCode: string }[] = [
-    { className: '8th', batchCode: '14' },
+  const batchMapping: {
+    className: string
+    batchCode: string
+    mainAdmissionNo?: string
+    assistantAdmissionNo?: string
+  }[] = [
+    {
+      className: '8th',
+      batchCode: '14',
+      mainAdmissionNo: 'ICS•2K26•14•07', // Fuad Saneen
+      assistantAdmissionNo: 'ICS•2K26•14•10', // Muhammed Savad
+    },
     { className: '9th', batchCode: '13' },
     { className: '10th', batchCode: '12' },
     { className: 'HS 1', batchCode: '11' },
@@ -1761,8 +1771,16 @@ export const CLASS_LEADERS: ClassLeaderInfo[] = (() => {
   const leaders: ClassLeaderInfo[] = []
   for (const item of batchMapping) {
     const classRoster = students.filter((s) => s.className === item.className)
-    const mainStudent = classRoster[0]
-    const assistantStudent = classRoster[1] ?? classRoster[0]
+    const mainStudent =
+      (item.mainAdmissionNo
+        ? classRoster.find((s) => s.admissionNo === item.mainAdmissionNo)
+        : undefined) ?? classRoster[0]
+    const assistantStudent =
+      (item.assistantAdmissionNo
+        ? classRoster.find((s) => s.admissionNo === item.assistantAdmissionNo)
+        : undefined) ??
+      classRoster[1] ??
+      classRoster[0]
 
     if (mainStudent) {
       leaders.push({

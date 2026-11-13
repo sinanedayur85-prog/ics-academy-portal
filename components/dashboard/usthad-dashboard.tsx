@@ -897,7 +897,7 @@ export function UsthadDashboard() {
               <span className="text-xl font-normal text-muted-foreground md:text-2xl">
                  السَّلَامُ عَلَيْكُمْ,
               </span>
-              <span className="mt-0.5 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+              <span className="mt-0.5 text-2xl font-semibold tracking-tight whitespace-nowrap text-foreground sm:text-3xl md:text-4xl">
                 {usthad.name}
               </span>
             </h1>

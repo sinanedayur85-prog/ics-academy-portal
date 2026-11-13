@@ -256,11 +256,11 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
         <div
           key={student.id}
           className={cn(
-            'flex flex-col justify-between gap-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 md:flex-row md:items-end',
+            'flex flex-col justify-between gap-2.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 2xl:flex-row 2xl:items-end',
             mobileTab !== 'home' && 'hidden lg:flex',
           )}
         >
-          <div>
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
               <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-lime">
                 {isClassLeader ? "Da'wa College • Class Leader Portal" : "Da'wa College Portal"}
@@ -312,7 +312,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
               <span className="text-xl font-normal text-muted-foreground md:text-2xl">
                 Welcome,
               </span>
-              <span className="mt-0.5 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+              <span className="mt-0.5 text-2xl font-semibold tracking-tight whitespace-nowrap text-foreground sm:text-3xl md:text-4xl">
                 {student.firstName}
               </span>
             </h1>

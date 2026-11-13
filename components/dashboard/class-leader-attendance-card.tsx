@@ -1021,7 +1021,7 @@ export function ClassLeaderAttendanceCard({
 
                     <div className="flex flex-col">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-foreground">{student.name}</span>
+                        <span className="font-medium whitespace-nowrap text-foreground">{student.name}</span>
                         {(() => {
                           const clMatch = classLeaders.find((c) => c.studentId === student.id)
                           if (!clMatch) return null

@@ -1,5 +1,5 @@
 // ICS Academy Service Worker for PWA & Offline Support
-const CACHE_NAME = 'ics-academy-pwa-v4';
+const CACHE_NAME = 'ics-academy-pwa-v6';
 const PRECACHE_URLS = [
   '/manifest.json',
   '/images/ics-mark.svg',
@@ -27,7 +27,6 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Do not intercept non-GET requests, backend API calls, or Vite dev modules
   if (event.request.method !== 'GET') return;
   if (
     event.request.url.includes('/api/') ||
@@ -38,20 +37,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first (no-store) for HTML navigation so fresh index.html is always loaded immediately after a push
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request, { cache: 'no-store' }).catch(() => caches.match('/'))
-    );
-    return;
-  }
-
+  // Always prefer fresh network response so iPad/mobile Home Screen apps stay up-to-date
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request);
-    })
+    fetch(event.request, { cache: 'no-store' }).catch(() =>
+      caches.match(event.request).then((cachedResponse) => cachedResponse || caches.match('/'))
+    )
   );
 });
