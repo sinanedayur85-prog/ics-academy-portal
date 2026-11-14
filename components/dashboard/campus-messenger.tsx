@@ -2229,69 +2229,41 @@ export function CampusMessenger({
                     }}
                     className={cn(
                       'relative max-w-[86%] sm:max-w-[74%] rounded-2xl shadow-xs transition-colors cursor-pointer select-none',
-                      isImageMessage ? 'p-1 border-0' : 'px-3.5 py-2 pr-14 border',
+                      isImageMessage ? 'p-1 border-0' : 'px-3.5 py-2 pr-9 border',
                       isMine
                         ? 'rounded-br-xs border-[#bde6b4] bg-[#dcf8c6] text-[#081e21] dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-[#f3f4f6]'
                         : 'rounded-bl-xs border-border bg-card text-foreground dark:border-[#262a33] dark:bg-[#121418] dark:text-[#f3f4f6]',
                       isSelectedMenuOpen && 'ring-2 ring-emerald-500/60 dark:ring-zinc-500',
                     )}
                   >
-                    {/* Always-Visible Touch-Friendly Delete & Options Buttons in Top-Right Corner (Works on iPad, iPhone, Android & Desktop) */}
-                    <div
+                    {/* Always-Visible Touch-Friendly Three-Dots Options Button in Top-Right Corner (Works on iPad, iPhone, Android & Desktop) */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowAttachMenu(false)
+                        setActiveReactionMessageId((prev) =>
+                          prev === msg.id ? null : msg.id,
+                        )
+                      }}
+                      aria-label="Message options"
                       className={cn(
-                        'absolute right-1.5 top-1.5 z-20 flex items-center gap-1',
-                        isImageMessage &&
-                          'right-2 top-2 rounded-full bg-black/55 px-1 py-0.5 text-white backdrop-blur-[2px]',
+                        'absolute right-1.5 top-1.5 z-20 flex size-6 items-center justify-center rounded-full transition-colors',
+                        isSelectedMenuOpen
+                          ? 'bg-black/20 text-white dark:bg-white/20'
+                          : isImageMessage
+                            ? 'right-2 top-2 bg-black/55 text-white/95 backdrop-blur-[2px] hover:bg-black/75'
+                            : 'text-foreground/70 hover:bg-black/10 dark:text-zinc-300 dark:hover:bg-white/15',
                       )}
                     >
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setShowAttachMenu(false)
-                          setActiveReactionMessageId(null)
-                          setDeleteModalMessage(msg)
-                        }}
-                        title="Delete message"
-                        aria-label="Delete message"
-                        className={cn(
-                          'flex size-6 items-center justify-center rounded-full transition-colors',
-                          isImageMessage
-                            ? 'text-white/95 hover:bg-white/20'
-                            : 'text-red-500/80 hover:bg-red-500/15 hover:text-red-500 dark:text-red-400/85',
-                        )}
-                      >
-                        <Trash2 className="size-3.5" aria-hidden="true" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setShowAttachMenu(false)
-                          setActiveReactionMessageId((prev) =>
-                            prev === msg.id ? null : msg.id,
-                          )
-                        }}
-                        aria-label="Message options"
-                        className={cn(
-                          'flex size-6 items-center justify-center rounded-full transition-colors',
-                          isSelectedMenuOpen
-                            ? 'bg-black/20 text-white dark:bg-white/20'
-                            : isImageMessage
-                              ? 'text-white/95 hover:bg-white/20'
-                              : 'text-foreground/70 hover:bg-black/10 dark:text-zinc-300 dark:hover:bg-white/15',
-                        )}
-                      >
-                        <MoreVertical className="size-3.5" aria-hidden="true" />
-                      </button>
-                    </div>
+                      <MoreVertical className="size-3.5" aria-hidden="true" />
+                    </button>
 
                     {/* Sender Name & Role Header */}
                     {!isMine && (
                       <div
                         className={cn(
-                          'mb-1 flex flex-wrap items-center gap-1.5 pr-12',
+                          'mb-1 flex flex-wrap items-center gap-1.5 pr-7',
                           isImageMessage && 'px-2 pt-1',
                         )}
                       >
