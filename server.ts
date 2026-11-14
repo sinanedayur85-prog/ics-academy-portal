@@ -1382,6 +1382,8 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     mediaName?: string
     mediaSizeLabel?: string
     mediaDurationSec?: number
+    imageQuality?: 'standard' | 'hd'
+    imageDimensions?: string
     replyTo?: ServerChatReplyRef
     reactions: Record<string, string[]>
     readBy: string[]
@@ -1589,6 +1591,13 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
               : undefined,
             mediaDurationSec:
               typeof message.mediaDurationSec === 'number' ? message.mediaDurationSec : undefined,
+            imageQuality:
+              message.imageQuality === 'hd' || message.imageQuality === 'standard'
+                ? message.imageQuality
+                : undefined,
+            imageDimensions: message.imageDimensions
+              ? String(message.imageDimensions).slice(0, 40)
+              : undefined,
             replyTo:
               message.replyTo && typeof message.replyTo === 'object'
                 ? {

@@ -68,6 +68,8 @@ export interface ChatMessage {
   mediaName?: string
   mediaSizeLabel?: string
   mediaDurationSec?: number
+  imageQuality?: 'standard' | 'hd'
+  imageDimensions?: string
   replyTo?: ChatReplyRef
   reactions: Record<string, string[]>
   readBy: string[]
@@ -102,6 +104,7 @@ export interface ChatUserSettings {
   soundEffects: boolean
   chatFontSize: 'small' | 'medium' | 'large'
   chatWallpaper: 'default' | 'pitch_dark' | 'soft_mint' | 'warm_slate'
+  defaultImageQuality: 'standard' | 'hd'
 }
 
 export interface ChatTypingEntry {
@@ -136,6 +139,7 @@ const DEFAULT_CHAT_SETTINGS: ChatUserSettings = {
   soundEffects: true,
   chatFontSize: 'medium',
   chatWallpaper: 'default',
+  defaultImageQuality: 'standard',
 }
 
 function loadChatSettings(): ChatUserSettings {
@@ -174,6 +178,10 @@ function loadChatSettings(): ChatUserSettings {
         parsed.chatWallpaper === 'warm_slate'
           ? parsed.chatWallpaper
           : DEFAULT_CHAT_SETTINGS.chatWallpaper,
+      defaultImageQuality:
+        parsed.defaultImageQuality === 'hd' || parsed.defaultImageQuality === 'standard'
+          ? parsed.defaultImageQuality
+          : DEFAULT_CHAT_SETTINGS.defaultImageQuality,
     }
   } catch {
     return DEFAULT_CHAT_SETTINGS
@@ -473,8 +481,27 @@ export function CampusMessenger({
     mediaUrl: string
     mediaName: string
     mediaSizeLabel: string
+    imageQuality?: 'standard' | 'hd'
+    imageDimensions?: string
+    standardVariant?: {
+      url: string
+      dimensions: string
+      sizeLabel: string
+    }
+    hdVariant?: {
+      url: string
+      dimensions: string
+      sizeLabel: string
+    }
   } | null>(null)
-  const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null)
+  const [showPhotoQualitySheet, setShowPhotoQualitySheet] = useState(false)
+  const [photoQualityToast, setPhotoQualityToast] = useState<string | null>(null)
+  const [lightboxImage, setLightboxImage] = useState<{
+    url: string
+    name: string
+    quality?: 'standard' | 'hd'
+    dimensions?: string
+  } | null>(null)
 
   // Voice Note Recorder state
   const [isRecordingVoice, setIsRecordingVoice] = useState(false)
@@ -1007,6 +1034,8 @@ export function CampusMessenger({
       mediaName?: string
       mediaSizeLabel?: string
       mediaDurationSec?: number
+      imageQuality?: 'standard' | 'hd'
+      imageDimensions?: string
     }) => {
       if (activeRoomMeta.onlyAdminsCanPost && !actor.isStaff) return
 
@@ -1024,6 +1053,8 @@ export function CampusMessenger({
         mediaName: params.mediaName,
         mediaSizeLabel: params.mediaSizeLabel,
         mediaDurationSec: params.mediaDurationSec,
+        imageQuality: params.imageQuality,
+        imageDimensions: params.imageDimensions,
         replyTo: replyingTo ?? undefined,
         reactions: {},
         readBy: [actor.id],
@@ -1044,6 +1075,8 @@ export function CampusMessenger({
       setInputText('')
       setReplyingTo(null)
       setPendingAttachment(null)
+      setShowPhotoQualitySheet(false)
+      setPhotoQualityToast(null)
       setShowAttachMenu(false)
 
       void sendChatActionToServer({
@@ -1059,7 +1092,9 @@ export function CampusMessenger({
             ? `📄 Shared PDF Note: ${newMsg.mediaName || 'Document'}`
             : newMsg.mediaType === 'voice'
               ? `🎤 Sent a Voice Note (${formatVoiceDuration(newMsg.mediaDurationSec || 4)})`
-              : newMsg.text.slice(0, 120)
+              : newMsg.mediaType === 'image'
+                ? `📷 Shared ${newMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo`
+                : newMsg.text.slice(0, 120)
         publishCampusNotification({
           type: 'notice',
           title: `Class Group Message • ${activeRoom.batchName}`,
@@ -1089,6 +1124,8 @@ export function CampusMessenger({
         mediaUrl: pendingAttachment.mediaUrl,
         mediaName: pendingAttachment.mediaName,
         mediaSizeLabel: pendingAttachment.mediaSizeLabel,
+        imageQuality: pendingAttachment.imageQuality,
+        imageDimensions: pendingAttachment.imageDimensions,
       })
       return
     }
@@ -1275,7 +1312,36 @@ export function CampusMessenger({
     }
   }
 
-  // File Attachment Handlers (PDF & Photo)
+  // Helper to format byte sizes cleanly
+  const formatByteSize = (bytes: number): string => {
+    const kb = Math.max(1, Math.round(bytes / 1024))
+    return kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`
+  }
+
+  // Switch between Standard and HD quality for a pending photo attachment
+  const handleSelectPhotoQuality = (quality: 'standard' | 'hd') => {
+    setPendingAttachment((prev) => {
+      if (!prev || prev.mediaType !== 'image') return prev
+      const chosen = quality === 'hd' ? prev.hdVariant : prev.standardVariant
+      if (!chosen) return { ...prev, imageQuality: quality }
+      return {
+        ...prev,
+        imageQuality: quality,
+        mediaUrl: chosen.url,
+        imageDimensions: chosen.dimensions,
+        mediaSizeLabel: `${chosen.sizeLabel} • ${quality === 'hd' ? 'HD' : 'Standard'}`,
+      }
+    })
+    setShowPhotoQualitySheet(false)
+    setPhotoQualityToast(
+      quality === 'hd' ? 'Photo set to HD quality' : 'Photo set to standard quality',
+    )
+    window.setTimeout(() => {
+      setPhotoQualityToast(null)
+    }, 2600)
+  }
+
+  // File Attachment Handlers (PDF & Photo with WhatsApp Standard vs HD Quality Processing)
   const handleFileSelected = (
     e: React.ChangeEvent<HTMLInputElement>,
     type: 'image' | 'pdf',
@@ -1283,22 +1349,104 @@ export function CampusMessenger({
     const file = e.target.files?.[0]
     if (!file) return
     const sizeKb = Math.max(1, Math.round(file.size / 1024))
-    const sizeLabel =
-      sizeKb >= 1024
-        ? `${(sizeKb / 1024).toFixed(1)} MB • ${type.toUpperCase()}`
-        : `${sizeKb} KB • ${type.toUpperCase()}`
+    const rawSizeLabel =
+      sizeKb >= 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`
 
     const reader = new FileReader()
     reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
+      if (typeof reader.result !== 'string') return
+      const rawDataUrl = reader.result
+
+      if (type === 'pdf') {
         setPendingAttachment({
-          mediaType: type,
-          mediaUrl: reader.result,
+          mediaType: 'pdf',
+          mediaUrl: rawDataUrl,
           mediaName: file.name,
-          mediaSizeLabel: sizeLabel,
+          mediaSizeLabel: `${rawSizeLabel} • PDF`,
+        })
+        setShowAttachMenu(false)
+        return
+      }
+
+      // Process Image into Standard Quality & HD Quality variants (WhatsApp style)
+      const img = new window.Image()
+      img.onload = () => {
+        const origW = Math.max(1, img.naturalWidth || img.width || 1280)
+        const origH = Math.max(1, img.naturalHeight || img.height || 960)
+
+        const renderVariant = (maxDim: number, jpegQuality: number, scaleIfSmaller = 1) => {
+          const maxSide = Math.max(origW, origH)
+          const scale =
+            maxSide > maxDim ? maxDim / maxSide : scaleIfSmaller
+          const targetW = Math.max(1, Math.round(origW * scale))
+          const targetH = Math.max(1, Math.round(origH * scale))
+          try {
+            const canvas = document.createElement('canvas')
+            canvas.width = targetW
+            canvas.height = targetH
+            const ctx = canvas.getContext('2d')
+            if (!ctx) {
+              return {
+                url: rawDataUrl,
+                dimensions: `${origW} × ${origH}`,
+                sizeLabel: rawSizeLabel,
+              }
+            }
+            ctx.imageSmoothingEnabled = true
+            ctx.imageSmoothingQuality = 'high'
+            ctx.drawImage(img, 0, 0, targetW, targetH)
+            const outUrl = canvas.toDataURL('image/jpeg', jpegQuality)
+            const approxBytes = Math.round((outUrl.length * 3) / 4)
+            return {
+              url: outUrl,
+              dimensions: `${targetW} × ${targetH}`,
+              sizeLabel: formatByteSize(approxBytes),
+            }
+          } catch {
+            return {
+              url: rawDataUrl,
+              dimensions: `${origW} × ${origH}`,
+              sizeLabel: rawSizeLabel,
+            }
+          }
+        }
+
+        const standardVariant = renderVariant(
+          1280,
+          0.72,
+          Math.max(origW, origH) <= 1280 ? 0.78 : 1,
+        )
+        const hdVariant = renderVariant(2560, 0.94, 1)
+
+        const initialQuality = chatSettings.defaultImageQuality || 'standard'
+        const activeVariant = initialQuality === 'hd' ? hdVariant : standardVariant
+
+        setPendingAttachment({
+          mediaType: 'image',
+          mediaUrl: activeVariant.url,
+          mediaName: file.name,
+          mediaSizeLabel: `${activeVariant.sizeLabel} • ${initialQuality === 'hd' ? 'HD' : 'Standard'}`,
+          imageQuality: initialQuality,
+          imageDimensions: activeVariant.dimensions,
+          standardVariant,
+          hdVariant,
+        })
+        setShowPhotoQualitySheet(false)
+        setShowAttachMenu(false)
+      }
+      img.onerror = () => {
+        const initialQuality = chatSettings.defaultImageQuality || 'standard'
+        setPendingAttachment({
+          mediaType: 'image',
+          mediaUrl: rawDataUrl,
+          mediaName: file.name,
+          mediaSizeLabel: `${rawSizeLabel} • ${initialQuality === 'hd' ? 'HD' : 'Standard'}`,
+          imageQuality: initialQuality,
+          imageDimensions: '1280 × 960',
         })
         setShowAttachMenu(false)
       }
+      img.src = rawDataUrl
     }
     reader.readAsDataURL(file)
     e.target.value = ''
@@ -1730,7 +1878,7 @@ export function CampusMessenger({
                                 : lastMsg.mediaType === 'pdf'
                                   ? `📄 ${lastMsg.mediaName || 'PDF Note'}`
                                   : lastMsg.mediaType === 'image'
-                                    ? `📷 Photo`
+                                    ? `📷 ${lastMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo`
                                     : lastMsg.text}
                             </>
                           )}
@@ -2198,7 +2346,7 @@ export function CampusMessenger({
                           </div>
                         )}
 
-                        {/* Media Attachment: WhatsApp-Style Borderless Photo with Overlaid Timestamp */}
+                        {/* Media Attachment: WhatsApp-Style Borderless Photo with Overlaid Timestamp & HD Badge */}
                         {msg.mediaType === 'image' && msg.mediaUrl && (
                           <div
                             onClick={(e) => e.stopPropagation()}
@@ -2210,6 +2358,8 @@ export function CampusMessenger({
                                 setLightboxImage({
                                   url: msg.mediaUrl!,
                                   name: msg.mediaName || 'Campus Photo',
+                                  quality: msg.imageQuality,
+                                  dimensions: msg.imageDimensions,
                                 })
                               }
                               className="block w-full text-left"
@@ -2221,6 +2371,20 @@ export function CampusMessenger({
                                 className="block max-h-72 w-full rounded-xl border-0 object-cover"
                               />
                             </button>
+
+                            {/* WhatsApp HD Badge on Bottom-Left of Photo */}
+                            {msg.imageQuality === 'hd' && (
+                              <span
+                                title={
+                                  msg.imageDimensions
+                                    ? `HD Photo (${msg.imageDimensions})`
+                                    : 'HD Quality Photo'
+                                }
+                                className="pointer-events-none absolute bottom-1.5 left-2 inline-flex items-center justify-center rounded border border-white/75 bg-black/55 px-1.5 py-0.5 font-poppins text-[9px] font-bold tracking-wider text-white backdrop-blur-[2px]"
+                              >
+                                HD
+                              </span>
+                            )}
 
                             {isImageOnlyWithoutCaption && (
                               <div className="pointer-events-none absolute bottom-1.5 right-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] text-white backdrop-blur-[2px]">
@@ -2424,22 +2588,65 @@ export function CampusMessenger({
               ) : null}
 
               {pendingAttachment ? (
-                <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                  <span className="flex size-8 items-center justify-center rounded-lg border border-border bg-muted text-foreground dark:border-[#262a33] dark:bg-[#1a1d24]">
-                    {pendingAttachment.mediaType === 'pdf' ? (
-                      <FileText className="size-4" aria-hidden="true" />
+                <div className="flex min-w-0 flex-1 items-center justify-between gap-2.5">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    {pendingAttachment.mediaType === 'image' ? (
+                      <img
+                        src={pendingAttachment.mediaUrl}
+                        alt={pendingAttachment.mediaName}
+                        referrerPolicy="no-referrer"
+                        className="size-9 shrink-0 rounded-lg object-cover"
+                      />
                     ) : (
-                      <ImageIcon className="size-4" aria-hidden="true" />
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground dark:border-[#262a33] dark:bg-[#1a1d24]">
+                        <FileText className="size-4" aria-hidden="true" />
+                      </span>
                     )}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-bold text-foreground">
-                      {pendingAttachment.mediaName}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {pendingAttachment.mediaSizeLabel} • Ready to send
-                    </p>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold text-foreground">
+                        {pendingAttachment.mediaName}
+                      </p>
+                      <p className="truncate text-[10px] text-muted-foreground">
+                        {pendingAttachment.mediaSizeLabel}
+                        {pendingAttachment.imageDimensions
+                          ? ` • ${pendingAttachment.imageDimensions}`
+                          : ''}{' '}
+                        • Ready to send
+                      </p>
+                    </div>
                   </div>
+
+                  {pendingAttachment.mediaType === 'image' && (
+                    <div className="flex shrink-0 items-center gap-1 rounded-xl border border-border bg-background/80 p-0.5 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectPhotoQuality('standard')}
+                        className={cn(
+                          'rounded-lg px-2 py-1 text-[10px] font-bold transition-colors whitespace-nowrap',
+                          pendingAttachment.imageQuality !== 'hd'
+                            ? 'bg-emerald-600 text-white dark:bg-[#222630] dark:text-zinc-100'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        Standard
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectPhotoQuality('hd')}
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold transition-colors whitespace-nowrap',
+                          pendingAttachment.imageQuality === 'hd'
+                            ? 'bg-emerald-600 text-white dark:bg-[#25d366] dark:text-[#0a0b0e]'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        <span>HD</span>
+                        {pendingAttachment.imageQuality === 'hd' && (
+                          <Check className="size-3" aria-hidden="true" />
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : null}
 
@@ -2950,6 +3157,40 @@ export function CampusMessenger({
                     className="size-4 shrink-0 accent-emerald-600"
                   />
                 </label>
+
+                <div className="rounded-2xl border border-border bg-background/70 p-3.5 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+                  <p className="text-xs font-bold text-foreground">
+                    Default Photo Upload Quality
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Choose default quality when sharing photos (you can also switch between Standard and HD on every photo)
+                  </p>
+                  <div className="mt-2.5 grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        { id: 'standard', label: 'Standard quality' },
+                        { id: 'hd', label: 'HD quality' },
+                      ] as const
+                    ).map((opt) => {
+                      const active = chatSettings.defaultImageQuality === opt.id
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => updateChatSetting('defaultImageQuality', opt.id)}
+                          className={cn(
+                            'rounded-xl border px-3 py-2 text-xs font-semibold transition-colors',
+                            active
+                              ? 'border-emerald-600 bg-emerald-600 text-white dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100'
+                              : 'border-border bg-card text-muted-foreground hover:text-foreground dark:border-[#262a33] dark:bg-[#14171d]',
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
               </div>
 
               {/* 4. Chat Storage & Clear Controls */}
@@ -3066,6 +3307,211 @@ export function CampusMessenger({
         </div>
       )}
 
+      {/* WHATSAPP-STYLE PHOTO PREVIEW & HD / STANDARD QUALITY SELECTOR MODAL */}
+      {pendingAttachment && pendingAttachment.mediaType === 'image' && (
+        <div
+          className="fixed inset-0 z-[78] flex flex-col justify-between bg-[#0b1014]/95 text-white backdrop-blur-xs"
+          onClick={() => setShowPhotoQualitySheet(false)}
+        >
+          {/* Top Bar: Close Button + WhatsApp HD Quality Button */}
+          <div
+            className="flex items-center justify-between px-4 py-3.5 sm:px-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setPendingAttachment(null)
+                setShowPhotoQualitySheet(false)
+              }}
+              aria-label="Cancel photo upload"
+              className="flex size-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+            >
+              <X className="size-5" aria-hidden="true" />
+            </button>
+
+            <div className="flex items-center gap-2.5">
+              {/* WhatsApp HD Toggle Button */}
+              <button
+                type="button"
+                onClick={() => setShowPhotoQualitySheet((prev) => !prev)}
+                aria-label="Select photo quality (Standard or HD)"
+                className={cn(
+                  'relative flex h-10 items-center gap-1.5 rounded-full border px-3.5 text-xs font-bold tracking-wider transition-all',
+                  pendingAttachment.imageQuality === 'hd'
+                    ? 'border-[#25d366] bg-[#25d366]/20 text-white shadow-sm'
+                    : 'border-white/30 bg-white/10 text-white/90 hover:bg-white/20',
+                )}
+              >
+                <span className="rounded border border-current px-1 py-0.2 font-poppins text-[10px] font-extrabold leading-tight">
+                  HD
+                </span>
+                <span className="text-xs font-semibold">
+                  {pendingAttachment.imageQuality === 'hd' ? 'HD Quality' : 'Standard'}
+                </span>
+                {pendingAttachment.imageQuality === 'hd' && (
+                  <span className="flex size-4 items-center justify-center rounded-full bg-[#25d366] text-[#0a0b0e]">
+                    <Check className="size-2.5 stroke-[3]" aria-hidden="true" />
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Center Photo Preview Area + Toast + WhatsApp Photo Quality Bottom Sheet */}
+          <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-2">
+            {photoQualityToast && (
+              <div className="pointer-events-none absolute top-3 z-20 rounded-full border border-white/15 bg-black/80 px-4 py-1.5 text-xs font-semibold text-white shadow-lg">
+                {photoQualityToast}
+              </div>
+            )}
+
+            <img
+              src={pendingAttachment.mediaUrl}
+              alt={pendingAttachment.mediaName}
+              referrerPolicy="no-referrer"
+              className="max-h-[62vh] max-w-full rounded-2xl object-contain shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+
+            <p className="mt-2.5 text-[11px] text-white/70 tabular-nums">
+              {pendingAttachment.imageQuality === 'hd' ? 'HD quality' : 'Standard quality'} •{' '}
+              {pendingAttachment.imageDimensions || '1280 × 960'} •{' '}
+              {pendingAttachment.mediaSizeLabel.split('•')[0].trim()}
+            </p>
+
+            {/* WhatsApp "Photo quality" Selector Dialog / Sheet */}
+            {showPhotoQualitySheet && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="absolute bottom-3 z-30 w-full max-w-sm rounded-3xl border border-[#262a33] bg-[#181b22] p-5 text-white shadow-2xl"
+              >
+                <h4 className="text-sm font-bold text-white">Photo quality</h4>
+                <p className="mt-1 text-xs text-zinc-400">
+                  HD photos are clearer, while standard photos use less storage and are faster to send.
+                </p>
+
+                <div className="mt-4 flex flex-col gap-2">
+                  {/* Option 1: Standard quality */}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectPhotoQuality('standard')}
+                    className={cn(
+                      'flex w-full items-center justify-between rounded-2xl border px-3.5 py-3 text-left transition-colors',
+                      pendingAttachment.imageQuality !== 'hd'
+                        ? 'border-[#25d366]/60 bg-[#25d366]/10'
+                        : 'border-[#262a33] bg-[#121418] hover:bg-white/5',
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={cn(
+                          'flex size-5 items-center justify-center rounded-full border-2',
+                          pendingAttachment.imageQuality !== 'hd'
+                            ? 'border-[#25d366]'
+                            : 'border-zinc-500',
+                        )}
+                      >
+                        {pendingAttachment.imageQuality !== 'hd' && (
+                          <span className="size-2.5 rounded-full bg-[#25d366]" />
+                        )}
+                      </span>
+                      <div>
+                        <p className="text-xs font-bold text-white">Standard quality</p>
+                        <p className="text-[11px] text-zinc-400 tabular-nums">
+                          {pendingAttachment.standardVariant?.dimensions || '1280 × 960'} •{' '}
+                          {pendingAttachment.standardVariant?.sizeLabel || 'Fast send'}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Option 2: HD quality */}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectPhotoQuality('hd')}
+                    className={cn(
+                      'flex w-full items-center justify-between rounded-2xl border px-3.5 py-3 text-left transition-colors',
+                      pendingAttachment.imageQuality === 'hd'
+                        ? 'border-[#25d366]/60 bg-[#25d366]/10'
+                        : 'border-[#262a33] bg-[#121418] hover:bg-white/5',
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={cn(
+                          'flex size-5 items-center justify-center rounded-full border-2',
+                          pendingAttachment.imageQuality === 'hd'
+                            ? 'border-[#25d366]'
+                            : 'border-zinc-500',
+                        )}
+                      >
+                        {pendingAttachment.imageQuality === 'hd' && (
+                          <span className="size-2.5 rounded-full bg-[#25d366]" />
+                        )}
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-bold text-white">HD quality</p>
+                          <span className="rounded border border-[#25d366] px-1 py-0.2 font-poppins text-[9px] font-bold text-[#25d366]">
+                            HD
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-zinc-400 tabular-nums">
+                          {pendingAttachment.hdVariant?.dimensions ||
+                            pendingAttachment.imageDimensions ||
+                            '2560 × 1920'}{' '}
+                          • {pendingAttachment.hdVariant?.sizeLabel || 'High definition'}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Caption & Send Bar (WhatsApp Photo Composer) */}
+          <form
+            onSubmit={handleFormSubmit}
+            onClick={(e) => e.stopPropagation()}
+            className="mx-auto flex w-full max-w-2xl flex-col gap-2.5 px-4 pb-5 pt-2"
+          >
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder="Add a caption..."
+                className="h-11 flex-1 rounded-full border border-white/15 bg-[#1a1f26] px-4 text-xs text-white placeholder:text-zinc-400 focus:border-[#25d366] focus:outline-none sm:text-sm"
+              />
+              <button
+                type="submit"
+                aria-label="Send photo"
+                className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#25d366] text-[#0a0b0e] shadow-lg transition-transform hover:scale-105 active:scale-95"
+              >
+                <Send className="size-4.5" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between px-1 text-[11px] text-zinc-400">
+              <span className="truncate">
+                To: <strong className="text-zinc-200">{activeRoom.title}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowPhotoQualitySheet((prev) => !prev)}
+                className="font-semibold text-[#25d366] hover:underline"
+              >
+                {pendingAttachment.imageQuality === 'hd'
+                  ? 'Sending in HD quality (Change)'
+                  : 'Sending in Standard quality (Switch to HD)'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* PHOTO LIGHTBOX MODAL */}
       {lightboxImage && (
         <div
@@ -3077,7 +3523,19 @@ export function CampusMessenger({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-3 py-2 text-xs text-white">
-              <span className="truncate font-semibold">{lightboxImage.name}</span>
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="truncate font-semibold">{lightboxImage.name}</span>
+                {lightboxImage.quality === 'hd' && (
+                  <span className="rounded border border-white/80 bg-white/10 px-1.5 py-0.5 font-poppins text-[9px] font-bold tracking-wider text-white">
+                    HD
+                  </span>
+                )}
+                {lightboxImage.dimensions && (
+                  <span className="text-[11px] text-zinc-400 tabular-nums">
+                    ({lightboxImage.dimensions})
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <a
                   href={lightboxImage.url}
