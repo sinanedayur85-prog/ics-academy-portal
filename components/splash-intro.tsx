@@ -187,7 +187,7 @@ export function SplashIntro() {
               {/* Bottom Line: "MANHAPPATTA" in ICS Font (font-display), edge-to-edge aligned like Header, with Flowing Animation */}
               <span
                 aria-label="MANHAPPATTA"
-                className="-mt-[2px] flex w-full justify-between text-[17px] leading-none font-semibold text-emerald-400 sm:-mt-1 sm:text-[27px]"
+                className="mt-[2.4px] flex w-full justify-between text-[17px] leading-none font-semibold text-emerald-400 sm:text-[27px]"
               >
                 {SUBTITLE_LETTERS.map((letter, index, letters) => (
                   <motion.span

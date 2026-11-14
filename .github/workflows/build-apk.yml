@@ -71,10 +71,12 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Install Capacitor Android packages
-        run: npm install --legacy-peer-deps @capacitor/core @capacitor/cli @capacitor/android
+        run: npm install --legacy-peer-deps @capacitor/core@8.6.2 @capacitor/cli@8.6.2 @capacitor/android@8.6.2
 
       - name: Build Web Application
-        run: npm run build
+        run: |
+          rm -rf public/assets/aistudio
+          npm run build
 
       - name: Initialize & Sync Capacitor Android Platform
         run: |
@@ -724,9 +726,26 @@ jobs:
       - name: Accept Android SDK Licenses & Build Debug APK
         working-directory: ./android
         run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          mkdir -p "${SDK_DIR}/licenses"
+          printf "\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24333f8a63b6825ea9c5514f83c2829b004d1fee\n" > "${SDK_DIR}/licenses/android-sdk-license"
+          printf "\n84831b9409646a918e30573bab4c9c91346d8abd\n" > "${SDK_DIR}/licenses/android-sdk-preview-license"
+          yes | "${SDK_DIR}/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          for attempt in 1 2 3; do
+            echo "Building Debug APK (attempt ${attempt}/3)..."
+            if ./gradlew assembleDebug --no-daemon \
+              -Dorg.gradle.internal.http.connectionTimeout=120000 \
+              -Dorg.gradle.internal.http.socketTimeout=120000; then
+              echo "APK build succeeded on attempt ${attempt}"
+              break
+            fi
+            if [ "${attempt}" -eq 3 ]; then
+              echo "APK build failed after 3 attempts"
+              exit 1
+            fi
+            sleep 5
+          done
 
       - name: Rename APK for easy download
         run: |

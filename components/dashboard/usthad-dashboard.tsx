@@ -813,9 +813,9 @@ export function UsthadDashboard() {
         >
           <BrandLogoMark className="h-10 w-auto" />
           <BrandWordmark
-            gapClassName="gap-0"
+            gapClassName="gap-[2.4px]"
             topClassName="text-lg font-bold text-foreground leading-none"
-            bottomClassName="-mt-[2px] text-[10px] font-semibold text-lime leading-none"
+            bottomClassName="text-[10px] font-semibold text-lime leading-none"
           />
         </Link>
 
@@ -863,9 +863,9 @@ export function UsthadDashboard() {
           >
             <BrandLogoMark className="h-9 sm:h-11 w-auto shrink-0" />
             <BrandWordmark
-              gapClassName="gap-0"
+              gapClassName="gap-[2.4px]"
               topClassName="text-base sm:text-lg font-bold text-foreground leading-none"
-              bottomClassName="-mt-[2px] text-[9.5px] sm:text-[10px] font-semibold text-lime leading-none"
+              bottomClassName="text-[9.5px] sm:text-[10px] font-semibold text-lime leading-none"
             />
           </Link>
 
