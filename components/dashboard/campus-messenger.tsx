@@ -73,6 +73,8 @@ export interface ChatMessage {
   readBy: string[]
   isDeleted?: boolean
   deletedBy?: string
+  deletedById?: string
+  deletedFor?: string[]
   createdAt: string
   createdAtMs: number
 }
@@ -434,16 +436,37 @@ export function CampusMessenger({
   const [selectedRoomId, setSelectedRoomId] = useState<string>(defaultRoomId)
   const [mobileShowChatPane, setMobileShowChatPane] = useState<boolean>(false)
 
-  // Keep default room synced when student/usthad switches class
+  // Keep default room and per-actor "Delete for me" list synced when student/usthad switches profile
   useEffect(() => {
     setSelectedRoomId(makeBatchRoomId(actor.className))
     setStudentBatchFilter(actor.className)
+    setDeleteModalMessage(null)
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = window.localStorage.getItem(`ics_chat_deleted_for_me_${actor.id}`)
+        setDeletedForMeIds(raw ? (JSON.parse(raw) as string[]) : [])
+      } catch {
+        setDeletedForMeIds([])
+      }
+    }
   }, [actor.className, actor.id])
 
-  // Composer state
+  // Composer & Message Action Modal state
   const [inputText, setInputText] = useState('')
   const [replyingTo, setReplyingTo] = useState<ChatReplyRef | null>(null)
   const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null)
+  const [deleteModalMessage, setDeleteModalMessage] = useState<ChatMessage | null>(null)
+  const [deletedForMeIds, setDeletedForMeIds] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const raw = window.localStorage.getItem(`ics_chat_deleted_for_me_${actor.id}`)
+      if (!raw) return []
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  })
   const [showAttachMenu, setShowAttachMenu] = useState(false)
   const [pendingAttachment, setPendingAttachment] = useState<{
     mediaType: 'image' | 'pdf'
@@ -629,6 +652,27 @@ export function CampusMessenger({
     }
   }, [chatSettings])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(
+        `ics_chat_deleted_for_me_${actor.id}`,
+        JSON.stringify(deletedForMeIds),
+      )
+    } catch {
+      // Ignore quota errors
+    }
+  }, [deletedForMeIds, actor.id])
+
+  const isMessageHiddenForMe = useCallback(
+    (msg: ChatMessage) => {
+      if (deletedForMeIds.includes(msg.id)) return true
+      if (Array.isArray(msg.deletedFor) && msg.deletedFor.includes(actor.id)) return true
+      return false
+    },
+    [deletedForMeIds, actor.id],
+  )
+
   const updateChatSetting = <K extends keyof ChatUserSettings>(
     key: K,
     value: ChatUserSettings[K],
@@ -713,6 +757,8 @@ export function CampusMessenger({
                 if (
                   !existing ||
                   existing.isDeleted !== sm.isDeleted ||
+                  existing.deletedById !== sm.deletedById ||
+                  JSON.stringify(existing.deletedFor ?? []) !== JSON.stringify(sm.deletedFor ?? []) ||
                   JSON.stringify(existing.reactions) !== JSON.stringify(sm.reactions) ||
                   existing.readBy.length !== sm.readBy.length
                 ) {
@@ -795,8 +841,9 @@ export function CampusMessenger({
   }, [allRooms, selectedRoomId])
 
   const activeMessages = useMemo<ChatMessage[]>(() => {
-    return messagesByRoom[activeRoom.roomId] ?? []
-  }, [messagesByRoom, activeRoom.roomId])
+    const raw = messagesByRoom[activeRoom.roomId] ?? []
+    return raw.filter((m) => !isMessageHiddenForMe(m))
+  }, [messagesByRoom, activeRoom.roomId, isMessageHiddenForMe])
 
   const activeRoomMeta = useMemo<ChatRoomMeta>(() => {
     return (
@@ -1342,7 +1389,7 @@ export function CampusMessenger({
     })
   }
 
-  const handleDeleteMessage = (messageId: string) => {
+  const handleDeleteForEveryone = (messageId: string) => {
     const rId = activeRoom.roomId
     setMessagesByRoom((prev) => {
       const list = prev[rId] ?? []
@@ -1354,6 +1401,7 @@ export function CampusMessenger({
                 ...m,
                 isDeleted: true,
                 deletedBy: actor.name,
+                deletedById: actor.id,
                 text: '',
                 mediaType: 'none',
                 mediaUrl: undefined,
@@ -1365,8 +1413,38 @@ export function CampusMessenger({
     if (activeRoomMeta.pinnedMessageId === messageId) {
       handleTogglePinMessage(null)
     }
+    setDeleteModalMessage(null)
+    setActiveReactionMessageId(null)
     void sendChatActionToServer({
       action: 'delete_message',
+      deleteMode: 'everyone',
+      roomId: rId,
+      messageId,
+    })
+  }
+
+  const handleDeleteForMe = (messageId: string) => {
+    const rId = activeRoom.roomId
+    setDeletedForMeIds((prev) => (prev.includes(messageId) ? prev : [...prev, messageId]))
+    setMessagesByRoom((prev) => {
+      const list = prev[rId] ?? []
+      return {
+        ...prev,
+        [rId]: list.map((m) =>
+          m.id === messageId
+            ? {
+                ...m,
+                deletedFor: Array.from(new Set([...(m.deletedFor ?? []), actor.id])),
+              }
+            : m,
+        ),
+      }
+    })
+    setDeleteModalMessage(null)
+    setActiveReactionMessageId(null)
+    void sendChatActionToServer({
+      action: 'delete_message',
+      deleteMode: 'me',
       roomId: rId,
       messageId,
     })
@@ -1548,7 +1626,9 @@ export function CampusMessenger({
           <div className="flex-1 overflow-y-auto divide-y divide-border/50">
             {filteredRooms.map((room) => {
               const isSelected = room.roomId === activeRoom.roomId
-              const roomMsgs = messagesByRoom[room.roomId] ?? []
+              const roomMsgs = (messagesByRoom[room.roomId] ?? []).filter(
+                (m) => !isMessageHiddenForMe(m),
+              )
               const lastMsg = roomMsgs[roomMsgs.length - 1]
               const unreadCount = roomMsgs.filter(
                 (m) => m.senderId !== actor.id && !m.readBy.includes(actor.id),
@@ -1632,7 +1712,11 @@ export function CampusMessenger({
                         <p className="truncate text-[11px] text-foreground/80">
                           {lastMsg.isDeleted ? (
                             <span className="italic text-muted-foreground">
-                              🚫 Message deleted
+                              🚫{' '}
+                              {lastMsg.deletedById === actor.id ||
+                              (!lastMsg.deletedById && lastMsg.senderId === actor.id)
+                                ? 'You deleted this message'
+                                : 'This message was deleted'}
                             </span>
                           ) : (
                             <>
@@ -1889,11 +1973,9 @@ export function CampusMessenger({
                     onClick={(e) => {
                       e.stopPropagation()
                       setShowAttachMenu(false)
-                      if (!msg.isDeleted) {
-                        setActiveReactionMessageId((prev) =>
-                          prev === msg.id ? null : msg.id,
-                        )
-                      }
+                      setActiveReactionMessageId((prev) =>
+                        prev === msg.id ? null : msg.id,
+                      )
                     }}
                     className={cn(
                       'relative max-w-[86%] sm:max-w-[74%] rounded-2xl shadow-xs transition-colors cursor-pointer',
@@ -1905,27 +1987,25 @@ export function CampusMessenger({
                     )}
                   >
                     {/* Subtle WhatsApp Three-Dots (⋮) Trigger in Top-Right Corner */}
-                    {!msg.isDeleted && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setShowAttachMenu(false)
-                          setActiveReactionMessageId((prev) =>
-                            prev === msg.id ? null : msg.id,
-                          )
-                        }}
-                        aria-label="Message options"
-                        className={cn(
-                          'absolute right-1.5 top-1.5 z-10 flex size-6 items-center justify-center rounded-full transition-opacity',
-                          isSelectedMenuOpen
-                            ? 'opacity-100 bg-black/20 text-white dark:bg-white/15'
-                            : 'opacity-0 group-hover:opacity-100 hover:bg-black/20 dark:hover:bg-white/15',
-                        )}
-                      >
-                        <MoreVertical className="size-3.5 opacity-80" aria-hidden="true" />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowAttachMenu(false)
+                        setActiveReactionMessageId((prev) =>
+                          prev === msg.id ? null : msg.id,
+                        )
+                      }}
+                      aria-label="Message options"
+                      className={cn(
+                        'absolute right-1.5 top-1.5 z-10 flex size-6 items-center justify-center rounded-full transition-opacity',
+                        isSelectedMenuOpen
+                          ? 'opacity-100 bg-black/20 text-white dark:bg-white/15'
+                          : 'opacity-0 group-hover:opacity-100 hover:bg-black/20 dark:hover:bg-white/15',
+                      )}
+                    >
+                      <MoreVertical className="size-3.5 opacity-80" aria-hidden="true" />
+                    </button>
 
                     {/* Sender Name & Role Header */}
                     {!isMine && (
@@ -1957,8 +2037,11 @@ export function CampusMessenger({
 
                     {/* Deleted Message State */}
                     {msg.isDeleted ? (
-                      <p className="py-1 text-xs italic opacity-75">
-                        🚫 This message was deleted by {msg.deletedBy || 'Usthad'}
+                      <p className="py-1 pr-4 text-xs italic opacity-75">
+                        🚫{' '}
+                        {msg.deletedById === actor.id || (!msg.deletedById && isMine)
+                          ? 'You deleted this message'
+                          : 'This message was deleted'}
                       </p>
                     ) : (
                       <>
@@ -2214,8 +2297,8 @@ export function CampusMessenger({
                     )}
                   </div>
 
-                  {/* Modern WhatsApp Floating Reaction Bar + Three-Dots Context Menu (Shown ONLY when message is selected/tapped) */}
-                  {isSelectedMenuOpen && !msg.isDeleted && (
+                  {/* Modern WhatsApp Floating Reaction Bar + Three-Dots Context Menu (Shown when message is selected/tapped) */}
+                  {isSelectedMenuOpen && (
                     <div
                       onClick={(e) => e.stopPropagation()}
                       className={cn(
@@ -2223,45 +2306,49 @@ export function CampusMessenger({
                         isMine ? 'items-end' : 'items-start',
                       )}
                     >
-                      {/* Floating Emoji Reaction Pill */}
-                      <div className="flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 shadow-lg dark:border-[#262a33] dark:bg-[#121418]">
-                        {QUICK_REACTIONS.map((emoji) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => handleToggleReaction(msg.id, emoji)}
-                            className="rounded-full p-1 text-base transition-transform hover:scale-125 active:scale-95"
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
+                      {/* Floating Emoji Reaction Pill (only for non-deleted messages) */}
+                      {!msg.isDeleted && (
+                        <div className="flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 shadow-lg dark:border-[#262a33] dark:bg-[#121418]">
+                          {QUICK_REACTIONS.map((emoji) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => handleToggleReaction(msg.id, emoji)}
+                              className="rounded-full p-1 text-base transition-transform hover:scale-125 active:scale-95"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      )}
 
                       {/* WhatsApp-Style Action Dropdown Menu */}
-                      <div className="flex min-w-[150px] flex-col overflow-hidden rounded-2xl border border-border bg-card py-1 text-xs shadow-xl dark:border-[#262a33] dark:bg-[#121418]">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setReplyingTo({
-                              messageId: msg.id,
-                              senderName: msg.senderName,
-                              previewText:
-                                msg.mediaType === 'voice'
-                                  ? `🎤 Voice Note (${formatVoiceDuration(msg.mediaDurationSec || 4)})`
-                                  : msg.text ||
-                                    (msg.mediaType === 'pdf'
-                                      ? `📄 ${msg.mediaName}`
-                                      : '📷 Photo'),
-                            })
-                            setActiveReactionMessageId(null)
-                          }}
-                          className="flex items-center gap-2.5 px-3.5 py-2 text-left font-medium text-foreground transition-colors hover:bg-muted"
-                        >
-                          <Reply className="size-3.5 text-muted-foreground" aria-hidden="true" />
-                          <span>Reply</span>
-                        </button>
+                      <div className="flex min-w-[155px] flex-col overflow-hidden rounded-2xl border border-border bg-card py-1 text-xs shadow-xl dark:border-[#262a33] dark:bg-[#121418]">
+                        {!msg.isDeleted && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReplyingTo({
+                                messageId: msg.id,
+                                senderName: msg.senderName,
+                                previewText:
+                                  msg.mediaType === 'voice'
+                                    ? `🎤 Voice Note (${formatVoiceDuration(msg.mediaDurationSec || 4)})`
+                                    : msg.text ||
+                                      (msg.mediaType === 'pdf'
+                                        ? `📄 ${msg.mediaName}`
+                                        : '📷 Photo'),
+                              })
+                              setActiveReactionMessageId(null)
+                            }}
+                            className="flex items-center gap-2.5 px-3.5 py-2 text-left font-medium text-foreground transition-colors hover:bg-muted"
+                          >
+                            <Reply className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                            <span>Reply</span>
+                          </button>
+                        )}
 
-                        {actor.isStaff && (
+                        {actor.isStaff && !msg.isDeleted && (
                           <button
                             type="button"
                             onClick={() => {
@@ -2275,19 +2362,17 @@ export function CampusMessenger({
                           </button>
                         )}
 
-                        {(actor.isStaff || isMine) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleDeleteMessage(msg.id)
-                              setActiveReactionMessageId(null)
-                            }}
-                            className="flex items-center gap-2.5 px-3.5 py-2 text-left font-medium text-red-500 transition-colors hover:bg-red-500/10"
-                          >
-                            <Trash2 className="size-3.5" aria-hidden="true" />
-                            <span>Delete</span>
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeleteModalMessage(msg)
+                            setActiveReactionMessageId(null)
+                          }}
+                          className="flex items-center gap-2.5 px-3.5 py-2 text-left font-medium text-red-500 transition-colors hover:bg-red-500/10"
+                        >
+                          <Trash2 className="size-3.5" aria-hidden="true" />
+                          <span>Delete</span>
+                        </button>
                       </div>
                     </div>
                   )}
@@ -2925,6 +3010,56 @@ export function CampusMessenger({
                 className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-700 dark:border dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100 dark:hover:bg-[#2a2f3b]"
               >
                 Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WHATSAPP-STYLE DELETE MESSAGE DIALOG ("Delete for everyone" & "Delete for me") */}
+      {deleteModalMessage && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/65 p-4 backdrop-blur-xs"
+          onClick={() => setDeleteModalMessage(null)}
+        >
+          <div
+            className="w-full max-w-[320px] overflow-hidden rounded-3xl border border-border bg-card p-5 shadow-2xl dark:border-[#262a33] dark:bg-[#181b22]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-semibold text-foreground">
+              Delete message?
+            </h3>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {deleteModalMessage.isDeleted
+                ? 'Remove this deleted message from your chat screen.'
+                : 'You can delete this message for everyone in this chat or only for yourself.'}
+            </p>
+
+            <div className="mt-5 flex flex-col items-end gap-1">
+              {!deleteModalMessage.isDeleted && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteForEveryone(deleteModalMessage.id)}
+                  className="w-full rounded-xl px-3.5 py-2.5 text-right text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/10 dark:text-[#25d366]"
+                >
+                  Delete for everyone
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => handleDeleteForMe(deleteModalMessage.id)}
+                className="w-full rounded-xl px-3.5 py-2.5 text-right text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/10 dark:text-[#25d366]"
+              >
+                Delete for me
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDeleteModalMessage(null)}
+                className="w-full rounded-xl px-3.5 py-2.5 text-right text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/10 dark:text-[#25d366]"
+              >
+                Cancel
               </button>
             </div>
           </div>

@@ -1758,16 +1758,16 @@ export function PrincipalDashboard() {
               <div className="overflow-x-auto rounded-2xl border border-border bg-background/50">
                 <table className="w-full min-w-[920px] border-collapse text-left text-xs">
                   <thead>
-                    <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                      <th className="px-3.5 py-3">Class</th>
-                      <th className="px-3.5 py-3">Class Usthad</th>
-                      <th className="px-3.5 py-3">Class Leaders (CL & ACL)</th>
-                      <th className="px-3 py-3 text-right">Students</th>
-                      <th className="px-3 py-3 text-right">Avg Rate</th>
-                      <th className="px-3.5 py-3 text-center">
+                    <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase whitespace-nowrap">
+                      <th className="px-3.5 py-3 whitespace-nowrap">Class</th>
+                      <th className="px-3.5 py-3 whitespace-nowrap">Class Usthad</th>
+                      <th className="px-3.5 py-3 whitespace-nowrap">Class Leaders (CL & ACL)</th>
+                      <th className="px-3 py-3 text-right whitespace-nowrap">Students</th>
+                      <th className="px-3 py-3 text-right whitespace-nowrap">Avg Rate</th>
+                      <th className="px-3.5 py-3 text-center whitespace-nowrap">
                         5 Periods Status ({selectedDate})
                       </th>
-                      <th className="px-3.5 py-3 text-right">Action</th>
+                      <th className="px-3.5 py-3 text-right whitespace-nowrap">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -1786,11 +1786,11 @@ export function PrincipalDashboard() {
                             isSelected && 'bg-lime/[0.08]',
                           )}
                         >
-                          <td className="px-3.5 py-3">
+                          <td className="px-3.5 py-3 whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <span
                                 className={cn(
-                                  'size-2 rounded-full',
+                                  'size-2 shrink-0 rounded-full',
                                   row.notHeldCount > 0
                                     ? 'bg-red-500'
                                     : isSelected
@@ -1799,29 +1799,29 @@ export function PrincipalDashboard() {
                                 )}
                               />
                               <div>
-                                <p className="font-display text-sm font-bold text-foreground">
+                                <p className="font-display text-sm font-bold text-foreground whitespace-nowrap">
                                   {row.className}
                                 </p>
-                                <p className="text-[11px] text-muted-foreground tabular-nums">
+                                <p className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
                                   {row.inCampusCount} In Campus • {row.onLeaveCount} Leave
                                 </p>
                               </div>
                             </div>
                           </td>
 
-                          <td className="px-3.5 py-3">
-                            <p className="font-semibold text-foreground">{row.usthad.name}</p>
-                            <p className="text-[11px] text-lime tabular-nums">
+                          <td className="px-3.5 py-3 whitespace-nowrap">
+                            <p className="font-semibold text-foreground whitespace-nowrap">{row.usthad.name}</p>
+                            <p className="text-[11px] text-lime tabular-nums whitespace-nowrap">
                               {row.usthad.staffId} • {row.usthad.specialization.split('&')[0]}
                             </p>
                           </td>
 
-                          <td className="px-3.5 py-3">
+                          <td className="px-3.5 py-3 whitespace-nowrap">
                             <div className="flex flex-col gap-0.5">
                               {row.leaders.map((cl) => (
                                 <span
                                   key={cl.leaderId}
-                                  className="text-[11px] text-muted-foreground"
+                                  className="text-[11px] text-muted-foreground whitespace-nowrap"
                                 >
                                   <strong className="text-cyan">{cl.leaderId}:</strong>{' '}
                                   {cl.studentName}
@@ -2624,42 +2624,42 @@ export function PrincipalDashboard() {
                     <div className="max-h-[540px] overflow-y-auto rounded-2xl border border-border bg-background/50">
                       <table className="w-full min-w-[820px] border-collapse text-left text-xs">
                         <thead className="sticky top-0 z-10 border-b border-border bg-card">
-                          <tr className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                            <th className="px-3.5 py-3">Student Name</th>
-                            <th className="px-3.5 py-3">Admission No.</th>
-                            <th className="px-3.5 py-3">Class</th>
-                            <th className="px-3 py-3 text-right">Attendance</th>
-                            <th className="px-3.5 py-3">Campus Status</th>
-                            <th className="px-3.5 py-3 text-right">Principal Actions</th>
+                          <tr className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase whitespace-nowrap">
+                            <th className="px-3.5 py-3 whitespace-nowrap">Student Name</th>
+                            <th className="px-3.5 py-3 whitespace-nowrap">Admission No.</th>
+                            <th className="px-3.5 py-3 whitespace-nowrap">Class</th>
+                            <th className="px-3 py-3 text-right whitespace-nowrap">Attendance</th>
+                            <th className="px-3.5 py-3 whitespace-nowrap">Campus Status</th>
+                            <th className="px-3.5 py-3 text-right whitespace-nowrap">Principal Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
                           {filteredDirectoryStudents.map((item) => (
                             <tr key={item.student.id} className="hover:bg-muted/25">
-                              <td className="px-3.5 py-2.5 font-semibold text-foreground">
+                              <td className="px-3.5 py-2.5 font-semibold text-foreground whitespace-nowrap">
                                 {item.student.name}
                               </td>
-                              <td className="px-3.5 py-2.5 font-mono text-muted-foreground tabular-nums">
+                              <td className="px-3.5 py-2.5 font-mono text-muted-foreground tabular-nums whitespace-nowrap">
                                 {item.student.admissionNo}
                               </td>
-                              <td className="px-3.5 py-2.5 text-foreground">
+                              <td className="px-3.5 py-2.5 text-foreground whitespace-nowrap">
                                 {item.student.className}
                               </td>
-                              <td className="px-3 py-2.5 text-right font-mono font-bold text-emerald-600 tabular-nums dark:text-lime">
+                              <td className="px-3 py-2.5 text-right font-mono font-bold text-emerald-600 tabular-nums dark:text-lime whitespace-nowrap">
                                 {item.overallRate}%
                               </td>
-                              <td className="px-3.5 py-2.5">
+                              <td className="px-3.5 py-2.5 whitespace-nowrap">
                                 {item.isOnLeave ? (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-amber-600 dark:text-amber-300">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-amber-600 dark:text-amber-300 whitespace-nowrap">
                                     On Leave ({item.activeLeaveEntry?.reason})
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-lime">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-lime whitespace-nowrap">
                                     In Academy
                                   </span>
                                 )}
                               </td>
-                              <td className="px-3.5 py-2.5 text-right">
+                              <td className="px-3.5 py-2.5 text-right whitespace-nowrap">
                                 <div className="flex items-center justify-end gap-1.5">
                                   <Button
                                     type="button"

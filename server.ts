@@ -1387,6 +1387,8 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     readBy: string[]
     isDeleted?: boolean
     deletedBy?: string
+    deletedById?: string
+    deletedFor?: string[]
     createdAt: string
     createdAtMs: number
   }
@@ -1464,6 +1466,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
         actorRole,
         message,
         messageId,
+        deleteMode,
         emoji,
         onlyAdminsCanPost,
         pinnedMessageId,
@@ -1658,17 +1661,25 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
       } else if (action === 'delete_message' && messageId) {
         const list = campusChatState.messagesByRoom[roomId] || []
         const target = list.find((m) => m.id === messageId)
-        const isStaff = actorRole === 'usthad' || actorRole === 'principal'
-        if (target && (isStaff || target.senderId === actorId)) {
-          target.isDeleted = true
-          target.deletedBy = String(actorName || (isStaff ? 'Usthad' : 'Sender')).slice(0, 80)
-          target.text = ''
-          target.mediaType = 'none'
-          target.mediaUrl = undefined
-          if (campusChatState.roomsMeta[roomId].pinnedMessageId === messageId) {
-            campusChatState.roomsMeta[roomId].pinnedMessageId = null
+        if (target) {
+          if (deleteMode === 'me' && actorId) {
+            const curDeletedFor = Array.isArray(target.deletedFor) ? target.deletedFor : []
+            if (!curDeletedFor.includes(actorId)) {
+              target.deletedFor = [...curDeletedFor, actorId]
+            }
+            campusChatState.updatedAtMs = now
+          } else {
+            target.isDeleted = true
+            target.deletedBy = String(actorName || 'Member').slice(0, 80)
+            target.deletedById = actorId ? String(actorId).slice(0, 120) : undefined
+            target.text = ''
+            target.mediaType = 'none'
+            target.mediaUrl = undefined
+            if (campusChatState.roomsMeta[roomId].pinnedMessageId === messageId) {
+              campusChatState.roomsMeta[roomId].pinnedMessageId = null
+            }
+            campusChatState.updatedAtMs = now
           }
-          campusChatState.updatedAtMs = now
         }
       } else if (action === 'toggle_group_lock') {
         const isStaff = actorRole === 'usthad' || actorRole === 'principal'

@@ -1107,13 +1107,13 @@ export function UsthadDashboard() {
             <div className="-mx-5 overflow-x-auto px-5 md:-mx-6 md:px-6">
               <table className="w-full min-w-[680px] border-collapse text-left text-sm">
                 <thead>
-                  <tr className="border-b border-border text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    <th scope="col" className="py-3 pr-3">Admission No.</th>
-                    <th scope="col" className="px-3 py-3">Student Name</th>
-                    <th scope="col" className="px-3 py-3">Campus Status</th>
-                    <th scope="col" className="px-3 py-3 text-right">Present / Absent / Leave</th>
-                    <th scope="col" className="px-3 py-3 text-right">Overall %</th>
-                    <th scope="col" className="py-3 pl-3 text-right">Quick Actions</th>
+                  <tr className="border-b border-border text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+                    <th scope="col" className="py-3 pr-3 whitespace-nowrap">Admission No.</th>
+                    <th scope="col" className="px-3 py-3 whitespace-nowrap">Student Name</th>
+                    <th scope="col" className="px-3 py-3 whitespace-nowrap">Campus Status</th>
+                    <th scope="col" className="px-3 py-3 text-right whitespace-nowrap">Present / Absent / Leave</th>
+                    <th scope="col" className="px-3 py-3 text-right whitespace-nowrap">Overall %</th>
+                    <th scope="col" className="py-3 pl-3 text-right whitespace-nowrap">Quick Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/70">
@@ -1130,10 +1130,10 @@ export function UsthadDashboard() {
                         <td className="py-3 pr-3 font-mono text-xs font-medium tabular-nums text-muted-foreground whitespace-nowrap">
                           {st.admissionNo}
                         </td>
-                        <td className="px-3 py-3 font-medium text-foreground">
-                          <div className="flex items-center gap-2">
+                        <td className="px-3 py-3 font-medium text-foreground whitespace-nowrap">
+                          <div className="flex items-center gap-2 whitespace-nowrap">
                             <GraduationCap className="size-4 shrink-0 text-lime" aria-hidden="true" />
-                            <span>{st.name}</span>
+                            <span className="whitespace-nowrap">{st.name}</span>
                           </div>
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
