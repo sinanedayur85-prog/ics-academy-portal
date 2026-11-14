@@ -276,14 +276,20 @@ export function useAppUpdater() {
       setUpdateProgress(85)
       setStatusMessage('Applying update & refreshing app cache (85%)...')
 
-      // Clear Service Worker caches & update registration in-place
+      // Refresh Service Worker caches & pre-warm '/' and '/index.html' so next launch is instant #0A0B0E black
       if (typeof window !== 'undefined') {
         if ('caches' in window) {
           try {
             const keys = await window.caches.keys()
             await Promise.all(keys.map((k) => window.caches.delete(k)))
+            const freshCache = await window.caches.open('ics-academy-pwa-v24')
+            const freshHtml = await fetch('/', { cache: 'reload' })
+            if (freshHtml && freshHtml.ok) {
+              await freshCache.put('/', freshHtml.clone())
+              await freshCache.put('/index.html', freshHtml.clone())
+            }
           } catch {
-            // Ignore cache clear errors
+            // Ignore cache errors
           }
         }
         if ('serviceWorker' in navigator) {

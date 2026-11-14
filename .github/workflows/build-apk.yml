@@ -174,13 +174,13 @@ jobs:
               fs.writeFileSync(path.join(targetDir, 'ic_launcher_foreground.png'), fgIconBuf);
             }
 
-            // Replace any default Capacitor splash.png files and create branded launch_splash.xml
+            // Remove any default Capacitor splash.png files so Android only uses launch_splash.xml (#0A0B0E black)
             const resEntries = fs.readdirSync(resDir, { withFileTypes: true });
             for (const entry of resEntries) {
               if (entry.isDirectory() && entry.name.startsWith('drawable')) {
                 const splashFile = path.join(resDir, entry.name, 'splash.png');
                 if (fs.existsSync(splashFile)) {
-                  fs.writeFileSync(splashFile, squareIconBuf);
+                  fs.unlinkSync(splashFile);
                 }
               }
             }
@@ -194,15 +194,15 @@ jobs:
                   <color android:color="#0A0B0E" />
               </item>
               <item
-                  android:width="180dp"
-                  android:height="180dp"
+                  android:width="160dp"
+                  android:height="160dp"
                   android:drawable="@drawable/ics_splash_logo"
                   android:gravity="center" />
           </layer-list>`;
             fs.writeFileSync(path.join(drawableDir, 'launch_splash.xml'), launchSplashXml, 'utf8');
           }
 
-          // 1c. Update styles.xml for edge-to-edge transparent status & navigation bars + branded ICS launch splash
+          // 1c. Update styles.xml and values-v31/styles.xml for pure #0A0B0E black launch splash on all Android versions
           const stylesPath = 'android/app/src/main/res/values/styles.xml';
           if (fs.existsSync(stylesPath)) {
             const stylesXml = `<?xml version="1.0" encoding="utf-8"?>
@@ -211,6 +211,8 @@ jobs:
                   <item name="colorPrimary">#0A0B0E</item>
                   <item name="colorPrimaryDark">#0A0B0E</item>
                   <item name="colorAccent">#8CC63F</item>
+                  <item name="android:windowBackground">#0A0B0E</item>
+                  <item name="android:colorBackground">#0A0B0E</item>
                   <item name="android:statusBarColor">@android:color/transparent</item>
                   <item name="android:navigationBarColor">#0A0B0E</item>
                   <item name="android:windowDrawsSystemBarBackgrounds">true</item>
@@ -220,6 +222,8 @@ jobs:
                   <item name="windowActionBar">false</item>
                   <item name="windowNoTitle">true</item>
                   <item name="android:background">@null</item>
+                  <item name="android:windowBackground">#0A0B0E</item>
+                  <item name="android:colorBackground">#0A0B0E</item>
                   <item name="android:statusBarColor">@android:color/transparent</item>
                   <item name="android:navigationBarColor">#0A0B0E</item>
                   <item name="android:windowDrawsSystemBarBackgrounds">true</item>
@@ -232,6 +236,18 @@ jobs:
               </style>
           </resources>`;
             fs.writeFileSync(stylesPath, stylesXml, 'utf8');
+
+            const v31Dir = 'android/app/src/main/res/values-v31';
+            fs.mkdirSync(v31Dir, { recursive: true });
+            const v31StylesXml = `<?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="AppTheme.NoActionBarLaunch" parent="AppTheme.NoActionBar">
+                  <item name="android:windowBackground">@drawable/launch_splash</item>
+                  <item name="android:windowSplashScreenBackground">#0A0B0E</item>
+                  <item name="android:windowSplashScreenAnimatedIcon">@drawable/ics_splash_logo</item>
+              </style>
+          </resources>`;
+            fs.writeFileSync(path.join(v31Dir, 'styles.xml'), v31StylesXml, 'utf8');
           }
 
           // 2. Ensure AndroidManifest.xml has notification, microphone, camera & legacy storage permissions (without REQUEST_INSTALL_PACKAGES so Play Protect does not flag the app)
@@ -319,6 +335,7 @@ jobs:
                   requestAppPermissionsIfNeeded();
 
                   Window window = getWindow();
+                  window.getDecorView().setBackgroundColor(Color.parseColor("#0A0B0E"));
                   WindowCompat.setDecorFitsSystemWindows(window, false);
                   window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
                   window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);

@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en" class="dark" style="background-color:#0A0B0E;">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0A0B0E" />
-    <style>html,body,#root{background-color:#0A0B0E;margin:0;}</style>
+    <style>html,body,#root{background-color:#0A0B0E !important;margin:0;min-height:100svh;}</style>
     <script>
       // Prevent @vite/client from failing WebSocket connection in AI Studio preview where HMR is disabled
       (function () {
@@ -110,16 +110,37 @@
       crossorigin="anonymous"
     />
   </head>
-  <body class="antialiased">
-    <div id="root"></div>
+  <body class="antialiased" style="background-color:#0A0B0E;margin:0;">
+    <div id="root" style="min-height:100svh;background-color:#0A0B0E;"></div>
     <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js').catch(function(err) {
-            console.warn('SW registration failed:', err);
+      (function () {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker
+            .register('/sw.js', { updateViaCache: 'none' })
+            .then(function (reg) {
+              reg.update().catch(function () {});
+            })
+            .catch(function (err) {
+              console.warn('SW registration failed:', err);
+            });
+        }
+        if ('caches' in window) {
+          window.addEventListener('load', function () {
+            caches.open('ics-academy-pwa-v24').then(function (cache) {
+              var urls = ['/', '/index.html', '/manifest.json'];
+              document.querySelectorAll('script[src], link[rel="stylesheet"][href]').forEach(function (el) {
+                var u = el.getAttribute('src') || el.getAttribute('href');
+                if (u && u.indexOf('/assets/') === 0) urls.push(u);
+              });
+              urls.forEach(function (u) {
+                fetch(u).then(function (r) {
+                  if (r && r.ok) cache.put(u, r);
+                }).catch(function () {});
+              });
+            }).catch(function () {});
           });
-        });
-      }
+        }
+      })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
