@@ -29,11 +29,20 @@ export function ThemeToggle({ className }: { className?: string }) {
   useEffect(() => {
     const saved = window.localStorage.getItem(THEME_STORAGE_KEY)
     const root = document.documentElement
-    const initialDark = saved ? saved === 'dark' : root.classList.contains('dark')
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const initialDark = saved ? saved === 'dark' : mediaQuery.matches
     root.classList.toggle('dark', initialDark)
     setIsDark(initialDark)
     setMounted(true)
     syncSystemStatusBar(initialDark)
+
+    function handleSystemThemeChange(event: MediaQueryListEvent) {
+      if (!window.localStorage.getItem(THEME_STORAGE_KEY)) {
+        root.classList.toggle('dark', event.matches)
+        setIsDark(event.matches)
+        syncSystemStatusBar(event.matches)
+      }
+    }
 
     function handleThemeSync(e: Event) {
       const customEvent = e as CustomEvent<{ isDark: boolean }>
@@ -42,8 +51,13 @@ export function ThemeToggle({ className }: { className?: string }) {
         syncSystemStatusBar(customEvent.detail.isDark)
       }
     }
+
+    mediaQuery.addEventListener('change', handleSystemThemeChange)
     window.addEventListener('ics-theme-change', handleThemeSync)
-    return () => window.removeEventListener('ics-theme-change', handleThemeSync)
+    return () => {
+      mediaQuery.removeEventListener('change', handleSystemThemeChange)
+      window.removeEventListener('ics-theme-change', handleThemeSync)
+    }
   }, [])
 
   function toggleTheme() {

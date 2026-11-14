@@ -1,8 +1,13 @@
 node_modules/
 build/
 dist/
+.next/
 coverage/
 .DS_Store
 *.log
 .env*
 !.env.example
+public/assets/aistudio/*.mp4
+public/assets/aistudio/*.zip
+public/assets/aistudio/ScreenRecording*
+public/assets/aistudio/WhatsApp_Video*

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { AppUpdateBanner } from '@/components/app-update-manager'
+import { CampusMarqueeRibbon } from '@/components/campus-motion'
 import { DashboardShell } from '@/components/dashboard/dashboard-shell'
 import { PrincipalDashboard } from '@/components/dashboard/principal-dashboard'
 import { UsthadDashboard } from '@/components/dashboard/usthad-dashboard'
@@ -10,6 +11,7 @@ import { Hero } from '@/components/hero'
 import { LoginPortal, dawaCollegeRoles, englishSchoolRoles } from '@/components/login-portal'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
+import { SplashIntro } from '@/components/splash-intro'
 import { cn } from '@/lib/utils'
 
 const AUTH_STORAGE_KEY = 'isAuthenticated'
@@ -106,13 +108,14 @@ export default function Page() {
 
   // Wait for client mount before rendering persistent auth state to prevent hydration mismatch
   if (!hasMounted) {
-    return <div className="min-h-svh bg-background" aria-hidden="true" />
+    return <div className="min-h-svh bg-[#0a0b0e]" aria-hidden="true" />
   }
 
   if (isLoggedIn) {
     if (authRole === 'principal') {
       return (
         <>
+          <SplashIntro />
           <AppUpdateBanner />
           <PrincipalDashboard />
         </>
@@ -121,6 +124,7 @@ export default function Page() {
     if (authRole === 'usthad') {
       return (
         <>
+          <SplashIntro />
           <AppUpdateBanner />
           <UsthadDashboard />
         </>
@@ -128,6 +132,7 @@ export default function Page() {
     }
     return (
       <>
+        <SplashIntro />
         <AppUpdateBanner />
         <DashboardShell isClassLeader={authRole === 'class-leader'} />
       </>
@@ -136,14 +141,16 @@ export default function Page() {
 
   return (
     <>
+      <SplashIntro />
       <AppUpdateBanner />
       <SiteHeader />
       <main>
         <Hero />
+        <CampusMarqueeRibbon />
         <LoginPortal
           id="portal"
-          eyebrow="Da'wa College Portal"
-          description="Four tiers of access, each tailored to what you need on campus. Select your role below and log in with your academy credentials."
+          eyebrow="Da'wa College"
+          description="Select your role below and sign in with your academy ID."
           roles={dawaCollegeRoles}
           gridClassName="sm:grid-cols-2 lg:grid-cols-4"
           className="border-t-0 bg-background"
@@ -173,7 +180,7 @@ export default function Page() {
               )}
             >
               <span className="tracking-wide">
-                {showEnglishPortal ? 'Hide ICS English School Portal' : 'ICS English School Portal'}
+                {showEnglishPortal ? 'Hide English School Portal' : 'ICS English School Portal'}
               </span>
               <span
                 className={cn(
@@ -201,8 +208,8 @@ export default function Page() {
           <div className="overflow-hidden">
             <LoginPortal
               id="english-school-portal"
-              eyebrow="ICS English School Portal"
-              description="Three tiers of access, each tailored to what you need on campus."
+              eyebrow="English School"
+              description="Select your role below and sign in with your academy ID."
               roles={englishSchoolRoles}
               gridClassName="grid-cols-1 md:grid-cols-3"
               onStudentLogin={handleStudentLogin}

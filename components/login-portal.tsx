@@ -12,6 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
+import { AnimatedWords } from '@/components/campus-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -231,7 +232,7 @@ export function LoginPortal({
     <section
       id={id}
       className={cn(
-        'relative border-t border-border bg-card/40 transition-colors duration-300',
+        'relative overflow-hidden border-t border-border bg-card/40 transition-colors duration-300',
         className,
       )}
     >
@@ -239,51 +240,58 @@ export function LoginPortal({
         aria-hidden="true"
         className="pointer-events-none absolute right-0 bottom-0 size-[28rem] rounded-full bg-lime/10 blur-3xl"
       />
-      <div className="relative mx-auto flex max-w-7xl flex-col gap-10 px-6 py-20 md:py-28">
+      <div className="relative z-10 mx-auto flex max-w-7xl flex-col gap-10 px-6 py-20 md:py-28">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.25 }}
-          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="flex max-w-2xl flex-col gap-4"
+          viewport={{ once: false, amount: 0.2 }}
+          transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+          className="flex max-w-2xl flex-col gap-3"
         >
-          <p className="text-sm font-semibold tracking-widest text-cyan uppercase">
+          <p className="text-xs font-semibold tracking-[0.22em] text-cyan uppercase">
             {eyebrow}
           </p>
           <h2 className="text-balance font-display text-4xl font-bold md:text-5xl">
-            Choose your role to log in
+            <AnimatedWords text="Choose Your Role" stagger={0.08} />
           </h2>
-          <p className="text-pretty font-light tracking-wide text-base leading-relaxed text-muted-foreground md:text-lg md:leading-loose">
+          <p className="text-pretty font-light tracking-wide text-base leading-relaxed text-muted-foreground md:text-lg">
             {description}
           </p>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.2 }}
-          transition={{ duration: 0.6, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+        <div
           aria-label={`Select your role for the ${eyebrow}`}
           className={cn('grid items-start gap-4', gridClassName)}
         >
-          {roles.map((role) => {
+          {roles.map((role, index) => {
             const Icon = role.icon
             const isActive = role.id === selectedId
             const isLime = role.tone === 'lime'
             const isInvalid = invalidRoleId === role.id
 
             return (
-              <div
+              <motion.div
                 key={role.id}
-                className={cn(
-                  'group relative flex flex-col rounded-3xl border bg-background/60 transition-all duration-300',
-                  isActive
-                    ? isLime
-                      ? 'border-lime bg-background/90 shadow-[0_0_0_1px_var(--lime)]'
-                      : 'border-cyan bg-background/90 shadow-[0_0_0_1px_var(--cyan)]'
-                    : 'border-border hover:-translate-y-0.5 hover:border-foreground/25',
-                )}
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: false, amount: 0.12 }}
+                transition={{
+                  duration: 1.25,
+                  delay: index * 0.12,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                className="will-change-[transform,opacity]"
               >
+                <div
+                  className={cn(
+                    'group relative flex flex-col rounded-3xl border bg-background/75 backdrop-blur-xs transition-[border-color,background-color,box-shadow,transform] duration-500 ease-out',
+                    isActive
+                      ? isLime
+                        ? 'border-lime bg-background/95 shadow-[0_0_0_1px_var(--lime)]'
+                        : 'border-cyan bg-background/95 shadow-[0_0_0_1px_var(--cyan)]'
+                      : 'border-border hover:-translate-y-0.5 hover:border-foreground/25 hover:shadow-lg hover:shadow-black/5',
+                  )}
+                >
                 <button
                   type="button"
                   aria-expanded={isActive}
@@ -450,10 +458,11 @@ export function LoginPortal({
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </div>
+                </div>
+              </motion.div>
             )
           })}
-        </motion.div>
+        </div>
       </div>
     </section>
   )

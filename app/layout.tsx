@@ -41,6 +41,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`dark ${elMessiri.variable} ${poppins.variable}`} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=localStorage.getItem('ics-theme');var d=s?s==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.classList.toggle('dark',d);}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="antialiased transition-colors duration-300">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}

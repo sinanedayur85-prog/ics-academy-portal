@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { ArrowRight, BookOpen, Users } from 'lucide-react'
-import { BrandWordmark } from '@/components/brand-wordmark'
+import { motion } from 'motion/react'
+import { BrandLogoMark, BrandWordmark } from '@/components/brand-wordmark'
+import { AnimatedWords } from '@/components/campus-motion'
 import { Button } from '@/components/ui/button'
 import { CountUp } from '@/components/count-up'
 import { cn } from '@/lib/utils'
@@ -27,7 +29,6 @@ const SLIDE_INTERVAL_MS = 5000
 
 export function Hero() {
   const [activeIndex, setActiveIndex] = useState(0)
-  const [isInView, setIsInView] = useState(true)
   const [animCycle, setAnimCycle] = useState(0)
   const contentRef = useRef<HTMLDivElement>(null)
 
@@ -47,21 +48,16 @@ export function Hero() {
       (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
-            setIsInView(true)
             setAnimCycle((prev) => prev + 1)
-          } else {
-            setIsInView(false)
           }
         }
       },
-      { threshold: 0.25 },
+      { threshold: 0.2 },
     )
 
     observer.observe(node)
     return () => observer.disconnect()
   }, [])
-
-  const revealClass = isInView ? 'animate-fade-in-up' : 'opacity-0 translate-y-12'
 
   return (
     <section
@@ -98,33 +94,38 @@ export function Hero() {
           )
         })}
 
-        {/* Dynamic Theme Overlay: Lighter white/55 in Light mode so the campus image is vibrantly visible, rich black-grey in Dark mode */}
+        {/* Dynamic Theme Overlay */}
         <div className="absolute inset-0 bg-gradient-to-b from-white/55 via-white/50 to-white/60 transition-colors duration-300 dark:from-[#0a0b0e]/85 dark:via-[#121418]/80 dark:to-[#0a0b0e]/90" />
 
-        {/* Seamless Bottom Blending Gradient fading from white (Light mode) or #0a0b0e (Dark mode) to transparent */}
+        {/* Seamless Bottom Blending Gradient */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white via-white/65 to-white/0 transition-colors duration-300 md:h-40 dark:from-[#0a0b0e] dark:via-[#0a0b0e]/75 dark:to-[#0a0b0e]/0" />
       </div>
 
-      {/* Centered Hero Content with Pure Black (Light Mode) and White (Dark Mode) Typography */}
+      {/* Centered Hero Content with Repeatable Scroll Animations */}
       <div
         ref={contentRef}
         className="relative z-10 mx-auto flex max-w-4xl flex-col items-center text-center"
       >
-        <div key={animCycle} className="flex flex-col items-center">
-          <span
-            style={{ animationDelay: isInView ? '150ms' : '0ms' }}
-            className={cn(
-              revealClass,
-              'inline-flex items-center gap-2 rounded-full border border-emerald-800/35 bg-white/75 px-4 py-1.5 text-xs font-semibold tracking-wider text-emerald-900 uppercase backdrop-blur-xs transition-colors duration-300 dark:border-lime/40 dark:bg-[#121418]/70 dark:text-lime',
-            )}
+        <div className="flex flex-col items-center">
+          {/* Eyebrow Pill with gentle scroll reveal */}
+          <motion.span
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 1.15, ease: [0.22, 1, 0.36, 1] }}
+            className="inline-flex items-center gap-2 rounded-full border border-emerald-800/35 bg-white/80 px-4 py-1.5 text-xs font-semibold tracking-wider text-emerald-900 uppercase backdrop-blur-xs transition-colors duration-300 dark:border-lime/40 dark:bg-[#121418]/75 dark:text-lime"
           >
-            <span className="size-1.5 rounded-full bg-emerald-800 dark:bg-lime" aria-hidden="true" />
-            Digital campus now open
-          </span>
+            <BrandLogoMark className="h-4 w-auto" />
+            Digital Campus • 2026
+          </motion.span>
 
-          <div
-            style={{ animationDelay: isInView ? '350ms' : '0ms' }}
-            className={cn(revealClass, 'mt-7 flex justify-center')}
+          {/* Main Wordmark + Felizia-style Glowing Underline Sweep */}
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 1.25, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+            className="mt-7 flex flex-col items-center justify-center"
           >
             <BrandWordmark
               as="h1"
@@ -132,77 +133,92 @@ export function Hero() {
               topClassName="text-5xl font-bold text-black transition-colors duration-300 dark:text-white sm:text-6xl lg:text-7xl"
               bottomClassName="-mt-1 text-2xl font-semibold text-emerald-900 transition-colors duration-300 dark:text-emerald-400 sm:text-3xl lg:text-[2.1rem]"
             />
-          </div>
 
-          <p
-            style={{ animationDelay: isInView ? '550ms' : '0ms' }}
-            className={cn(
-              revealClass,
-              'mt-7 max-w-2xl text-pretty font-sans text-base font-normal tracking-wide leading-relaxed text-black transition-colors duration-300 dark:font-light dark:text-white/90 sm:text-lg md:text-xl md:leading-loose',
-            )}
-          >
-            A unified digital campus that brings students, class leaders, teachers and the principal
-            together — attendance, assignments, announcements and results, all in one secure place.
+            {/* Animated glowing line under ICS ACADEMY MANHAPPATTA */}
+            <div className="relative mt-4 h-[2px] w-44 overflow-hidden rounded-full bg-emerald-950/15 sm:w-64 dark:bg-white/15">
+              <motion.div
+                initial={{ x: '-100%' }}
+                whileInView={{ x: '0%' }}
+                viewport={{ once: false, amount: 0.2 }}
+                transition={{ duration: 1.5, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="h-full w-full rounded-full bg-gradient-to-r from-transparent via-lime to-cyan"
+              />
+            </div>
+          </motion.div>
+
+          {/* Moving Words Description — animates word-by-word gently on every scroll */}
+          <p className="mt-7 max-w-2xl text-pretty font-sans text-base font-normal tracking-wide leading-relaxed text-black transition-colors duration-300 dark:font-light dark:text-white/90 sm:text-lg md:text-xl md:leading-loose">
+            <AnimatedWords
+              text="One unified digital campus bringing students, class leaders, Usthads, and the Principal together — attendance, leave, notices, Kitabs, and messenger in one place."
+              stagger={0.035}
+              delay={0.15}
+            />
           </p>
 
-          <div
-            style={{ animationDelay: isInView ? '750ms' : '0ms' }}
-            className={cn(revealClass, 'mt-9 flex flex-wrap items-center justify-center gap-4')}
+          {/* Action Buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 1.2, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            className="mt-9 flex flex-wrap items-center justify-center gap-4"
           >
             <Button
               nativeButton={false}
               render={<a href="#portal" />}
-              className="h-12 rounded-full px-7 text-base font-semibold"
+              className="h-12 rounded-full px-7 text-base font-semibold shadow-lg shadow-lime/20"
             >
-              Access the portal
+              Open Portal
               <ArrowRight data-icon="inline-end" />
             </Button>
             <a
               href="#contact"
               className="rounded-full border border-black/25 bg-white/75 px-6 py-3 text-sm font-semibold tracking-wide text-black backdrop-blur-xs transition-colors duration-300 hover:border-cyan hover:bg-white hover:underline dark:border-white/25 dark:bg-[#121418]/65 dark:text-cyan dark:hover:bg-[#1a1d24]/85"
             >
-              Talk to the office
+              Contact Office
             </a>
-          </div>
+          </motion.div>
 
-          {/* Centered CountUp Stat Blocks Directly Under the Buttons */}
-          <dl
-            style={{ animationDelay: isInView ? '950ms' : '0ms' }}
-            className={cn(
-              revealClass,
-              'mt-12 grid w-full max-w-md grid-cols-2 gap-8 border-t border-black/25 pt-8 transition-colors duration-300 dark:border-white/25',
-            )}
+          {/* Centered CountUp Stat Blocks — re-animates gently on every scroll */}
+          <motion.dl
+            key={animCycle}
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 1.25, delay: 0.32, ease: [0.22, 1, 0.36, 1] }}
+            className="mt-12 grid w-full max-w-md grid-cols-2 gap-8 border-t border-black/25 pt-8 transition-colors duration-300 dark:border-white/25"
           >
-          <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-center sm:gap-3.5 sm:text-left">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-black/15 bg-white/75 text-cyan backdrop-blur-xs transition-colors duration-300 dark:border-white/15 dark:bg-[#121418]/65">
-              <Users className="size-5 text-cyan" aria-hidden="true" />
-            </span>
-            <div>
-              <dt className="text-xs font-semibold tracking-wider text-black uppercase transition-colors duration-300 dark:font-medium dark:text-white/80">
-                Learners
-              </dt>
-              <dd className="font-display text-3xl font-bold text-black transition-colors duration-300 dark:text-white sm:text-4xl">
-                <CountUp end={1200} suffix="+" duration={4000} />
-              </dd>
+            <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-center sm:gap-3.5 sm:text-left">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-black/15 bg-white/75 text-cyan backdrop-blur-xs transition-colors duration-300 dark:border-white/15 dark:bg-[#121418]/65">
+                <Users className="size-5 text-cyan" aria-hidden="true" />
+              </span>
+              <div>
+                <dt className="text-xs font-semibold tracking-wider text-black uppercase transition-colors duration-300 dark:font-medium dark:text-white/80">
+                  Students
+                </dt>
+                <dd className="font-display text-3xl font-bold tabular-nums text-black transition-colors duration-300 dark:text-white sm:text-4xl">
+                  <CountUp end={1200} suffix="+" duration={4000} />
+                </dd>
+              </div>
             </div>
-          </div>
 
-          <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-center sm:gap-3.5 sm:text-left">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-black/15 bg-white/75 text-emerald-800 backdrop-blur-xs transition-colors duration-300 dark:border-white/15 dark:bg-[#121418]/65 dark:text-lime">
-              <BookOpen className="size-5 text-emerald-800 dark:text-lime" aria-hidden="true" />
-            </span>
-            <div>
-              <dt className="text-xs font-semibold tracking-wider text-black uppercase transition-colors duration-300 dark:font-medium dark:text-white/80">
-                Faculty
-              </dt>
-              <dd className="font-display text-3xl font-bold text-black transition-colors duration-300 dark:text-white sm:text-4xl">
-                <CountUp end={60} suffix="+" duration={4000} />
-              </dd>
+            <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-center sm:gap-3.5 sm:text-left">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-black/15 bg-white/75 text-emerald-800 backdrop-blur-xs transition-colors duration-300 dark:border-white/15 dark:bg-[#121418]/65 dark:text-lime">
+                <BookOpen className="size-5 text-emerald-800 dark:text-lime" aria-hidden="true" />
+              </span>
+              <div>
+                <dt className="text-xs font-semibold tracking-wider text-black uppercase transition-colors duration-300 dark:font-medium dark:text-white/80">
+                  Faculty
+                </dt>
+                <dd className="font-display text-3xl font-bold tabular-nums text-black transition-colors duration-300 dark:text-white sm:text-4xl">
+                  <CountUp end={60} suffix="+" duration={4000} />
+                </dd>
+              </div>
             </div>
-          </div>
-          </dl>
+          </motion.dl>
         </div>
       </div>
     </section>
   )
 }
+
