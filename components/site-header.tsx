@@ -17,9 +17,9 @@ export function SiteHeader() {
         <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3" aria-label="ICS Academy Manhappatta home">
           <BrandLogoMark className="h-9 sm:h-11 w-auto shrink-0 md:h-12" />
           <BrandWordmark
-            className="pt-[1px]"
-            gapClassName="gap-[2px]"
-            topClassName="translate-y-[0.5px] text-base sm:text-lg font-bold text-black transition-colors duration-300 dark:text-white md:text-[19px] leading-none"
+            className="pt-[2px]"
+            gapClassName="gap-[1px]"
+            topClassName="translate-y-[1px] text-base sm:text-lg font-bold text-black transition-colors duration-300 dark:text-white md:text-[19px] leading-none"
             bottomClassName="text-[9.5px] sm:text-[10px] font-semibold text-emerald-900 transition-colors duration-300 dark:text-emerald-400 md:text-[10.5px] leading-none"
           />
         </Link>

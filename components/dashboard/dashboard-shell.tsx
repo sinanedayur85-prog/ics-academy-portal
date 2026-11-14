@@ -155,8 +155,9 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
         <Link href="/" className="flex h-20 items-center gap-3 border-b border-border px-6" aria-label="ICS Academy Manhappatta home">
           <BrandLogoMark className="h-10 w-auto" />
           <BrandWordmark
-            gapClassName="gap-[2.4px]"
-            topClassName="text-lg font-bold text-foreground leading-none"
+            className="pt-[2px]"
+            gapClassName="gap-[1px]"
+            topClassName="translate-y-[1px] text-lg font-bold text-foreground leading-none"
             bottomClassName="text-[10px] font-semibold text-lime leading-none"
           />
         </Link>
@@ -202,8 +203,9 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
           <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3 lg:hidden" aria-label="ICS Academy Manhappatta home">
             <BrandLogoMark className="h-9 sm:h-11 w-auto shrink-0" />
             <BrandWordmark
-              gapClassName="gap-[2.4px]"
-              topClassName="text-base sm:text-lg font-bold text-foreground leading-none"
+              className="pt-[2px]"
+              gapClassName="gap-[1px]"
+              topClassName="translate-y-[1px] text-base sm:text-lg font-bold text-foreground leading-none"
               bottomClassName="text-[9.5px] sm:text-[10px] font-semibold text-lime leading-none"
             />
           </Link>
