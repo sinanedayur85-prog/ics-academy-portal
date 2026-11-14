@@ -1108,32 +1108,32 @@ export function PrincipalDashboard() {
   }[] = [
     {
       id: 'monitor',
-      label: 'Campus Live Monitor',
-      shortLabel: '1. Campus Live Monitor (11 Classes & Unheld Periods)',
+      label: 'Monitor',
+      shortLabel: 'Monitor',
       icon: Building2,
     },
     {
       id: 'people',
-      label: 'Usthads, Leaders & Students',
-      shortLabel: '2. Usthads, Leaders & Students',
+      label: 'Directory',
+      shortLabel: 'Directory',
       icon: Users,
     },
     {
       id: 'chat',
-      label: 'Campus Messenger & Staff Room',
-      shortLabel: '3. Campus Messenger & Staff Room',
+      label: 'Chat',
+      shortLabel: 'Chat',
       icon: MessageCircle,
     },
     {
       id: 'notices',
-      label: 'Official Holidays & Notices',
-      shortLabel: '4. Official Holidays & Notices',
+      label: 'Notices',
+      shortLabel: 'Notices',
       icon: Megaphone,
     },
     {
       id: 'library',
-      label: 'Digital Library & Portal',
-      shortLabel: '5. Digital Library & Portal',
+      label: 'Library',
+      shortLabel: 'Library',
       icon: Library,
     },
   ]
@@ -1311,21 +1311,21 @@ export function PrincipalDashboard() {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-md border border-lime/40 bg-lime/15 px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-lime uppercase">
                   <Award className="size-3.5" aria-hidden="true" />
-                  Principal Executive Command Center
+                  Principal
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-md border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-cyan uppercase">
                   <GraduationCap className="size-3.5" aria-hidden="true" />
-                  Class Usthad • {principal.assignedClassName} ({principal.usthadStaffId})
+                  {principal.assignedClassName} ({principal.usthadStaffId})
                 </span>
                 <span className="text-xs font-medium text-muted-foreground tabular-nums">
-                  Date: {selectedDate} • Semester {CURRENT_SEMESTER}
+                  {selectedDate}
                 </span>
               </div>
               <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
                 {principal.name}
               </h1>
               <p className="text-xs text-muted-foreground sm:text-sm">
-                {principal.designation} • Full administrative oversight of all 11 classes &amp; Class Usthad of {principal.assignedClassName}.
+                ICS Academy Manhappatta
               </p>
             </div>
 
@@ -1356,7 +1356,7 @@ export function PrincipalDashboard() {
                 className="rounded-xl border border-cyan/50 bg-cyan text-xs font-bold text-slate-950 hover:bg-cyan/90"
               >
                 <BookOpen className="mr-1.5 size-3.5" aria-hidden="true" />
-                My Class Usthad Workspace ({principal.assignedClassName})
+                My Class ({principal.assignedClassName})
               </Button>
               <Button
                 type="button"
@@ -1368,7 +1368,7 @@ export function PrincipalDashboard() {
                 className="rounded-xl text-xs font-semibold"
               >
                 <CalendarClock className="mr-1.5 size-3.5" aria-hidden="true" />
-                Announce Official Holiday
+                Holiday
               </Button>
             </div>
           </div>
@@ -1377,49 +1377,49 @@ export function PrincipalDashboard() {
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <div className="rounded-xl border border-border bg-background/60 p-3.5">
               <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                Campus Strength
+                Students
               </p>
               <p className="mt-1 font-display text-2xl font-bold text-foreground tabular-nums">
                 {campusMetrics.totalStudents}
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
-                Across {campusMetrics.totalBatches} Classes
+                {campusMetrics.totalBatches} Classes
               </p>
             </div>
 
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5">
               <p className="text-[11px] font-semibold tracking-wider text-emerald-700 uppercase dark:text-lime">
-                Campus Attendance
+                Attendance
               </p>
               <p className="mt-1 font-display text-2xl font-bold text-emerald-700 tabular-nums dark:text-lime">
                 {campusMetrics.avgRate}%
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
-                {campusMetrics.inCampusNow} Present in Campus
+                {campusMetrics.inCampusNow} Present
               </p>
             </div>
 
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5">
               <p className="text-[11px] font-semibold tracking-wider text-amber-700 uppercase dark:text-amber-300">
-                Students on Leave
+                On Leave
               </p>
               <p className="mt-1 font-display text-2xl font-bold text-amber-700 tabular-nums dark:text-amber-300">
                 {campusMetrics.onLeaveNow}
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Active Leave Register
+                Leave List
               </p>
             </div>
 
             <div className="rounded-xl border border-border bg-background/60 p-3.5">
               <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                Periods Conducted
+                Periods
               </p>
               <p className="mt-1 font-display text-2xl font-bold text-foreground tabular-nums">
                 {campusMetrics.periodsConducted}/{campusMetrics.totalDailyPeriods}
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
-                On {selectedDate}
+                {selectedDate}
               </p>
             </div>
 
@@ -1439,7 +1439,7 @@ export function PrincipalDashboard() {
                     : 'text-muted-foreground',
                 )}
               >
-                Classes Not Held
+                Not Held
               </p>
               <p
                 className={cn(
@@ -1452,19 +1452,19 @@ export function PrincipalDashboard() {
                 {campusMetrics.periodsNotHeld}
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Periods not taken by Usthad
+                Missed
               </p>
             </div>
 
             <div className="rounded-xl border border-cyan/30 bg-cyan/10 p-3.5">
               <p className="text-[11px] font-semibold tracking-wider text-cyan uppercase">
-                Substituted Periods
+                Substituted
               </p>
               <p className="mt-1 font-display text-2xl font-bold text-cyan tabular-nums">
                 {campusMetrics.periodsSubstituted}
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Taken by Substitute Usthad
+                Covered
               </p>
             </div>
           </div>
@@ -1476,13 +1476,13 @@ export function PrincipalDashboard() {
             {/* A. Unheld Periods & Substitute Usthad Control Center */}
             <Panel
               id="unheld-periods-monitor"
-              eyebrow="Usthad Class Session Governance • Unheld Period Control"
-              title="Unheld Periods & Substitute Usthad Command Center"
+              eyebrow="Periods"
+              title="Unheld Periods"
               icon={ShieldAlert}
               action={
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/15 px-3 py-1 text-xs font-semibold text-red-600 dark:text-red-400 tabular-nums">
                   <Ban className="size-3.5" aria-hidden="true" />
-                  {campusMetrics.periodsNotHeld} Unheld • {campusMetrics.periodsSubstituted} Substituted
+                  {campusMetrics.periodsNotHeld} Unheld · {campusMetrics.periodsSubstituted} Sub
                 </span>
               }
             >
@@ -1491,11 +1491,8 @@ export function PrincipalDashboard() {
                 <div className="rounded-2xl border border-border bg-background/60 p-4">
                   <div className="mb-3 flex flex-col gap-1">
                     <h3 className="text-xs font-bold tracking-wider text-foreground uppercase">
-                      Quick Period Session Override
+                      Period Override
                     </h3>
-                    <p className="text-xs text-muted-foreground">
-                      Record if a regular Usthad did not take a period or assign a substitute Usthad. Student attendance is automatically locked for periods marked as Class Not Held.
-                    </p>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -1754,14 +1751,9 @@ export function PrincipalDashboard() {
             {/* B. 11-Class Live Period & Attendance Matrix */}
             <Panel
               id="campus-class-matrix"
-              eyebrow={`All 11 Classes Live Matrix • ${selectedDate}`}
-              title="11-Class Period Session & Attendance Overview"
+              eyebrow="Classes"
+              title="All Classes"
               icon={Building2}
-              action={
-                <span className="text-xs font-medium text-muted-foreground">
-                  Click any class row to inspect & control periods below
-                </span>
-              }
             >
               <div className="overflow-x-auto rounded-2xl border border-border bg-background/50">
                 <table className="w-full min-w-[920px] border-collapse text-left text-xs">
@@ -1934,7 +1926,7 @@ export function PrincipalDashboard() {
               <ClassLeaderAttendanceCard
                 leader={selectedClassRepresentativeStudent}
                 leaderId={principal.staffId}
-                eyebrowLabel={`Principal Direct Period & Session Control • ${selectedClassName}`}
+                eyebrowLabel={selectedClassName}
                 submittedByNameOverride={`${principal.name} (Principal)`}
                 highlightLeaderBadge={false}
                 actorRoleLabel="Principal"
@@ -1962,7 +1954,7 @@ export function PrincipalDashboard() {
                   )}
                 >
                   <GraduationCap className="size-4" aria-hidden="true" />
-                  Usthads &amp; Leadership (Shaikhuna, Manager &amp; 9 Class Usthads)
+                  Teachers
                 </button>
 
                 <button
@@ -1976,7 +1968,7 @@ export function PrincipalDashboard() {
                   )}
                 >
                   <UserCheck className="size-4" aria-hidden="true" />
-                  22 Class Leaders (CL &amp; ACL)
+                  Leaders
                 </button>
 
                 <button
@@ -1990,13 +1982,9 @@ export function PrincipalDashboard() {
                   )}
                 >
                   <Users className="size-4" aria-hidden="true" />
-                  {students.length} Students &amp; Monthly Attendance / Leave Control
+                  Students ({students.length})
                 </button>
               </div>
-
-              <span className="text-xs text-muted-foreground">
-                Full Administrative Authority • Principal ({principal.staffId})
-              </span>
             </div>
 
             {/* SUB-TAB 1: SUPREME SCHOLAR, MANAGER & 9 OFFICIAL CLASS USTHADS */}
@@ -2098,8 +2086,8 @@ export function PrincipalDashboard() {
                 {/* The 9 Official Class Usthads Panel */}
                 <Panel
                   id="principal-usthads-panel"
-                  eyebrow="Official Class Usthads & Faculty Roster"
-                  title="All 9 Teaching & Class Usthads"
+                  eyebrow="Faculty"
+                  title="Class Usthads"
                   icon={GraduationCap}
                 >
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -2244,8 +2232,8 @@ export function PrincipalDashboard() {
             {peopleSubTab === 'leaders' && (
               <Panel
                 id="principal-leaders-panel"
-                eyebrow="Class Leaders"
-                title="All 22 Authorized Class Leaders"
+                eyebrow="Leaders"
+                title="Class Leaders"
                 icon={UserCheck}
               >
                 <div className="overflow-x-auto rounded-2xl border border-border bg-background/50">
@@ -2332,15 +2320,15 @@ export function PrincipalDashboard() {
                   {/* Monthly Attendance Editor */}
                   <Panel
                     id="principal-monthly-editor"
-                    eyebrow="Principal Attendance Authority"
-                    title="Student Monthly Attendance Override"
+                    eyebrow="Attendance"
+                    title="Monthly Attendance"
                     icon={CalendarCheck}
                   >
                     <form onSubmit={handleSaveMonthAttendance} className="flex flex-col gap-4">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor="pr-edit-student" className="text-xs">
-                            Select Student (All {students.length} Students)
+                            Select Student
                           </Label>
                           <select
                             id="pr-edit-student"
@@ -2350,7 +2338,7 @@ export function PrincipalDashboard() {
                           >
                             {students.map((s) => (
                               <option key={s.id} value={s.id}>
-                                {s.name} ({s.admissionNo} • {s.className})
+                                {s.name} ({s.admissionNo} · {s.className})
                               </option>
                             ))}
                           </select>
@@ -2358,7 +2346,7 @@ export function PrincipalDashboard() {
 
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor="pr-edit-month" className="text-xs">
-                            Select Month (June – May)
+                            Select Month
                           </Label>
                           <select
                             id="pr-edit-month"
@@ -2378,7 +2366,7 @@ export function PrincipalDashboard() {
                       <div className="grid grid-cols-3 gap-3">
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor="pr-present-days" className="text-xs text-emerald-600 dark:text-lime">
-                            Present Days
+                            Present
                           </Label>
                           <Input
                             id="pr-present-days"
@@ -2392,7 +2380,7 @@ export function PrincipalDashboard() {
                         </div>
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor="pr-absent-days" className="text-xs text-red-500">
-                            Absent Days
+                            Absent
                           </Label>
                           <Input
                             id="pr-absent-days"
@@ -2406,7 +2394,7 @@ export function PrincipalDashboard() {
                         </div>
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor="pr-leave-days" className="text-xs text-amber-500">
-                            Personal Leave Days
+                            Leave
                           </Label>
                           <Input
                             id="pr-leave-days"
@@ -2467,11 +2455,11 @@ export function PrincipalDashboard() {
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground">
-                            Updates Student & Parent Report immediately
+                            Instant sync
                           </span>
                         )}
                         <Button type="submit" size="sm" className="rounded-xl text-xs font-semibold">
-                          Save Monthly Attendance
+                          Save
                         </Button>
                       </div>
                     </form>
@@ -2480,8 +2468,8 @@ export function PrincipalDashboard() {
                   {/* Campus Leave Register Action */}
                   <Panel
                     id="principal-leave-control"
-                    eyebrow="Campus Gate & Leave Movement Control"
-                    title="Record Student Leave or Campus Return"
+                    eyebrow="Leave"
+                    title="Student Leave"
                     icon={ClipboardCheck}
                   >
                     <form onSubmit={handleSubmitLeaveForm} className="flex flex-col gap-4">
@@ -2498,7 +2486,7 @@ export function PrincipalDashboard() {
                           >
                             {students.map((s) => (
                               <option key={s.id} value={s.id}>
-                                {s.name} ({s.admissionNo} • {s.className})
+                                {s.name} ({s.admissionNo} · {s.className})
                               </option>
                             ))}
                           </select>
@@ -2506,7 +2494,7 @@ export function PrincipalDashboard() {
 
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor="pr-leave-action" className="text-xs">
-                            Movement Type
+                            Action
                           </Label>
                           <select
                             id="pr-leave-action"
@@ -2516,8 +2504,8 @@ export function PrincipalDashboard() {
                             }
                             className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
                           >
-                            <option value="application">Grant Leave Departure</option>
-                            <option value="return">Verify Campus Return</option>
+                            <option value="application">Grant Leave</option>
+                            <option value="return">Mark Returned</option>
                           </select>
                         </div>
                       </div>
@@ -2525,7 +2513,7 @@ export function PrincipalDashboard() {
                       {leaveActionType === 'application' && (
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor="pr-leave-reason-select" className="text-xs">
-                            Leave Category
+                            Reason
                           </Label>
                           <select
                             id="pr-leave-reason-select"
@@ -2544,13 +2532,13 @@ export function PrincipalDashboard() {
 
                       <div className="flex flex-col gap-1.5">
                         <Label htmlFor="pr-leave-notes" className="text-xs">
-                          Principal Remarks / Gate Pass Note
+                          Note
                         </Label>
                         <Input
                           id="pr-leave-notes"
                           value={leaveDetails}
                           onChange={(e) => setLeaveDetails(e.target.value)}
-                          placeholder="e.g. Sanctioned by Principal with parent phone confirmation..."
+                          placeholder="Optional note..."
                           className="h-10 rounded-xl text-xs"
                         />
                       </div>
@@ -2562,11 +2550,11 @@ export function PrincipalDashboard() {
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground">
-                            Currently {campusMetrics.onLeaveNow} students on leave across campus
+                            {campusMetrics.onLeaveNow} on leave
                           </span>
                         )}
                         <Button type="submit" size="sm" className="rounded-xl text-xs font-semibold">
-                          Record Leave / Return
+                          Save Leave
                         </Button>
                       </div>
                     </form>
@@ -2576,12 +2564,12 @@ export function PrincipalDashboard() {
                 {/* All 181 Students Master Directory */}
                 <Panel
                   id="principal-student-directory"
-                  eyebrow={`Complete Institutional Roster (${students.length} Students)`}
-                  title="Campus Student Directory & Parent Report Control"
+                  eyebrow="Students"
+                  title="Student Directory"
                   icon={Users}
                   action={
                     <span className="text-xs font-semibold text-lime tabular-nums">
-                      Showing {filteredDirectoryStudents.length} of {students.length} Students
+                      {filteredDirectoryStudents.length} / {students.length}
                     </span>
                   }
                 >
@@ -2714,8 +2702,8 @@ export function PrincipalDashboard() {
           <div className="flex flex-col gap-6">
             <Panel
               id="principal-notice-publisher"
-              eyebrow="Principal Official Broadcast & Holiday Declaration"
-              title="Announce Official Holidays & Campus Notices"
+              eyebrow="Notices"
+              title="New Notice"
               icon={Megaphone}
             >
               <form onSubmit={handlePublishNotice} className="flex flex-col gap-4">
@@ -3089,8 +3077,8 @@ export function PrincipalDashboard() {
           <div className="flex flex-col gap-6">
             <Panel
               id="principal-kitab-uploader"
-              eyebrow="Principal Academic Resource Control"
-              title="Upload New Kitab / Reference PDF to Digital Library"
+              eyebrow="Library"
+              title="Upload Kitab"
               icon={FileUp}
             >
               <form onSubmit={handleUploadKitabPdf} className="flex flex-col gap-4">

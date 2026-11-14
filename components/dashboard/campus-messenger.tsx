@@ -498,9 +498,9 @@ export function CampusMessenger({
       list.push({
         roomId: STAFF_ROOM_ID,
         type: 'staff_group',
-        title: 'ICS Usthads & Principal Staff Room',
-        subtitle: 'Official Faculty & Academic Council Group (9 Usthads)',
-        badgeLabel: 'Staff Room',
+        title: 'Staff Room',
+        subtitle: '9 Usthads',
+        badgeLabel: 'Staff',
         avatarText: 'SR',
         isStaffOnly: true,
       })
@@ -520,9 +520,9 @@ export function CampusMessenger({
         list.push({
           roomId: makeBatchRoomId(cls.className),
           type: 'batch_group',
-          title: `${cls.fullLabel} • Official Group`,
-          subtitle: `${assignedUsthad?.name || 'Class Usthad'} • ${count} Students`,
-          badgeLabel: cls.fullLabel,
+          title: `${cls.fullLabel} Group`,
+          subtitle: `${assignedUsthad?.name || 'Class Usthad'} · ${count} Students`,
+          badgeLabel: cls.className,
           batchName: cls.className,
           avatarText: cls.className.replace(/\s+/g, '').slice(0, 3).toUpperCase(),
         })
@@ -536,9 +536,9 @@ export function CampusMessenger({
       list.push({
         roomId: makeBatchRoomId(myCls.className),
         type: 'batch_group',
-        title: `${myCls.fullLabel} • Class Group`,
-        subtitle: `Class Usthad: ${assignedUsthad?.name || 'Usthad'} • ${count} Students`,
-        badgeLabel: myCls.fullLabel,
+        title: `${myCls.fullLabel} Group`,
+        subtitle: `${assignedUsthad?.name || 'Usthad'} · ${count} Students`,
+        badgeLabel: myCls.className,
         batchName: myCls.className,
         avatarText: myCls.className.replace(/\s+/g, '').slice(0, 3).toUpperCase(),
       })
@@ -556,8 +556,8 @@ export function CampusMessenger({
         subtitle: isPrincipalUsthad
           ? 'Principal'
           : isMyClassUsthad
-            ? `Your Class Usthad • ${u.className}`
-            : `${u.designation.split('•')[0].trim()} • ${u.className}`,
+            ? `Class Usthad · ${u.className}`
+            : `Usthad · ${u.className}`,
         badgeLabel: isPrincipalUsthad
           ? 'Principal'
           : isMyClassUsthad
@@ -589,7 +589,7 @@ export function CampusMessenger({
         roomId: makeDirectRoomId(actor.id, st.id),
         type: 'direct_student',
         title: st.name,
-        subtitle: `Student • ${st.className}`,
+        subtitle: st.className,
         badgeLabel: st.className.split('•')[0].trim(),
         batchName: st.className,
         peerId: st.id,
@@ -1432,10 +1432,10 @@ export function CampusMessenger({
                 </span>
                 <div className="min-w-0">
                   <h2 className="truncate font-display text-base font-bold tracking-tight text-foreground">
-                    ICS Campus Messenger
+                    Messenger
                   </h2>
                   <p className="truncate text-[11px] text-muted-foreground">
-                    {actor.name} • {actor.isStaff ? 'Usthad / Admin Mode' : actor.className}
+                    {actor.name}
                   </p>
                 </div>
               </div>
@@ -1486,7 +1486,7 @@ export function CampusMessenger({
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search groups, Usthads, or students..."
+                placeholder="Search chats..."
                 className="h-9 w-full rounded-xl border border-input bg-card pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 dark:focus:border-zinc-500 focus:outline-none"
               />
             </div>
@@ -1494,10 +1494,10 @@ export function CampusMessenger({
             <div className="flex items-center gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {(
                 [
-                  { id: 'all', label: 'All Chats' },
-                  { id: 'groups', label: 'Class Groups' },
-                  ...(actor.isStaff ? [{ id: 'staff', label: 'Staff Room' } as const] : []),
-                  { id: 'usthads', label: 'Usthads (9)' },
+                  { id: 'all', label: 'All' },
+                  { id: 'groups', label: 'Groups' },
+                  ...(actor.isStaff ? [{ id: 'staff', label: 'Staff' } as const] : []),
+                  { id: 'usthads', label: 'Teachers' },
                   { id: 'students', label: 'Students' },
                 ] as const
               ).map((tab) => {
@@ -1861,8 +1861,7 @@ export function CampusMessenger({
                 className="mr-1 inline-block size-3.5 text-emerald-600 dark:text-muted-foreground"
                 aria-hidden="true"
               />
-              Official ICS Academy Manhappatta Campus Messenger. Share study notes, Kitab PDFs, and
-              voice explanations respectfully.
+              Messages and files are private to ICS Academy.
             </div>
 
             {activeMessages.map((msg) => {
@@ -1870,6 +1869,9 @@ export function CampusMessenger({
               const isPinned = activeRoomMeta.pinnedMessageId === msg.id
               const isReadByOthers = msg.readBy.length > 1
               const isSelectedMenuOpen = activeReactionMessageId === msg.id
+              const isImageMessage =
+                !msg.isDeleted && msg.mediaType === 'image' && Boolean(msg.mediaUrl)
+              const isImageOnlyWithoutCaption = isImageMessage && !msg.text
               const reactionEntries = Object.entries(msg.reactions || {}).filter(
                 ([, users]) => Array.isArray(users) && users.length > 0,
               )
@@ -1894,7 +1896,8 @@ export function CampusMessenger({
                       }
                     }}
                     className={cn(
-                      'relative max-w-[86%] sm:max-w-[74%] rounded-2xl px-3.5 py-2 shadow-xs border transition-colors cursor-pointer',
+                      'relative max-w-[86%] sm:max-w-[74%] rounded-2xl shadow-xs transition-colors cursor-pointer',
+                      isImageMessage ? 'p-1 border-0' : 'px-3.5 py-2 border',
                       isMine
                         ? 'rounded-br-xs border-[#bde6b4] bg-[#dcf8c6] text-[#081e21] dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-[#f3f4f6]'
                         : 'rounded-bl-xs border-border bg-card text-foreground dark:border-[#262a33] dark:bg-[#121418] dark:text-[#f3f4f6]',
@@ -1916,17 +1919,22 @@ export function CampusMessenger({
                         className={cn(
                           'absolute right-1.5 top-1.5 z-10 flex size-6 items-center justify-center rounded-full transition-opacity',
                           isSelectedMenuOpen
-                            ? 'opacity-100 bg-black/10 dark:bg-white/10'
-                            : 'opacity-0 group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10',
+                            ? 'opacity-100 bg-black/20 text-white dark:bg-white/15'
+                            : 'opacity-0 group-hover:opacity-100 hover:bg-black/20 dark:hover:bg-white/15',
                         )}
                       >
-                        <MoreVertical className="size-3.5 opacity-75" aria-hidden="true" />
+                        <MoreVertical className="size-3.5 opacity-80" aria-hidden="true" />
                       </button>
                     )}
 
                     {/* Sender Name & Role Header */}
                     {!isMine && (
-                      <div className="mb-1 flex flex-wrap items-center gap-1.5 pr-5">
+                      <div
+                        className={cn(
+                          'mb-1 flex flex-wrap items-center gap-1.5 pr-5',
+                          isImageMessage && 'px-2 pt-1',
+                        )}
+                      >
                         <span
                           className={cn(
                             'text-xs font-bold',
@@ -1978,7 +1986,7 @@ export function CampusMessenger({
                           </button>
                         )}
 
-                        {/* Media Attachment: Clean WhatsApp Voice Note Waveform (No extra text or inner box!) */}
+                        {/* Media Attachment: Clean WhatsApp Voice Note Waveform */}
                         {msg.mediaType === 'voice' && (
                           <div
                             className="flex min-w-[220px] sm:min-w-[250px] items-center gap-2.5 py-1 pr-2"
@@ -2107,11 +2115,11 @@ export function CampusMessenger({
                           </div>
                         )}
 
-                        {/* Media Attachment: Photo / Image Preview */}
+                        {/* Media Attachment: WhatsApp-Style Borderless Photo with Overlaid Timestamp */}
                         {msg.mediaType === 'image' && msg.mediaUrl && (
                           <div
                             onClick={(e) => e.stopPropagation()}
-                            className="my-1 overflow-hidden rounded-xl border border-border/60 dark:border-[#262a33]"
+                            className="relative overflow-hidden rounded-xl border-0"
                           >
                             <button
                               type="button"
@@ -2127,9 +2135,29 @@ export function CampusMessenger({
                                 src={msg.mediaUrl}
                                 alt={msg.mediaName || 'Shared attachment'}
                                 referrerPolicy="no-referrer"
-                                className="max-h-64 w-full object-cover transition-transform hover:scale-[1.01]"
+                                className="block max-h-72 w-full rounded-xl border-0 object-cover"
                               />
                             </button>
+
+                            {isImageOnlyWithoutCaption && (
+                              <div className="pointer-events-none absolute bottom-1.5 right-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] text-white backdrop-blur-[2px]">
+                                {isPinned && (
+                                  <Pin className="size-2.5 opacity-90" aria-label="Pinned message" />
+                                )}
+                                <span className="font-poppins tabular-nums drop-shadow-xs">
+                                  {formatChatTime(msg.createdAtMs)}
+                                </span>
+                                {isMine && !msg.isDeleted && (
+                                  <span className="inline-flex items-center">
+                                    {isReadByOthers ? (
+                                      <CheckCheck className="size-3.5 text-sky-400" aria-label="Read" />
+                                    ) : (
+                                      <Check className="size-3.5 text-white/90" aria-label="Sent" />
+                                    )}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -2138,6 +2166,7 @@ export function CampusMessenger({
                           <p
                             className={cn(
                               'whitespace-pre-wrap break-words pr-3 leading-relaxed',
+                              isImageMessage && 'px-2.5 pt-1.5',
                               chatSettings.chatFontSize === 'small'
                                 ? 'text-[11.5px] sm:text-xs'
                                 : chatSettings.chatFontSize === 'large'
@@ -2151,9 +2180,14 @@ export function CampusMessenger({
                       </>
                     )}
 
-                    {/* Timestamp & WhatsApp Double Tick (✓✓) for non-voice messages */}
-                    {msg.mediaType !== 'voice' && (
-                      <div className="mt-1 flex items-center justify-end gap-1 text-[10px] opacity-75">
+                    {/* Timestamp & WhatsApp Double Tick (✓✓) for non-voice & non-captionless-image messages */}
+                    {msg.mediaType !== 'voice' && !isImageOnlyWithoutCaption && (
+                      <div
+                        className={cn(
+                          'mt-1 flex items-center justify-end gap-1 text-[10px] opacity-75',
+                          isImageMessage && 'px-2 pb-0.5',
+                        )}
+                      >
                         {isPinned && (
                           <Pin className="size-3 opacity-80" aria-label="Pinned message" />
                         )}

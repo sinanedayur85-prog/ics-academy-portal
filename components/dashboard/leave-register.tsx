@@ -594,8 +594,8 @@ export function LeaveRegister({
   return (
     <Panel
       id="leave"
-      eyebrow="Campus Movement & Leave Registry"
-      title="Leave Register"
+      eyebrow="Movement"
+      title="Leave"
       icon={ClipboardList}
       className="border-lime/20"
       action={

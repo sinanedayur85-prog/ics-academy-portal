@@ -190,10 +190,10 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
                 <GraduationCap className="size-3.5 text-lime" aria-hidden="true" />
-                Class / Batch
+                Class
               </dt>
               <dd className="text-right text-xs font-medium text-foreground">
-                Class {student.className} • {student.batch}
+                Class {student.className} ({student.batch})
               </dd>
             </div>
           </dl>
@@ -290,7 +290,7 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
         <span className="hidden flex-col leading-tight sm:flex">
           <span className="text-sm font-semibold text-foreground">{usthad.shortName}</span>
           <span className="text-xs text-muted-foreground">
-            {usthad.designation} • Class {usthad.className}
+            Class {usthad.className}
           </span>
         </span>
         <span className="sr-only">Usthad account profile</span>
@@ -345,10 +345,10 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
                 <GraduationCap className="size-3.5 text-lime" aria-hidden="true" />
-                Assigned Class / Batch
+                Class
               </dt>
               <dd className="text-right text-xs font-medium text-foreground">
-                Class {usthad.className} • {usthad.batch}
+                Class {usthad.className} ({usthad.batch})
               </dd>
             </div>
 
@@ -475,7 +475,7 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
         <span className="hidden flex-col leading-tight sm:flex">
           <span className="text-sm font-semibold text-foreground">{principal.name}</span>
           <span className="text-xs text-muted-foreground">
-            Principal • {principal.staffId}
+            Principal ({principal.staffId})
           </span>
         </span>
         <span className="sr-only">Principal account profile</span>
@@ -530,10 +530,10 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
                 <ShieldCheck className="size-3.5 text-lime" aria-hidden="true" />
-                Executive Scope
+                Role
               </dt>
               <dd className="text-right text-xs font-medium text-foreground">
-                Principal • All 11 Classes
+                Principal (All 11 Classes)
               </dd>
             </div>
 
@@ -542,10 +542,10 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
                 <GraduationCap className="size-3.5 text-cyan" aria-hidden="true" />
-                Class Usthad Role
+                Class
               </dt>
               <dd className="text-right text-xs font-semibold text-cyan">
-                Class {principal.assignedClassName} • {principal.assignedBatch}
+                Class {principal.assignedClassName} ({principal.assignedBatch})
               </dd>
             </div>
 

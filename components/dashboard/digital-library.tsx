@@ -1257,8 +1257,8 @@ export function DigitalLibrary({ student }: { student: Student }) {
   return (
     <Panel
       id="digital-library"
-      eyebrow="Firebase Storage · Academic Kitabs & PDF Repository"
-      title="Digital Library"
+      eyebrow="PDFs"
+      title="Kitabs"
       icon={Library}
       action={
         <div className="flex w-full items-center gap-2 sm:w-auto">
@@ -1270,12 +1270,12 @@ export function DigitalLibrary({ student }: { student: Student }) {
             {showUploadForm ? (
               <>
                 <X className="size-3.5 text-muted-foreground" aria-hidden="true" />
-                Close Upload
+                Close
               </>
             ) : (
               <>
                 <Plus className="size-3.5 text-lime" aria-hidden="true" />
-                Add Kitab PDF
+                Add PDF
               </>
             )}
           </button>
@@ -1286,17 +1286,16 @@ export function DigitalLibrary({ student }: { student: Student }) {
       <div className="flex flex-col gap-4">
         <div className="flex flex-col justify-between gap-2.5 border-b border-border/70 pb-4 lg:flex-row lg:items-center">
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Browse classical Dars Kitabs, Usul treatises, and syllabus PDFs indexed in{' '}
-            <span className="font-mono text-xs text-foreground">kitabs/*</span> on Firebase Storage.
+            Read and download Kitab PDFs.
           </p>
           <p className="text-xs text-muted-foreground tabular-nums sm:whitespace-nowrap sm:shrink-0">
-            <span className="font-semibold text-foreground">{allKitabs.length}</span> Kitabs indexed
+            <span className="font-semibold text-foreground">{allKitabs.length}</span> Kitabs
             {' · '}
             <span className="font-semibold text-foreground">{bookmarkedIds.length}</span> saved
             {storageBucketFiles.length > 0 ? (
               <>
                 {' · '}
-                <span className="font-semibold text-lime">{storageBucketFiles.length}</span> bucket files
+                <span className="font-semibold text-lime">{storageBucketFiles.length}</span> cloud
               </>
             ) : null}
           </p>
@@ -1311,10 +1310,10 @@ export function DigitalLibrary({ student }: { student: Student }) {
             <div className="mb-4 flex items-center justify-between gap-2">
               <div>
                 <h3 className="text-sm font-semibold text-foreground">
-                  Upload & Index Academic Kitab PDF
+                  Upload Kitab PDF
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Uploads the PDF to Firebase Storage (<span className="font-mono">kitabs/&lt;category&gt;/</span>) and indexes metadata in Firestore.
+                  Save PDF to Digital Library.
                 </p>
               </div>
             </div>

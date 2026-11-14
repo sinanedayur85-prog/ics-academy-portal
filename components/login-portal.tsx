@@ -40,59 +40,55 @@ type Role = {
 
 const studentRole: Role = {
   id: 'student',
-  tier: 'Tier 01',
+  tier: 'Student',
   title: 'Student',
-  description: 'View timetables, submit assignments and track your results.',
-  idLabel: 'Admission number',
-  idPlaceholder: 'Enter your Admission Number',
+  description: 'Attendance, Leave, Kitabs & Messenger.',
+  idLabel: 'Student ID',
+  idPlaceholder: 'e.g. ICS2K261401',
   icon: GraduationCap,
   tone: 'lime',
 }
 
 const classLeaderRole: Role = {
   id: 'class-leader',
-  tier: 'Tier 02',
+  tier: 'Leader',
   title: 'Class Leader',
-  description:
-    'Each class has 2 leaders with identical permissions to submit period attendance.',
-  idLabel: 'Class Leader ID or Admission number',
-  idPlaceholder: 'Enter your Class Leader ID or Admission Number',
+  description: 'Submit daily class attendance.',
+  idLabel: 'Leader ID or Student ID',
+  idPlaceholder: 'e.g. CL-14-01 or ICS2K261401',
   icon: Users,
   tone: 'cyan',
 }
 
 const teacherRole: Role = {
   id: 'teacher',
-  tier: 'Tier 03',
+  tier: 'Usthad',
   title: 'Class Usthad',
-  description:
-    'Manage your assigned class attendance, leave register, notices, and digital Kitabs.',
-  idLabel: 'Staff ID or Usthad Name',
-  idPlaceholder: 'Enter your Staff ID',
+  description: 'Manage class attendance, leave & notices.',
+  idLabel: 'Staff ID or Name',
+  idPlaceholder: 'e.g. UST-14',
   icon: BookOpen,
   tone: 'lime',
 }
 
 const englishTeacherRole: Role = {
   id: 'teacher',
-  tier: 'Tier 02',
+  tier: 'Teacher',
   title: 'Class Teacher',
-  description:
-    'Manage your assigned class attendance, leave register, notices, and study materials.',
-  idLabel: 'Staff ID or Teacher Name',
-  idPlaceholder: 'Enter your Staff ID',
+  description: 'Manage class attendance, leave & notices.',
+  idLabel: 'Staff ID or Name',
+  idPlaceholder: 'e.g. UST-09',
   icon: BookOpen,
   tone: 'cyan',
 }
 
 const principalRole: Role = {
   id: 'principal',
-  tier: 'Tier 04',
+  tier: 'Admin',
   title: 'Principal',
-  description:
-    'Oversee all 11 classes, assign substitute Usthads, and declare official holidays.',
+  description: 'Manage all classes, teachers & holidays.',
   idLabel: 'Principal ID',
-  idPlaceholder: 'Enter your Principal ID',
+  idPlaceholder: 'e.g. ADM-001',
   icon: Crown,
   tone: 'cyan',
 }
@@ -109,10 +105,9 @@ export const englishSchoolRoles: Role[] = [
   englishTeacherRole,
   {
     ...principalRole,
-    tier: 'Tier 03',
+    tier: 'Admin',
     tone: 'lime',
-    description:
-      'Oversee all classes, assign substitute teachers, and declare official holidays.',
+    description: 'Manage all classes, teachers & holidays.',
   },
 ]
 

@@ -65,21 +65,21 @@ export function AttendanceCard({ student }: { student: Student }) {
 
   const metrics = [
     {
-      label: 'Present (Working Days Attended)',
+      label: 'Present',
       value: present,
       dot: 'bg-lime',
       bar: 'bg-lime',
       text: 'text-lime',
     },
     {
-      label: 'Absent (On Working Days)',
+      label: 'Absent',
       value: absent,
       dot: 'bg-destructive',
       bar: 'bg-destructive',
       text: 'text-destructive',
     },
     {
-      label: 'Student Personal Leave (On Working Days)',
+      label: 'Leave',
       value: leave,
       dot: 'bg-cyan',
       bar: 'bg-cyan',
@@ -110,8 +110,8 @@ export function AttendanceCard({ student }: { student: Student }) {
   return (
     <Panel
       id="attendance"
-      eyebrow="Working Days & Student Attendance Record"
-      title="Attendance Status"
+      eyebrow="Overview"
+      title="Attendance"
       icon={CalendarCheck}
       action={
         <div className="relative">

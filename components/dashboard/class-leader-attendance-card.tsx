@@ -475,8 +475,8 @@ export function ClassLeaderAttendanceCard({
   return (
     <Panel
       id="class-attendance"
-      eyebrow={eyebrowLabel ?? `Class Leader Duty • ${leader.className}`}
-      title="Class Period Session & Attendance Control"
+      eyebrow={eyebrowLabel ?? leader.className}
+      title="Class Attendance"
       icon={UserCheck}
       action={
         <div className="flex flex-wrap items-center gap-2">
@@ -489,12 +489,12 @@ export function ClassLeaderAttendanceCard({
           {periodStatusCountsForDate.substituted > 0 && (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan/40 bg-cyan/15 px-3 py-1 text-xs font-semibold text-cyan tabular-nums">
               <UserCog className="size-3.5" aria-hidden="true" />
-              {periodStatusCountsForDate.substituted} Substituted
+              {periodStatusCountsForDate.substituted} Sub
             </span>
           )}
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-700 dark:border-lime/40 dark:bg-lime/15 dark:text-lime tabular-nums">
             <UserCheck className="size-3.5" aria-hidden="true" />
-            {periodStatusCountsForDate.totalSubmitted}/{periods.length} Periods Logged
+            {periodStatusCountsForDate.totalSubmitted}/{periods.length} Periods
           </span>
         </div>
       }
@@ -504,23 +504,16 @@ export function ClassLeaderAttendanceCard({
         <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-background/50 p-4 sm:flex-row sm:items-center">
           <div className="flex flex-col gap-1">
             <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-              Period-by-Period Session & Attendance Register • {leader.className}
-            </p>
-            <p className="text-sm text-foreground">
-              Select each period below. If the Usthad did not take the class, mark{' '}
-              <strong className="text-red-500 dark:text-red-400">
-                Class Not Held
-              </strong>{' '}
-              to lock student attendance and alert the Principal.
+              {leader.className} Periods
             </p>
             {classLeaders.length > 0 && (
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Authorized Class Leaders:{' '}
+                Leaders:{' '}
                 {classLeaders.map((cl, idx) => (
                   <span key={cl.leaderId}>
-                    {idx > 0 ? '  •  ' : ''}
+                    {idx > 0 ? '  ·  ' : ''}
                     <strong className="text-cyan">
-                      {cl.roleTitle}: {cl.studentName}
+                      {cl.studentName}
                       {isStaffViewer || cl.studentId === leader.id
                         ? ` (${cl.leaderId})`
                         : ''}

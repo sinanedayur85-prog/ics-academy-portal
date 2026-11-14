@@ -54,12 +54,8 @@ export function NoticeBoard({ studentClass }: { studentClass?: string }) {
   return (
     <Panel
       id="notices"
-      eyebrow={
-        studentClass
-          ? `Announcements & Holiday Schedule • ${studentClass}`
-          : 'Latest announcements & official holiday schedule'
-      }
-      title="Notice Board"
+      eyebrow={studentClass || 'Campus'}
+      title="Notices"
       icon={Megaphone}
       action={
         <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">

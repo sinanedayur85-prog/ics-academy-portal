@@ -44,8 +44,8 @@ export function Timetable({ student }: { student: Student }) {
   return (
     <Panel
       id="timetable"
-      eyebrow="Semester Schedule & Live Today's Session Status"
-      title="Time Table"
+      eyebrow={student.className}
+      title="Timetable"
       icon={CalendarDays}
       action={
         <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-lime/15 dark:text-lime">

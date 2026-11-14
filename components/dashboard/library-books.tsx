@@ -67,7 +67,7 @@ export function LibraryBooks() {
   return (
     <Panel
       id="library"
-      eyebrow="BAHRUL ULOOM RESEARCH CENTRE"
+      eyebrow="Books"
       title="Library"
       icon={BookMarked}
       action={

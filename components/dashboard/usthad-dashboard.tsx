@@ -984,11 +984,10 @@ export function UsthadDashboard() {
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-sans text-xs text-muted-foreground sm:text-sm">
               <p>
-                Assigned Class <span className="font-semibold text-foreground">{activeClassName}</span>
+                Class <span className="font-semibold text-foreground">{activeClassName}</span>
               </p>
-              <span className="text-border" aria-hidden="true">•</span>
               <p>
-                Staff ID <span className="font-mono font-medium tabular-nums text-foreground">{usthad.staffId}</span>
+                ID <span className="font-mono font-medium tabular-nums text-foreground">{usthad.staffId}</span>
               </p>
             </div>
           </div>
@@ -1002,7 +1001,7 @@ export function UsthadDashboard() {
           )}
         >
           <div className="rounded-2xl border border-border bg-card/60 p-4">
-            <p className="text-xs font-medium text-muted-foreground">Total Students</p>
+            <p className="text-xs font-medium text-muted-foreground">Students</p>
             <p className="mt-1.5 font-display text-2xl font-bold tabular-nums text-foreground md:text-3xl">
               {classStudents.length}
             </p>
@@ -1010,27 +1009,27 @@ export function UsthadDashboard() {
           </div>
 
           <div className="rounded-2xl border border-border bg-card/60 p-4">
-            <p className="text-xs font-medium text-muted-foreground">At Academy</p>
+            <p className="text-xs font-medium text-muted-foreground">Present</p>
             <p className="mt-1.5 font-display text-2xl font-bold tabular-nums text-emerald-600 dark:text-lime md:text-3xl">
               {classStudents.length - studentsCurrentlyOnLeave.length}
             </p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Present on campus</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">In Campus</p>
           </div>
 
           <div className="rounded-2xl border border-border bg-card/60 p-4">
-            <p className="text-xs font-medium text-muted-foreground">Currently On Leave</p>
+            <p className="text-xs font-medium text-muted-foreground">On Leave</p>
             <p className="mt-1.5 font-display text-2xl font-bold tabular-nums text-red-500 md:text-3xl">
               {studentsCurrentlyOnLeave.length}
             </p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Active leave outpass</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Leave List</p>
           </div>
 
           <div className="rounded-2xl border border-border bg-card/60 p-4">
-            <p className="text-xs font-medium text-muted-foreground">Class Attendance</p>
+            <p className="text-xs font-medium text-muted-foreground">Attendance</p>
             <p className="mt-1.5 font-display text-2xl font-bold tabular-nums text-cyan md:text-3xl">
               {classAverageAttendance}%
             </p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Academic year average</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Average</p>
           </div>
         </div>
 
@@ -1038,12 +1037,12 @@ export function UsthadDashboard() {
         <div className={cn(mobileTab === 'roster' ? 'block' : 'hidden lg:block')}>
           <Panel
             id="class-roster"
-            eyebrow={`${usthad.fullClassLabel} · Student Directory`}
-            title="Class Students & Profiles"
+            eyebrow={usthad.fullClassLabel}
+            title="Students"
             icon={Users}
           action={
             <span className="text-xs font-medium tabular-nums text-muted-foreground">
-              {filteredRoster.length} of {classStudents.length} students
+              {filteredRoster.length} / {classStudents.length}
             </span>
           }
         >
@@ -1220,8 +1219,8 @@ export function UsthadDashboard() {
         >
         <Panel
           id="usthad-attendance"
-          eyebrow={`${usthad.fullClassLabel} · Monthly Attendance Control`}
-          title="Attendance Status & Update"
+          eyebrow={usthad.fullClassLabel}
+          title="Attendance"
           icon={CalendarCheck}
           action={
             <div className="flex flex-wrap items-center gap-2">
@@ -1652,7 +1651,7 @@ export function UsthadDashboard() {
           <ClassLeaderAttendanceCard
             leader={classStudents[0]}
             leaderId={usthad.staffId}
-            eyebrowLabel={`${usthad.fullClassLabel} · Period-by-Period Attendance`}
+            eyebrowLabel={usthad.fullClassLabel}
             submittedByNameOverride={usthad.shortName}
             highlightLeaderBadge={false}
             actorRoleLabel="Class Usthad"
@@ -1664,12 +1663,12 @@ export function UsthadDashboard() {
         <div className={cn(mobileTab === 'leave' ? 'block' : 'hidden lg:block')}>
         <Panel
           id="usthad-leave"
-          eyebrow={`${usthad.fullClassLabel} · Campus Outpass & Return Registry`}
-          title="Leave Register & Live On-Leave List"
+          eyebrow={usthad.fullClassLabel}
+          title="Leave"
           icon={ClipboardList}
           action={
             <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-              {studentsCurrentlyOnLeave.length} currently on leave
+              {studentsCurrentlyOnLeave.length} on leave
             </span>
           }
         >
@@ -1913,12 +1912,12 @@ export function UsthadDashboard() {
         <div className={cn(mobileTab === 'notices' ? 'block' : 'hidden lg:block')}>
         <Panel
           id="usthad-notices"
-          eyebrow="Campus & Class Announcements"
-          title="Notice Board Management"
+          eyebrow="Notices"
+          title="Notice Board"
           icon={Megaphone}
           action={
             <span className="text-xs font-medium tabular-nums text-muted-foreground">
-              {allNoticesCombined.length} active notices
+              {allNoticesCombined.length} notices
             </span>
           }
         >
@@ -2410,12 +2409,12 @@ export function UsthadDashboard() {
         >
         <Panel
           id="usthad-kitabs"
-          eyebrow="Firebase Storage · Kitab Repository Uploader"
-          title="Digital Library — Add Kitab PDF"
+          eyebrow="Library"
+          title="Upload Kitab"
           icon={Library}
           action={
             <span className="text-xs font-medium tabular-nums text-muted-foreground">
-              {CURATED_KITABS.length + localKitabUploads.length} Kitabs in library
+              {CURATED_KITABS.length + localKitabUploads.length} Kitabs
             </span>
           }
         >

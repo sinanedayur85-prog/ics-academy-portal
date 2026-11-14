@@ -22,21 +22,21 @@ export function ExamResultCard() {
           </span>
           <div className="flex flex-col justify-center">
             <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-lime leading-tight">
-              University Portal
+              Results
             </p>
             <h2
               id="university-portal-title"
               className="mt-0.5 font-display text-xl font-semibold leading-tight text-foreground md:text-2xl"
             >
-              Jamiathul Hind Al Islamiyya Website
+              Jamiathul Hind
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground leading-normal sm:text-sm">
-              Visit the official university portal and academic website.
+              University Portal
             </p>
           </div>
         </div>
         <span className="inline-flex h-11 shrink-0 items-center justify-center gap-2 self-start rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground transition-transform duration-300 md:self-auto">
-          Visit Website
+          Open Portal
           <ArrowUpRight
             className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
             aria-hidden="true"

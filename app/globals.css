@@ -132,12 +132,19 @@ pre {
 @layer base {
   html {
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    font: -apple-system-body;
+    font-size: 100%;
   }
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground font-sans transition-colors duration-300;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    -webkit-font-smoothing: antialiased;
   }
   [dir='rtl'],
   :lang(ar) {

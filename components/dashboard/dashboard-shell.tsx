@@ -42,28 +42,28 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { cn } from '@/lib/utils'
 
 const studentNavItems = [
-  { label: 'Notice Board', href: '#notices', icon: Megaphone },
-  { label: 'Attendance Status', href: '#attendance', icon: CalendarCheck },
-  { label: 'Leave Register', href: '#leave', icon: ClipboardList },
-  { label: 'Campus Messenger', href: '#campus-chat', icon: MessageCircle },
-  { label: "Da'wa College Chatbot", href: '#gemini-chatbot', icon: MessageSquareText },
-  { label: 'Digital Library', href: '#digital-library', icon: Library },
-  { label: 'Library', href: '#library', icon: BookMarked },
-  { label: 'Time Table', href: '#timetable', icon: CalendarDays },
-  { label: 'University Portal', href: '#university-portal', icon: Globe },
+  { label: 'Notices', href: '#notices', icon: Megaphone },
+  { label: 'Attendance', href: '#attendance', icon: CalendarCheck },
+  { label: 'Leave', href: '#leave', icon: ClipboardList },
+  { label: 'Messenger', href: '#campus-chat', icon: MessageCircle },
+  { label: 'AI Guide', href: '#gemini-chatbot', icon: MessageSquareText },
+  { label: 'Kitabs', href: '#digital-library', icon: Library },
+  { label: 'Books', href: '#library', icon: BookMarked },
+  { label: 'Timetable', href: '#timetable', icon: CalendarDays },
+  { label: 'Results', href: '#university-portal', icon: Globe },
 ]
 
 const classLeaderNavItems = [
-  { label: 'Notice Board', href: '#notices', icon: Megaphone },
-  { label: 'Attendance Status', href: '#attendance', icon: CalendarCheck },
+  { label: 'Notices', href: '#notices', icon: Megaphone },
+  { label: 'Attendance', href: '#attendance', icon: CalendarCheck },
   { label: 'Class Attendance', href: '#class-attendance', icon: UserCheck },
-  { label: 'Leave Register', href: '#leave', icon: ClipboardList },
-  { label: 'Campus Messenger', href: '#campus-chat', icon: MessageCircle },
-  { label: "Da'wa College Chatbot", href: '#gemini-chatbot', icon: MessageSquareText },
-  { label: 'Digital Library', href: '#digital-library', icon: Library },
-  { label: 'Library', href: '#library', icon: BookMarked },
-  { label: 'Time Table', href: '#timetable', icon: CalendarDays },
-  { label: 'University Portal', href: '#university-portal', icon: Globe },
+  { label: 'Leave', href: '#leave', icon: ClipboardList },
+  { label: 'Messenger', href: '#campus-chat', icon: MessageCircle },
+  { label: 'AI Guide', href: '#gemini-chatbot', icon: MessageSquareText },
+  { label: 'Kitabs', href: '#digital-library', icon: Library },
+  { label: 'Books', href: '#library', icon: BookMarked },
+  { label: 'Timetable', href: '#timetable', icon: CalendarDays },
+  { label: 'Results', href: '#university-portal', icon: Globe },
 ]
 
 type MobileTabId = 'home' | 'attendance' | 'campus-chat' | 'chatbot' | 'leave' | 'library'
@@ -264,7 +264,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
               <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-lime">
-                {isClassLeader ? "Da'wa College • Class Leader Portal" : "Da'wa College Portal"}
+                {isClassLeader ? 'Class Leader' : 'Student'}
               </p>
               {isClassLeader && (
                 <a
@@ -279,7 +279,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
                   className="inline-flex items-center gap-1.5 rounded-full border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-xs font-bold tracking-wide text-cyan transition-colors hover:bg-cyan/25"
                 >
                   <UserCheck className="size-3.5" aria-hidden="true" />
-                  {leaderRoleTitle} • {leaderId}
+                  {leaderId}
                 </a>
               )}
               <a
@@ -310,10 +310,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
               </a>
             </div>
             <h1 className="mt-1.5 flex flex-col font-display leading-tight text-foreground">
-              <span className="text-xl font-normal text-muted-foreground md:text-2xl">
-                Welcome,
-              </span>
-              <span className="mt-0.5 text-2xl font-semibold tracking-tight whitespace-nowrap text-foreground sm:text-3xl md:text-4xl">
+              <span className="mt-0.5 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl md:text-4xl">
                 {student.firstName}
               </span>
             </h1>
@@ -322,22 +319,18 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
             <p>
               Class <span className="font-medium text-foreground">{student.className}</span>
             </p>
-            <span className="text-border" aria-hidden="true">•</span>
             <p>
-              Admission no. <span className="font-medium tabular-nums text-foreground">{student.admissionNo}</span>
+              ID <span className="font-mono font-medium tabular-nums text-foreground">{student.admissionNo}</span>
             </p>
             {classLeaders.length > 0 && (
-              <>
-                <span className="text-border" aria-hidden="true">•</span>
-                <p>
-                  Class Leaders:{' '}
-                  <span className="font-medium text-cyan">
-                    {classLeaders
-                      .map((cl) => cl.studentName)
-                      .join(' & ')}
-                  </span>
-                </p>
-              </>
+              <p>
+                Leaders:{' '}
+                <span className="font-medium text-cyan">
+                  {classLeaders
+                    .map((cl) => cl.studentName)
+                    .join(' & ')}
+                </span>
+              </p>
             )}
           </div>
         </div>
