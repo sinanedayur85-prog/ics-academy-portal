@@ -475,6 +475,20 @@ export function CampusMessenger({
       return []
     }
   })
+  const [deletedForEveryoneMap, setDeletedForEveryoneMap] = useState<
+    Record<string, { deletedBy: string; deletedById: string }>
+  >(() => {
+    if (typeof window === 'undefined') return {}
+    try {
+      const raw = window.localStorage.getItem('ics_chat_deleted_for_everyone_v1')
+      if (!raw) return {}
+      const parsed = JSON.parse(raw)
+      return parsed && typeof parsed === 'object' ? parsed : {}
+    } catch {
+      return {}
+    }
+  })
+  const longPressTimerRef = useRef<number | null>(null)
   const [showAttachMenu, setShowAttachMenu] = useState(false)
   const [pendingAttachment, setPendingAttachment] = useState<{
     mediaType: 'image' | 'pdf'
@@ -497,6 +511,7 @@ export function CampusMessenger({
   const [showPhotoQualitySheet, setShowPhotoQualitySheet] = useState(false)
   const [photoQualityToast, setPhotoQualityToast] = useState<string | null>(null)
   const [lightboxImage, setLightboxImage] = useState<{
+    messageId?: string
     url: string
     name: string
     quality?: 'standard' | 'hd'
@@ -691,6 +706,18 @@ export function CampusMessenger({
     }
   }, [deletedForMeIds, actor.id])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(
+        'ics_chat_deleted_for_everyone_v1',
+        JSON.stringify(deletedForEveryoneMap),
+      )
+    } catch {
+      // Ignore quota errors
+    }
+  }, [deletedForEveryoneMap])
+
   const isMessageHiddenForMe = useCallback(
     (msg: ChatMessage) => {
       if (deletedForMeIds.includes(msg.id)) return true
@@ -771,6 +798,16 @@ export function CampusMessenger({
         }
 
         if (data.messagesByRoom && Object.keys(data.messagesByRoom).length > 0) {
+          let localDeletedEverMap: Record<string, { deletedBy: string; deletedById: string }> = {}
+          if (typeof window !== 'undefined') {
+            try {
+              const raw = window.localStorage.getItem('ics_chat_deleted_for_everyone_v1')
+              if (raw) localDeletedEverMap = JSON.parse(raw)
+            } catch {
+              // Ignore
+            }
+          }
+
           setMessagesByRoom((prev) => {
             let changed = false
             const next = { ...prev }
@@ -781,15 +818,46 @@ export function CampusMessenger({
               for (const m of localList) byId.set(m.id, m)
               for (const sm of serverMsgs) {
                 const existing = byId.get(sm.id)
+                const localTombstone = localDeletedEverMap[sm.id]
+                const shouldBeDeleted = Boolean(
+                  existing?.isDeleted || sm.isDeleted || localTombstone,
+                )
+                const mergedDeletedFor = Array.from(
+                  new Set([...(existing?.deletedFor ?? []), ...(sm.deletedFor ?? [])]),
+                )
+                const mergedMsg: ChatMessage = shouldBeDeleted
+                  ? {
+                      ...sm,
+                      isDeleted: true,
+                      deletedBy:
+                        existing?.deletedBy ||
+                        sm.deletedBy ||
+                        localTombstone?.deletedBy ||
+                        'Member',
+                      deletedById:
+                        existing?.deletedById ||
+                        sm.deletedById ||
+                        localTombstone?.deletedById,
+                      deletedFor: mergedDeletedFor,
+                      text: '',
+                      mediaType: 'none',
+                      mediaUrl: undefined,
+                    }
+                  : {
+                      ...sm,
+                      deletedFor: mergedDeletedFor,
+                    }
+
                 if (
                   !existing ||
-                  existing.isDeleted !== sm.isDeleted ||
-                  existing.deletedById !== sm.deletedById ||
-                  JSON.stringify(existing.deletedFor ?? []) !== JSON.stringify(sm.deletedFor ?? []) ||
-                  JSON.stringify(existing.reactions) !== JSON.stringify(sm.reactions) ||
-                  existing.readBy.length !== sm.readBy.length
+                  existing.isDeleted !== mergedMsg.isDeleted ||
+                  existing.deletedById !== mergedMsg.deletedById ||
+                  JSON.stringify(existing.deletedFor ?? []) !==
+                    JSON.stringify(mergedMsg.deletedFor ?? []) ||
+                  JSON.stringify(existing.reactions) !== JSON.stringify(mergedMsg.reactions) ||
+                  existing.readBy.length !== mergedMsg.readBy.length
                 ) {
-                  byId.set(sm.id, sm)
+                  byId.set(sm.id, mergedMsg)
                   changed = true
                 }
               }
@@ -1539,6 +1607,10 @@ export function CampusMessenger({
 
   const handleDeleteForEveryone = (messageId: string) => {
     const rId = activeRoom.roomId
+    setDeletedForEveryoneMap((prev) => ({
+      ...prev,
+      [messageId]: { deletedBy: actor.name, deletedById: actor.id },
+    }))
     setMessagesByRoom((prev) => {
       const list = prev[rId] ?? []
       return {
@@ -1563,6 +1635,7 @@ export function CampusMessenger({
     }
     setDeleteModalMessage(null)
     setActiveReactionMessageId(null)
+    setLightboxImage(null)
     void sendChatActionToServer({
       action: 'delete_message',
       deleteMode: 'everyone',
@@ -1590,6 +1663,7 @@ export function CampusMessenger({
     })
     setDeleteModalMessage(null)
     setActiveReactionMessageId(null)
+    setLightboxImage(null)
     void sendChatActionToServer({
       action: 'delete_message',
       deleteMode: 'me',
@@ -2125,41 +2199,99 @@ export function CampusMessenger({
                         prev === msg.id ? null : msg.id,
                       )
                     }}
+                    onContextMenu={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setShowAttachMenu(false)
+                      setActiveReactionMessageId(msg.id)
+                      setDeleteModalMessage(msg)
+                    }}
+                    onTouchStart={() => {
+                      if (longPressTimerRef.current) {
+                        window.clearTimeout(longPressTimerRef.current)
+                      }
+                      longPressTimerRef.current = window.setTimeout(() => {
+                        setActiveReactionMessageId(msg.id)
+                        setDeleteModalMessage(msg)
+                      }, 420)
+                    }}
+                    onTouchEnd={() => {
+                      if (longPressTimerRef.current) {
+                        window.clearTimeout(longPressTimerRef.current)
+                        longPressTimerRef.current = null
+                      }
+                    }}
+                    onTouchMove={() => {
+                      if (longPressTimerRef.current) {
+                        window.clearTimeout(longPressTimerRef.current)
+                        longPressTimerRef.current = null
+                      }
+                    }}
                     className={cn(
-                      'relative max-w-[86%] sm:max-w-[74%] rounded-2xl shadow-xs transition-colors cursor-pointer',
-                      isImageMessage ? 'p-1 border-0' : 'px-3.5 py-2 border',
+                      'relative max-w-[86%] sm:max-w-[74%] rounded-2xl shadow-xs transition-colors cursor-pointer select-none',
+                      isImageMessage ? 'p-1 border-0' : 'px-3.5 py-2 pr-14 border',
                       isMine
                         ? 'rounded-br-xs border-[#bde6b4] bg-[#dcf8c6] text-[#081e21] dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-[#f3f4f6]'
                         : 'rounded-bl-xs border-border bg-card text-foreground dark:border-[#262a33] dark:bg-[#121418] dark:text-[#f3f4f6]',
-                      isSelectedMenuOpen && 'ring-1 ring-emerald-500/40 dark:ring-zinc-600',
+                      isSelectedMenuOpen && 'ring-2 ring-emerald-500/60 dark:ring-zinc-500',
                     )}
                   >
-                    {/* Subtle WhatsApp Three-Dots (⋮) Trigger in Top-Right Corner */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setShowAttachMenu(false)
-                        setActiveReactionMessageId((prev) =>
-                          prev === msg.id ? null : msg.id,
-                        )
-                      }}
-                      aria-label="Message options"
+                    {/* Always-Visible Touch-Friendly Delete & Options Buttons in Top-Right Corner (Works on iPad, iPhone, Android & Desktop) */}
+                    <div
                       className={cn(
-                        'absolute right-1.5 top-1.5 z-10 flex size-6 items-center justify-center rounded-full transition-opacity',
-                        isSelectedMenuOpen
-                          ? 'opacity-100 bg-black/20 text-white dark:bg-white/15'
-                          : 'opacity-0 group-hover:opacity-100 hover:bg-black/20 dark:hover:bg-white/15',
+                        'absolute right-1.5 top-1.5 z-20 flex items-center gap-1',
+                        isImageMessage &&
+                          'right-2 top-2 rounded-full bg-black/55 px-1 py-0.5 text-white backdrop-blur-[2px]',
                       )}
                     >
-                      <MoreVertical className="size-3.5 opacity-80" aria-hidden="true" />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowAttachMenu(false)
+                          setActiveReactionMessageId(null)
+                          setDeleteModalMessage(msg)
+                        }}
+                        title="Delete message"
+                        aria-label="Delete message"
+                        className={cn(
+                          'flex size-6 items-center justify-center rounded-full transition-colors',
+                          isImageMessage
+                            ? 'text-white/95 hover:bg-white/20'
+                            : 'text-red-500/80 hover:bg-red-500/15 hover:text-red-500 dark:text-red-400/85',
+                        )}
+                      >
+                        <Trash2 className="size-3.5" aria-hidden="true" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowAttachMenu(false)
+                          setActiveReactionMessageId((prev) =>
+                            prev === msg.id ? null : msg.id,
+                          )
+                        }}
+                        aria-label="Message options"
+                        className={cn(
+                          'flex size-6 items-center justify-center rounded-full transition-colors',
+                          isSelectedMenuOpen
+                            ? 'bg-black/20 text-white dark:bg-white/20'
+                            : isImageMessage
+                              ? 'text-white/95 hover:bg-white/20'
+                              : 'text-foreground/70 hover:bg-black/10 dark:text-zinc-300 dark:hover:bg-white/15',
+                        )}
+                      >
+                        <MoreVertical className="size-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
 
                     {/* Sender Name & Role Header */}
                     {!isMine && (
                       <div
                         className={cn(
-                          'mb-1 flex flex-wrap items-center gap-1.5 pr-5',
+                          'mb-1 flex flex-wrap items-center gap-1.5 pr-12',
                           isImageMessage && 'px-2 pt-1',
                         )}
                       >
@@ -2219,13 +2351,13 @@ export function CampusMessenger({
 
                         {/* Media Attachment: Clean WhatsApp Voice Note Waveform */}
                         {msg.mediaType === 'voice' && (
-                          <div
-                            className="flex min-w-[220px] sm:min-w-[250px] items-center gap-2.5 py-1 pr-2"
-                            onClick={(e) => e.stopPropagation()}
-                          >
+                          <div className="flex min-w-[220px] sm:min-w-[250px] items-center gap-2.5 py-1 pr-2">
                             <button
                               type="button"
-                              onClick={() => handleTogglePlayVoice(msg)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleTogglePlayVoice(msg)
+                              }}
                               aria-label={
                                 playingMessageId === msg.id
                                   ? 'Pause voice message'
@@ -2278,7 +2410,10 @@ export function CampusMessenger({
                                 <div className="flex items-center gap-1.5">
                                   <button
                                     type="button"
-                                    onClick={handleCyclePlaybackRate}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleCyclePlaybackRate()
+                                    }}
                                     className="rounded-full bg-black/10 px-1.5 py-0.2 font-poppins text-[10px] font-semibold dark:bg-white/10"
                                   >
                                     {playbackRate}x
@@ -2314,7 +2449,6 @@ export function CampusMessenger({
                         {/* Media Attachment: PDF Document Card */}
                         {msg.mediaType === 'pdf' && (
                           <div
-                            onClick={(e) => e.stopPropagation()}
                             className={cn(
                               'my-1 flex items-center justify-between gap-3 rounded-xl border border-border/70 p-2.5 dark:border-[#262a33]',
                               isMine
@@ -2337,7 +2471,10 @@ export function CampusMessenger({
                             </div>
                             <button
                               type="button"
-                              onClick={() => handleOpenOrDownloadPdf(msg)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenOrDownloadPdf(msg)
+                              }}
                               className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-emerald-600 px-2.5 text-[11px] font-bold text-white transition-colors hover:bg-emerald-700 dark:border dark:border-[#262a33] dark:bg-[#222630] dark:text-zinc-100 dark:hover:bg-zinc-700"
                             >
                               <Download className="size-3.5" aria-hidden="true" />
@@ -2348,20 +2485,19 @@ export function CampusMessenger({
 
                         {/* Media Attachment: WhatsApp-Style Borderless Photo with Overlaid Timestamp & HD Badge */}
                         {msg.mediaType === 'image' && msg.mediaUrl && (
-                          <div
-                            onClick={(e) => e.stopPropagation()}
-                            className="relative overflow-hidden rounded-xl border-0"
-                          >
+                          <div className="relative overflow-hidden rounded-xl border-0">
                             <button
                               type="button"
-                              onClick={() =>
+                              onClick={(e) => {
+                                e.stopPropagation()
                                 setLightboxImage({
+                                  messageId: msg.id,
                                   url: msg.mediaUrl!,
                                   name: msg.mediaName || 'Campus Photo',
                                   quality: msg.imageQuality,
                                   dimensions: msg.imageDimensions,
                                 })
-                              }
+                              }}
                               className="block w-full text-left"
                             >
                               <img
@@ -2412,7 +2548,7 @@ export function CampusMessenger({
                         {msg.mediaType !== 'voice' && msg.text && (
                           <p
                             className={cn(
-                              'whitespace-pre-wrap break-words pr-3 leading-relaxed',
+                              'whitespace-pre-wrap break-words pr-1 leading-relaxed',
                               isImageMessage && 'px-2.5 pt-1.5',
                               chatSettings.chatFontSize === 'small'
                                 ? 'text-[11.5px] sm:text-xs'
@@ -2487,7 +2623,7 @@ export function CampusMessenger({
                       )}
 
                       {/* WhatsApp-Style Action Dropdown Menu */}
-                      <div className="flex min-w-[155px] flex-col overflow-hidden rounded-2xl border border-border bg-card py-1 text-xs shadow-xl dark:border-[#262a33] dark:bg-[#121418]">
+                      <div className="flex min-w-[180px] flex-col overflow-hidden rounded-2xl border border-border bg-card py-1 text-xs shadow-xl dark:border-[#262a33] dark:bg-[#121418]">
                         {!msg.isDeleted && (
                           <button
                             type="button"
@@ -2505,7 +2641,7 @@ export function CampusMessenger({
                               })
                               setActiveReactionMessageId(null)
                             }}
-                            className="flex items-center gap-2.5 px-3.5 py-2 text-left font-medium text-foreground transition-colors hover:bg-muted"
+                            className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium text-foreground transition-colors hover:bg-muted"
                           >
                             <Reply className="size-3.5 text-muted-foreground" aria-hidden="true" />
                             <span>Reply</span>
@@ -2519,23 +2655,31 @@ export function CampusMessenger({
                               handleTogglePinMessage(msg.id)
                               setActiveReactionMessageId(null)
                             }}
-                            className="flex items-center gap-2.5 px-3.5 py-2 text-left font-medium text-foreground transition-colors hover:bg-muted"
+                            className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium text-foreground transition-colors hover:bg-muted"
                           >
                             <Pin className="size-3.5 text-muted-foreground" aria-hidden="true" />
                             <span>{isPinned ? 'Unpin Message' : 'Pin Message'}</span>
                           </button>
                         )}
 
+                        {!msg.isDeleted && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteForEveryone(msg.id)}
+                            className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-semibold text-red-500 transition-colors hover:bg-red-500/10"
+                          >
+                            <Trash2 className="size-3.5" aria-hidden="true" />
+                            <span>Delete for everyone</span>
+                          </button>
+                        )}
+
                         <button
                           type="button"
-                          onClick={() => {
-                            setDeleteModalMessage(msg)
-                            setActiveReactionMessageId(null)
-                          }}
-                          className="flex items-center gap-2.5 px-3.5 py-2 text-left font-medium text-red-500 transition-colors hover:bg-red-500/10"
+                          onClick={() => handleDeleteForMe(msg.id)}
+                          className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-semibold text-red-500 transition-colors hover:bg-red-500/10"
                         >
                           <Trash2 className="size-3.5" aria-hidden="true" />
-                          <span>Delete</span>
+                          <span>Delete for me</span>
                         </button>
                       </div>
                     </div>
@@ -3537,6 +3681,22 @@ export function CampusMessenger({
                 )}
               </div>
               <div className="flex items-center gap-2">
+                {lightboxImage.messageId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const found = activeMessages.find((m) => m.id === lightboxImage.messageId)
+                      if (found) {
+                        setLightboxImage(null)
+                        setDeleteModalMessage(found)
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-500/20 px-2.5 py-1 text-[11px] font-bold text-red-300 hover:bg-red-500/30"
+                  >
+                    <Trash2 className="size-3.5" aria-hidden="true" />
+                    <span>Delete</span>
+                  </button>
+                )}
                 <a
                   href={lightboxImage.url}
                   download={lightboxImage.name}
