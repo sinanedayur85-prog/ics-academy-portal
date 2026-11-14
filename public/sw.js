@@ -1,5 +1,5 @@
 // ICS Academy Service Worker for Instant Black Launch & Offline Support
-const CACHE_NAME = 'ics-academy-pwa-v24';
+const CACHE_NAME = 'ics-academy-pwa-v25';
 const PRECACHE_URLS = [
   '/',
   '/index.html',

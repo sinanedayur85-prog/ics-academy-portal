@@ -282,7 +282,7 @@ export function useAppUpdater() {
           try {
             const keys = await window.caches.keys()
             await Promise.all(keys.map((k) => window.caches.delete(k)))
-            const freshCache = await window.caches.open('ics-academy-pwa-v24')
+            const freshCache = await window.caches.open('ics-academy-pwa-v25')
             const freshHtml = await fetch('/', { cache: 'reload' })
             if (freshHtml && freshHtml.ok) {
               await freshCache.put('/', freshHtml.clone())

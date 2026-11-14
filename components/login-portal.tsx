@@ -232,7 +232,7 @@ export function LoginPortal({
     <section
       id={id}
       className={cn(
-        'relative overflow-hidden border-t border-border bg-card/40 transition-colors duration-300',
+        'relative overflow-hidden border-t border-border bg-background transition-colors duration-300',
         className,
       )}
     >
