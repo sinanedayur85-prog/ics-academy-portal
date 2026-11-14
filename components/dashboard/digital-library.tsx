@@ -40,6 +40,7 @@ import {
 } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import { ACADEMY_CLASSES, type Student } from '@/components/dashboard/data'
+import { ThemeSelect } from '@/components/ui/theme-select'
 import { downloadBlobOnDevice } from '@/lib/mobile-pdf'
 import {
   KitabPdfCanvasViewer,
@@ -1368,7 +1369,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
                 <Label htmlFor="kitab-upload-category" className="text-xs">
                   Subject Category
                 </Label>
-                <select
+                <ThemeSelect
                   id="kitab-upload-category"
                   value={uploadCategory}
                   onChange={(e) => setUploadCategory(e.target.value as KitabCategory)}
@@ -1380,7 +1381,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
                   <option value="aqeedah">Aqeedah & Tasawwuf (الْعَقِيدَةُ وَالتَّصَوُّفُ)</option>
                   <option value="nahw">Nahw & Sarf (النَّحْوُ وَالصَّرْفُ)</option>
                   <option value="history">History & Da&apos;wa (التَّارِيخُ وَالدَّعْوَةُ)</option>
-                </select>
+                </ThemeSelect>
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -1669,8 +1670,6 @@ export function DigitalLibrary({ student }: { student: Student }) {
                         <p className="min-w-0 flex-1 break-words text-xs font-medium leading-relaxed text-muted-foreground">
                           <span className="font-semibold text-lime">{CATEGORY_LABELS[kitab.category]}</span>
                           {' · '}
-                          <span>{kitab.classBatch}</span>
-                          {' · '}
                           <span className="tabular-nums">{kitab.pages} pp.</span>
                           {' · '}
                           <span>{kitab.language}</span>
@@ -1846,8 +1845,6 @@ export function DigitalLibrary({ student }: { student: Student }) {
                   <span className="font-semibold text-lime">
                     {CATEGORY_LABELS[activeReaderKitab.category]}
                   </span>
-                  {' · '}
-                  <span>{activeReaderKitab.classBatch}</span>
                   {' · '}
                   <span className="font-mono">{activeReaderKitab.storagePath}</span>
                   {' · '}

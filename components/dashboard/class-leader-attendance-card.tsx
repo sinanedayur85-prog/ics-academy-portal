@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ThemeSelect } from '@/components/ui/theme-select'
 import {
   ABSENT_REASONS,
   ATTENDANCE_LEAVE_REASONS,
@@ -475,7 +476,7 @@ export function ClassLeaderAttendanceCard({
   return (
     <Panel
       id="class-attendance"
-      eyebrow={eyebrowLabel ?? leader.className}
+      eyebrow={eyebrowLabel ?? (isStaffViewer ? leader.className : 'Daily Register')}
       title="Class Attendance"
       icon={UserCheck}
       action={
@@ -504,7 +505,7 @@ export function ClassLeaderAttendanceCard({
         <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-background/50 p-4 sm:flex-row sm:items-center">
           <div className="flex flex-col gap-1">
             <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-              {leader.className} Periods
+              {isStaffViewer ? `${leader.className} Periods` : 'Daily Periods'}
             </p>
             {classLeaders.length > 0 && (
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -775,7 +776,7 @@ export function ClassLeaderAttendanceCard({
                       Student attendance can be recorded normally when a substitute Usthad conducts the class.
                     </span>
                   </div>
-                  <select
+                  <ThemeSelect
                     aria-label="Select Substitute Usthad"
                     value={draftSubstituteUsthadId}
                     onChange={(e) => {
@@ -789,7 +790,7 @@ export function ClassLeaderAttendanceCard({
                         {u.name} ({u.staffId} • {u.className})
                       </option>
                     ))}
-                  </select>
+                  </ThemeSelect>
                 </div>
               )}
 
@@ -1032,17 +1033,17 @@ export function ClassLeaderAttendanceCard({
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-muted-foreground tabular-nums sm:hidden">
-                        {isStaffViewer || student.id === leader.id
-                          ? student.admissionNo
-                          : student.className}
-                      </span>
+                      {(isStaffViewer || student.id === leader.id) && (
+                        <span className="text-xs text-muted-foreground tabular-nums sm:hidden">
+                          {student.admissionNo}
+                        </span>
+                      )}
                     </div>
 
                     <span className="hidden text-xs font-medium text-muted-foreground tabular-nums sm:inline">
                       {isStaffViewer || student.id === leader.id
                         ? student.admissionNo
-                        : student.className}
+                        : ''}
                     </span>
 
                     <div
@@ -1195,8 +1196,7 @@ export function ClassLeaderAttendanceCard({
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Submitting saves {activePeriod.label} ({activePeriod.subject}) attendance and selected Absent/Leave reasons for{' '}
-                <span className="font-medium text-foreground">{leader.className}</span>.
+                Submitting saves {activePeriod.label} ({activePeriod.subject}) attendance and selected Absent/Leave reasons.
               </p>
             )}
           </div>

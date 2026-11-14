@@ -57,6 +57,7 @@ import {
 } from 'firebase/storage'
 import { AppUpdateButton } from '@/components/app-update-manager'
 import { BrandLogoMark, BrandWordmark } from '@/components/brand-wordmark'
+import { ThemeSelect } from '@/components/ui/theme-select'
 import {
   CampusNotificationBar,
   CampusNotificationBell,
@@ -1500,7 +1501,7 @@ export function PrincipalDashboard() {
                       <Label htmlFor="quick-class-select" className="text-xs">
                         Select Class
                       </Label>
-                      <select
+                      <ThemeSelect
                         id="quick-class-select"
                         value={quickClassName}
                         onChange={(e) => setQuickClassName(e.target.value)}
@@ -1511,14 +1512,14 @@ export function PrincipalDashboard() {
                             {u.className} ({u.shortName})
                           </option>
                         ))}
-                      </select>
+                      </ThemeSelect>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="quick-period-select" className="text-xs">
                         Select Period (1–5)
                       </Label>
-                      <select
+                      <ThemeSelect
                         id="quick-period-select"
                         value={quickPeriodIndex}
                         onChange={(e) => setQuickPeriodIndex(Number(e.target.value))}
@@ -1529,14 +1530,14 @@ export function PrincipalDashboard() {
                             Period {pIdx}
                           </option>
                         ))}
-                      </select>
+                      </ThemeSelect>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="quick-reason-select" className="text-xs">
                         Reason
                       </Label>
-                      <select
+                      <ThemeSelect
                         id="quick-reason-select"
                         value={quickNotHeldReason}
                         onChange={(e) => setQuickNotHeldReason(e.target.value)}
@@ -1547,14 +1548,14 @@ export function PrincipalDashboard() {
                             {r}
                           </option>
                         ))}
-                      </select>
+                      </ThemeSelect>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="quick-sub-select" className="text-xs">
                         Substitute Usthad (Optional)
                       </Label>
-                      <select
+                      <ThemeSelect
                         id="quick-sub-select"
                         value={quickSubstituteUsthadId}
                         onChange={(e) => setQuickSubstituteUsthadId(e.target.value)}
@@ -1566,7 +1567,7 @@ export function PrincipalDashboard() {
                             {u.name} ({u.staffId})
                           </option>
                         ))}
-                      </select>
+                      </ThemeSelect>
                     </div>
                   </div>
 
@@ -1692,7 +1693,7 @@ export function PrincipalDashboard() {
                           </div>
 
                           <div className="flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
-                            <select
+                            <ThemeSelect
                               aria-label={`Assign substitute Usthad for ${row.className} ${cell.label}`}
                               value={defaultSubUsthadId}
                               onChange={(e) =>
@@ -1708,7 +1709,7 @@ export function PrincipalDashboard() {
                                   Sub: {u.name} ({u.staffId})
                                 </option>
                               ))}
-                            </select>
+                            </ThemeSelect>
 
                             <div className="flex items-center gap-1.5">
                               <Button
@@ -1904,7 +1905,7 @@ export function PrincipalDashboard() {
                   <Label htmlFor="switch-inspect-class" className="text-xs font-semibold">
                     Switch Class:
                   </Label>
-                  <select
+                  <ThemeSelect
                     id="switch-inspect-class"
                     value={selectedClassName}
                     onChange={(e) => {
@@ -1919,7 +1920,7 @@ export function PrincipalDashboard() {
                         {u.className} ({u.shortName})
                       </option>
                     ))}
-                  </select>
+                  </ThemeSelect>
                 </div>
               </div>
 
@@ -2330,7 +2331,7 @@ export function PrincipalDashboard() {
                           <Label htmlFor="pr-edit-student" className="text-xs">
                             Select Student
                           </Label>
-                          <select
+                          <ThemeSelect
                             id="pr-edit-student"
                             value={selectedStudentId}
                             onChange={(e) => setSelectedStudentId(e.target.value)}
@@ -2341,14 +2342,14 @@ export function PrincipalDashboard() {
                                 {s.name} ({s.admissionNo} · {s.className})
                               </option>
                             ))}
-                          </select>
+                          </ThemeSelect>
                         </div>
 
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor="pr-edit-month" className="text-xs">
                             Select Month
                           </Label>
-                          <select
+                          <ThemeSelect
                             id="pr-edit-month"
                             value={selectedMonthId}
                             onChange={(e) => setSelectedMonthId(e.target.value)}
@@ -2359,7 +2360,7 @@ export function PrincipalDashboard() {
                                 {m.month} {m.year} ({m.workingDays} Working Days)
                               </option>
                             ))}
-                          </select>
+                          </ThemeSelect>
                         </div>
                       </div>
 
@@ -2413,7 +2414,7 @@ export function PrincipalDashboard() {
                           <Label htmlFor="pr-absent-reason" className="text-xs text-red-500">
                             Absent Reason
                           </Label>
-                          <select
+                          <ThemeSelect
                             id="pr-absent-reason"
                             value={editAbsentReason}
                             onChange={(e) => setEditAbsentReason(e.target.value)}
@@ -2424,7 +2425,7 @@ export function PrincipalDashboard() {
                                 {r}
                               </option>
                             ))}
-                          </select>
+                          </ThemeSelect>
                         </div>
                       )}
 
@@ -2433,7 +2434,7 @@ export function PrincipalDashboard() {
                           <Label htmlFor="pr-leave-reason" className="text-xs text-amber-500">
                             Leave Reason
                           </Label>
-                          <select
+                          <ThemeSelect
                             id="pr-leave-reason"
                             value={editLeaveReason}
                             onChange={(e) => setEditLeaveReason(e.target.value)}
@@ -2444,7 +2445,7 @@ export function PrincipalDashboard() {
                                 {r}
                               </option>
                             ))}
-                          </select>
+                          </ThemeSelect>
                         </div>
                       )}
 
@@ -2478,7 +2479,7 @@ export function PrincipalDashboard() {
                           <Label htmlFor="pr-leave-student" className="text-xs">
                             Select Student
                           </Label>
-                          <select
+                          <ThemeSelect
                             id="pr-leave-student"
                             value={leaveStudentId}
                             onChange={(e) => setLeaveStudentId(e.target.value)}
@@ -2489,14 +2490,14 @@ export function PrincipalDashboard() {
                                 {s.name} ({s.admissionNo} · {s.className})
                               </option>
                             ))}
-                          </select>
+                          </ThemeSelect>
                         </div>
 
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor="pr-leave-action" className="text-xs">
                             Action
                           </Label>
-                          <select
+                          <ThemeSelect
                             id="pr-leave-action"
                             value={leaveActionType}
                             onChange={(e) =>
@@ -2506,7 +2507,7 @@ export function PrincipalDashboard() {
                           >
                             <option value="application">Grant Leave</option>
                             <option value="return">Mark Returned</option>
-                          </select>
+                          </ThemeSelect>
                         </div>
                       </div>
 
@@ -2515,7 +2516,7 @@ export function PrincipalDashboard() {
                           <Label htmlFor="pr-leave-reason-select" className="text-xs">
                             Reason
                           </Label>
-                          <select
+                          <ThemeSelect
                             id="pr-leave-reason-select"
                             value={leaveReason}
                             onChange={(e) => setLeaveReason(e.target.value)}
@@ -2526,7 +2527,7 @@ export function PrincipalDashboard() {
                                 {r}
                               </option>
                             ))}
-                          </select>
+                          </ThemeSelect>
                         </div>
                       )}
 
@@ -2590,7 +2591,7 @@ export function PrincipalDashboard() {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
-                        <select
+                        <ThemeSelect
                           aria-label="Filter by Class"
                           value={directoryClassFilter}
                           onChange={(e) => setDirectoryClassFilter(e.target.value)}
@@ -2602,9 +2603,9 @@ export function PrincipalDashboard() {
                               {u.className}
                             </option>
                           ))}
-                        </select>
+                        </ThemeSelect>
 
-                        <select
+                        <ThemeSelect
                           aria-label="Filter by Campus Status"
                           value={directoryStatusFilter}
                           onChange={(e) =>
@@ -2617,7 +2618,7 @@ export function PrincipalDashboard() {
                           <option value="all">All Status</option>
                           <option value="academy">Present in Academy</option>
                           <option value="leave">Currently on Leave</option>
-                        </select>
+                        </ThemeSelect>
                       </div>
                     </div>
 
@@ -2757,7 +2758,7 @@ export function PrincipalDashboard() {
                     <Label htmlFor="pr-notice-category" className="text-xs">
                       Category
                     </Label>
-                    <select
+                    <ThemeSelect
                       id="pr-notice-category"
                       value={noticeCategory}
                       onChange={(e) =>
@@ -2769,7 +2770,7 @@ export function PrincipalDashboard() {
                       <option value="Hostel">Hostel</option>
                       <option value="Exam">Exam</option>
                       <option value="Event">Event</option>
-                    </select>
+                    </ThemeSelect>
                   </div>
                 </div>
 
@@ -2779,7 +2780,7 @@ export function PrincipalDashboard() {
                       <Label htmlFor="pr-holiday-month" className="text-xs">
                         Target Month (June – May)
                       </Label>
-                      <select
+                      <ThemeSelect
                         id="pr-holiday-month"
                         value={holidayMonthId}
                         onChange={(e) => setHolidayMonthId(e.target.value)}
@@ -2790,7 +2791,7 @@ export function PrincipalDashboard() {
                             {m.month} {m.year}
                           </option>
                         ))}
-                      </select>
+                      </ThemeSelect>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
@@ -2812,7 +2813,7 @@ export function PrincipalDashboard() {
                       <Label htmlFor="pr-holiday-type" className="text-xs">
                         Holiday Classification
                       </Label>
-                      <select
+                      <ThemeSelect
                         id="pr-holiday-type"
                         value={holidayType}
                         onChange={(e) =>
@@ -2827,7 +2828,7 @@ export function PrincipalDashboard() {
                         </option>
                         <option value="festival-holiday">Festival / Special Holiday</option>
                         <option value="custom-holiday">Custom Official Holiday</option>
-                      </select>
+                      </ThemeSelect>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
@@ -3128,7 +3129,7 @@ export function PrincipalDashboard() {
                     <Label htmlFor="pr-kitab-cat" className="text-xs">
                       Subject Category
                     </Label>
-                    <select
+                    <ThemeSelect
                       id="pr-kitab-cat"
                       value={kitabCategory}
                       onChange={(e) => setKitabCategory(e.target.value as KitabCategory)}
@@ -3140,14 +3141,14 @@ export function PrincipalDashboard() {
                       <option value="aqeedah">Aqeedah & Tasawwuf (الْعَقِيدَةُ وَالتَّصَوُّفُ)</option>
                       <option value="nahw">Nahw & Sarf (النَّحْوُ وَالصَّرْفُ)</option>
                       <option value="history">History & Da&apos;wa (التَّارِيخُ وَالدَّعْوَةُ)</option>
-                    </select>
+                    </ThemeSelect>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="pr-kitab-batch" className="text-xs">
                       Target Class
                     </Label>
-                    <select
+                    <ThemeSelect
                       id="pr-kitab-batch"
                       value={kitabBatchLabel}
                       onChange={(e) => setKitabBatchLabel(e.target.value)}
@@ -3159,7 +3160,7 @@ export function PrincipalDashboard() {
                           {u.fullClassLabel}
                         </option>
                       ))}
-                    </select>
+                    </ThemeSelect>
                   </div>
 
                   <div className="flex flex-col gap-1.5">

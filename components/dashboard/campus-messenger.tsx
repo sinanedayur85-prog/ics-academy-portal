@@ -32,6 +32,7 @@ import {
   Volume2,
   X,
 } from 'lucide-react'
+import { ThemeSelect } from '@/components/ui/theme-select'
 import {
   ACADEMY_CLASSES,
   ACADEMY_PRINCIPAL,
@@ -580,54 +581,42 @@ export function CampusMessenger({
         return 0
       })
       for (const cls of orderedClasses) {
-        const assignedUsthad = CLASS_USTHADS.find((u) => u.className === cls.className)
-        const count = students.filter((s) => s.className === cls.className).length
+        const isOwnClass = cls.className === actor.className
         list.push({
           roomId: makeBatchRoomId(cls.className),
           type: 'batch_group',
-          title: `${cls.fullLabel} Group`,
-          subtitle: `${assignedUsthad?.name || 'Class Usthad'} · ${count} Students`,
-          badgeLabel: cls.className,
+          title: isOwnClass ? 'My Class Group' : `${cls.fullLabel} Group`,
+          subtitle: '',
+          badgeLabel: '',
           batchName: cls.className,
-          avatarText: cls.className.replace(/\s+/g, '').slice(0, 3).toUpperCase(),
+          avatarText: 'CG',
         })
       }
     } else {
-      // Student sees ONLY their own class group
+      // Student sees ONLY their own class group as "My Class Group"
       const myCls =
         ACADEMY_CLASSES.find((c) => c.className === actor.className) ?? ACADEMY_CLASSES[0]
-      const assignedUsthad = CLASS_USTHADS.find((u) => u.className === myCls.className)
-      const count = students.filter((s) => s.className === myCls.className).length
       list.push({
         roomId: makeBatchRoomId(myCls.className),
         type: 'batch_group',
-        title: `${myCls.fullLabel} Group`,
-        subtitle: `${assignedUsthad?.name || 'Usthad'} · ${count} Students`,
-        badgeLabel: myCls.className,
+        title: 'My Class Group',
+        subtitle: '',
+        badgeLabel: '',
         batchName: myCls.className,
-        avatarText: myCls.className.replace(/\s+/g, '').slice(0, 3).toUpperCase(),
+        avatarText: 'CG',
       })
     }
 
-    // 3. Direct Chats with all 9 Teaching & Class Usthads (Principal, Swadr & Class Usthads)
+    // 3. Direct Chats with all 9 Teaching & Class Usthads (Show only name)
     for (const u of OFFICIAL_CLASS_USTHADS) {
       if (u.id === actor.id) continue
-      const isMyClassUsthad = u.className === actor.className
       const isPrincipalUsthad = u.id === ACADEMY_PRINCIPAL.usthadId
       list.push({
         roomId: makeDirectRoomId(actor.id, u.id),
         type: 'direct_usthad',
         title: u.name,
-        subtitle: isPrincipalUsthad
-          ? 'Principal'
-          : isMyClassUsthad
-            ? `Class Usthad · ${u.className}`
-            : `Usthad · ${u.className}`,
-        badgeLabel: isPrincipalUsthad
-          ? 'Principal'
-          : isMyClassUsthad
-            ? 'Class Usthad'
-            : 'Usthad',
+        subtitle: '',
+        badgeLabel: '',
         batchName: u.className,
         peerId: u.id,
         peerRole: isPrincipalUsthad ? 'principal' : 'usthad',
@@ -638,8 +627,7 @@ export function CampusMessenger({
       })
     }
 
-    // 4. Direct Chats with Students
-    // Always include students who already have messages with this user + students in the active batch filter
+    // 4. Direct Chats with Students (Show only name)
     const targetStudents = students.filter((s) => {
       if (s.id === actor.id) return false
       const dId = makeDirectRoomId(actor.id, s.id)
@@ -654,8 +642,8 @@ export function CampusMessenger({
         roomId: makeDirectRoomId(actor.id, st.id),
         type: 'direct_student',
         title: st.name,
-        subtitle: st.className,
-        badgeLabel: st.className.split('•')[0].trim(),
+        subtitle: '',
+        badgeLabel: '',
         batchName: st.className,
         peerId: st.id,
         peerRole: 'student',
@@ -1820,26 +1808,26 @@ export function CampusMessenger({
               })}
             </div>
 
-            {/* Class selector when viewing Students tab */}
-            {categoryFilter === 'students' && (
+            {/* Class selector when viewing Students tab (Staff only) */}
+            {categoryFilter === 'students' && actor.isStaff && (
               <div className="flex items-center justify-between gap-2 pt-0.5">
                 <span className="text-[11px] font-medium text-muted-foreground">
-                  Filter Class:
+                  Filter:
                 </span>
-                <select
+                <ThemeSelect
                   value={studentBatchFilter}
                   onChange={(e) => setStudentBatchFilter(e.target.value)}
-                  aria-label="Filter students by class"
+                  aria-label="Filter students"
                   className="h-8 flex-1 rounded-lg border border-input bg-card px-2.5 text-xs font-semibold text-foreground"
                 >
-                  <option value={actor.className}>My Class ({actor.className})</option>
-                  <option value="ALL">All 11 Classes ({students.length} Students)</option>
+                  <option value={actor.className}>My Class</option>
+                  <option value="ALL">All Students ({students.length})</option>
                   {ACADEMY_CLASSES.map((c) => (
                     <option key={c.id} value={c.className}>
                       {c.fullLabel}
                     </option>
                   ))}
-                </select>
+                </ThemeSelect>
               </div>
             )}
           </div>
@@ -1921,9 +1909,11 @@ export function CampusMessenger({
                       )}
                     </div>
 
-                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                      {room.subtitle}
-                    </p>
+                    {room.subtitle ? (
+                      <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                        {room.subtitle}
+                      </p>
+                    ) : null}
 
                     <div className="mt-1 flex items-center justify-between gap-2">
                       {roomTyping ? (
@@ -2028,9 +2018,11 @@ export function CampusMessenger({
                   <h3 className="truncate font-poppins text-sm font-bold text-foreground sm:text-base">
                     {activeRoom.title}
                   </h3>
-                  <span className="hidden rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground sm:inline-block">
-                    {activeRoom.badgeLabel}
-                  </span>
+                  {activeRoom.badgeLabel ? (
+                    <span className="hidden rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground sm:inline-block">
+                      {activeRoom.badgeLabel}
+                    </span>
+                  ) : null}
                 </div>
 
                 {activeTypingBanner ? (
@@ -2039,17 +2031,21 @@ export function CampusMessenger({
                   </p>
                 ) : (() => {
                     const headerStatus = getOpenChatHeaderStatus(activeRoom)
-                    return (
-                      <p className="truncate text-[11px] text-muted-foreground">
-                        {headerStatus.isOnlineNow ? (
-                          <span className="font-medium text-emerald-600 dark:text-zinc-300">
-                            online
-                          </span>
-                        ) : (
-                          headerStatus.text
-                        )}
-                      </p>
-                    )
+                    if (headerStatus.isOnlineNow) {
+                      return (
+                        <p className="truncate text-[11px] font-medium text-emerald-600 dark:text-zinc-300">
+                          online
+                        </p>
+                      )
+                    }
+                    if (headerStatus.text) {
+                      return (
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {headerStatus.text}
+                        </p>
+                      )
+                    }
+                    return null
                   })()}
               </div>
             </div>
@@ -2259,7 +2255,7 @@ export function CampusMessenger({
                       <MoreVertical className="size-3.5" aria-hidden="true" />
                     </button>
 
-                    {/* Sender Name & Role Header */}
+                    {/* Sender Name Header (Name only) */}
                     {!isMine && (
                       <div
                         className={cn(
@@ -2279,11 +2275,6 @@ export function CampusMessenger({
                         >
                           {msg.senderName}
                         </span>
-                        {msg.senderBadge && (
-                          <span className="text-[10px] text-muted-foreground">
-                            · {msg.senderBadge.replace(/\s*•\s*(?:ICS|UST|ADM|CL|ACL)[^\s]*/gi, '')}
-                          </span>
-                        )}
                       </div>
                     )}
 
@@ -3013,9 +3004,6 @@ export function CampusMessenger({
                     >
                       <div className="min-w-0">
                         <p className="truncate text-xs font-bold text-foreground">{u.name}</p>
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {u.className} • {u.staffId}
-                        </p>
                       </div>
                       <span className="rounded-lg border border-border bg-muted px-2 py-1 text-[10px] font-bold text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
                         Message
@@ -3028,21 +3016,23 @@ export function CampusMessenger({
               <div>
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Students ({studentBatchFilter})
+                    Students
                   </p>
-                  <select
-                    value={studentBatchFilter}
-                    onChange={(e) => setStudentBatchFilter(e.target.value)}
-                    className="h-7 rounded-lg border border-input bg-background px-2 text-[11px] font-semibold dark:border-[#262a33] dark:bg-[#0a0b0e]"
-                  >
-                    <option value={actor.className}>My Class ({actor.className})</option>
-                    <option value="ALL">All Classes</option>
-                    {ACADEMY_CLASSES.map((c) => (
-                      <option key={c.id} value={c.className}>
-                        Class {c.className}
-                      </option>
-                    ))}
-                  </select>
+                  {actor.isStaff && (
+                    <ThemeSelect
+                      value={studentBatchFilter}
+                      onChange={(e) => setStudentBatchFilter(e.target.value)}
+                      className="h-7 rounded-lg border border-input bg-background px-2 text-[11px] font-semibold dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                    >
+                      <option value={actor.className}>My Class</option>
+                      <option value="ALL">All Classes</option>
+                      {ACADEMY_CLASSES.map((c) => (
+                        <option key={c.id} value={c.className}>
+                          Class {c.className}
+                        </option>
+                      ))}
+                    </ThemeSelect>
+                  )}
                 </div>
                 <div className="grid gap-1.5">
                   {students
@@ -3061,13 +3051,10 @@ export function CampusMessenger({
                           setMobileShowChatPane(true)
                           setShowNewChatModal(false)
                         }}
-                        className="flex items-center justify-between rounded-2xl border border-border bg-background/70 px-3.5 py-2 text-left transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                        className="flex items-center justify-between rounded-2xl border border-border bg-background/70 px-3.5 py-2.5 text-left transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
                       >
                         <div className="min-w-0">
                           <p className="truncate text-xs font-bold text-foreground">{st.name}</p>
-                          <p className="truncate text-[11px] text-muted-foreground">
-                            {st.className}
-                          </p>
                         </div>
                         <span className="rounded-lg border border-border bg-muted px-2 py-1 text-[10px] font-bold text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
                           Chat

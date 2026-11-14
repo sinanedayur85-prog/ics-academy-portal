@@ -54,7 +54,7 @@ export function NoticeBoard({ studentClass }: { studentClass?: string }) {
   return (
     <Panel
       id="notices"
-      eyebrow={studentClass || 'Campus'}
+      eyebrow="Campus"
       title="Notices"
       icon={Megaphone}
       action={
@@ -114,17 +114,19 @@ export function NoticeBoard({ studentClass }: { studentClass?: string }) {
                     >
                       {notice.category}
                     </span>
-                    <span
-                      className={cn(
-                        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.7rem] font-semibold',
-                        isBatchSpecific
-                          ? 'border-cyan/40 bg-cyan/15 text-cyan'
-                          : 'border-border bg-muted/60 text-muted-foreground',
-                      )}
-                    >
-                      <Users className="size-3" aria-hidden="true" />
-                      {targetBadgeText}
-                    </span>
+                    {!studentClass && (
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.7rem] font-semibold',
+                          isBatchSpecific
+                            ? 'border-cyan/40 bg-cyan/15 text-cyan'
+                            : 'border-border bg-muted/60 text-muted-foreground',
+                        )}
+                      >
+                        <Users className="size-3" aria-hidden="true" />
+                        {targetBadgeText}
+                      </span>
+                    )}
                     {hMeta?.isOfficialHoliday ? (
                       <span className="inline-flex items-center gap-1 rounded-full border border-lime/40 bg-lime/15 px-2.5 py-0.5 text-[0.7rem] font-bold text-emerald-700 dark:text-lime">
                         <CalendarClock className="size-3" aria-hidden="true" />
@@ -174,7 +176,7 @@ export function NoticeBoard({ studentClass }: { studentClass?: string }) {
 
                       <div className="flex flex-col justify-between gap-0.5 border-t border-border/60 pt-2 sm:border-t-0 sm:border-l sm:pl-3 sm:pt-0">
                         <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                          Working Days Impact ({targetBadgeText})
+                          Working Days Impact{!studentClass ? ` (${targetBadgeText})` : ''}
                         </span>
                         <span className="font-semibold text-emerald-700 dark:text-lime">
                           -{hMeta.holidayDaysDeducted} Days Excluded ({monthLabel ?? hMeta.monthId})

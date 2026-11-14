@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarCheck, CalendarClock, ChevronDown, Search } from 'lucide-react'
+import { CalendarCheck, CalendarClock, Search } from 'lucide-react'
+import { ThemeSelect } from '@/components/ui/theme-select'
 import {
   ABSENT_REASONS,
   ATTENDANCE_LEAVE_REASONS,
@@ -118,11 +119,11 @@ export function AttendanceCard({ student }: { student: Student }) {
           <label htmlFor="attendance-month-select" className="sr-only">
             Select attendance month
           </label>
-          <select
+          <ThemeSelect
             id="attendance-month-select"
             value={selectedPeriodId}
             onChange={(e) => setSelectedPeriodId(e.target.value)}
-            className="h-9 appearance-none rounded-xl border border-input bg-muted/60 pr-8 pl-3 text-xs font-semibold text-foreground transition-colors outline-none hover:border-foreground/25 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 dark:[color-scheme:dark]"
+            className="h-9 rounded-xl border border-input bg-muted/60 px-3 text-xs font-semibold text-foreground transition-colors outline-none hover:border-foreground/25 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             {months.map((m) => (
               <option key={m.id} value={m.id}>
@@ -132,11 +133,7 @@ export function AttendanceCard({ student }: { student: Student }) {
             <option value="overall">
               All Months (Overall — {effective.attendance.workingDays} Working Days)
             </option>
-          </select>
-          <ChevronDown
-            className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
+          </ThemeSelect>
         </div>
       }
     >

@@ -16,7 +16,6 @@ import {
   AlertCircle,
   CalendarClock,
   CheckCircle2,
-  ChevronDown,
   ClipboardList,
   Clock,
   Cloud,
@@ -25,6 +24,7 @@ import {
   LogOut,
   Search,
 } from 'lucide-react'
+import { ThemeSelect } from '@/components/ui/theme-select'
 import {
   ABSENT_REASONS,
   ATTENDANCE_LEAVE_REASONS,
@@ -785,7 +785,7 @@ export function LeaveRegister({
             <label htmlFor="leave-search-category" className="sr-only">
               Record Category
             </label>
-            <select
+            <ThemeSelect
               id="leave-search-category"
               value={filterRecordCategory}
               onChange={(e) => {
@@ -799,28 +799,28 @@ export function LeaveRegister({
                 )
                 setShowAllMatchingRecords(true)
               }}
-              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none dark:[color-scheme:dark]"
+              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none"
             >
               <option value="all">All Record Types</option>
               <option value="leave-departure">Leave Departures</option>
               <option value="campus-return">Campus Returns</option>
               <option value="period-absent-leave">Period Absent / Leave</option>
               <option value="monthly-absent-leave">Monthly Absent / Leave</option>
-            </select>
+            </ThemeSelect>
           </div>
 
           <div>
             <label htmlFor="leave-search-month" className="sr-only">
               Filter by Month
             </label>
-            <select
+            <ThemeSelect
               id="leave-search-month"
               value={filterMonth}
               onChange={(e) => {
                 setFilterMonth(e.target.value)
                 setShowAllMatchingRecords(true)
               }}
-              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none dark:[color-scheme:dark]"
+              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none"
             >
               <option value="all">All Months (June – May)</option>
               {ACADEMIC_MONTHS.map((m) => (
@@ -828,21 +828,21 @@ export function LeaveRegister({
                   {m}
                 </option>
               ))}
-            </select>
+            </ThemeSelect>
           </div>
 
           <div>
             <label htmlFor="leave-search-year" className="sr-only">
               Filter by Year
             </label>
-            <select
+            <ThemeSelect
               id="leave-search-year"
               value={filterYear}
               onChange={(e) => {
                 setFilterYear(e.target.value)
                 setShowAllMatchingRecords(true)
               }}
-              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none dark:[color-scheme:dark]"
+              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none"
             >
               <option value="all">All Years</option>
               {BASE_YEARS.map((y) => (
@@ -850,7 +850,7 @@ export function LeaveRegister({
                   {y}
                 </option>
               ))}
-            </select>
+            </ThemeSelect>
           </div>
 
           <div className="grid grid-cols-2 gap-1.5">
@@ -858,14 +858,14 @@ export function LeaveRegister({
               <label htmlFor="leave-search-day" className="sr-only">
                 Filter by Day
               </label>
-              <select
+              <ThemeSelect
                 id="leave-search-day"
                 value={filterDay}
                 onChange={(e) => {
                   setFilterDay(e.target.value)
                   setShowAllMatchingRecords(true)
                 }}
-                className="h-9 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none dark:[color-scheme:dark]"
+                className="h-9 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none"
               >
                 <option value="all">Any Day</option>
                 {DAYS.map((d) => (
@@ -873,26 +873,26 @@ export function LeaveRegister({
                     Day {d}
                   </option>
                 ))}
-              </select>
+              </ThemeSelect>
             </div>
 
             <div>
               <label htmlFor="leave-search-time" className="sr-only">
                 Filter by Time
               </label>
-              <select
+              <ThemeSelect
                 id="leave-search-time"
                 value={filterPeriodTime}
                 onChange={(e) => {
                   setFilterPeriodTime(e.target.value)
                   setShowAllMatchingRecords(true)
                 }}
-                className="h-9 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none dark:[color-scheme:dark]"
+                className="h-9 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none"
               >
                 <option value="all">Any Time</option>
                 <option value="AM">Morning (AM)</option>
                 <option value="PM">Afternoon/Eve (PM)</option>
-              </select>
+              </ThemeSelect>
             </div>
           </div>
         </div>
@@ -961,7 +961,7 @@ function SuccessMessage({ message }: { message: string }) {
 }
 
 const selectTriggerClassName =
-  'h-11 w-full min-w-0 rounded-lg border border-input bg-background/90 pl-2 pr-6 sm:pl-3 sm:pr-8 text-xs sm:text-sm font-medium tabular-nums cursor-pointer appearance-none transition-all hover:border-lime/40 focus-visible:border-lime focus-visible:ring-3 focus-visible:ring-lime/30 text-foreground outline-none dark:[color-scheme:dark]'
+  'h-11 w-full min-w-0 rounded-lg border border-input bg-background/90 px-2 sm:px-3 text-xs sm:text-sm font-medium tabular-nums cursor-pointer transition-all hover:border-lime/40 focus-visible:border-lime focus-visible:ring-3 focus-visible:ring-lime/30 text-foreground outline-none'
 
 type DateSelectGroupProps = {
   idPrefix: string
@@ -985,7 +985,7 @@ function DateSelectGroup({ idPrefix, label, value, onChange }: DateSelectGroupPr
           <label htmlFor={`${idPrefix}-day`} className="sr-only">
             Day
           </label>
-          <select
+          <ThemeSelect
             id={`${idPrefix}-day`}
             name={`${idPrefix}Day`}
             required
@@ -994,22 +994,18 @@ function DateSelectGroup({ idPrefix, label, value, onChange }: DateSelectGroupPr
             className={selectTriggerClassName}
           >
             {DAYS.map((day) => (
-              <option key={day} value={day} className="bg-card text-foreground">
+              <option key={day} value={day}>
                 {day}
               </option>
             ))}
-          </select>
-          <ChevronDown
-            className="pointer-events-none absolute top-1/2 right-1.5 sm:right-2.5 size-3.5 sm:size-4 -translate-y-1/2 text-lime"
-            aria-hidden="true"
-          />
+          </ThemeSelect>
         </div>
 
         <div className="relative">
           <label htmlFor={`${idPrefix}-month`} className="sr-only">
             Month
           </label>
-          <select
+          <ThemeSelect
             id={`${idPrefix}-month`}
             name={`${idPrefix}Month`}
             required
@@ -1018,22 +1014,18 @@ function DateSelectGroup({ idPrefix, label, value, onChange }: DateSelectGroupPr
             className={selectTriggerClassName}
           >
             {ACADEMIC_MONTHS.map((month) => (
-              <option key={month} value={month} className="bg-card text-foreground">
+              <option key={month} value={month}>
                 {month}
               </option>
             ))}
-          </select>
-          <ChevronDown
-            className="pointer-events-none absolute top-1/2 right-1.5 sm:right-2.5 size-3.5 sm:size-4 -translate-y-1/2 text-lime"
-            aria-hidden="true"
-          />
+          </ThemeSelect>
         </div>
 
         <div className="relative">
           <label htmlFor={`${idPrefix}-year`} className="sr-only">
             Year
           </label>
-          <select
+          <ThemeSelect
             id={`${idPrefix}-year`}
             name={`${idPrefix}Year`}
             required
@@ -1042,15 +1034,11 @@ function DateSelectGroup({ idPrefix, label, value, onChange }: DateSelectGroupPr
             className={cn(selectTriggerClassName, 'font-semibold text-lime')}
           >
             {yearOptions.map((yr) => (
-              <option key={yr} value={yr} className="bg-card text-foreground">
+              <option key={yr} value={yr}>
                 {yr}
               </option>
             ))}
-          </select>
-          <ChevronDown
-            className="pointer-events-none absolute top-1/2 right-1.5 sm:right-2.5 size-3.5 sm:size-4 -translate-y-1/2 text-lime"
-            aria-hidden="true"
-          />
+          </ThemeSelect>
         </div>
       </div>
     </div>
@@ -1075,7 +1063,7 @@ function TimeSelectGroup({ idPrefix, label, value, onChange }: TimeSelectGroupPr
           <label htmlFor={`${idPrefix}-hour`} className="sr-only">
             Hour
           </label>
-          <select
+          <ThemeSelect
             id={`${idPrefix}-hour`}
             name={`${idPrefix}Hour`}
             required
@@ -1084,22 +1072,18 @@ function TimeSelectGroup({ idPrefix, label, value, onChange }: TimeSelectGroupPr
             className={selectTriggerClassName}
           >
             {HOURS.map((hr) => (
-              <option key={hr} value={hr} className="bg-card text-foreground">
+              <option key={hr} value={hr}>
                 {hr}
               </option>
             ))}
-          </select>
-          <ChevronDown
-            className="pointer-events-none absolute top-1/2 right-1.5 sm:right-2.5 size-3.5 sm:size-4 -translate-y-1/2 text-lime"
-            aria-hidden="true"
-          />
+          </ThemeSelect>
         </div>
 
         <div className="relative">
           <label htmlFor={`${idPrefix}-minute`} className="sr-only">
             Minute
           </label>
-          <select
+          <ThemeSelect
             id={`${idPrefix}-minute`}
             name={`${idPrefix}Minute`}
             required
@@ -1108,22 +1092,18 @@ function TimeSelectGroup({ idPrefix, label, value, onChange }: TimeSelectGroupPr
             className={selectTriggerClassName}
           >
             {MINUTES.map((min) => (
-              <option key={min} value={min} className="bg-card text-foreground">
+              <option key={min} value={min}>
                 {min}
               </option>
             ))}
-          </select>
-          <ChevronDown
-            className="pointer-events-none absolute top-1/2 right-1.5 sm:right-2.5 size-3.5 sm:size-4 -translate-y-1/2 text-lime"
-            aria-hidden="true"
-          />
+          </ThemeSelect>
         </div>
 
         <div className="relative">
           <label htmlFor={`${idPrefix}-period`} className="sr-only">
             AM or PM
           </label>
-          <select
+          <ThemeSelect
             id={`${idPrefix}-period`}
             name={`${idPrefix}Period`}
             required
@@ -1132,15 +1112,11 @@ function TimeSelectGroup({ idPrefix, label, value, onChange }: TimeSelectGroupPr
             className={cn(selectTriggerClassName, 'font-semibold text-lime')}
           >
             {PERIODS.map((p) => (
-              <option key={p} value={p} className="bg-card text-foreground">
+              <option key={p} value={p}>
                 {p}
               </option>
             ))}
-          </select>
-          <ChevronDown
-            className="pointer-events-none absolute top-1/2 right-1.5 sm:right-2.5 size-3.5 sm:size-4 -translate-y-1/2 text-lime"
-            aria-hidden="true"
-          />
+          </ThemeSelect>
         </div>
       </div>
     </div>
@@ -1265,7 +1241,7 @@ function LeaveApplicationForm({
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="leave-reason">Reason</Label>
-        <select
+        <ThemeSelect
           id="leave-reason"
           name="reason"
           required
@@ -1277,11 +1253,11 @@ function LeaveApplicationForm({
             Select a reason
           </option>
           {leaveReasons.map((r) => (
-            <option key={r} value={r} className="bg-card">
+            <option key={r} value={r}>
               {r}
             </option>
           ))}
-        </select>
+        </ThemeSelect>
       </div>
 
       {showDetails ? (

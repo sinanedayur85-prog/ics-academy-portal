@@ -2972,7 +2972,7 @@ export function GeminiChatbot({
                   </span>
                 </h3>
                 <p className="truncate text-[11px] text-muted-foreground">
-                  Private chat for {student.name} · {student.className}
+                  Private chat for {student.name}
                 </p>
               </div>
             </div>

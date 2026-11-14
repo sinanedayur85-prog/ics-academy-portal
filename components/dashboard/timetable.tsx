@@ -44,7 +44,7 @@ export function Timetable({ student }: { student: Student }) {
   return (
     <Panel
       id="timetable"
-      eyebrow={student.className}
+      eyebrow="Schedule"
       title="Timetable"
       icon={CalendarDays}
       action={

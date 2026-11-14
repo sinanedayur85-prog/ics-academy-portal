@@ -191,7 +191,7 @@ jobs:
             const launchSplashXml = `<?xml version="1.0" encoding="utf-8"?>
           <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
               <item>
-                  <color android:color="#FFFFFF" />
+                  <color android:color="#0A0B0E" />
               </item>
               <item
                   android:width="180dp"
@@ -208,11 +208,11 @@ jobs:
             const stylesXml = `<?xml version="1.0" encoding="utf-8"?>
           <resources>
               <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
-                  <item name="colorPrimary">#081E21</item>
-                  <item name="colorPrimaryDark">#081E21</item>
+                  <item name="colorPrimary">#0A0B0E</item>
+                  <item name="colorPrimaryDark">#0A0B0E</item>
                   <item name="colorAccent">#8CC63F</item>
                   <item name="android:statusBarColor">@android:color/transparent</item>
-                  <item name="android:navigationBarColor">#081E21</item>
+                  <item name="android:navigationBarColor">#0A0B0E</item>
                   <item name="android:windowDrawsSystemBarBackgrounds">true</item>
                   <item name="android:windowTranslucentStatus">false</item>
               </style>
@@ -221,7 +221,7 @@ jobs:
                   <item name="windowNoTitle">true</item>
                   <item name="android:background">@null</item>
                   <item name="android:statusBarColor">@android:color/transparent</item>
-                  <item name="android:navigationBarColor">#081E21</item>
+                  <item name="android:navigationBarColor">#0A0B0E</item>
                   <item name="android:windowDrawsSystemBarBackgrounds">true</item>
                   <item name="android:windowTranslucentStatus">false</item>
                   <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
@@ -323,7 +323,7 @@ jobs:
                   window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
                   window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
                   window.setStatusBarColor(Color.TRANSPARENT);
-                  window.setNavigationBarColor(Color.parseColor("#081E21"));
+                  window.setNavigationBarColor(Color.parseColor("#0A0B0E"));
 
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                       WindowManager.LayoutParams lp = window.getAttributes();
@@ -338,7 +338,7 @@ jobs:
 
                   if (this.bridge != null && this.bridge.getWebView() != null) {
                       final WebView webView = this.bridge.getWebView();
-                      webView.setBackgroundColor(Color.parseColor("#081E21"));
+                      webView.setBackgroundColor(Color.parseColor("#0A0B0E"));
                       webView.getSettings().setJavaScriptEnabled(true);
                       webView.getSettings().setDomStorageEnabled(true);
                       webView.getSettings().setMediaPlaybackRequiresUserGesture(false);

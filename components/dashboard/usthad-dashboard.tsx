@@ -43,6 +43,7 @@ import {
   Users,
   X,
 } from 'lucide-react'
+import { ThemeSelect } from '@/components/ui/theme-select'
 import { AppUpdateButton } from '@/components/app-update-manager'
 import { BrandLogoMark, BrandWordmark } from '@/components/brand-wordmark'
 import {
@@ -1228,44 +1229,36 @@ export function UsthadDashboard() {
                 <label htmlFor="usthad-att-student" className="sr-only">
                   Select student
                 </label>
-                <select
+                <ThemeSelect
                   id="usthad-att-student"
                   value={selectedStudent?.id ?? ''}
                   onChange={(e) => setSelectedStudentId(e.target.value)}
-                  className="h-9 appearance-none rounded-xl border border-input bg-muted/60 pr-8 pl-3 text-xs font-semibold text-foreground outline-none hover:border-foreground/25 focus-visible:border-ring dark:[color-scheme:dark]"
+                  className="h-9 rounded-xl border border-input bg-muted/60 px-3 text-xs font-semibold text-foreground outline-none hover:border-foreground/25 focus-visible:border-ring"
                 >
                   {classStudents.map((st) => (
                     <option key={st.id} value={st.id}>
                       {st.name} ({st.admissionNo})
                     </option>
                   ))}
-                </select>
-                <ChevronDown
-                  className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden="true"
-                />
+                </ThemeSelect>
               </div>
 
               <div className="relative">
                 <label htmlFor="usthad-att-month" className="sr-only">
                   Select month
                 </label>
-                <select
+                <ThemeSelect
                   id="usthad-att-month"
                   value={selectedMonthId}
                   onChange={(e) => setSelectedMonthId(e.target.value)}
-                  className="h-9 appearance-none rounded-xl border border-input bg-muted/60 pr-8 pl-3 text-xs font-semibold text-foreground outline-none hover:border-foreground/25 focus-visible:border-ring dark:[color-scheme:dark]"
+                  className="h-9 rounded-xl border border-input bg-muted/60 px-3 text-xs font-semibold text-foreground outline-none hover:border-foreground/25 focus-visible:border-ring"
                 >
                   {selectedStudentEffective?.monthlyAttendance.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.month} {m.year}
                     </option>
                   ))}
-                </select>
-                <ChevronDown
-                  className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden="true"
-                />
+                </ThemeSelect>
               </div>
 
               {selectedStudent ? (
@@ -1800,7 +1793,7 @@ export function UsthadDashboard() {
                 <Label htmlFor="usthad-leave-student" className="text-xs">
                   Student ({usthad.className})
                 </Label>
-                <select
+                <ThemeSelect
                   id="usthad-leave-student"
                   value={leaveStudentId}
                   onChange={(e) => setLeaveStudentId(e.target.value)}
@@ -1811,7 +1804,7 @@ export function UsthadDashboard() {
                       {st.name} ({st.admissionNo})
                     </option>
                   ))}
-                </select>
+                </ThemeSelect>
               </div>
 
               <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-border bg-background/60 p-1">
@@ -1951,7 +1944,7 @@ export function UsthadDashboard() {
                   <Label htmlFor="notice-category-select" className="text-xs">
                     Category
                   </Label>
-                  <select
+                  <ThemeSelect
                     id="notice-category-select"
                     value={noticeCategory}
                     onChange={(e) => setNoticeCategory(e.target.value as Notice['category'])}
@@ -1961,7 +1954,7 @@ export function UsthadDashboard() {
                     <option value="Exam">Exam</option>
                     <option value="Event">Event</option>
                     <option value="Hostel">Hostel</option>
-                  </select>
+                  </ThemeSelect>
                 </div>
 
                 <div className="flex flex-col justify-end">
@@ -2136,7 +2129,7 @@ export function UsthadDashboard() {
                       <Label htmlFor="holiday-type-select" className="text-[11px]">
                         Holiday Type
                       </Label>
-                      <select
+                      <ThemeSelect
                         id="holiday-type-select"
                         value={holidayType}
                         onChange={(e) => {
@@ -2148,7 +2141,7 @@ export function UsthadDashboard() {
                             setHolidayDaysDeducted('3')
                           }
                         }}
-                        className="h-9 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground dark:[color-scheme:dark]"
+                        className="h-9 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground"
                       >
                         <option value="monthly-second-saturday">
                           Monthly 2nd Saturday Leave (Thu/Fri → Sun/Mon)
@@ -2156,7 +2149,7 @@ export function UsthadDashboard() {
                         <option value="festival-celebration">
                           Festival / Celebration Leave (Eid / Perunnal 7–10d)
                         </option>
-                      </select>
+                      </ThemeSelect>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">
@@ -2164,18 +2157,18 @@ export function UsthadDashboard() {
                         <Label htmlFor="holiday-month-select" className="text-[11px]">
                           Target Month
                         </Label>
-                        <select
+                        <ThemeSelect
                           id="holiday-month-select"
                           value={holidayMonthId}
                           onChange={(e) => setHolidayMonthId(e.target.value)}
-                          className="h-9 rounded-lg border border-input bg-background px-2 text-xs text-foreground dark:[color-scheme:dark]"
+                          className="h-9 rounded-lg border border-input bg-background px-2 text-xs text-foreground"
                         >
                           {MONTHS_META.map((m) => (
                             <option key={m.id} value={m.id}>
                               {m.shortMonth} {m.year}
                             </option>
                           ))}
-                        </select>
+                        </ThemeSelect>
                       </div>
 
                       <div className="flex flex-col gap-1">
@@ -2469,7 +2462,7 @@ export function UsthadDashboard() {
                 <Label htmlFor="usthad-kitab-category" className="text-xs">
                   Subject Category
                 </Label>
-                <select
+                <ThemeSelect
                   id="usthad-kitab-category"
                   value={kitabCategory}
                   onChange={(e) => setKitabCategory(e.target.value as KitabCategory)}
@@ -2481,7 +2474,7 @@ export function UsthadDashboard() {
                   <option value="aqeedah">Aqeedah & Tasawwuf (الْعَقِيدَةُ وَالتَّصَوُّفُ)</option>
                   <option value="nahw">Nahw & Sarf (النَّحْوُ وَالصَّرْفُ)</option>
                   <option value="history">History & Da&apos;wa (التَّارِيخُ وَالدَّعْوَةُ)</option>
-                </select>
+                </ThemeSelect>
               </div>
 
               <div className="flex flex-col gap-1.5">
