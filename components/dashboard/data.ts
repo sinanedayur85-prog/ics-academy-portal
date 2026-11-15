@@ -2366,7 +2366,68 @@ export type CampusNotification = {
   createdAtMs: number
 }
 
+export const DEVICE_BOUND_IDENTITY_STORAGE_KEY = 'ics_device_bound_identity_v1'
+
+export type DeviceBoundIdentity = {
+  role: 'student' | 'class-leader' | 'usthad' | 'principal'
+  actorId: string
+  actorName: string
+  className: string
+  assignedClasses: string[]
+  isStaff: boolean
+  isPrincipal: boolean
+  boundAtMs: number
+}
+
+export function bindDeviceNotificationIdentity(
+  identity: Omit<DeviceBoundIdentity, 'boundAtMs'>,
+  options?: { forceOverwritePrimaryOwner?: boolean },
+): void {
+  if (typeof window === 'undefined' || !identity.actorId) return
+  try {
+    const existing = loadDeviceBoundIdentity()
+    // If this phone already has a Primary Owner and a different person (e.g. a friend) logs in,
+    // DO NOT overwrite the phone's Primary Owner unless forceOverwritePrimaryOwner is explicitly true!
+    if (
+      existing &&
+      existing.actorId &&
+      existing.actorId !== identity.actorId &&
+      !options?.forceOverwritePrimaryOwner
+    ) {
+      return
+    }
+    const payload: DeviceBoundIdentity = {
+      ...identity,
+      boundAtMs: Date.now(),
+    }
+    window.localStorage.setItem(DEVICE_BOUND_IDENTITY_STORAGE_KEY, JSON.stringify(payload))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function getPrimaryDeviceOwnerIdentity(): DeviceBoundIdentity | null {
+  return loadDeviceBoundIdentity()
+}
+
+function loadDeviceBoundIdentity(): DeviceBoundIdentity | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(DEVICE_BOUND_IDENTITY_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as DeviceBoundIdentity
+    if (parsed && typeof parsed === 'object' && parsed.actorId) {
+      return parsed
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 export function getCurrentSessionIdentity(): {
+  isAuthenticated: boolean
+  hasDeviceIdentity: boolean
   role: 'student' | 'class-leader' | 'usthad' | 'principal'
   actorId: string
   actorName: string
@@ -2377,6 +2438,8 @@ export function getCurrentSessionIdentity(): {
 } {
   if (typeof window === 'undefined') {
     return {
+      isAuthenticated: false,
+      hasDeviceIdentity: false,
       role: 'student',
       actorId: '',
       actorName: '',
@@ -2387,10 +2450,41 @@ export function getCurrentSessionIdentity(): {
     }
   }
   try {
+    const isAuthenticated = window.localStorage.getItem('isAuthenticated') === 'true'
+    if (!isAuthenticated) {
+      // Fall back to the remembered Primary Phone Owner Identity on this phone so notifications
+      // strictly targeted to the phone owner's ID/class continue to arrive even while logged out!
+      const bound = loadDeviceBoundIdentity()
+      if (bound) {
+        return {
+          isAuthenticated: false,
+          hasDeviceIdentity: true,
+          role: bound.role,
+          actorId: bound.actorId,
+          actorName: bound.actorName,
+          className: bound.className,
+          assignedClasses: Array.isArray(bound.assignedClasses) ? bound.assignedClasses : [],
+          isStaff: Boolean(bound.isStaff),
+          isPrincipal: Boolean(bound.isPrincipal),
+        }
+      }
+      return {
+        isAuthenticated: false,
+        hasDeviceIdentity: false,
+        role: 'student',
+        actorId: '',
+        actorName: '',
+        className: '',
+        assignedClasses: [],
+        isStaff: false,
+        isPrincipal: false,
+      }
+    }
+
     const rawRole = window.localStorage.getItem('authRole') || 'student'
     if (rawRole === 'principal') {
-      return {
-        role: 'principal',
+      const identity = {
+        role: 'principal' as const,
         actorId: ACADEMY_PRINCIPAL.usthadId || 'usthad-07',
         actorName: ACADEMY_PRINCIPAL.name,
         className: ACADEMY_PRINCIPAL.assignedClassName || 'BS 3',
@@ -2398,13 +2492,23 @@ export function getCurrentSessionIdentity(): {
         isStaff: true,
         isPrincipal: true,
       }
+      bindDeviceNotificationIdentity(identity)
+      return {
+        isAuthenticated: true,
+        hasDeviceIdentity: true,
+        ...identity,
+      }
     }
     if (rawRole === 'usthad') {
+      const savedUsthadId = window.localStorage.getItem('loggedInUsthadId') || ''
       const staffId = window.localStorage.getItem('usthadStaffId') || ''
-      const usthad = findUsthadByStaffId(staffId)
+      const usthad =
+        OFFICIAL_CLASS_USTHADS.find((u) => u.id === savedUsthadId) ??
+        CLASS_USTHADS.find((u) => u.id === savedUsthadId) ??
+        findUsthadByStaffId(staffId)
       const isPrin = usthad?.id === ACADEMY_PRINCIPAL.usthadId
-      return {
-        role: 'usthad',
+      const identity = {
+        role: 'usthad' as const,
         actorId: usthad?.id || '',
         actorName: usthad?.name || '',
         className: usthad?.className || '',
@@ -2416,12 +2520,29 @@ export function getCurrentSessionIdentity(): {
         isStaff: true,
         isPrincipal: isPrin,
       }
+      if (identity.actorId) bindDeviceNotificationIdentity(identity)
+      return {
+        isAuthenticated: true,
+        hasDeviceIdentity: Boolean(identity.actorId),
+        ...identity,
+      }
     }
     if (rawRole === 'class-leader') {
-      const leaderId = window.localStorage.getItem('classLeaderId') || ''
-      const leaderMatch = findClassLeaderByIdentifier(leaderId)
-      return {
-        role: 'class-leader',
+      const leaderId =
+        window.localStorage.getItem('loggedInLeaderId') ||
+        window.localStorage.getItem('classLeaderId') ||
+        ''
+      const savedStudentId = window.localStorage.getItem('loggedInStudentId') || ''
+      const leaderMatch =
+        findClassLeaderByIdentifier(leaderId) ??
+        (savedStudentId
+          ? (() => {
+              const st = students.find((s) => s.id === savedStudentId)
+              return st ? { student: st, leaderId: 'CL', roleTitle: 'Main Class Leader' as const } : undefined
+            })()
+          : undefined)
+      const identity = {
+        role: 'class-leader' as const,
         actorId: leaderMatch?.student.id || '',
         actorName: leaderMatch?.student.name || '',
         className: leaderMatch?.student.className || '',
@@ -2429,11 +2550,17 @@ export function getCurrentSessionIdentity(): {
         isStaff: false,
         isPrincipal: false,
       }
+      if (identity.actorId) bindDeviceNotificationIdentity(identity)
+      return {
+        isAuthenticated: true,
+        hasDeviceIdentity: Boolean(identity.actorId),
+        ...identity,
+      }
     }
     const loggedInStudentId = window.localStorage.getItem('loggedInStudentId') || ''
-    const st = students.find((s) => s.id === loggedInStudentId) ?? students[0]
-    return {
-      role: 'student',
+    const st = students.find((s) => s.id === loggedInStudentId)
+    const identity = {
+      role: 'student' as const,
       actorId: st?.id || '',
       actorName: st?.name || '',
       className: st?.className || '',
@@ -2441,8 +2568,16 @@ export function getCurrentSessionIdentity(): {
       isStaff: false,
       isPrincipal: false,
     }
+    if (identity.actorId) bindDeviceNotificationIdentity(identity)
+    return {
+      isAuthenticated: Boolean(st),
+      hasDeviceIdentity: Boolean(st),
+      ...identity,
+    }
   } catch {
     return {
+      isAuthenticated: false,
+      hasDeviceIdentity: false,
       role: 'student',
       actorId: '',
       actorName: '',
@@ -2455,8 +2590,9 @@ export function getCurrentSessionIdentity(): {
 }
 
 /**
- * Determines whether a notification should be shown to the current user session.
+ * Determines whether a notification should be shown to the current user/device session.
  * Strict Rules:
+ * 0. Device Identity Gate: If the phone has neither an active login nor a remembered device ID (`!session.hasDeviceIdentity`), NO notification is shown.
  * 1. Self-Exclusion: The sender (`notif.actorId` or `notif.actorName`) NEVER receives their own notification.
  * 2. Direct Recipient (`notif.targetRecipientId`): Strictly shown ONLY to the user whose `actorId === notif.targetRecipientId`.
  * 3. Staff Room (`notif.targetStaffOnly`): Strictly shown ONLY to Usthads and Principal (excluding sender).
@@ -2470,6 +2606,9 @@ export function isNotificationVisibleForStudent(
   classNameFilter?: string,
 ): boolean {
   const session = getCurrentSessionIdentity()
+  if (!session.hasDeviceIdentity && !studentId) {
+    return false
+  }
   const myActorId = studentId || session.actorId
   const myActorName = session.actorName
   const normFilter = normalizeClassName(classNameFilter || session.className)

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { AppUpdateBanner } from '@/components/app-update-manager'
 import { CampusMarqueeRibbon } from '@/components/campus-motion'
+import { CampusNotificationBar } from '@/components/campus-notifications'
 import { DashboardShell } from '@/components/dashboard/dashboard-shell'
 import { PrincipalDashboard } from '@/components/dashboard/principal-dashboard'
 import { UsthadDashboard } from '@/components/dashboard/usthad-dashboard'
@@ -43,6 +44,13 @@ export default function Page() {
     function handleLogout() {
       window.localStorage.removeItem(AUTH_STORAGE_KEY)
       window.localStorage.removeItem(AUTH_ROLE_STORAGE_KEY)
+      window.localStorage.removeItem('loggedInStudentId')
+      window.localStorage.removeItem('loggedInLeaderId')
+      window.localStorage.removeItem('classLeaderId')
+      window.localStorage.removeItem('usthadStaffId')
+      window.localStorage.removeItem('loggedInUsthadId')
+      // Note: 'ics_device_bound_identity_v1' is intentionally preserved on the phone
+      // so the device continues receiving notifications meant for this user's ID even while logged out!
       setIsLoggedIn(false)
       setAuthRole('student')
       window.scrollTo({ top: 0 })
@@ -143,6 +151,7 @@ export default function Page() {
     <>
       <SplashIntro />
       <AppUpdateBanner />
+      <CampusNotificationBar />
       <SiteHeader />
       <main>
         <Hero />

@@ -18,10 +18,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   ACADEMY_PRINCIPAL,
+  bindDeviceNotificationIdentity,
   findClassLeaderByIdentifier,
   findPrincipalByIdentifier,
   findStudentByAdmissionNo,
   findUsthadByStaffId,
+  getPrimaryDeviceOwnerIdentity,
   CLASS_USTHADS,
   students,
   type ClassUsthad,
@@ -142,12 +144,15 @@ export function LoginPortal({
   // Null by default so the login form only appears directly below the card the user clicks
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [invalidRoleId, setInvalidRoleId] = useState<string | null>(null)
+  const [setAsPrimaryOwner, setSetAsPrimaryOwner] = useState(false)
+  const primaryOwner = typeof window !== 'undefined' ? getPrimaryDeviceOwnerIdentity() : null
 
   function handleRoleSubmit(role: Role, event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const data = new FormData(event.currentTarget)
     const identifier = String(data.get('identifier') ?? '').trim()
     const password = String(data.get('password') ?? '').trim()
+    const forceOverwritePrimaryOwner = setAsPrimaryOwner
 
     if (role.id === 'student' && password.length > 0) {
       const matchedStudent = findStudentByAdmissionNo(identifier)
@@ -156,6 +161,18 @@ export function LoginPortal({
         window.localStorage.setItem('loggedInStudentId', matchedStudent.id)
         window.localStorage.setItem(`ics_own_password_${matchedStudent.id}`, password)
         window.localStorage.setItem('authRole', 'student')
+        bindDeviceNotificationIdentity(
+          {
+            role: 'student',
+            actorId: matchedStudent.id,
+            actorName: matchedStudent.name,
+            className: matchedStudent.className,
+            assignedClasses: [matchedStudent.className],
+            isStaff: false,
+            isPrincipal: false,
+          },
+          { forceOverwritePrimaryOwner },
+        )
         onStudentLogin()
         return
       }
@@ -168,6 +185,18 @@ export function LoginPortal({
         window.localStorage.setItem('loggedInStudentId', students[0].id)
         window.localStorage.setItem(`ics_own_password_${students[0].id}`, password)
         window.localStorage.setItem('authRole', 'student')
+        bindDeviceNotificationIdentity(
+          {
+            role: 'student',
+            actorId: students[0].id,
+            actorName: students[0].name,
+            className: students[0].className,
+            assignedClasses: [students[0].className],
+            isStaff: false,
+            isPrincipal: false,
+          },
+          { forceOverwritePrimaryOwner },
+        )
         onStudentLogin()
         return
       }
@@ -185,6 +214,18 @@ export function LoginPortal({
           matchedLeader.roleTitle,
         )
         window.localStorage.setItem('authRole', 'class-leader')
+        bindDeviceNotificationIdentity(
+          {
+            role: 'class-leader',
+            actorId: matchedLeader.student.id,
+            actorName: matchedLeader.student.name,
+            className: matchedLeader.student.className,
+            assignedClasses: [matchedLeader.student.className],
+            isStaff: false,
+            isPrincipal: false,
+          },
+          { forceOverwritePrimaryOwner },
+        )
         if (onClassLeaderLogin) {
           onClassLeaderLogin()
         } else {
@@ -202,6 +243,21 @@ export function LoginPortal({
         setInvalidRoleId(null)
         window.localStorage.setItem('loggedInUsthadId', matchedUsthad.id)
         window.localStorage.setItem('authRole', 'usthad')
+        const isPrin = matchedUsthad.id === ACADEMY_PRINCIPAL.usthadId
+        bindDeviceNotificationIdentity(
+          {
+            role: 'usthad',
+            actorId: matchedUsthad.id,
+            actorName: matchedUsthad.name,
+            className: matchedUsthad.className,
+            assignedClasses: isPrin
+              ? ACADEMY_PRINCIPAL.assignedClasses || ['BS 3', 'BS 1']
+              : [matchedUsthad.className],
+            isStaff: true,
+            isPrincipal: isPrin,
+          },
+          { forceOverwritePrimaryOwner },
+        )
         onUsthadLogin(matchedUsthad)
         return
       }
@@ -220,6 +276,18 @@ export function LoginPortal({
           ACADEMY_PRINCIPAL.usthadId,
         )
         window.localStorage.setItem('authRole', 'principal')
+        bindDeviceNotificationIdentity(
+          {
+            role: 'principal',
+            actorId: ACADEMY_PRINCIPAL.usthadId,
+            actorName: ACADEMY_PRINCIPAL.name,
+            className: ACADEMY_PRINCIPAL.assignedClassName || 'BS 3',
+            assignedClasses: ACADEMY_PRINCIPAL.assignedClasses || ['BS 3', 'BS 1'],
+            isStaff: true,
+            isPrincipal: true,
+          },
+          { forceOverwritePrimaryOwner },
+        )
         onPrincipalLogin()
         return
       }
@@ -429,6 +497,26 @@ export function LoginPortal({
                               className="h-11 rounded-xl"
                             />
                           </div>
+
+                          {primaryOwner && (
+                            <div className="rounded-xl border border-border/80 bg-muted/35 p-3 text-xs">
+                              <p className="font-semibold text-foreground">
+                                Phone Notification Owner: {primaryOwner.actorName} ({primaryOwner.className})
+                              </p>
+                              <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                                If a friend logs in temporarily on this phone, their notifications will NOT come after they log out.
+                              </p>
+                              <label className="mt-2 flex cursor-pointer items-center gap-2 text-[11px] font-medium text-foreground">
+                                <input
+                                  type="checkbox"
+                                  checked={setAsPrimaryOwner}
+                                  onChange={(e) => setSetAsPrimaryOwner(e.target.checked)}
+                                  className="size-3.5 rounded border-border accent-lime"
+                                />
+                                <span>Set this new login ID as this phone&apos;s Primary Owner</span>
+                              </label>
+                            </div>
+                          )}
 
                           <Button
                             type="submit"
