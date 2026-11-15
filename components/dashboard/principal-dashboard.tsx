@@ -119,7 +119,7 @@ import { LibraryBooks } from '@/components/dashboard/library-books'
 import { NoticeBoard } from '@/components/dashboard/notice-board'
 import { Panel } from '@/components/dashboard/panel'
 import { ParentReportModal } from '@/components/dashboard/parent-report-modal'
-import { PrincipalSwitcher } from '@/components/dashboard/student-switcher'
+import { PrincipalSwitcher, ProfileInitialsAvatar } from '@/components/dashboard/student-switcher'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -1310,7 +1310,7 @@ export function PrincipalDashboard() {
           )}
         >
           <div className="flex flex-col justify-between gap-4 border-b border-border/70 pb-5 lg:flex-row lg:items-center">
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-md border border-lime/40 bg-lime/15 px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-lime uppercase">
                   <Award className="size-3.5" aria-hidden="true" />
@@ -1318,18 +1318,29 @@ export function PrincipalDashboard() {
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-md border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-cyan uppercase">
                   <GraduationCap className="size-3.5" aria-hidden="true" />
-                  {principal.assignedClassName} ({principal.usthadStaffId})
+                  {principal.assignedClassesLabel} ({principal.usthadStaffId})
                 </span>
                 <span className="text-xs font-medium text-muted-foreground tabular-nums">
                   {selectedDate}
                 </span>
               </div>
-              <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                {principal.name}
-              </h1>
-              <p className="text-xs text-muted-foreground sm:text-sm">
-                ICS Academy Manhappatta
-              </p>
+              <div className="flex items-center gap-3.5">
+                {principal.avatarUrl && (
+                  <ProfileInitialsAvatar
+                    name={principal.name}
+                    avatarUrl={principal.avatarUrl}
+                    className="size-14 sm:size-16 ring-2 ring-lime/45 shadow-md"
+                  />
+                )}
+                <div>
+                  <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                    {principal.name}
+                  </h1>
+                  <p className="text-xs text-muted-foreground sm:text-sm">
+                    ICS Academy Manhappatta
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -1359,7 +1370,7 @@ export function PrincipalDashboard() {
                 className="rounded-xl border border-cyan/50 bg-cyan text-xs font-bold text-slate-950 hover:bg-cyan/90"
               >
                 <BookOpen className="mr-1.5 size-3.5" aria-hidden="true" />
-                My Class ({principal.assignedClassName})
+                My Classes ({principal.assignedClassesLabel})
               </Button>
               <Button
                 type="button"
@@ -2131,17 +2142,29 @@ export function PrincipalDashboard() {
                                 )}
                               </div>
                               <span className="text-xs font-semibold text-cyan">
-                                {u.className}
+                                {u.teachingBatches && u.teachingBatches.length > 1
+                                  ? u.teachingBatches.join(' & ')
+                                  : u.className}
                               </span>
                             </div>
 
-                            <div>
-                              <h3 className="font-display text-lg font-bold text-foreground">
-                                {u.name}
-                              </h3>
-                              <p className="text-xs text-muted-foreground">
-                                {u.designation} • {u.fullClassLabel}
-                              </p>
+                            <div className="flex items-center gap-3">
+                              <ProfileInitialsAvatar
+                                name={u.name}
+                                avatarUrl={u.avatarUrl}
+                                className="size-11 text-xs shadow-xs"
+                              />
+                              <div className="min-w-0">
+                                <h3 className="truncate font-display text-lg font-bold text-foreground">
+                                  {u.name}
+                                </h3>
+                                <p className="text-xs text-muted-foreground">
+                                  {u.designation} •{' '}
+                                  {u.teachingBatches && u.teachingBatches.length > 1
+                                    ? `Class ${u.teachingBatches.join(' & ')}`
+                                    : u.fullClassLabel}
+                                </p>
+                              </div>
                             </div>
 
                             <p className="text-xs font-medium text-foreground/90">
@@ -2177,7 +2200,10 @@ export function PrincipalDashboard() {
                             </div>
 
                             <div className="text-[11px] text-muted-foreground tabular-nums">
-                              Staff ID: {u.staffId} • Assigned Class: {u.className}
+                              Staff ID: {u.staffId} • Assigned Class:{' '}
+                              {u.teachingBatches && u.teachingBatches.length > 1
+                                ? u.teachingBatches.join(' & ')
+                                : u.className}
                             </div>
                           </div>
 

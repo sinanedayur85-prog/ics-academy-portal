@@ -1186,6 +1186,7 @@ export type ClassUsthad = {
   staffId: string
   name: string
   shortName: string
+  avatarUrl?: string
   designation: string
   institutionalRole?: 'Principal' | 'Swadr' | 'Class Usthad'
   isPrincipalRole?: boolean
@@ -1208,10 +1209,11 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     staffId: 'UST-07',
     name: 'Usthad Muhammed Yasir Ahsani',
     shortName: 'Usthad Muhammed Yasir Ahsani',
-    designation: 'Principal',
+    avatarUrl: '/images/yasir-usthad.jpg',
+    designation: 'Principal & Class Usthad',
     institutionalRole: 'Principal',
     isPrincipalRole: true,
-    teachingBatches: ['BS 3'],
+    teachingBatches: ['BS 3', 'BS 1'],
     className: 'BS 3',
     fullClassLabel: 'Class BS 3',
     batch: 'Batch 07',
@@ -1321,19 +1323,19 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     staffId: 'UST-09',
     name: 'Usthad Asif Saqafi',
     shortName: 'Usthad Asif Saqafi',
-    designation: 'Class Usthad',
+    designation: 'Teaching Usthad',
     institutionalRole: 'Class Usthad',
-    teachingBatches: ['BS 1'],
-    className: 'BS 1',
-    fullClassLabel: 'Class BS 1',
-    batch: 'Batch 09',
+    teachingBatches: ['10th', '9th', '8th'],
+    className: '10th',
+    fullClassLabel: 'Class 10th & High School',
+    batch: 'High School',
     batchCode: '09',
     specialization: 'Fath al-Mu’in & Hadith Studies',
   },
 ]
 
 /**
- * Per-class Class Usthad mapping across the 11 classes (using ONLY the 9 Class Usthads;
+ * Per-class Class Usthad mapping across the 11 classes (using ONLY the Official Class Usthads;
  * neither SHAIKHUNA HAMZA USTHAD nor Manager Usthad Muhammed Naeem Saqafi is ever a Class Usthad).
  */
 export const CLASS_USTHADS: ClassUsthad[] = [
@@ -1369,9 +1371,24 @@ export const CLASS_USTHADS: ClassUsthad[] = [
     batchCode: '10',
     specialization: 'Qatr al-Nada, Tafsir & Arabic Literature',
   },
-  OFFICIAL_CLASS_USTHADS[8], // BS 1 (Batch 09) — Usthad Asif Saqafi (UST-09)
+  {
+    id: 'usthad-07-bs1',
+    staffId: 'UST-07',
+    name: 'Usthad Muhammed Yasir Ahsani',
+    shortName: 'Usthad Muhammed Yasir Ahsani',
+    avatarUrl: '/images/yasir-usthad.jpg',
+    designation: 'Principal & Class Usthad',
+    institutionalRole: 'Principal',
+    isPrincipalRole: true,
+    teachingBatches: ['BS 3', 'BS 1'],
+    className: 'BS 1',
+    fullClassLabel: 'Class BS 1',
+    batch: 'Batch 09',
+    batchCode: '09',
+    specialization: 'Principal • Shafi’i Jurisprudence & Jam’ al-Jawami’',
+  }, // BS 1 (Batch 09) — Usthad Muhammed Yasir Ahsani (Principal & Class Usthad, UST-07)
   OFFICIAL_CLASS_USTHADS[7], // BS 2 (Batch 08) — Usthad Alavudheen Ahsani (UST-08)
-  OFFICIAL_CLASS_USTHADS[0], // BS 3 (Batch 07) — Usthad Muhammed Yasir Ahsani (Principal, UST-07)
+  OFFICIAL_CLASS_USTHADS[0], // BS 3 (Batch 07) — Usthad Muhammed Yasir Ahsani (Principal & Class Usthad, UST-07)
   OFFICIAL_CLASS_USTHADS[2], // BS 4 (Batch 06) — Usthad Razaq Saqafi (UST-06)
   OFFICIAL_CLASS_USTHADS[1], // BS 5 (Batch 05) — Usthad Hafiz Fazlul Abid Naeemi (Swadr, UST-05)
 ]
@@ -1391,16 +1408,16 @@ export function findUsthadByStaffId(identifier: string): ClassUsthad | undefined
     return undefined
   }
 
-  // 1. Direct match on staffId across all 11 class assignments (e.g. "UST-05", "UST-06", "UST-07", "UST-14")
-  const exactClassUsthad = CLASS_USTHADS.find(
-    (u) => normalizeAdmissionKey(u.staffId) === cleaned,
-  )
-  if (exactClassUsthad) return exactClassUsthad
-
+  // 1. Direct match on staffId across official Usthads & class assignments (e.g. "UST-05", "UST-06", "UST-07", "UST-14")
   const exactOfficial = OFFICIAL_CLASS_USTHADS.find(
     (u) => normalizeAdmissionKey(u.staffId) === cleaned,
   )
   if (exactOfficial) return exactOfficial
+
+  const exactClassUsthad = CLASS_USTHADS.find(
+    (u) => normalizeAdmissionKey(u.staffId) === cleaned,
+  )
+  if (exactClassUsthad) return exactClassUsthad
 
   // 2. Support Principal ID / Name logging in as Class Usthad (since Principal is also a Class Usthad)
   if (
@@ -2085,7 +2102,10 @@ export type PrincipalProfile = {
   usthadId: string
   usthadStaffId: string
   assignedClassName: string
+  assignedClasses: string[]
+  assignedClassesLabel: string
   assignedBatch: string
+  avatarUrl?: string
   name: string
   shortName: string
   designation: string
@@ -2100,7 +2120,10 @@ export const ACADEMY_PRINCIPAL: PrincipalProfile = {
   usthadId: 'usthad-07',
   usthadStaffId: 'UST-07',
   assignedClassName: 'BS 3',
-  assignedBatch: 'Batch 07',
+  assignedClasses: ['BS 3', 'BS 1'],
+  assignedClassesLabel: 'BS 3 & BS 1',
+  assignedBatch: 'Batch 07 & Batch 09',
+  avatarUrl: '/images/yasir-usthad.jpg',
   name: 'Usthad Muhammed Yasir Ahsani',
   shortName: 'Usthad Muhammed Yasir Ahsani',
   designation: "Principal • ICS Academy & Da'wa College Manhappatta",

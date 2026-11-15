@@ -92,7 +92,7 @@ import { ExamResultCard } from '@/components/dashboard/exam-result-card'
 import type { SavedLeaveEntry } from '@/components/dashboard/leave-register'
 import { Panel, fieldClassName } from '@/components/dashboard/panel'
 import { ParentReportModal } from '@/components/dashboard/parent-report-modal'
-import { UsthadSwitcher } from '@/components/dashboard/student-switcher'
+import { ProfileInitialsAvatar, UsthadSwitcher } from '@/components/dashboard/student-switcher'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -190,6 +190,8 @@ export function UsthadDashboard() {
     if (classMatch && classMatch.name === baseUsthad.name) {
       return {
         ...classMatch,
+        id: baseUsthad.id,
+        avatarUrl: baseUsthad.avatarUrl ?? classMatch.avatarUrl,
         teachingBatches: baseUsthad.teachingBatches ?? classMatch.teachingBatches,
       }
     }
@@ -919,7 +921,10 @@ export function UsthadDashboard() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-lime">
-                {usthad.designation} · {usthad.fullClassLabel}
+                {usthad.designation} ·{' '}
+                {usthad.teachingBatches && usthad.teachingBatches.length > 1
+                  ? `Class ${usthad.teachingBatches.join(' & ')}`
+                  : usthad.fullClassLabel}
               </p>
               {usthad.isPrincipalRole && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-cyan uppercase">
@@ -927,14 +932,23 @@ export function UsthadDashboard() {
                 </span>
               )}
             </div>
-            <h1 className="mt-1.5 flex flex-col font-display leading-tight text-foreground">
-              <span className="text-xl font-normal text-muted-foreground md:text-2xl">
-                 السَّلَامُ عَلَيْكُمْ,
-              </span>
-              <span className="mt-0.5 text-2xl font-semibold tracking-tight whitespace-nowrap text-foreground sm:text-3xl md:text-4xl">
-                {usthad.name}
-              </span>
-            </h1>
+            <div className="mt-2 flex items-center gap-3.5">
+              {usthad.avatarUrl && (
+                <ProfileInitialsAvatar
+                  name={usthad.name}
+                  avatarUrl={usthad.avatarUrl}
+                  className="size-14 sm:size-16 ring-2 ring-lime/45 shadow-md"
+                />
+              )}
+              <h1 className="flex flex-col font-display leading-tight text-foreground">
+                <span className="text-xl font-normal text-muted-foreground md:text-2xl">
+                   السَّلَامُ عَلَيْكُمْ,
+                </span>
+                <span className="mt-0.5 text-2xl font-semibold tracking-tight whitespace-nowrap text-foreground sm:text-3xl md:text-4xl">
+                  {usthad.name}
+                </span>
+              </h1>
+            </div>
           </div>
 
           <div className="flex flex-col items-start gap-2.5 md:items-end">

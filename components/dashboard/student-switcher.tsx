@@ -36,11 +36,29 @@ function initials(name: string) {
 
 export function ProfileInitialsAvatar({
   name,
+  avatarUrl,
   className,
 }: {
   name: string
+  avatarUrl?: string
   className?: string
 }) {
+  if (avatarUrl) {
+    return (
+      <span
+        className={cn(
+          'relative inline-flex size-9 shrink-0 overflow-hidden rounded-full border border-lime/40 bg-muted shadow-xs',
+          className,
+        )}
+      >
+        <img
+          src={avatarUrl}
+          alt={name}
+          className="size-full object-cover object-top"
+        />
+      </span>
+    )
+  }
   return (
     <span
       aria-hidden="true"
@@ -55,23 +73,13 @@ export function ProfileInitialsAvatar({
 }
 
 export function StudentAvatar({ student, className }: { student: Student; className?: string }) {
-  if (student.avatarUrl) {
-    return (
-      <span
-        className={cn(
-          'relative inline-flex size-9 shrink-0 overflow-hidden rounded-full border border-lime/40 bg-muted shadow-xs',
-          className,
-        )}
-      >
-        <img
-          src={student.avatarUrl}
-          alt={student.name}
-          className="size-full object-cover object-top"
-        />
-      </span>
-    )
-  }
-  return <ProfileInitialsAvatar name={student.name} className={className} />
+  return (
+    <ProfileInitialsAvatar
+      name={student.name}
+      avatarUrl={student.avatarUrl}
+      className={className}
+    />
+  )
 }
 
 type StudentSwitcherProps = {
@@ -121,18 +129,17 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
         aria-controls={popoverId}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          'flex h-11 items-center gap-2.5 rounded-full border bg-card py-1 pr-3 pl-1 text-left transition-colors duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+          'flex h-10 sm:h-11 items-center gap-2 rounded-full border bg-card py-1 pr-2.5 sm:pr-3 pl-1 text-left transition-colors duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
           open ? 'border-lime/50' : 'border-border hover:border-lime/30',
         )}
       >
-        <StudentAvatar student={student} />
-        <span className="hidden flex-col leading-tight sm:flex">
-          <span className="text-sm font-semibold text-foreground">{student.name}</span>
-          <span className="text-xs text-muted-foreground">Class {student.className}</span>
+        <StudentAvatar student={student} className="size-8 sm:size-9" />
+        <span className="text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">
+          My Profile
         </span>
         <span className="sr-only">Account profile</span>
         <ChevronDown
-          className={cn('size-4 text-muted-foreground transition-transform duration-200', open && 'rotate-180 text-lime')}
+          className={cn('size-3.5 sm:size-4 text-muted-foreground transition-transform duration-200', open && 'rotate-180 text-lime')}
           aria-hidden="true"
         />
       </button>
@@ -301,20 +308,21 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
         aria-controls={popoverId}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          'flex h-11 items-center gap-2.5 rounded-full border bg-card py-1 pr-3 pl-1 text-left transition-colors duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+          'flex h-10 sm:h-11 items-center gap-2 rounded-full border bg-card py-1 pr-2.5 sm:pr-3 pl-1 text-left transition-colors duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
           open ? 'border-lime/50' : 'border-border hover:border-lime/30',
         )}
       >
-        <ProfileInitialsAvatar name={usthad.name} />
-        <span className="hidden flex-col leading-tight sm:flex">
-          <span className="text-sm font-semibold text-foreground">{usthad.shortName}</span>
-          <span className="text-xs text-muted-foreground">
-            Class {usthad.className}
-          </span>
+        <ProfileInitialsAvatar
+          name={usthad.name}
+          avatarUrl={usthad.avatarUrl}
+          className="size-8 sm:size-9"
+        />
+        <span className="text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">
+          My Profile
         </span>
         <span className="sr-only">Usthad account profile</span>
         <ChevronDown
-          className={cn('size-4 text-muted-foreground transition-transform duration-200', open && 'rotate-180 text-lime')}
+          className={cn('size-3.5 sm:size-4 text-muted-foreground transition-transform duration-200', open && 'rotate-180 text-lime')}
           aria-hidden="true"
         />
       </button>
@@ -327,7 +335,11 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
           className="absolute right-0 z-50 mt-2 w-[min(21rem,calc(100vw-1.5rem))] origin-top-right rounded-2xl border border-border bg-popover p-4 shadow-2xl shadow-black/50 animate-in fade-in-0 zoom-in-95 duration-150"
         >
           <div className="flex items-center gap-3.5 border-b border-border pb-4">
-            <ProfileInitialsAvatar name={usthad.name} className="size-12 text-sm shadow-sm" />
+            <ProfileInitialsAvatar
+              name={usthad.name}
+              avatarUrl={usthad.avatarUrl}
+              className="size-14 text-sm shadow-md ring-2 ring-lime/40"
+            />
             <div className="min-w-0 flex-1">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-lime">
                 {usthad.designation}
@@ -364,10 +376,14 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
                 <GraduationCap className="size-3.5 text-lime" aria-hidden="true" />
-                Class
+                {usthad.teachingBatches && usthad.teachingBatches.length > 1
+                  ? 'Assigned Classes'
+                  : 'Class'}
               </dt>
               <dd className="text-right text-xs font-medium text-foreground">
-                Class {usthad.className} ({usthad.batch})
+                {usthad.teachingBatches && usthad.teachingBatches.length > 1
+                  ? `Class ${usthad.teachingBatches.join(' & ')}`
+                  : `Class ${usthad.className} (${usthad.batch})`}
               </dd>
             </div>
 
@@ -486,20 +502,21 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
         aria-controls={popoverId}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          'flex h-11 items-center gap-2.5 rounded-full border bg-card py-1 pr-3 pl-1 text-left transition-colors duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+          'flex h-10 sm:h-11 items-center gap-2 rounded-full border bg-card py-1 pr-2.5 sm:pr-3 pl-1 text-left transition-colors duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
           open ? 'border-lime/50' : 'border-border hover:border-lime/30',
         )}
       >
-        <ProfileInitialsAvatar name={principal.name} />
-        <span className="hidden flex-col leading-tight sm:flex">
-          <span className="text-sm font-semibold text-foreground">{principal.name}</span>
-          <span className="text-xs text-muted-foreground">
-            Principal ({principal.staffId})
-          </span>
+        <ProfileInitialsAvatar
+          name={principal.name}
+          avatarUrl={principal.avatarUrl}
+          className="size-8 sm:size-9"
+        />
+        <span className="text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">
+          My Profile
         </span>
         <span className="sr-only">Principal account profile</span>
         <ChevronDown
-          className={cn('size-4 text-muted-foreground transition-transform duration-200', open && 'rotate-180 text-lime')}
+          className={cn('size-3.5 sm:size-4 text-muted-foreground transition-transform duration-200', open && 'rotate-180 text-lime')}
           aria-hidden="true"
         />
       </button>
@@ -512,7 +529,11 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
           className="absolute right-0 z-50 mt-2 w-[min(21rem,calc(100vw-1.5rem))] origin-top-right rounded-2xl border border-border bg-popover p-4 shadow-2xl shadow-black/50 animate-in fade-in-0 zoom-in-95 duration-150"
         >
           <div className="flex items-center gap-3.5 border-b border-border pb-4">
-            <ProfileInitialsAvatar name={principal.name} className="size-12 text-sm shadow-sm" />
+            <ProfileInitialsAvatar
+              name={principal.name}
+              avatarUrl={principal.avatarUrl}
+              className="size-14 text-sm shadow-md ring-2 ring-lime/40"
+            />
             <div className="min-w-0 flex-1">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-lime">
                 Principal
@@ -561,10 +582,10 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
                 <GraduationCap className="size-3.5 text-cyan" aria-hidden="true" />
-                Class
+                Assigned Classes
               </dt>
               <dd className="text-right text-xs font-semibold text-cyan">
-                Class {principal.assignedClassName} ({principal.assignedBatch})
+                Class {principal.assignedClassesLabel} ({principal.assignedBatch})
               </dd>
             </div>
 

@@ -625,6 +625,7 @@ export function CampusMessenger({
           .replace(/^Usthad\s+/i, '')
           .slice(0, 2)
           .toUpperCase(),
+        avatarUrl: u.avatarUrl,
       })
     }
 
@@ -3016,7 +3017,14 @@ export function CampusMessenger({
                       }}
                       className="flex items-center justify-between rounded-2xl border border-border bg-background/70 px-3.5 py-2.5 text-left transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
                     >
-                      <div className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        {u.avatarUrl ? (
+                          <img
+                            src={u.avatarUrl}
+                            alt={u.name}
+                            className="size-8 shrink-0 rounded-full border border-lime/40 object-cover object-top"
+                          />
+                        ) : null}
                         <p className="truncate text-xs font-bold text-foreground">{u.name}</p>
                       </div>
                       <span className="rounded-lg border border-border bg-muted px-2 py-1 text-[10px] font-bold text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
