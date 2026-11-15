@@ -36,7 +36,7 @@ import { GeminiChatbot } from '@/components/dashboard/gemini-chatbot'
 import { LeaveRegister } from '@/components/dashboard/leave-register'
 import { LibraryBooks } from '@/components/dashboard/library-books'
 import { NoticeBoard } from '@/components/dashboard/notice-board'
-import { StudentSwitcher } from '@/components/dashboard/student-switcher'
+import { StudentAvatar, StudentSwitcher } from '@/components/dashboard/student-switcher'
 import { Timetable } from '@/components/dashboard/timetable'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { cn } from '@/lib/utils'
@@ -311,11 +311,19 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
                 {isOnLeave ? 'On Leave' : 'At Academy'}
               </a>
             </div>
-            <h1 className="mt-1.5 flex flex-col font-display leading-tight text-foreground">
-              <span className="mt-0.5 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl md:text-4xl">
-                {student.firstName}
-              </span>
-            </h1>
+            <div className="mt-2 flex items-center gap-3.5">
+              {student.avatarUrl && (
+                <StudentAvatar
+                  student={student}
+                  className="size-14 sm:size-16 ring-2 ring-lime/45 shadow-md"
+                />
+              )}
+              <h1 className="flex flex-col font-display leading-tight text-foreground">
+                <span className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl md:text-4xl">
+                  {student.firstName}
+                </span>
+              </h1>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-sans text-xs text-muted-foreground sm:text-sm">
             <p>

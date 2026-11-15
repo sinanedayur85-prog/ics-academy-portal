@@ -55,6 +55,22 @@ export function ProfileInitialsAvatar({
 }
 
 export function StudentAvatar({ student, className }: { student: Student; className?: string }) {
+  if (student.avatarUrl) {
+    return (
+      <span
+        className={cn(
+          'relative inline-flex size-9 shrink-0 overflow-hidden rounded-full border border-lime/40 bg-muted shadow-xs',
+          className,
+        )}
+      >
+        <img
+          src={student.avatarUrl}
+          alt={student.name}
+          className="size-full object-cover object-top"
+        />
+      </span>
+    )
+  }
   return <ProfileInitialsAvatar name={student.name} className={className} />
 }
 
@@ -129,7 +145,10 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
           className="absolute right-0 z-50 mt-2 w-[min(20rem,calc(100vw-1.5rem))] origin-top-right rounded-2xl border border-border bg-popover p-4 shadow-2xl shadow-black/50 animate-in fade-in-0 zoom-in-95 duration-150"
         >
           <div className="flex items-center gap-3.5 border-b border-border pb-4">
-            <StudentAvatar student={student} className="size-12 text-sm shadow-sm" />
+            <StudentAvatar
+              student={student}
+              className="size-14 text-sm shadow-md ring-2 ring-lime/40"
+            />
             <div className="min-w-0 flex-1">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-lime">
                 Logged-in Student (Private)

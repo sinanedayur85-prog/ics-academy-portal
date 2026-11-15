@@ -19,12 +19,17 @@ export type Student = {
   className: string
   batch: string
   admissionNo: string
+  avatarUrl?: string
   attendance: {
     present: number
     absent: number
     leave: number
   }
   monthlyAttendance: MonthlyAttendance[]
+}
+
+export const STUDENT_AVATAR_BY_ADMISSION_NO: Record<string, string> = {
+  ICS2K220601: '/images/muhammed-sinan-nt.jpg',
 }
 
 export type AcademyClassInfo = {
@@ -475,6 +480,7 @@ export const students: Student[] = (() => {
         className: group.className,
         batch: group.batch,
         admissionNo,
+        avatarUrl: STUDENT_AVATAR_BY_ADMISSION_NO[admissionNo],
         attendance,
         monthlyAttendance,
       })

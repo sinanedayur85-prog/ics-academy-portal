@@ -125,6 +125,7 @@ export interface ChatRoomDescriptor {
   peerId?: string
   peerRole?: MessengerRole
   avatarText: string
+  avatarUrl?: string
   isStaffOnly?: boolean
 }
 
@@ -648,6 +649,7 @@ export function CampusMessenger({
         peerId: st.id,
         peerRole: 'student',
         avatarText: st.firstName.slice(0, 2).toUpperCase(),
+        avatarUrl: st.avatarUrl,
       })
     }
 
@@ -1868,7 +1870,7 @@ export function CampusMessenger({
                   <div className="relative shrink-0">
                     <div
                       className={cn(
-                        'flex size-11 items-center justify-center rounded-2xl font-poppins text-xs font-bold shadow-xs border border-border dark:border-[#262a33]',
+                        'flex size-11 items-center justify-center overflow-hidden rounded-2xl font-poppins text-xs font-bold shadow-xs border border-border dark:border-[#262a33]',
                         room.type === 'staff_group'
                           ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1a1d24] dark:text-amber-300'
                           : room.type === 'batch_group'
@@ -1878,7 +1880,13 @@ export function CampusMessenger({
                               : 'bg-muted text-foreground dark:bg-[#1a1d24] dark:text-zinc-200',
                       )}
                     >
-                      {room.type === 'batch_group' ? (
+                      {room.avatarUrl ? (
+                        <img
+                          src={room.avatarUrl}
+                          alt={room.title}
+                          className="size-full object-cover object-top"
+                        />
+                      ) : room.type === 'batch_group' ? (
                         <Users className="size-4" aria-hidden="true" />
                       ) : room.type === 'staff_group' ? (
                         <Crown className="size-4" aria-hidden="true" />
@@ -1995,7 +2003,7 @@ export function CampusMessenger({
               <div className="relative shrink-0">
                 <div
                   className={cn(
-                    'flex size-10 items-center justify-center rounded-2xl font-poppins text-xs font-bold border border-border dark:border-[#262a33]',
+                    'flex size-10 items-center justify-center overflow-hidden rounded-2xl font-poppins text-xs font-bold border border-border dark:border-[#262a33]',
                     activeRoom.type === 'staff_group'
                       ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1a1d24] dark:text-amber-300'
                       : activeRoom.type === 'batch_group'
@@ -2003,7 +2011,13 @@ export function CampusMessenger({
                         : 'bg-cyan/15 text-cyan dark:bg-[#1a1d24] dark:text-cyan',
                   )}
                 >
-                  {activeRoom.type === 'batch_group' ? (
+                  {activeRoom.avatarUrl ? (
+                    <img
+                      src={activeRoom.avatarUrl}
+                      alt={activeRoom.title}
+                      className="size-full object-cover object-top"
+                    />
+                  ) : activeRoom.type === 'batch_group' ? (
                     <Users className="size-4" aria-hidden="true" />
                   ) : activeRoom.type === 'staff_group' ? (
                     <Crown className="size-4" aria-hidden="true" />
@@ -3053,7 +3067,14 @@ export function CampusMessenger({
                         }}
                         className="flex items-center justify-between rounded-2xl border border-border bg-background/70 px-3.5 py-2.5 text-left transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
                       >
-                        <div className="min-w-0">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          {st.avatarUrl ? (
+                            <img
+                              src={st.avatarUrl}
+                              alt={st.name}
+                              className="size-8 shrink-0 rounded-full border border-lime/40 object-cover object-top"
+                            />
+                          ) : null}
                           <p className="truncate text-xs font-bold text-foreground">{st.name}</p>
                         </div>
                         <span className="rounded-lg border border-border bg-muted px-2 py-1 text-[10px] font-bold text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
