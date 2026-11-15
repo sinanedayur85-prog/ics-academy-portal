@@ -22,17 +22,21 @@ function getTodayDateString(): string {
 
 export function Timetable({ student }: { student: Student }) {
   const [submissions, setSubmissions] = useState<Record<string, PeriodAttendanceSubmission>>({})
+  const [, setConfigVersion] = useState(0)
   const todayDate = getTodayDateString()
 
   useEffect(() => {
     function syncAll() {
       setSubmissions(loadPeriodAttendanceSubmissions())
+      setConfigVersion((v) => v + 1)
     }
     syncAll()
     window.addEventListener('ics-period-attendance-updated', syncAll)
+    window.addEventListener('ics-academy-config-updated', syncAll)
     window.addEventListener('storage', syncAll)
     return () => {
       window.removeEventListener('ics-period-attendance-updated', syncAll)
+      window.removeEventListener('ics-academy-config-updated', syncAll)
       window.removeEventListener('storage', syncAll)
     }
   }, [])

@@ -127,3 +127,27 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(event.request))
   );
 });
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetHref = (event.notification.data && event.notification.data.href) || '/#notices';
+  const targetUrl = targetHref.startsWith('/') ? targetHref : `/${targetHref}`;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.focus();
+          if ('navigate' in client && targetHref.startsWith('#')) {
+            client.postMessage({ type: 'ICS_NAVIGATE_HASH', href: targetHref });
+          }
+          return;
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+

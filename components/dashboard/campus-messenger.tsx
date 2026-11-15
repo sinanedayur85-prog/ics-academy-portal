@@ -1144,21 +1144,52 @@ export function CampusMessenger({
         message: newMsg,
       })
 
-      // If an Usthad or Principal posts an important message/PDF in a Batch Group, also notify that batch
-      if (actor.isStaff && activeRoom.type === 'batch_group' && activeRoom.batchName) {
-        const preview =
-          newMsg.mediaType === 'pdf'
-            ? `📄 Shared PDF Note: ${newMsg.mediaName || 'Document'}`
-            : newMsg.mediaType === 'voice'
-              ? `🎤 Sent a Voice Note (${formatVoiceDuration(newMsg.mediaDurationSec || 4)})`
-              : newMsg.mediaType === 'image'
-                ? `📷 Shared ${newMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo`
-                : newMsg.text.slice(0, 120)
+      // Build notification preview text for the message
+      const preview =
+        newMsg.mediaType === 'pdf'
+          ? `📄 Shared PDF Note: ${newMsg.mediaName || 'Document'}`
+          : newMsg.mediaType === 'voice'
+            ? `🎤 Sent a Voice Note (${formatVoiceDuration(newMsg.mediaDurationSec || 4)})`
+            : newMsg.mediaType === 'image'
+              ? `📷 Shared ${newMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo${newMsg.text ? `: ${newMsg.text.slice(0, 80)}` : ''}`
+              : newMsg.text.slice(0, 120)
+
+      // 1. Direct 1-on-1 Chat (Student <-> Usthad, Student <-> Student, Usthad <-> Usthad)
+      // Strictly notify ONLY the target recipient (peerId)
+      if (
+        (activeRoom.type === 'direct_usthad' || activeRoom.type === 'direct_student') &&
+        activeRoom.peerId
+      ) {
         publishCampusNotification({
-          type: 'notice',
-          title: `Class Group Message • ${activeRoom.batchName}`,
-          message: `${actor.name}: ${preview}`,
+          type: 'chat',
+          title: `New Message from ${actor.name}`,
+          message: preview,
+          targetRecipientId: activeRoom.peerId,
+          actorId: actor.id,
+          actorName: actor.name,
+          href: '#campus-chat',
+        })
+      }
+      // 2. Class Batch Group Chat (Notify ONLY members & Class Usthad of that batch, excluding sender)
+      else if (activeRoom.type === 'batch_group' && activeRoom.batchName) {
+        publishCampusNotification({
+          type: 'chat',
+          title: `${actor.name} • ${activeRoom.batchName} Group`,
+          message: preview,
           targetClass: activeRoom.batchName,
+          actorId: actor.id,
+          actorName: actor.name,
+          href: '#campus-chat',
+        })
+      }
+      // 3. Staff Room Group Chat (Notify ONLY Usthads & Principal, excluding sender)
+      else if (activeRoom.type === 'staff_group') {
+        publishCampusNotification({
+          type: 'chat',
+          title: `${actor.name} • Staff Room`,
+          message: preview,
+          targetStaffOnly: true,
+          actorId: actor.id,
           actorName: actor.name,
           href: '#campus-chat',
         })

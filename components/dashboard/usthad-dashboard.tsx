@@ -429,9 +429,58 @@ export function UsthadDashboard() {
     return all.sort((a, b) => b.createdAtMs - a.createdAtMs)
   }, [classStudents, classLeaveMap])
 
+  const isUsthadMonthAttendanceDirty = useMemo(() => {
+    if (!selectedStudent || !selectedMonthRecord) return false
+    const cleanP = Math.max(0, Math.min(31, Number(editPresent) || 0))
+    const cleanA = Math.max(0, Math.min(31, Number(editAbsent) || 0))
+    const cleanL = Math.max(0, Math.min(31, Number(editLeave) || 0))
+    const existingOv = attendanceOverrides[`${selectedStudent.id}__${selectedMonthRecord.id}`]
+    const savedAbsReason = existingOv?.absentReason ?? ABSENT_REASONS[0]
+    const savedLvReason = existingOv?.leaveReason ?? ATTENDANCE_LEAVE_REASONS[0]
+    if (cleanP !== selectedMonthRecord.present) return true
+    if (cleanA !== selectedMonthRecord.absent) return true
+    if (cleanL !== selectedMonthRecord.leave) return true
+    if (cleanA > 0 && editAbsentReason !== savedAbsReason) return true
+    if (cleanL > 0 && editLeaveReason !== savedLvReason) return true
+    return false
+  }, [
+    selectedStudent,
+    selectedMonthRecord,
+    editPresent,
+    editAbsent,
+    editLeave,
+    editAbsentReason,
+    editLeaveReason,
+    attendanceOverrides,
+  ])
+
+  const hasCurrentMonthOverride = useMemo(() => {
+    if (!selectedStudent || !selectedMonthRecord) return false
+    return Boolean(attendanceOverrides[`${selectedStudent.id}__${selectedMonthRecord.id}`])
+  }, [selectedStudent, selectedMonthRecord, attendanceOverrides])
+
+  const isUsthadLeaveActionDuplicate = useMemo(() => {
+    const targetItem = enrichedClassStudents.find(
+      (item) => item.student.id === leaveStudentId,
+    )
+    if (!targetItem) return true
+    if (leaveActionType === 'return') {
+      return !targetItem.isOnLeave
+    }
+    if (targetItem.isOnLeave && targetItem.activeLeaveEntry) {
+      if (
+        targetItem.activeLeaveEntry.reason === leaveReason &&
+        (targetItem.activeLeaveEntry.details || '') === leaveDetails.trim()
+      ) {
+        return true
+      }
+    }
+    return false
+  }, [enrichedClassStudents, leaveStudentId, leaveActionType, leaveReason, leaveDetails])
+
   function handleSaveMonthAttendance(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!selectedStudent || !selectedMonthRecord) return
+    if (!selectedStudent || !selectedMonthRecord || !isUsthadMonthAttendanceDirty) return
 
     const cleanAbsent = Math.max(0, Math.min(31, Number(editAbsent) || 0))
     const cleanLeave = Math.max(0, Math.min(31, Number(editLeave) || 0))
@@ -459,6 +508,7 @@ export function UsthadDashboard() {
 
   function handleResetMonthAttendance() {
     if (!selectedStudent || !selectedMonthRecord) return
+    if (!hasCurrentMonthOverride && !isUsthadMonthAttendanceDirty) return
     const key = `${selectedStudent.id}__${selectedMonthRecord.id}`
     const nextOverrides = { ...attendanceOverrides }
     delete nextOverrides[key]
@@ -551,6 +601,7 @@ export function UsthadDashboard() {
 
   function handleSubmitLeaveForm(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (isUsthadLeaveActionDuplicate) return
     const st = classStudents.find((s) => s.id === leaveStudentId) ?? classStudents[0]
     if (!st) return
     void recordUsthadLeaveOrReturn(st, leaveActionType, leaveReason, leaveDetails.trim())
@@ -1349,8 +1400,9 @@ export function UsthadDashboard() {
                     </h4>
                     <button
                       type="button"
+                      disabled={!hasCurrentMonthOverride && !isUsthadMonthAttendanceDirty}
                       onClick={handleResetMonthAttendance}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-45"
                     >
                       <RotateCcw className="size-3" aria-hidden="true" />
                       Reset Month
@@ -1604,9 +1656,13 @@ export function UsthadDashboard() {
                   ) : null}
 
                   <div className="flex justify-end">
-                    <Button type="submit" className="h-9 rounded-lg px-4 text-xs font-semibold">
+                    <Button
+                      type="submit"
+                      disabled={!isUsthadMonthAttendanceDirty}
+                      className="h-9 rounded-lg px-4 text-xs font-semibold disabled:opacity-50"
+                    >
                       <Check className="mr-1.5 size-3.5" aria-hidden="true" />
-                      Save Attendance Update
+                      {isUsthadMonthAttendanceDirty ? 'Save Attendance Update' : 'Attendance Saved ✓'}
                     </Button>
                   </div>
                 </form>
@@ -1909,8 +1965,18 @@ export function UsthadDashboard() {
                 </p>
               ) : null}
 
-              <Button type="submit" className="mt-auto h-10 w-full rounded-lg text-xs font-semibold">
-                {leaveActionType === 'application' ? 'Submit Leave Outpass' : 'Confirm Student Return'}
+              <Button
+                type="submit"
+                disabled={isUsthadLeaveActionDuplicate}
+                className="mt-auto h-10 w-full rounded-lg text-xs font-semibold disabled:opacity-50"
+              >
+                {isUsthadLeaveActionDuplicate
+                  ? leaveActionType === 'return'
+                    ? 'Already At Academy ✓'
+                    : 'Leave Already Recorded ✓'
+                  : leaveActionType === 'application'
+                    ? 'Submit Leave Outpass'
+                    : 'Confirm Student Return'}
               </Button>
             </form>
           </div>
@@ -2286,7 +2352,11 @@ export function UsthadDashboard() {
                 </p>
               ) : null}
 
-              <Button type="submit" className="h-10 w-full rounded-lg text-xs font-semibold">
+              <Button
+                type="submit"
+                disabled={!noticeTitle.trim() || !noticeBody.trim()}
+                className="h-10 w-full rounded-lg text-xs font-semibold disabled:opacity-50"
+              >
                 <Plus className="mr-1.5 size-3.5" aria-hidden="true" />
                 {isHolidayNotice
                   ? 'Publish Official Holiday & Update Working Days'
@@ -2563,8 +2633,13 @@ export function UsthadDashboard() {
               )}
               <Button
                 type="submit"
-                disabled={uploadingKitab}
-                className="h-9 w-full rounded-lg px-4 text-xs font-semibold sm:w-auto"
+                disabled={
+                  uploadingKitab ||
+                  !kitabTitle.trim() ||
+                  !kitabAuthor.trim() ||
+                  !kitabSummary.trim()
+                }
+                className="h-9 w-full rounded-lg px-4 text-xs font-semibold sm:w-auto disabled:opacity-50"
               >
                 {uploadingKitab ? (
                   <>

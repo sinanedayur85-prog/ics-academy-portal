@@ -1259,13 +1259,16 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
   // Real-time Campus Sync & Notifications State (Notices, Attendance, Period Attendance, Notifications)
   interface ServerCampusNotification {
     id: string
-    type: 'notice' | 'attendance' | 'period-attendance' | 'leave'
+    type: 'notice' | 'attendance' | 'period-attendance' | 'leave' | 'chat'
     title: string
     message: string
     category?: string
     targetClass?: string
     targetClasses?: string[]
     targetStudentId?: string
+    targetRecipientId?: string
+    targetStaffOnly?: boolean
+    actorId?: string
     actorName?: string
     href?: string
     createdAt: string
@@ -1277,6 +1280,8 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     customNotices: unknown[] | null
     attendanceOverrides: Record<string, unknown> | null
     periodSubmissions: Record<string, unknown> | null
+    deletedPeriodKeys: Record<string, number>
+    academyAdminConfig: Record<string, unknown> | null
     notifications: ServerCampusNotification[]
   }
 
@@ -1285,6 +1290,8 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     customNotices: null,
     attendanceOverrides: null,
     periodSubmissions: null,
+    deletedPeriodKeys: {},
+    academyAdminConfig: null,
     notifications: [],
   }
 
@@ -1301,6 +1308,9 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
         customNotices,
         attendanceOverrides,
         periodSubmissions,
+        deletedPeriodKey,
+        deletedAtMs,
+        academyAdminConfig,
         notification,
       } = req.body ?? {}
 
@@ -1317,11 +1327,30 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
         campusState.updatedAtMs = Date.now()
       }
 
-      if (periodSubmissions && typeof periodSubmissions === 'object') {
-        campusState.periodSubmissions = {
-          ...(campusState.periodSubmissions || {}),
-          ...(periodSubmissions as Record<string, unknown>),
+      if (academyAdminConfig && typeof academyAdminConfig === 'object') {
+        campusState.academyAdminConfig = academyAdminConfig as Record<string, unknown>
+        campusState.updatedAtMs = Date.now()
+      }
+
+      if (typeof deletedPeriodKey === 'string' && deletedPeriodKey) {
+        if (campusState.periodSubmissions && deletedPeriodKey in campusState.periodSubmissions) {
+          delete campusState.periodSubmissions[deletedPeriodKey]
         }
+        campusState.deletedPeriodKeys[deletedPeriodKey] =
+          typeof deletedAtMs === 'number' ? deletedAtMs : Date.now()
+        campusState.updatedAtMs = Date.now()
+      }
+
+      if (periodSubmissions && typeof periodSubmissions === 'object') {
+        const incomingMap = periodSubmissions as Record<string, unknown>
+        const nextSubs: Record<string, unknown> = {
+          ...(campusState.periodSubmissions || {}),
+        }
+        for (const [k, val] of Object.entries(incomingMap)) {
+          nextSubs[k] = val
+          delete campusState.deletedPeriodKeys[k]
+        }
+        campusState.periodSubmissions = nextSubs
         campusState.updatedAtMs = Date.now()
       }
 
@@ -1345,6 +1374,9 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
                 ? incomingNotif.targetClasses
                 : undefined,
               targetStudentId: incomingNotif.targetStudentId,
+              targetRecipientId: incomingNotif.targetRecipientId,
+              targetStaffOnly: Boolean(incomingNotif.targetStaffOnly),
+              actorId: incomingNotif.actorId,
               actorName: incomingNotif.actorName,
               href: incomingNotif.href || '#notices',
               createdAt: incomingNotif.createdAt || new Date().toISOString(),

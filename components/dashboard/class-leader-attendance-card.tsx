@@ -8,11 +8,13 @@ import {
   CheckCircle2,
   Clock,
   FileText,
+  History,
   Lock,
   RotateCcw,
   Search,
   Send,
   ShieldAlert,
+  Trash2,
   UserCheck,
   UserCog,
   UserMinus,
@@ -28,6 +30,7 @@ import {
   CLASS_USTHADS,
   CURRENT_SEMESTER,
   NOT_HELD_REASONS,
+  deletePeriodAttendanceSubmission,
   getClassLeadersForClass,
   getClassSemesterTimetable,
   loadPeriodAttendanceSubmissions,
@@ -133,7 +136,9 @@ export function ClassLeaderAttendanceCard({
   )
   const [onLeaveStudentIds, setOnLeaveStudentIds] = useState<Set<string>>(new Set())
   const [justSubmittedMessage, setJustSubmittedMessage] = useState<string | null>(null)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false)
   const [reportStudent, setReportStudent] = useState<Student | null>(null)
+  const [configVersion, setConfigVersion] = useState(0)
 
   const effectiveRoleLabel =
     actorRoleLabel ?? (highlightLeaderBadge ? 'Class Leader' : 'Class Usthad')
@@ -142,15 +147,18 @@ export function ClassLeaderAttendanceCard({
 
   const classStudents = useMemo(
     () => students.filter((s) => s.className === leader.className),
-    [leader.className],
+    [leader.className, configVersion],
   )
 
   const classLeaders = useMemo(
     () => getClassLeadersForClass(leader.className),
-    [leader.className],
+    [leader.className, configVersion],
   )
 
-  const timetable = useMemo(() => getClassSemesterTimetable(leader), [leader])
+  const timetable = useMemo(
+    () => getClassSemesterTimetable(leader),
+    [leader, configVersion],
+  )
   const semesterSubjects =
     CURRENT_SEMESTER === 1 ? timetable.semester1 : timetable.semester2
 
@@ -182,12 +190,15 @@ export function ClassLeaderAttendanceCard({
     function syncAll() {
       setSubmissions(loadPeriodAttendanceSubmissions())
       setOnLeaveStudentIds(loadOnLeaveStudentIdsForClass(leader.className))
+      setConfigVersion((v) => v + 1)
     }
     syncAll()
     window.addEventListener('ics-period-attendance-updated', syncAll)
+    window.addEventListener('ics-academy-config-updated', syncAll)
     window.addEventListener('storage', syncAll)
     return () => {
       window.removeEventListener('ics-period-attendance-updated', syncAll)
+      window.removeEventListener('ics-academy-config-updated', syncAll)
       window.removeEventListener('storage', syncAll)
     }
   }, [leader.className])
@@ -233,6 +244,7 @@ export function ClassLeaderAttendanceCard({
       setDraftReasons(nextReasons)
     }
     setJustSubmittedMessage(null)
+    setConfirmDeleteOpen(false)
   }, [currentSubmissionKey, submissions, classStudents, onLeaveStudentIds, leader.className])
 
   const isSessionNotHeld = draftSessionStatus === 'not-held'
@@ -243,6 +255,59 @@ export function ClassLeaderAttendanceCard({
       CLASS_USTHADS.find((u) => u.id === draftSubstituteUsthadId) ?? CLASS_USTHADS[0],
     [draftSubstituteUsthadId],
   )
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!existingSubmission) return true
+    const savedSessionStatus: PeriodSessionStatus =
+      existingSubmission.sessionStatus ?? 'conducted'
+    if (draftSessionStatus !== savedSessionStatus) return true
+
+    if (draftSessionStatus === 'not-held') {
+      const savedReason = existingSubmission.notHeldReason ?? NOT_HELD_REASONS[0]
+      return draftNotHeldReason !== savedReason
+    }
+
+    if (draftSessionStatus === 'substituted') {
+      const savedReason = existingSubmission.notHeldReason ?? NOT_HELD_REASONS[0]
+      if (draftNotHeldReason !== savedReason) return true
+      const savedSubId = existingSubmission.substituteUsthad?.usthadId ?? ''
+      if ((selectedSubstituteUsthad?.id ?? '') !== savedSubId) return true
+    }
+
+    for (const student of classStudents) {
+      const curStatus = draftRecords[student.id] ?? 'present'
+      const savedStatus = existingSubmission.records?.[student.id] ?? 'present'
+      if (curStatus !== savedStatus) return true
+      if (curStatus === 'absent') {
+        const curReason = draftReasons[student.id] ?? ABSENT_REASONS[0]
+        const savedReason = existingSubmission.reasons?.[student.id] ?? ABSENT_REASONS[0]
+        if (curReason !== savedReason) return true
+      } else if (curStatus === 'leave') {
+        const curReason = draftReasons[student.id] ?? ATTENDANCE_LEAVE_REASONS[0]
+        const savedReason =
+          existingSubmission.reasons?.[student.id] ?? ATTENDANCE_LEAVE_REASONS[0]
+        if (curReason !== savedReason) return true
+      }
+    }
+
+    return false
+  }, [
+    existingSubmission,
+    draftSessionStatus,
+    draftNotHeldReason,
+    selectedSubstituteUsthad,
+    classStudents,
+    draftRecords,
+    draftReasons,
+  ])
+
+  const isAllDefaultPresent = useMemo(() => {
+    if (isSessionNotHeld) return false
+    return classStudents.every((s) => {
+      const expected = onLeaveStudentIds.has(s.id) ? 'leave' : 'present'
+      return (draftRecords[s.id] ?? 'present') === expected
+    })
+  }, [isSessionNotHeld, classStudents, onLeaveStudentIds, draftRecords])
 
   const filteredStudents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -373,8 +438,11 @@ export function ClassLeaderAttendanceCard({
   }
 
   function handleSaveClassNotHeld() {
+    if (existingSubmission && !hasUnsavedChanges) return
     const nowIso = new Date().toISOString()
-    const actorDisplay = `${effectiveRoleLabel} • ${submittedByNameOverride ?? leader.name} (${leaderId})`
+    const actorName = submittedByNameOverride ?? leader.name
+    const actorDisplay = `${effectiveRoleLabel} • ${actorName} (${leaderId})`
+    const isUpdatingExisting = Boolean(existingSubmission)
 
     const submission: PeriodAttendanceSubmission = {
       key: currentSubmissionKey,
@@ -385,9 +453,19 @@ export function ClassLeaderAttendanceCard({
       periodTime: activePeriod.time,
       subject: activePeriod.subject,
       teacher: activePeriod.teacher,
-      submittedByLeaderId: leaderId,
-      submittedByName: submittedByNameOverride ?? leader.name,
-      submittedAt: nowIso,
+      submittedByLeaderId: existingSubmission?.submittedByLeaderId ?? leaderId,
+      submittedByName: existingSubmission?.submittedByName ?? actorName,
+      submittedByRole: existingSubmission?.submittedByRole ?? effectiveRoleLabel,
+      submittedAt: existingSubmission?.submittedAt ?? nowIso,
+      ...(isUpdatingExisting
+        ? {
+            lastEditedByName: actorName,
+            lastEditedByRole: effectiveRoleLabel,
+            lastEditedById: leaderId,
+            lastEditedAt: nowIso,
+            editCount: (existingSubmission?.editCount ?? 0) + 1,
+          }
+        : { editCount: 0 }),
       records: {},
       reasons: {},
       sessionStatus: 'not-held',
@@ -402,18 +480,23 @@ export function ClassLeaderAttendanceCard({
     setDraftSessionStatus('not-held')
     setSubmissions(updated)
     savePeriodAttendanceSubmissions(updated)
+    setConfirmDeleteOpen(false)
     setJustSubmittedMessage(
       `${activePeriod.label} (${activePeriod.subject}) marked as "Class Not Held". Student attendance is locked for this period.`,
     )
   }
 
   function handleSubmitPeriodAttendance() {
+    if (existingSubmission && !hasUnsavedChanges) return
     if (isSessionNotHeld) {
       handleSaveClassNotHeld()
       return
     }
 
     const nowIso = new Date().toISOString()
+    const actorName = submittedByNameOverride ?? leader.name
+    const isUpdatingExisting = Boolean(existingSubmission)
+
     const cleanReasons: Record<string, string> = {}
     for (const student of classStudents) {
       const stStatus = draftRecords[student.id] ?? 'present'
@@ -438,9 +521,19 @@ export function ClassLeaderAttendanceCard({
       periodTime: activePeriod.time,
       subject: activePeriod.subject,
       teacher: effectiveTeacher,
-      submittedByLeaderId: leaderId,
-      submittedByName: submittedByNameOverride ?? leader.name,
-      submittedAt: nowIso,
+      submittedByLeaderId: existingSubmission?.submittedByLeaderId ?? leaderId,
+      submittedByName: existingSubmission?.submittedByName ?? actorName,
+      submittedByRole: existingSubmission?.submittedByRole ?? effectiveRoleLabel,
+      submittedAt: existingSubmission?.submittedAt ?? nowIso,
+      ...(isUpdatingExisting
+        ? {
+            lastEditedByName: actorName,
+            lastEditedByRole: effectiveRoleLabel,
+            lastEditedById: leaderId,
+            lastEditedAt: nowIso,
+            editCount: (existingSubmission?.editCount ?? 0) + 1,
+          }
+        : { editCount: 0 }),
       records: { ...draftRecords },
       reasons: cleanReasons,
       sessionStatus: isSessionSubstituted ? 'substituted' : 'conducted',
@@ -449,11 +542,11 @@ export function ClassLeaderAttendanceCard({
             notHeldReason: draftNotHeldReason,
             markedNotHeldBy:
               existingSubmission?.markedNotHeldBy ??
-              `${effectiveRoleLabel} • ${submittedByNameOverride ?? leader.name}`,
+              `${effectiveRoleLabel} • ${actorName}`,
             substituteUsthad: {
               usthadId: selectedSubstituteUsthad.id,
               usthadName: selectedSubstituteUsthad.name,
-              assignedBy: `${effectiveRoleLabel} (${submittedByNameOverride ?? leader.name})`,
+              assignedBy: `${effectiveRoleLabel} (${actorName})`,
               assignedAt: nowIso,
             },
           }
@@ -466,10 +559,38 @@ export function ClassLeaderAttendanceCard({
     }
     setSubmissions(updated)
     savePeriodAttendanceSubmissions(updated)
+    setConfirmDeleteOpen(false)
     setJustSubmittedMessage(
-      isSessionSubstituted
-        ? `${activePeriod.label} (${activePeriod.subject}) attendance recorded under Substitute Usthad (${selectedSubstituteUsthad.shortName}) (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`
-        : `${activePeriod.label} (${activePeriod.subject}) attendance submitted (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`,
+      isUpdatingExisting
+        ? `${activePeriod.label} (${activePeriod.subject}) ഹാജർ തിരുത്തി സേവ് ചെയ്തു (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`
+        : isSessionSubstituted
+          ? `${activePeriod.label} (${activePeriod.subject}) attendance recorded under Substitute Usthad (${selectedSubstituteUsthad.shortName}) (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`
+          : `${activePeriod.label} (${activePeriod.subject}) attendance submitted (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`,
+    )
+  }
+
+  function handleDeletePeriodSubmission() {
+    const actorName = submittedByNameOverride ?? leader.name
+    const nextMap = deletePeriodAttendanceSubmission(currentSubmissionKey, {
+      name: actorName,
+      role: effectiveRoleLabel,
+    })
+    setSubmissions(nextMap)
+    setDraftSessionStatus('conducted')
+    const nextDraft: Record<string, PeriodAttendanceStatus> = {}
+    const nextReasons: Record<string, string> = {}
+    for (const student of classStudents) {
+      const isLeave = onLeaveStudentIds.has(student.id)
+      nextDraft[student.id] = isLeave ? 'leave' : 'present'
+      if (isLeave) {
+        nextReasons[student.id] = ATTENDANCE_LEAVE_REASONS[0]
+      }
+    }
+    setDraftRecords(nextDraft)
+    setDraftReasons(nextReasons)
+    setConfirmDeleteOpen(false)
+    setJustSubmittedMessage(
+      `${activePeriod.label} (${activePeriod.subject}) സബ്മിറ്റ് ചെയ്ത ഹാജർ പൂർണ്ണമായി ഡിലീറ്റ് ചെയ്തു (Reset to Pending).`,
     )
   }
 
@@ -809,11 +930,14 @@ export function ClassLeaderAttendanceCard({
                   </div>
                   <Button
                     type="button"
+                    disabled={Boolean(existingSubmission && !hasUnsavedChanges)}
                     onClick={handleSaveClassNotHeld}
-                    className="h-10 rounded-xl bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-700 whitespace-nowrap shrink-0"
+                    className="h-10 rounded-xl bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50 whitespace-nowrap shrink-0"
                   >
                     <ShieldAlert className="mr-1.5 size-4" aria-hidden="true" />
-                    Confirm Class Not Held
+                    {existingSubmission?.sessionStatus === 'not-held' && !hasUnsavedChanges
+                      ? 'Class Not Held Saved ✓'
+                      : 'Confirm Class Not Held'}
                   </Button>
                 </div>
               )}
@@ -853,27 +977,54 @@ export function ClassLeaderAttendanceCard({
               )}
             </div>
             {existingSubmission ? (
-              <p
-                className={cn(
-                  'text-xs',
-                  existingSubmission.sessionStatus === 'not-held'
-                    ? 'font-medium text-red-600 dark:text-red-400'
-                    : 'text-emerald-600 dark:text-lime',
-                )}
-              >
-                {existingSubmission.sessionStatus === 'not-held'
-                  ? `Marked as Class Not Held by ${existingSubmission.markedNotHeldBy ?? existingSubmission.submittedByName} • Reason: ${existingSubmission.notHeldReason ?? NOT_HELD_REASONS[0]}`
-                  : `Last submitted by ${existingSubmission.submittedByName}${
-                      isStaffViewer || existingSubmission.submittedByLeaderId === leaderId
-                        ? ` (${existingSubmission.submittedByLeaderId})`
-                        : ''
-                    } at ${new Date(
-                      existingSubmission.submittedAt,
-                    ).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}`}
-              </p>
+              <div className="mt-1 flex flex-col gap-1">
+                <p
+                  className={cn(
+                    'text-xs tabular-nums',
+                    existingSubmission.sessionStatus === 'not-held'
+                      ? 'font-medium text-red-600 dark:text-red-400'
+                      : 'text-emerald-600 dark:text-lime',
+                  )}
+                >
+                  {existingSubmission.sessionStatus === 'not-held'
+                    ? `Marked as Class Not Held by ${existingSubmission.markedNotHeldBy ?? existingSubmission.submittedByName} • Reason: ${existingSubmission.notHeldReason ?? NOT_HELD_REASONS[0]}`
+                    : `ആദ്യം സബ്മിറ്റ് ചെയ്തത് (Submitted by): ${existingSubmission.submittedByName}${
+                        existingSubmission.submittedByRole
+                          ? ` (${existingSubmission.submittedByRole})`
+                          : isStaffViewer || existingSubmission.submittedByLeaderId === leaderId
+                            ? ` (${existingSubmission.submittedByLeaderId})`
+                            : ''
+                      } • ${new Date(existingSubmission.submittedAt).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}`}
+                </p>
+
+                {existingSubmission.lastEditedAt && existingSubmission.lastEditedByName ? (
+                  <p className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-cyan tabular-nums">
+                    <History className="size-3.5 shrink-0" aria-hidden="true" />
+                    <span>
+                      തിരുത്തിയത് (Corrected by):{' '}
+                      <strong className="font-semibold">{existingSubmission.lastEditedByName}</strong>
+                      {existingSubmission.lastEditedByRole
+                        ? ` (${existingSubmission.lastEditedByRole})`
+                        : ''}{' '}
+                      •{' '}
+                      {new Date(existingSubmission.lastEditedAt).toLocaleDateString([], {
+                        day: '2-digit',
+                        month: 'short',
+                      })}{' '}
+                      {new Date(existingSubmission.lastEditedAt).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                      {existingSubmission.editCount && existingSubmission.editCount > 1
+                        ? ` • ${existingSubmission.editCount} തവണ തിരുത്തി`
+                        : ''}
+                    </span>
+                  </p>
+                ) : null}
+              </div>
             ) : (
               <p className="text-xs text-muted-foreground">
                 Attendance not yet submitted for {activePeriod.label} on {selectedDate}.
@@ -934,7 +1085,7 @@ export function ClassLeaderAttendanceCard({
               type="button"
               variant="outline"
               size="sm"
-              disabled={isSessionNotHeld}
+              disabled={isSessionNotHeld || isAllDefaultPresent}
               onClick={handleMarkAllPresent}
               className="rounded-xl text-xs font-semibold"
             >
@@ -945,6 +1096,11 @@ export function ClassLeaderAttendanceCard({
               type="button"
               variant="ghost"
               size="sm"
+              disabled={
+                existingSubmission
+                  ? !hasUnsavedChanges
+                  : draftSessionStatus === 'conducted' && isAllDefaultPresent
+              }
               onClick={handleResetPeriod}
               className="rounded-xl text-xs font-medium text-muted-foreground hover:text-foreground"
             >
@@ -1201,28 +1357,74 @@ export function ClassLeaderAttendanceCard({
             )}
           </div>
 
-          <Button
-            type="button"
-            onClick={handleSubmitPeriodAttendance}
-            className={cn(
-              'h-11 rounded-full px-6 text-sm font-semibold whitespace-nowrap shrink-0',
-              isSessionNotHeld && 'bg-red-600 text-white hover:bg-red-700',
-            )}
-          >
-            {isSessionNotHeld ? (
-              <>
-                <Ban className="mr-2 size-4" aria-hidden="true" />
-                Record {activePeriod.label} as Class Not Held
-              </>
-            ) : (
-              <>
-                <Send className="mr-2 size-4" aria-hidden="true" />
-                {existingSubmission
-                  ? `Update ${activePeriod.label} Attendance`
-                  : `Submit ${activePeriod.label} Attendance`}
-              </>
-            )}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2.5 sm:justify-end">
+            {existingSubmission ? (
+              confirmDeleteOpen ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-red-500/40 bg-red-500/10 px-3 py-1.5">
+                  <span className="text-xs font-semibold text-red-600 dark:text-red-300">
+                    ഈ പീരീഡ് ഹാജർ പൂർണ്ണമായി ഡിലീറ്റ് ചെയ്യണോ?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleDeletePeriodSubmission}
+                    className="inline-flex h-8 items-center gap-1 rounded-xl bg-red-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-red-700 whitespace-nowrap"
+                  >
+                    <Trash2 className="size-3.5" aria-hidden="true" />
+                    Confirm Delete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteOpen(false)}
+                    className="inline-flex h-8 items-center rounded-xl border border-border bg-background px-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground whitespace-nowrap"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setConfirmDeleteOpen(true)
+                    setJustSubmittedMessage(null)
+                  }}
+                  className="h-11 rounded-full border-red-500/40 bg-red-500/10 px-4 text-xs font-semibold text-red-600 hover:bg-red-500/20 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 whitespace-nowrap shrink-0"
+                >
+                  <Trash2 className="mr-1.5 size-4" aria-hidden="true" />
+                  Delete Submitted Attendance
+                </Button>
+              )
+            ) : null}
+
+            <Button
+              type="button"
+              disabled={Boolean(existingSubmission && !hasUnsavedChanges)}
+              onClick={handleSubmitPeriodAttendance}
+              className={cn(
+                'h-11 rounded-full px-6 text-sm font-semibold whitespace-nowrap shrink-0 disabled:opacity-55',
+                isSessionNotHeld && 'bg-red-600 text-white hover:bg-red-700',
+              )}
+            >
+              {existingSubmission && !hasUnsavedChanges ? (
+                <>
+                  <Check className="mr-2 size-4" aria-hidden="true" />
+                  {activePeriod.label} Saved (മാറ്റം വരുത്തിയാൽ വീണ്ടും സേവ് ചെയ്യാം)
+                </>
+              ) : isSessionNotHeld ? (
+                <>
+                  <Ban className="mr-2 size-4" aria-hidden="true" />
+                  Record {activePeriod.label} as Class Not Held
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 size-4" aria-hidden="true" />
+                  {existingSubmission
+                    ? `Update ${activePeriod.label} Attendance`
+                    : `Submit ${activePeriod.label} Attendance`}
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 

@@ -10,11 +10,13 @@ import {
   ClipboardList,
   ExternalLink,
   Megaphone,
+  MessageSquare,
   UserCheck,
   X,
 } from 'lucide-react'
 import {
   formatTargetClassesBadge,
+  getCurrentSessionIdentity,
   isNotificationVisibleForStudent,
   loadCampusNotifications,
   pullCampusStateFromServer,
@@ -28,7 +30,8 @@ const READ_NOTIF_IDS_STORAGE_KEY = 'ics_read_notification_ids_v2'
 const LAST_TOASTED_NOTIF_ID_KEY = 'ics_last_toasted_notif_id_v2'
 
 function getScopeStorageSuffix(studentId?: string, classNameFilter?: string): string {
-  const raw = studentId || classNameFilter || 'campus'
+  const session = getCurrentSessionIdentity()
+  const raw = studentId || session.actorId || classNameFilter || session.className || 'campus'
   return raw.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60)
 }
 
@@ -61,6 +64,15 @@ function saveReadIds(
 }
 
 function getNotificationScopeBadge(notif: CampusNotification, studentId?: string): string {
+  if (notif.targetRecipientId) {
+    return 'Direct Message • Only You'
+  }
+  if (notif.targetStaffOnly) {
+    return 'Staff Room Only'
+  }
+  if (notif.type === 'chat' && notif.targetClass) {
+    return `${notif.targetClass} Group`
+  }
   if (notif.targetStudentId) {
     return studentId && notif.targetStudentId === studentId
       ? 'Personal • Only Your Account'
@@ -77,6 +89,13 @@ function getNotificationScopeBadge(notif: CampusNotification, studentId?: string
 
 function getNotificationMeta(type: CampusNotificationType) {
   switch (type) {
+    case 'chat':
+      return {
+        label: 'Campus Messenger',
+        Icon: MessageSquare,
+        badgeClass: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+        iconClass: 'bg-emerald-500/15 text-emerald-400',
+      }
     case 'attendance':
       return {
         label: 'Attendance Update',
@@ -166,7 +185,7 @@ export function CampusNotificationBar({
       const notif = custom.detail
       if (!notif || !notif.id) return
 
-      // Strictly enforce personal student & batch visibility rules
+      // Strictly enforce personal student, recipient & batch visibility rules
       if (!isNotificationVisibleForStudent(notif, studentId, classNameFilter)) {
         return
       }
@@ -177,7 +196,7 @@ export function CampusNotificationBar({
       window.sessionStorage.setItem(toastKey, notif.id)
 
       setActiveToast(notif)
-      triggerSystemNotification(notif.title, notif.message)
+      triggerSystemNotification(notif.title, notif.message, notif.href)
     }
 
     window.addEventListener('ics-campus-notification', handleIncoming)

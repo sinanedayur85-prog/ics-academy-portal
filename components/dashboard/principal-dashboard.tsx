@@ -79,22 +79,38 @@ import {
   NOT_HELD_REASONS,
   OFFICIAL_CLASS_USTHADS,
   SHAIKHUNA_HAMZA_USTHAD,
+  addStudentByPrincipal,
+  assignClassLeadersByPrincipal,
+  assignClassUsthadByPrincipal,
   ensureCleanLaunchStorage,
   formatTargetClassesBadge,
+  getActiveSemester,
   getClassLeadersForClass,
   getClassSemesterTimetable,
+  getClassSemesterTimetableByClassName,
+  getDefaultClassTimetable,
   getEffectiveStudentAttendance,
+  getNextSuggestedAdmissionNo,
   getNoticeTargetClasses,
   leaveReasons,
+  loadAcademyAdminConfig,
   loadAttendanceOverrides,
   loadCustomNotices,
   loadPeriodAttendanceSubmissions,
   publishCampusNotification,
+  removeStudentByPrincipal,
+  resetClassTimetableByPrincipal,
+  restoreAllRemovedStudentsByPrincipal,
   saveAttendanceOverrides,
+  saveClassTimetableByPrincipal,
   saveCustomNotices,
   savePeriodAttendanceSubmissions,
+  saveUsthadProfileByPrincipal,
+  setActiveSemesterByPrincipal,
   students,
+  updateStudentByPrincipal,
   type AttendanceOverrideMap,
+  type ClassSemesterTimetable,
   type ClassUsthad,
   type Notice,
   type OfficialHolidayMeta,
@@ -189,7 +205,7 @@ function saveStudentLeaveEntriesToStorage(studentId: string, entries: SavedLeave
 }
 
 type ExecutiveTab = 'monitor' | 'people' | 'chat' | 'notices' | 'library'
-type PeopleSubTab = 'usthads' | 'leaders' | 'students'
+type PeopleSubTab = 'usthads' | 'leaders' | 'students' | 'timetable'
 
 export function PrincipalDashboard() {
   const principal = ACADEMY_PRINCIPAL
@@ -197,6 +213,7 @@ export function PrincipalDashboard() {
   const [activeTab, setActiveTab] = useState<ExecutiveTab>('monitor')
   const [peopleSubTab, setPeopleSubTab] = useState<PeopleSubTab>('usthads')
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString)
+  const [configVersion, setConfigVersion] = useState<number>(0)
 
   // Selected class for deep inspection & period control (defaults to Principal's own assigned class)
   const [selectedClassName, setSelectedClassName] = useState<string>(
@@ -299,6 +316,52 @@ export function PrincipalDashboard() {
   const [kitabStatusMsg, setKitabStatusMsg] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // ==================== PRINCIPAL ADMIN MANAGEMENT STATES ====================
+  // 1. Student Add / Edit / Remove State
+  const [editingStudentId, setEditingStudentId] = useState<string | null>(null)
+  const [studentFormClass, setStudentFormClass] = useState<string>('8th')
+  const [studentFormName, setStudentFormName] = useState<string>('')
+  const [studentFormAdmissionNo, setStudentFormAdmissionNo] = useState<string>(() =>
+    getNextSuggestedAdmissionNo('8th'),
+  )
+  const [confirmRemoveStudentId, setConfirmRemoveStudentId] = useState<string | null>(null)
+  const [studentAdminToast, setStudentAdminToast] = useState<string | null>(null)
+
+  // 2. Class Usthad Assignment & Usthad Profile Editor State
+  const [assignUsthadClass, setAssignUsthadClass] = useState<string>('BS 3')
+  const [assignUsthadStaffId, setAssignUsthadStaffId] = useState<string>(() => {
+    const found = CLASS_USTHADS.find((u) => u.className === 'BS 3')
+    return found?.staffId ?? 'UST-07'
+  })
+  const [usthadAssignToast, setUsthadAssignToast] = useState<string | null>(null)
+
+  const [editingUsthadId, setEditingUsthadId] = useState<string>(() => OFFICIAL_CLASS_USTHADS[0]?.id ?? 'usthad-07')
+  const [usthadFormName, setUsthadFormName] = useState<string>(() => OFFICIAL_CLASS_USTHADS[0]?.name ?? '')
+  const [usthadFormStaffId, setUsthadFormStaffId] = useState<string>(() => OFFICIAL_CLASS_USTHADS[0]?.staffId ?? 'UST-07')
+  const [usthadFormDesignation, setUsthadFormDesignation] = useState<string>(() => OFFICIAL_CLASS_USTHADS[0]?.designation ?? 'Class Usthad')
+  const [usthadFormSpec, setUsthadFormSpec] = useState<string>(() => OFFICIAL_CLASS_USTHADS[0]?.specialization ?? '')
+  const [usthadProfileToast, setUsthadProfileToast] = useState<string | null>(null)
+
+  // 3. Class Leader Assignment State
+  const [leaderEditClass, setLeaderEditClass] = useState<string>('8th')
+  const [leaderMainStudentId, setLeaderMainStudentId] = useState<string>(() => {
+    const leaders = getClassLeadersForClass('8th')
+    return leaders[0]?.studentId ?? students[0]?.id ?? 'std-1'
+  })
+  const [leaderAssistantStudentId, setLeaderAssistantStudentId] = useState<string>(() => {
+    const leaders = getClassLeadersForClass('8th')
+    return leaders[1]?.studentId ?? leaders[0]?.studentId ?? students[1]?.id ?? 'std-2'
+  })
+  const [leaderAdminToast, setLeaderAdminToast] = useState<string | null>(null)
+
+  // 4. Timetable & Subjects Editor State
+  const [ttEditClass, setTtEditClass] = useState<string>('BS 3')
+  const [ttEditSemesterTab, setTtEditSemesterTab] = useState<1 | 2>(() => getActiveSemester())
+  const [ttDraft, setTtDraft] = useState<ClassSemesterTimetable>(() =>
+    JSON.parse(JSON.stringify(getClassSemesterTimetableByClassName('BS 3'))),
+  )
+  const [ttAdminToast, setTtAdminToast] = useState<string | null>(null)
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -316,6 +379,7 @@ export function PrincipalDashboard() {
     setPeriodSubmissions(loadPeriodAttendanceSubmissions())
     setAttendanceOverrides(loadAttendanceOverrides())
     setCustomNotices(loadCustomNotices())
+    setConfigVersion((v) => v + 1)
 
     const nextLeaveMap: Record<string, SavedLeaveEntry[]> = {}
     for (const st of students) {
@@ -340,16 +404,59 @@ export function PrincipalDashboard() {
     window.addEventListener('ics-period-attendance-updated', refreshAllCampusData)
     window.addEventListener('ics-attendance-updated', refreshAllCampusData)
     window.addEventListener('ics-notices-updated', refreshAllCampusData)
+    window.addEventListener('ics-academy-config-updated', refreshAllCampusData)
     window.addEventListener('storage', refreshAllCampusData)
     return () => {
       window.removeEventListener('ics-period-attendance-updated', refreshAllCampusData)
       window.removeEventListener('ics-attendance-updated', refreshAllCampusData)
       window.removeEventListener('ics-notices-updated', refreshAllCampusData)
+      window.removeEventListener('ics-academy-config-updated', refreshAllCampusData)
       window.removeEventListener('storage', refreshAllCampusData)
     }
   }, [refreshAllCampusData])
 
-  // Enrich all 181 students across all 11 batches
+  // Sync Class Leader form selectors when leaderEditClass changes
+  useEffect(() => {
+    const clsLeaders = getClassLeadersForClass(leaderEditClass)
+    const clsStudents = students.filter((s) => s.className === leaderEditClass)
+    setLeaderMainStudentId(clsLeaders[0]?.studentId ?? clsStudents[0]?.id ?? '')
+    setLeaderAssistantStudentId(
+      clsLeaders[1]?.studentId ?? clsStudents[1]?.id ?? clsStudents[0]?.id ?? '',
+    )
+  }, [leaderEditClass, configVersion])
+
+  // Sync Class Usthad selector when assignUsthadClass changes
+  useEffect(() => {
+    const cu = CLASS_USTHADS.find((u) => u.className === assignUsthadClass)
+    if (cu) setAssignUsthadStaffId(cu.staffId)
+  }, [assignUsthadClass, configVersion])
+
+  // Sync Usthad Profile Editor fields when editingUsthadId changes
+  useEffect(() => {
+    if (editingUsthadId === 'NEW') {
+      setUsthadFormName('')
+      setUsthadFormStaffId(`UST-${String(OFFICIAL_CLASS_USTHADS.length + 15).padStart(2, '0')}`)
+      setUsthadFormDesignation('Class Usthad')
+      setUsthadFormSpec('')
+      return
+    }
+    const found = OFFICIAL_CLASS_USTHADS.find((u) => u.id === editingUsthadId)
+    if (found) {
+      setUsthadFormName(found.name)
+      setUsthadFormStaffId(found.staffId)
+      setUsthadFormDesignation(found.designation)
+      setUsthadFormSpec(found.specialization)
+    }
+  }, [editingUsthadId, configVersion])
+
+  // Sync Timetable draft when ttEditClass changes
+  useEffect(() => {
+    setTtDraft(
+      JSON.parse(JSON.stringify(getClassSemesterTimetableByClassName(ttEditClass))),
+    )
+  }, [ttEditClass, configVersion])
+
+  // Enrich all students across all 11 batches
   const enrichedCampusStudents = useMemo(() => {
     return students.map((st) => {
       const effective = getEffectiveStudentAttendance(st, attendanceOverrides, customNotices)
@@ -367,29 +474,29 @@ export function PrincipalDashboard() {
         activeLeaveEntry: isOnLeave ? latestEntry : null,
       }
     })
-  }, [attendanceOverrides, customNotices, campusLeaveMap])
+  }, [attendanceOverrides, customNotices, campusLeaveMap, configVersion])
 
   // Selected class students & representative leader for ClassLeaderAttendanceCard
   const selectedClassUsthad = useMemo(
     () =>
       CLASS_USTHADS.find((u) => u.className === selectedClassName) ?? CLASS_USTHADS[0],
-    [selectedClassName],
+    [selectedClassName, configVersion],
   )
 
   const selectedClassStudents = useMemo(
     () => students.filter((s) => s.className === selectedClassName),
-    [selectedClassName],
+    [selectedClassName, configVersion],
   )
 
   const selectedClassRepresentativeStudent = useMemo(
     () => selectedClassStudents[0] ?? students[0],
-    [selectedClassStudents],
+    [selectedClassStudents, configVersion],
   )
 
   // Selected student for Monthly Attendance Editor
   const selectedStudent = useMemo(
     () => students.find((s) => s.id === selectedStudentId) ?? selectedClassStudents[0] ?? students[0],
-    [selectedStudentId, selectedClassStudents],
+    [selectedStudentId, selectedClassStudents, configVersion],
   )
 
   const selectedStudentEffective = useMemo(
@@ -503,11 +610,13 @@ export function PrincipalDashboard() {
     let periodsConducted = 0
     let periodsNotHeld = 0
     let periodsSubstituted = 0
+    let totalDailyPeriods = 0
 
     for (const row of classMatrixRows) {
       periodsConducted += row.conductedCount
       periodsNotHeld += row.notHeldCount
       periodsSubstituted += row.substitutedCount
+      totalDailyPeriods += row.periodCells.length
     }
 
     return {
@@ -519,7 +628,7 @@ export function PrincipalDashboard() {
       periodsConducted,
       periodsNotHeld,
       periodsSubstituted,
-      totalDailyPeriods: CLASS_USTHADS.length * 5,
+      totalDailyPeriods,
     }
   }, [enrichedCampusStudents, classMatrixRows])
 
@@ -562,6 +671,146 @@ export function PrincipalDashboard() {
     directorySearch,
   ])
 
+  // Dirty-state checks for Principal Save buttons (prevent duplicate saves & sounds)
+  const quickOverrideStatus = useMemo(() => {
+    const subKey = `${selectedDate}__${quickClassName}__${quickPeriodIndex}`
+    const existing = periodSubmissions[subKey]
+    const isNotHeldUnchanged =
+      existing?.sessionStatus === 'not-held' &&
+      (existing.notHeldReason ?? NOT_HELD_REASONS[0]) === quickNotHeldReason
+    const resolvedSubUsthad =
+      OFFICIAL_CLASS_USTHADS.find((u) => u.id === quickSubstituteUsthadId) ??
+      OFFICIAL_CLASS_USTHADS.find((u) => u.className !== quickClassName) ??
+      OFFICIAL_CLASS_USTHADS[0]
+    const isSubstitutedUnchanged =
+      existing?.sessionStatus === 'substituted' &&
+      existing.substituteUsthad?.usthadId === resolvedSubUsthad?.id &&
+      (existing.notHeldReason ?? NOT_HELD_REASONS[0]) === quickNotHeldReason
+    return { isNotHeldUnchanged, isSubstitutedUnchanged }
+  }, [
+    selectedDate,
+    quickClassName,
+    quickPeriodIndex,
+    quickNotHeldReason,
+    quickSubstituteUsthadId,
+    periodSubmissions,
+    configVersion,
+  ])
+
+  const isClassUsthadChanged = useMemo(() => {
+    const currentSlot = CLASS_USTHADS.find((u) => u.className === assignUsthadClass)
+    if (!currentSlot) return true
+    return currentSlot.staffId.toUpperCase() !== assignUsthadStaffId.trim().toUpperCase()
+  }, [assignUsthadClass, assignUsthadStaffId, configVersion])
+
+  const isUsthadProfileChanged = useMemo(() => {
+    const cleanName = usthadFormName.trim()
+    const cleanStaff = usthadFormStaffId.trim().toUpperCase()
+    const cleanDesig = usthadFormDesignation.trim() || 'Class Usthad'
+    const cleanSpec = usthadFormSpec.trim() || 'Islamic & Academic Studies'
+    if (!cleanName || !cleanStaff) return false
+    if (editingUsthadId === 'NEW') return true
+    const current = OFFICIAL_CLASS_USTHADS.find((u) => u.id === editingUsthadId)
+    if (!current) return true
+    return (
+      current.name !== cleanName ||
+      current.staffId.toUpperCase() !== cleanStaff ||
+      current.designation !== cleanDesig ||
+      current.specialization !== cleanSpec
+    )
+  }, [
+    editingUsthadId,
+    usthadFormName,
+    usthadFormStaffId,
+    usthadFormDesignation,
+    usthadFormSpec,
+    configVersion,
+  ])
+
+  const isClassLeadersChanged = useMemo(() => {
+    if (!leaderMainStudentId || !leaderAssistantStudentId) return false
+    const currentLeaders = getClassLeadersForClass(leaderEditClass)
+    return (
+      currentLeaders[0]?.studentId !== leaderMainStudentId ||
+      currentLeaders[1]?.studentId !== leaderAssistantStudentId
+    )
+  }, [leaderEditClass, leaderMainStudentId, leaderAssistantStudentId, configVersion])
+
+  const isStudentFormValidAndChanged = useMemo(() => {
+    const cleanName = studentFormName.trim()
+    const cleanAdm = studentFormAdmissionNo.trim().toUpperCase()
+    if (!cleanName || !cleanAdm) return false
+    if (!editingStudentId) return true
+    const existing = students.find((s) => s.id === editingStudentId)
+    if (!existing) return true
+    return (
+      existing.name !== cleanName ||
+      existing.admissionNo.toUpperCase() !== cleanAdm ||
+      existing.className !== studentFormClass
+    )
+  }, [
+    editingStudentId,
+    studentFormName,
+    studentFormAdmissionNo,
+    studentFormClass,
+    configVersion,
+  ])
+
+  const isPrincipalMonthAttendanceDirty = useMemo(() => {
+    if (!selectedStudent || !selectedMonthRecord) return false
+    const cleanP = Math.max(0, Math.min(31, Number(editPresent) || 0))
+    const cleanA = Math.max(0, Math.min(31, Number(editAbsent) || 0))
+    const cleanL = Math.max(0, Math.min(31, Number(editLeave) || 0))
+    const existingOv = attendanceOverrides[`${selectedStudent.id}__${selectedMonthRecord.id}`]
+    const savedAbsReason = existingOv?.absentReason ?? ABSENT_REASONS[0]
+    const savedLvReason = existingOv?.leaveReason ?? ATTENDANCE_LEAVE_REASONS[0]
+    if (cleanP !== selectedMonthRecord.present) return true
+    if (cleanA !== selectedMonthRecord.absent) return true
+    if (cleanL !== selectedMonthRecord.leave) return true
+    if (cleanA > 0 && editAbsentReason !== savedAbsReason) return true
+    if (cleanL > 0 && editLeaveReason !== savedLvReason) return true
+    return false
+  }, [
+    selectedStudent,
+    selectedMonthRecord,
+    editPresent,
+    editAbsent,
+    editLeave,
+    editAbsentReason,
+    editLeaveReason,
+    attendanceOverrides,
+  ])
+
+  const isPrincipalLeaveActionDuplicate = useMemo(() => {
+    const targetItem = enrichedCampusStudents.find(
+      (item) => item.student.id === leaveStudentId,
+    )
+    if (!targetItem) return true
+    if (leaveActionType === 'return') {
+      return !targetItem.isOnLeave
+    }
+    if (targetItem.isOnLeave && targetItem.activeLeaveEntry) {
+      const expectedReason = `${leaveReason} (Approved by Principal)`
+      if (
+        targetItem.activeLeaveEntry.reason === expectedReason &&
+        (targetItem.activeLeaveEntry.details || '') === leaveDetails.trim()
+      ) {
+        return true
+      }
+    }
+    return false
+  }, [enrichedCampusStudents, leaveStudentId, leaveActionType, leaveReason, leaveDetails])
+
+  const isTimetableDirty = useMemo(() => {
+    const saved = getClassSemesterTimetableByClassName(ttEditClass)
+    return JSON.stringify(ttDraft) !== JSON.stringify(saved)
+  }, [ttDraft, ttEditClass, configVersion])
+
+  const isTimetableAtDefault = useMemo(() => {
+    const def = getDefaultClassTimetable(ttEditClass)
+    return JSON.stringify(ttDraft) === JSON.stringify(def)
+  }, [ttDraft, ttEditClass])
+
   // Quick Mark Period as Not Held or Substituted from Principal Command Bar
   function handlePrincipalQuickPeriodAction(mode: 'not-held' | 'substituted' | 'conducted') {
     const targetRow =
@@ -573,6 +822,7 @@ export function PrincipalDashboard() {
     if (!targetCell) return
 
     const subKey = `${selectedDate}__${targetRow.className}__${targetCell.periodIndex}`
+    const existing = periodSubmissions[subKey]
     const nowIso = new Date().toISOString()
     const batchStudents = students.filter((s) => s.className === targetRow.className)
 
@@ -586,9 +836,19 @@ export function PrincipalDashboard() {
         periodTime: targetCell.time,
         subject: targetCell.subject,
         teacher: targetCell.regularTeacher,
-        submittedByLeaderId: principal.staffId,
-        submittedByName: principal.name,
-        submittedAt: nowIso,
+        submittedByLeaderId: existing?.submittedByLeaderId ?? principal.staffId,
+        submittedByName: existing?.submittedByName ?? principal.name,
+        submittedByRole: existing?.submittedByRole ?? 'Principal',
+        submittedAt: existing?.submittedAt ?? nowIso,
+        ...(existing
+          ? {
+              lastEditedByName: principal.name,
+              lastEditedByRole: 'Principal',
+              lastEditedById: principal.staffId,
+              lastEditedAt: nowIso,
+              editCount: (existing.editCount ?? 0) + 1,
+            }
+          : { editCount: 0 }),
         records: {},
         reasons: {},
         sessionStatus: 'not-held',
@@ -627,17 +887,28 @@ export function PrincipalDashboard() {
         periodTime: targetCell.time,
         subject: targetCell.subject,
         teacher: `${subUsthad.shortName} (Substitute for ${targetCell.regularTeacher})`,
-        submittedByLeaderId: principal.staffId,
-        submittedByName: principal.name,
-        submittedAt: nowIso,
-        records: periodSubmissions[subKey]?.records && Object.keys(periodSubmissions[subKey].records).length > 0
-          ? periodSubmissions[subKey].records
-          : defaultRecords,
-        reasons: periodSubmissions[subKey]?.reasons ?? {},
+        submittedByLeaderId: existing?.submittedByLeaderId ?? principal.staffId,
+        submittedByName: existing?.submittedByName ?? principal.name,
+        submittedByRole: existing?.submittedByRole ?? 'Principal',
+        submittedAt: existing?.submittedAt ?? nowIso,
+        ...(existing
+          ? {
+              lastEditedByName: principal.name,
+              lastEditedByRole: 'Principal',
+              lastEditedById: principal.staffId,
+              lastEditedAt: nowIso,
+              editCount: (existing.editCount ?? 0) + 1,
+            }
+          : { editCount: 0 }),
+        records:
+          existing?.records && Object.keys(existing.records).length > 0
+            ? existing.records
+            : defaultRecords,
+        reasons: existing?.reasons ?? {},
         sessionStatus: 'substituted',
         notHeldReason: quickNotHeldReason,
         markedNotHeldBy:
-          periodSubmissions[subKey]?.markedNotHeldBy ?? `Principal • ${principal.shortName}`,
+          existing?.markedNotHeldBy ?? `Principal • ${principal.shortName}`,
         substituteUsthad: {
           usthadId: subUsthad.id,
           usthadName: subUsthad.name,
@@ -690,9 +961,19 @@ export function PrincipalDashboard() {
       periodTime: targetCell.time,
       subject: targetCell.subject,
       teacher: `${subUsthad.shortName} (Substitute for ${targetCell.regularTeacher})`,
-      submittedByLeaderId: principal.staffId,
-      submittedByName: principal.name,
-      submittedAt: nowIso,
+      submittedByLeaderId: existing?.submittedByLeaderId ?? principal.staffId,
+      submittedByName: existing?.submittedByName ?? principal.name,
+      submittedByRole: existing?.submittedByRole ?? 'Principal',
+      submittedAt: existing?.submittedAt ?? nowIso,
+      ...(existing
+        ? {
+            lastEditedByName: principal.name,
+            lastEditedByRole: 'Principal',
+            lastEditedById: principal.staffId,
+            lastEditedAt: nowIso,
+            editCount: (existing.editCount ?? 0) + 1,
+          }
+        : { editCount: 0 }),
       records:
         existing?.records && Object.keys(existing.records).length > 0
           ? existing.records
@@ -724,6 +1005,7 @@ export function PrincipalDashboard() {
     if (!targetRow || !targetCell) return
 
     const subKey = `${selectedDate}__${className}__${periodIndex}`
+    const existing = periodSubmissions[subKey]
     const batchStudents = students.filter((s) => s.className === className)
     const defaultRecords: Record<string, 'present' | 'absent' | 'leave'> = {}
     for (const st of batchStudents) {
@@ -742,9 +1024,19 @@ export function PrincipalDashboard() {
       periodTime: targetCell.time,
       subject: targetCell.subject,
       teacher: targetCell.regularTeacher,
-      submittedByLeaderId: principal.staffId,
-      submittedByName: principal.name,
-      submittedAt: nowIso,
+      submittedByLeaderId: existing?.submittedByLeaderId ?? principal.staffId,
+      submittedByName: existing?.submittedByName ?? principal.name,
+      submittedByRole: existing?.submittedByRole ?? 'Principal',
+      submittedAt: existing?.submittedAt ?? nowIso,
+      ...(existing
+        ? {
+            lastEditedByName: principal.name,
+            lastEditedByRole: 'Principal',
+            lastEditedById: principal.staffId,
+            lastEditedAt: nowIso,
+            editCount: (existing.editCount ?? 0) + 1,
+          }
+        : { editCount: 0 }),
       records: defaultRecords,
       reasons: {},
       sessionStatus: 'conducted',
@@ -761,7 +1053,7 @@ export function PrincipalDashboard() {
 
   function handleSaveMonthAttendance(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!selectedStudent || !selectedMonthRecord) return
+    if (!selectedStudent || !selectedMonthRecord || !isPrincipalMonthAttendanceDirty) return
 
     const cleanAbsent = Math.max(0, Math.min(31, Number(editAbsent) || 0))
     const cleanLeave = Math.max(0, Math.min(31, Number(editLeave) || 0))
@@ -868,6 +1160,7 @@ export function PrincipalDashboard() {
 
   function handleSubmitLeaveForm(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (isPrincipalLeaveActionDuplicate) return
     const st = students.find((s) => s.id === leaveStudentId) ?? students[0]
     if (!st) return
     void recordPrincipalLeaveOrReturn(st, leaveActionType, leaveReason, leaveDetails.trim())
@@ -1530,7 +1823,7 @@ export function PrincipalDashboard() {
 
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="quick-period-select" className="text-xs">
-                        Select Period (1–5)
+                        Select Period (1–{getClassSemesterTimetableByClassName(quickClassName).periods.length})
                       </Label>
                       <ThemeSelect
                         id="quick-period-select"
@@ -1538,11 +1831,16 @@ export function PrincipalDashboard() {
                         onChange={(e) => setQuickPeriodIndex(Number(e.target.value))}
                         className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        {[1, 2, 3, 4, 5].map((pIdx) => (
-                          <option key={pIdx} value={pIdx}>
-                            Period {pIdx}
-                          </option>
-                        ))}
+                        {getClassSemesterTimetableByClassName(quickClassName).periods.map(
+                          (pObj, idx) => {
+                            const pIdx = idx + 1
+                            return (
+                              <option key={pIdx} value={pIdx}>
+                                {pObj.label} ({pObj.time})
+                              </option>
+                            )
+                          },
+                        )}
                       </ThemeSelect>
                     </div>
 
@@ -1600,22 +1898,28 @@ export function PrincipalDashboard() {
                       <Button
                         type="button"
                         size="sm"
+                        disabled={quickOverrideStatus.isNotHeldUnchanged}
                         onClick={() => handlePrincipalQuickPeriodAction('not-held')}
-                        className="rounded-xl bg-red-600 text-xs font-semibold text-white hover:bg-red-700"
+                        className="rounded-xl bg-red-600 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
                       >
                         <Ban className="mr-1.5 size-3.5" aria-hidden="true" />
-                        Mark Period as Class Not Held (Lock Attendance)
+                        {quickOverrideStatus.isNotHeldUnchanged
+                          ? 'Already Marked Not Held ✓'
+                          : 'Mark Period as Class Not Held (Lock Attendance)'}
                       </Button>
 
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
+                        disabled={quickOverrideStatus.isSubstitutedUnchanged}
                         onClick={() => handlePrincipalQuickPeriodAction('substituted')}
-                        className="rounded-xl border-cyan/50 bg-cyan/10 text-xs font-semibold text-cyan hover:bg-cyan/20"
+                        className="rounded-xl border-cyan/50 bg-cyan/10 text-xs font-semibold text-cyan hover:bg-cyan/20 disabled:opacity-50"
                       >
                         <UserCog className="mr-1.5 size-3.5" aria-hidden="true" />
-                        Assign Substitute Usthad & Unlock
+                        {quickOverrideStatus.isSubstitutedUnchanged
+                          ? 'Substitute Already Assigned ✓'
+                          : 'Assign Substitute Usthad & Unlock'}
                       </Button>
                     </div>
                   </div>
@@ -1728,6 +2032,10 @@ export function PrincipalDashboard() {
                               <Button
                                 type="button"
                                 size="sm"
+                                disabled={
+                                  cell.state === 'substituted' &&
+                                  cell.submission?.substituteUsthad?.usthadId === defaultSubUsthadId
+                                }
                                 onClick={() =>
                                   handleAssignSubstituteToUnheldPeriod(
                                     row.className,
@@ -1735,10 +2043,13 @@ export function PrincipalDashboard() {
                                     defaultSubUsthadId,
                                   )
                                 }
-                                className="h-9 rounded-xl bg-cyan px-3 text-xs font-semibold text-slate-950 hover:bg-cyan/90 whitespace-nowrap"
+                                className="h-9 rounded-xl bg-cyan px-3 text-xs font-semibold text-slate-950 hover:bg-cyan/90 disabled:opacity-50 whitespace-nowrap"
                               >
                                 <UserCog className="mr-1 size-3.5" aria-hidden="true" />
-                                Assign Substitute
+                                {cell.state === 'substituted' &&
+                                cell.submission?.substituteUsthad?.usthadId === defaultSubUsthadId
+                                  ? 'Assigned ✓'
+                                  : 'Assign Substitute'}
                               </Button>
 
                               <Button
@@ -1779,7 +2090,7 @@ export function PrincipalDashboard() {
                       <th className="px-3 py-3 text-right whitespace-nowrap">Students</th>
                       <th className="px-3 py-3 text-right whitespace-nowrap">Avg Rate</th>
                       <th className="px-3.5 py-3 text-center whitespace-nowrap">
-                        5 Periods Status ({selectedDate})
+                        Periods Status ({selectedDate})
                       </th>
                       <th className="px-3.5 py-3 text-right whitespace-nowrap">Action</th>
                     </tr>
@@ -1914,7 +2225,7 @@ export function PrincipalDashboard() {
                   </h2>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Label htmlFor="switch-inspect-class" className="text-xs font-semibold">
                     Switch Class:
                   </Label>
@@ -1934,6 +2245,20 @@ export function PrincipalDashboard() {
                       </option>
                     ))}
                   </ThemeSelect>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setTtEditClass(selectedClassName)
+                      setPeopleSubTab('timetable')
+                      setActiveTab('people')
+                    }}
+                    className="h-9 rounded-xl border-cyan/40 bg-cyan/10 px-3 text-xs font-semibold text-cyan hover:bg-cyan/20"
+                  >
+                    <CalendarClock className="mr-1.5 size-3.5" aria-hidden="true" />
+                    Edit Timetable
+                  </Button>
                 </div>
               </div>
 
@@ -1951,10 +2276,10 @@ export function PrincipalDashboard() {
           </div>
         )}
 
-        {/* ==================== TAB 2: USTHADS, LEADERS & STUDENTS ==================== */}
+        {/* ==================== TAB 2: USTHADS, LEADERS, STUDENTS & TIMETABLES ==================== */}
         {activeTab === 'people' && (
           <div className="flex flex-col gap-6">
-            {/* Sub-navigation between 11 Usthads, 22 Class Leaders, and 181 Students */}
+            {/* Sub-navigation between Teachers, Class Leaders, Students, and Timetable */}
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/60 p-3.5">
               <div className="flex flex-wrap items-center gap-2">
                 <button
@@ -1968,7 +2293,7 @@ export function PrincipalDashboard() {
                   )}
                 >
                   <GraduationCap className="size-4" aria-hidden="true" />
-                  Teachers
+                  Teachers ({OFFICIAL_CLASS_USTHADS.length})
                 </button>
 
                 <button
@@ -1982,7 +2307,7 @@ export function PrincipalDashboard() {
                   )}
                 >
                   <UserCheck className="size-4" aria-hidden="true" />
-                  Leaders
+                  Class Leaders ({CLASS_LEADERS.length})
                 </button>
 
                 <button
@@ -1997,6 +2322,20 @@ export function PrincipalDashboard() {
                 >
                   <Users className="size-4" aria-hidden="true" />
                   Students ({students.length})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPeopleSubTab('timetable')}
+                  className={cn(
+                    'inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold transition-all',
+                    peopleSubTab === 'timetable'
+                      ? 'border-amber-500 bg-amber-500/20 text-amber-500'
+                      : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <CalendarClock className="size-4" aria-hidden="true" />
+                  Timetable &amp; Subjects
                 </button>
               </div>
             </div>
@@ -2175,7 +2514,7 @@ export function PrincipalDashboard() {
                               <div>
                                 <span className="block text-[10px] text-muted-foreground">Conducted</span>
                                 <span className="font-mono font-bold text-emerald-600 dark:text-lime tabular-nums">
-                                  {row.conductedCount}/5
+                                  {row.conductedCount}/{row.periodCells.length}
                                 </span>
                               </div>
                               <div>
@@ -2241,6 +2580,19 @@ export function PrincipalDashboard() {
                               size="sm"
                               variant="outline"
                               onClick={() => {
+                                setEditingUsthadId(u.id)
+                                const el = document.getElementById('principal-usthad-manager')
+                                el?.scrollIntoView({ behavior: 'smooth' })
+                              }}
+                              className="rounded-xl text-xs font-semibold"
+                            >
+                              Edit Usthad
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
                                 setDirectoryClassFilter(u.className)
                                 setPeopleSubTab('students')
                               }}
@@ -2254,96 +2606,623 @@ export function PrincipalDashboard() {
                     })}
                   </div>
                 </Panel>
+
+                {/* Principal Class Usthad Assignment & Usthad Profile Editor */}
+                <div id="principal-usthad-manager" className="grid gap-6 lg:grid-cols-2">
+                  {/* 1. Assign Class Usthad to Any Class */}
+                  <Panel
+                    id="principal-assign-usthad-panel"
+                    eyebrow="Class Charge"
+                    title="Change Class Usthad (ക്ലാസ് ഉസ്താദിനെ മാറ്റാൻ)"
+                    icon={UserCog}
+                  >
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        if (!isClassUsthadChanged) return
+                        assignClassUsthadByPrincipal(assignUsthadClass, assignUsthadStaffId)
+                        refreshAllCampusData()
+                        setUsthadAssignToast(
+                          `Class ${assignUsthadClass} Usthad updated successfully!`,
+                        )
+                        setTimeout(() => setUsthadAssignToast(null), 4000)
+                      }}
+                      className="flex flex-col gap-4"
+                    >
+                      <p className="text-xs text-muted-foreground">
+                        ഏത് ക്ലാസിന്റെയും ചുമതലയുള്ള ക്ലാസ് ഉസ്താദിനെ ഇവിടെനിന്ന് മാറ്റാവുന്നതാണ്. ഒന്നിലധികം ക്ലാസുകളുടെ ചുമതല ഒരേ ഉസ്താദിന് നൽകാനും സാധിക്കും.
+                      </p>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="flex flex-col gap-1.5">
+                          <Label htmlFor="pr-assign-usthad-class" className="text-xs">
+                            Select Class (ക്ലാസ് തിരഞ്ഞെടുക്കുക)
+                          </Label>
+                          <ThemeSelect
+                            id="pr-assign-usthad-class"
+                            value={assignUsthadClass}
+                            onChange={(e) => setAssignUsthadClass(e.target.value)}
+                            className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
+                          >
+                            {ALL_ACADEMY_CLASS_NAMES.map((cls) => {
+                              const currentCu = CLASS_USTHADS.find((u) => u.className === cls)
+                              return (
+                                <option key={cls} value={cls}>
+                                  Class {cls} (Current: {currentCu?.shortName ?? 'Usthad'})
+                                </option>
+                              )
+                            })}
+                          </ThemeSelect>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                          <Label htmlFor="pr-assign-usthad-staff" className="text-xs">
+                            Select Class Usthad (ഉസ്താദിനെ തിരഞ്ഞെടുക്കുക)
+                          </Label>
+                          <ThemeSelect
+                            id="pr-assign-usthad-staff"
+                            value={assignUsthadStaffId}
+                            onChange={(e) => setAssignUsthadStaffId(e.target.value)}
+                            className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
+                          >
+                            {OFFICIAL_CLASS_USTHADS.map((u) => (
+                              <option key={u.id} value={u.staffId}>
+                                {u.name} ({u.staffId})
+                              </option>
+                            ))}
+                          </ThemeSelect>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 pt-1">
+                        {usthadAssignToast ? (
+                          <span className="text-xs font-semibold text-emerald-600 dark:text-lime">
+                            {usthadAssignToast}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            Updates Class Usthad across all dashboards
+                          </span>
+                        )}
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={!isClassUsthadChanged}
+                          className="rounded-xl text-xs font-semibold disabled:opacity-50"
+                        >
+                          {isClassUsthadChanged ? 'Save Class Usthad' : 'Saved (No Changes)'}
+                        </Button>
+                      </div>
+                    </form>
+                  </Panel>
+
+                  {/* 2. Edit Usthad Details or Add New Usthad */}
+                  <Panel
+                    id="principal-edit-usthad-panel"
+                    eyebrow="Faculty Profile"
+                    title="Edit / Add Usthad (ഉസ്താദിന്റെ വിവരങ്ങൾ / പുതിയ ഉസ്താദ്)"
+                    icon={GraduationCap}
+                  >
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        if (!isUsthadProfileChanged) return
+                        saveUsthadProfileByPrincipal({
+                          usthadId: editingUsthadId === 'NEW' ? undefined : editingUsthadId,
+                          name: usthadFormName,
+                          staffId: usthadFormStaffId,
+                          designation: usthadFormDesignation,
+                          specialization: usthadFormSpec,
+                        })
+                        refreshAllCampusData()
+                        setUsthadProfileToast(
+                          editingUsthadId === 'NEW'
+                            ? `Added ${usthadFormName.trim()} (${usthadFormStaffId.trim()})!`
+                            : `Updated ${usthadFormName.trim()} profile!`,
+                        )
+                        setTimeout(() => setUsthadProfileToast(null), 4000)
+                      }}
+                      className="flex flex-col gap-3.5"
+                    >
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="flex flex-col gap-1.5">
+                          <Label htmlFor="pr-edit-usthad-select" className="text-xs">
+                            Select Usthad or Add New
+                          </Label>
+                          <ThemeSelect
+                            id="pr-edit-usthad-select"
+                            value={editingUsthadId}
+                            onChange={(e) => setEditingUsthadId(e.target.value)}
+                            className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
+                          >
+                            {OFFICIAL_CLASS_USTHADS.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.name} ({u.staffId})
+                              </option>
+                            ))}
+                            <option value="NEW">+ Add New Usthad (പുതിയ ഉസ്താദിനെ ചേർക്കാൻ)</option>
+                          </ThemeSelect>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                          <Label htmlFor="pr-usthad-staff-id" className="text-xs">
+                            Staff Login ID
+                          </Label>
+                          <Input
+                            id="pr-usthad-staff-id"
+                            required
+                            value={usthadFormStaffId}
+                            onChange={(e) => setUsthadFormStaffId(e.target.value)}
+                            placeholder="e.g. UST-15"
+                            className="h-10 rounded-xl font-mono text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="flex flex-col gap-1.5">
+                          <Label htmlFor="pr-usthad-name" className="text-xs">
+                            Usthad Full Name
+                          </Label>
+                          <Input
+                            id="pr-usthad-name"
+                            required
+                            value={usthadFormName}
+                            onChange={(e) => setUsthadFormName(e.target.value)}
+                            placeholder="e.g. Usthad Muhammed..."
+                            className="h-10 rounded-xl text-xs"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                          <Label htmlFor="pr-usthad-designation" className="text-xs">
+                            Designation
+                          </Label>
+                          <Input
+                            id="pr-usthad-designation"
+                            value={usthadFormDesignation}
+                            onChange={(e) => setUsthadFormDesignation(e.target.value)}
+                            placeholder="Class Usthad"
+                            className="h-10 rounded-xl text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="pr-usthad-spec" className="text-xs">
+                          Specialization / Subjects Taught
+                        </Label>
+                        <Input
+                          id="pr-usthad-spec"
+                          value={usthadFormSpec}
+                          onChange={(e) => setUsthadFormSpec(e.target.value)}
+                          placeholder="e.g. Fath al-Mu’in, Nahw & Tafsir"
+                          className="h-10 rounded-xl text-xs"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 pt-1">
+                        {usthadProfileToast ? (
+                          <span className="text-xs font-semibold text-emerald-600 dark:text-lime">
+                            {usthadProfileToast}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            {editingUsthadId === 'NEW' ? 'Creates new Staff Login ID' : 'Updates Usthad profile'}
+                          </span>
+                        )}
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={!isUsthadProfileChanged}
+                          className="rounded-xl text-xs font-semibold disabled:opacity-50"
+                        >
+                          {editingUsthadId === 'NEW'
+                            ? 'Add Usthad'
+                            : isUsthadProfileChanged
+                              ? 'Save Usthad Profile'
+                              : 'Saved (No Changes)'}
+                        </Button>
+                      </div>
+                    </form>
+                  </Panel>
+                </div>
               </div>
             )}
 
             {/* SUB-TAB 2: 22 CLASS LEADERS */}
             {peopleSubTab === 'leaders' && (
-              <Panel
-                id="principal-leaders-panel"
-                eyebrow="Leaders"
-                title="Class Leaders"
-                icon={UserCheck}
-              >
-                <div className="overflow-x-auto rounded-2xl border border-border bg-background/50">
-                  <table className="w-full min-w-[780px] border-collapse text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                        <th className="px-4 py-3">Leader ID</th>
-                        <th className="px-4 py-3">Role Title</th>
-                        <th className="px-4 py-3">Student Name</th>
-                        <th className="px-4 py-3">Admission No.</th>
-                        <th className="px-4 py-3">Class</th>
-                        <th className="px-4 py-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {CLASS_LEADERS.map((cl) => {
-                        const studentObj =
-                          students.find((s) => s.id === cl.studentId) ?? students[0]
-                        return (
-                          <tr key={cl.leaderId} className="hover:bg-muted/25">
-                            <td className="px-4 py-3 font-mono font-bold text-cyan tabular-nums">
-                              {cl.leaderId}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span
-                                className={cn(
-                                  'rounded-md px-2 py-0.5 text-[11px] font-semibold',
-                                  cl.roleTitle === 'Main Class Leader'
-                                    ? 'bg-lime/15 text-lime'
-                                    : 'bg-cyan/15 text-cyan',
-                                )}
-                              >
-                                {cl.roleTitle}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 font-semibold text-foreground">
-                              {cl.studentName}
-                            </td>
-                            <td className="px-4 py-3 font-mono text-muted-foreground tabular-nums">
-                              {cl.admissionNo}
-                            </td>
-                            <td className="px-4 py-3 font-medium text-foreground">
-                              {cl.className}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setPdfReportStudent(studentObj)}
-                                  className="h-8 rounded-xl border-cyan/40 bg-cyan/10 px-2.5 text-xs font-semibold text-cyan hover:bg-cyan/20"
+              <div className="flex flex-col gap-6">
+                {/* Principal Class Leader Assignment Panel */}
+                <Panel
+                  id="principal-leader-editor"
+                  eyebrow="Assign Leaders"
+                  title="Change Class Leaders (ക്ലാസ് ലീഡർമാരെ മാറ്റാൻ)"
+                  icon={UserCheck}
+                >
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      if (!isClassLeadersChanged) return
+                      assignClassLeadersByPrincipal({
+                        className: leaderEditClass,
+                        mainStudentId: leaderMainStudentId,
+                        assistantStudentId: leaderAssistantStudentId,
+                      })
+                      refreshAllCampusData()
+                      setLeaderAdminToast(
+                        `Class ${leaderEditClass} Main & Assistant Leaders updated!`,
+                      )
+                      setTimeout(() => setLeaderAdminToast(null), 4000)
+                    }}
+                    className="flex flex-col gap-4"
+                  >
+                    <p className="text-xs text-muted-foreground">
+                      ഏത് ക്ലാസിലെയും മെയിൻ ക്ലാസ് ലീഡറെയും (Main Class Leader) അസിസ്റ്റന്റ് ക്ലാസ് ലീഡറെയും (Assistant Class Leader) ആ ക്ലാസിലെ കുട്ടികളിൽ നിന്ന് തിരഞ്ഞെടുത്ത് മാറ്റാവുന്നതാണ്.
+                    </p>
+
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="pr-leader-class" className="text-xs">
+                          Select Class (ക്ലാസ്)
+                        </Label>
+                        <ThemeSelect
+                          id="pr-leader-class"
+                          value={leaderEditClass}
+                          onChange={(e) => setLeaderEditClass(e.target.value)}
+                          className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
+                        >
+                          {ALL_ACADEMY_CLASS_NAMES.map((cls) => (
+                            <option key={cls} value={cls}>
+                              Class {cls}
+                            </option>
+                          ))}
+                        </ThemeSelect>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="pr-leader-main" className="text-xs text-lime">
+                          Main Class Leader (മെയിൻ ലീഡർ)
+                        </Label>
+                        <ThemeSelect
+                          id="pr-leader-main"
+                          value={leaderMainStudentId}
+                          onChange={(e) => setLeaderMainStudentId(e.target.value)}
+                          className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
+                        >
+                          {students
+                            .filter((s) => s.className === leaderEditClass)
+                            .map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name} ({s.admissionNo})
+                              </option>
+                            ))}
+                        </ThemeSelect>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="pr-leader-assistant" className="text-xs text-cyan">
+                          Assistant Class Leader (അസിസ്റ്റന്റ് ലീഡർ)
+                        </Label>
+                        <ThemeSelect
+                          id="pr-leader-assistant"
+                          value={leaderAssistantStudentId}
+                          onChange={(e) => setLeaderAssistantStudentId(e.target.value)}
+                          className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
+                        >
+                          {students
+                            .filter((s) => s.className === leaderEditClass)
+                            .map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name} ({s.admissionNo})
+                              </option>
+                            ))}
+                        </ThemeSelect>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 pt-1">
+                      {leaderAdminToast ? (
+                        <span className="text-xs font-semibold text-emerald-600 dark:text-lime">
+                          {leaderAdminToast}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          Selected students immediately get Class Leader login &amp; attendance permissions
+                        </span>
+                      )}
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={!isClassLeadersChanged}
+                        className="rounded-xl text-xs font-semibold disabled:opacity-50"
+                      >
+                        {isClassLeadersChanged ? 'Save Class Leaders' : 'Saved (No Changes)'}
+                      </Button>
+                    </div>
+                  </form>
+                </Panel>
+
+                <Panel
+                  id="principal-leaders-panel"
+                  eyebrow="Leaders"
+                  title="Class Leaders Directory"
+                  icon={UserCheck}
+                >
+                  <div className="overflow-x-auto rounded-2xl border border-border bg-background/50">
+                    <table className="w-full min-w-[780px] border-collapse text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                          <th className="px-4 py-3">Leader ID</th>
+                          <th className="px-4 py-3">Role Title</th>
+                          <th className="px-4 py-3">Student Name</th>
+                          <th className="px-4 py-3">Admission No.</th>
+                          <th className="px-4 py-3">Class</th>
+                          <th className="px-4 py-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {CLASS_LEADERS.map((cl) => {
+                          const studentObj =
+                            students.find((s) => s.id === cl.studentId) ?? students[0]
+                          return (
+                            <tr key={cl.leaderId} className="hover:bg-muted/25">
+                              <td className="px-4 py-3 font-mono font-bold text-cyan tabular-nums">
+                                {cl.leaderId}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span
+                                  className={cn(
+                                    'rounded-md px-2 py-0.5 text-[11px] font-semibold',
+                                    cl.roleTitle === 'Main Class Leader'
+                                      ? 'bg-lime/15 text-lime'
+                                      : 'bg-cyan/15 text-cyan',
+                                  )}
                                 >
-                                  <FileText className="mr-1 size-3.5" aria-hidden="true" />
-                                  Parent PDF
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedClassName(cl.className)
-                                    setActiveTab('monitor')
-                                  }}
-                                  className="h-8 rounded-xl px-3 text-xs font-semibold"
-                                >
-                                  Inspect Class
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </Panel>
+                                  {cl.roleTitle}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 font-semibold text-foreground">
+                                {cl.studentName}
+                              </td>
+                              <td className="px-4 py-3 font-mono text-muted-foreground tabular-nums">
+                                {cl.admissionNo}
+                              </td>
+                              <td className="px-4 py-3 font-medium text-foreground">
+                                {cl.className}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setLeaderEditClass(cl.className)
+                                      const el = document.getElementById('principal-leader-editor')
+                                      el?.scrollIntoView({ behavior: 'smooth' })
+                                    }}
+                                    className="h-8 rounded-xl px-2.5 text-xs font-semibold"
+                                  >
+                                    Change Leader
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setPdfReportStudent(studentObj)}
+                                    className="h-8 rounded-xl border-cyan/40 bg-cyan/10 px-2.5 text-xs font-semibold text-cyan hover:bg-cyan/20"
+                                  >
+                                    <FileText className="mr-1 size-3.5" aria-hidden="true" />
+                                    Parent PDF
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedClassName(cl.className)
+                                      setActiveTab('monitor')
+                                    }}
+                                    className="h-8 rounded-xl px-3 text-xs font-semibold"
+                                  >
+                                    Inspect Class
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </Panel>
+              </div>
             )}
 
-            {/* SUB-TAB 3: 181 STUDENTS DIRECTORY, MONTHLY ATTENDANCE EDITOR & LEAVE CONTROL */}
+            {/* SUB-TAB 3: STUDENTS DIRECTORY, ADD/REMOVE STUDENTS, MONTHLY ATTENDANCE EDITOR & LEAVE CONTROL */}
             {peopleSubTab === 'students' && (
               <div className="flex flex-col gap-6">
+                {/* Principal Add / Edit / Remove Student Panel */}
+                <Panel
+                  id="principal-student-admission-editor"
+                  eyebrow="Admissions & Roster"
+                  title={
+                    editingStudentId
+                      ? 'Edit Student Details (കുട്ടിയുടെ വിവരങ്ങൾ തിരുത്താൻ)'
+                      : 'Add New Student to Academy (പുതിയ കുട്ടിയെ ചേർക്കാൻ)'
+                  }
+                  icon={Plus}
+                  action={
+                    (loadAcademyAdminConfig().removedStudentIds?.length ?? 0) > 0 ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          restoreAllRemovedStudentsByPrincipal()
+                          refreshAllCampusData()
+                          setStudentAdminToast('Restored all previously removed students!')
+                          setTimeout(() => setStudentAdminToast(null), 4000)
+                        }}
+                        className="h-8 rounded-xl border-amber-500/40 bg-amber-500/10 px-3 text-xs font-semibold text-amber-500 hover:bg-amber-500/20"
+                      >
+                        <RotateCcw className="mr-1.5 size-3.5" aria-hidden="true" />
+                        Restore Removed ({loadAcademyAdminConfig().removedStudentIds?.length ?? 0})
+                      </Button>
+                    ) : undefined
+                  }
+                >
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      if (!isStudentFormValidAndChanged) return
+                      if (editingStudentId) {
+                        updateStudentByPrincipal(editingStudentId, {
+                          name: studentFormName,
+                          admissionNo: studentFormAdmissionNo,
+                          className: studentFormClass,
+                        })
+                        setStudentAdminToast(
+                          `Updated ${studentFormName.trim()} (${studentFormAdmissionNo.trim()} • Class ${studentFormClass})!`,
+                        )
+                        setEditingStudentId(null)
+                      } else {
+                        const created = addStudentByPrincipal({
+                          name: studentFormName,
+                          admissionNo: studentFormAdmissionNo,
+                          className: studentFormClass,
+                        })
+                        setStudentAdminToast(
+                          `Added ${created.name} (${created.admissionNo}) to Class ${created.className}!`,
+                        )
+                      }
+                      refreshAllCampusData()
+                      setStudentFormName('')
+                      setStudentFormAdmissionNo(getNextSuggestedAdmissionNo(studentFormClass))
+                      setTimeout(() => setStudentAdminToast(null), 4000)
+                    }}
+                    className="flex flex-col gap-4"
+                  >
+                    <p className="text-xs text-muted-foreground">
+                      ഏത് ക്ലാസിലേക്കും പുതിയ കുട്ടികളെ ചേർക്കാനും, നിലവിലുള്ളവരുടെ പേര്, അഡ്മിഷൻ നമ്പർ, ക്ലാസ് എന്നിവ മാറ്റാനും, താഴെയുള്ള ലിസ്റ്റിൽ നിന്ന് കുട്ടികളെ ഒഴിവാക്കാനും (Remove) സാധിക്കും.
+                    </p>
+
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="pr-st-form-class" className="text-xs">
+                          Select Class (ക്ലാസ്)
+                        </Label>
+                        <ThemeSelect
+                          id="pr-st-form-class"
+                          value={studentFormClass}
+                          onChange={(e) => {
+                            const nextCls = e.target.value
+                            setStudentFormClass(nextCls)
+                            if (!editingStudentId) {
+                              setStudentFormAdmissionNo(getNextSuggestedAdmissionNo(nextCls))
+                            }
+                          }}
+                          className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
+                        >
+                          {ALL_ACADEMY_CLASS_NAMES.map((cls) => (
+                            <option key={cls} value={cls}>
+                              Class {cls}
+                            </option>
+                          ))}
+                        </ThemeSelect>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="pr-st-form-name" className="text-xs">
+                          Student Full Name (കുട്ടിയുടെ പേര്)
+                        </Label>
+                        <Input
+                          id="pr-st-form-name"
+                          required
+                          value={studentFormName}
+                          onChange={(e) => setStudentFormName(e.target.value)}
+                          placeholder="e.g. Muhammed Ameen. K"
+                          className="h-10 rounded-xl text-xs"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="pr-st-form-adm" className="text-xs">
+                          Admission Number (അഡ്മിഷൻ നമ്പർ)
+                        </Label>
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            id="pr-st-form-adm"
+                            required
+                            value={studentFormAdmissionNo}
+                            onChange={(e) => setStudentFormAdmissionNo(e.target.value)}
+                            placeholder="e.g. ICS2K261427"
+                            className="h-10 rounded-xl font-mono text-xs uppercase"
+                          />
+                          {!editingStudentId && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                setStudentFormAdmissionNo(
+                                  getNextSuggestedAdmissionNo(studentFormClass),
+                                )
+                              }
+                              className="h-10 shrink-0 rounded-xl px-2.5 text-[11px] font-semibold"
+                            >
+                              Auto ID
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                      {studentAdminToast ? (
+                        <span className="text-xs font-semibold text-emerald-600 dark:text-lime">
+                          {studentAdminToast}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          New students can immediately log in using their Admission Number
+                        </span>
+                      )}
+                      <div className="flex items-center gap-2">
+                        {editingStudentId && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingStudentId(null)
+                              setStudentFormName('')
+                              setStudentFormAdmissionNo(
+                                getNextSuggestedAdmissionNo(studentFormClass),
+                              )
+                            }}
+                            className="rounded-xl text-xs font-semibold"
+                          >
+                            Cancel Edit
+                          </Button>
+                        )}
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={!isStudentFormValidAndChanged}
+                          className="rounded-xl text-xs font-semibold disabled:opacity-50"
+                        >
+                          <Plus className="mr-1 size-3.5" aria-hidden="true" />
+                          {editingStudentId
+                            ? isStudentFormValidAndChanged
+                              ? 'Save Student Changes'
+                              : 'Saved (No Changes)'
+                            : 'Add Student to Class'}
+                        </Button>
+                      </div>
+                    </div>
+                  </form>
+                </Panel>
                 {/* Monthly Attendance Override Editor + Campus Leave Action side by side */}
                 <div className="grid gap-6 lg:grid-cols-2">
                   {/* Monthly Attendance Editor */}
@@ -2484,11 +3363,16 @@ export function PrincipalDashboard() {
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground">
-                            Instant sync
+                            {isPrincipalMonthAttendanceDirty ? 'Unsaved changes' : 'All changes saved'}
                           </span>
                         )}
-                        <Button type="submit" size="sm" className="rounded-xl text-xs font-semibold">
-                          Save
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={!isPrincipalMonthAttendanceDirty}
+                          className="rounded-xl text-xs font-semibold disabled:opacity-50"
+                        >
+                          {isPrincipalMonthAttendanceDirty ? 'Save' : 'Saved ✓'}
                         </Button>
                       </div>
                     </form>
@@ -2582,8 +3466,13 @@ export function PrincipalDashboard() {
                             {campusMetrics.onLeaveNow} on leave
                           </span>
                         )}
-                        <Button type="submit" size="sm" className="rounded-xl text-xs font-semibold">
-                          Save Leave
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={isPrincipalLeaveActionDuplicate}
+                          className="rounded-xl text-xs font-semibold disabled:opacity-50"
+                        >
+                          {isPrincipalLeaveActionDuplicate ? 'Already Recorded ✓' : 'Save Leave'}
                         </Button>
                       </div>
                     </form>
@@ -2695,13 +3584,32 @@ export function PrincipalDashboard() {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => {
+                                      setEditingStudentId(item.student.id)
+                                      setStudentFormClass(item.student.className)
+                                      setStudentFormName(item.student.name)
+                                      setStudentFormAdmissionNo(item.student.admissionNo)
+                                      const el = document.getElementById(
+                                        'principal-student-admission-editor',
+                                      )
+                                      el?.scrollIntoView({ behavior: 'smooth' })
+                                    }}
+                                    className="h-7 rounded-lg px-2 text-[11px] font-semibold"
+                                  >
+                                    Edit Info
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
                                       setSelectedStudentId(item.student.id)
                                       setLeaveStudentId(item.student.id)
-                                      window.scrollTo({ top: 240, behavior: 'smooth' })
+                                      const el = document.getElementById('principal-monthly-editor')
+                                      el?.scrollIntoView({ behavior: 'smooth' })
                                     }}
                                     className="h-7 rounded-lg px-2.5 text-[11px] font-semibold"
                                   >
-                                    Edit Attendance / Leave
+                                    Attendance / Leave
                                   </Button>
                                   <Button
                                     type="button"
@@ -2712,6 +3620,43 @@ export function PrincipalDashboard() {
                                     <FileText className="mr-1 size-3" aria-hidden="true" />
                                     Parent PDF
                                   </Button>
+                                  {confirmRemoveStudentId === item.student.id ? (
+                                    <div className="inline-flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-500/10 px-1.5 py-0.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          removeStudentByPrincipal(item.student.id)
+                                          setConfirmRemoveStudentId(null)
+                                          refreshAllCampusData()
+                                          setStudentAdminToast(
+                                            `Removed ${item.student.name} (${item.student.admissionNo}) from roster.`,
+                                          )
+                                          setTimeout(() => setStudentAdminToast(null), 4000)
+                                        }}
+                                        className="rounded bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-red-700"
+                                      >
+                                        Confirm
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setConfirmRemoveStudentId(null)}
+                                        className="px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => setConfirmRemoveStudentId(item.student.id)}
+                                      className="h-7 rounded-lg px-2 text-[11px] font-semibold text-red-500 hover:bg-red-500/10 hover:text-red-600"
+                                      title="Remove Student"
+                                    >
+                                      <Trash2 className="size-3.5" aria-hidden="true" />
+                                    </Button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -2720,6 +3665,306 @@ export function PrincipalDashboard() {
                       </table>
                     </div>
                   </div>
+                </Panel>
+              </div>
+            )}
+
+            {/* SUB-TAB 4: TIMETABLE & SUBJECTS EDITOR */}
+            {peopleSubTab === 'timetable' && (
+              <div className="flex flex-col gap-6">
+                <Panel
+                  id="principal-timetable-editor"
+                  eyebrow="Schedule & Syllabus"
+                  title="Edit Class Timetable & Subjects (ടൈംടേബിളും വിഷയങ്ങളും പുതുക്കാൻ)"
+                  icon={CalendarClock}
+                  action={
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        Active Academy Semester:
+                      </span>
+                      <div className="inline-flex rounded-xl border border-border bg-background p-0.5">
+                        {([1, 2] as const).map((sem) => {
+                          const isCurrent = getActiveSemester() === sem
+                          return (
+                            <button
+                              key={sem}
+                              type="button"
+                              disabled={isCurrent}
+                              onClick={() => {
+                                if (isCurrent) return
+                                setActiveSemesterByPrincipal(sem)
+                                setTtEditSemesterTab(sem)
+                                refreshAllCampusData()
+                                setTtAdminToast(`Switched active Academy schedule to Semester ${sem}!`)
+                                setTimeout(() => setTtAdminToast(null), 4000)
+                              }}
+                              className={cn(
+                                'rounded-lg px-3 py-1 text-xs font-bold transition-all',
+                                isCurrent
+                                  ? 'bg-lime text-slate-950 shadow-2xs cursor-default'
+                                  : 'text-muted-foreground hover:text-foreground',
+                              )}
+                            >
+                              Semester {sem}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  }
+                >
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      if (!isTimetableDirty) return
+                      saveClassTimetableByPrincipal(ttEditClass, ttDraft)
+                      refreshAllCampusData()
+                      setTtAdminToast(
+                        `Saved Class ${ttEditClass} timetable & subjects across all portals!`,
+                      )
+                      setTimeout(() => setTtAdminToast(null), 4000)
+                    }}
+                    className="flex flex-col gap-4"
+                  >
+                    <p className="text-xs text-muted-foreground">
+                      ഏത് ക്ലാസിലെയും പീരീഡുകളുടെ എണ്ണവും (5 മുതൽ 12 പീരീഡ് വരെ), സമയവും (Period Time), വിഷയങ്ങളും കിതാബുകളും (Subjects / Kitabs), പഠിപ്പിക്കുന്ന ഉസ്താദുമാരുടെ പേരുകളും ഇവിടെനിന്ന് മാറ്റാവുന്നതാണ്. പുതിയ പീരീഡുകൾ ചേർത്താൽ അവ തനിയെ ഹാജർ ഇടുന്നിടത്തും ടൈംടേബിളിലും വരുന്നതാണ്.
+                    </p>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-background/60 p-3.5">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="pr-tt-class" className="text-xs font-bold">
+                            Select Class:
+                          </Label>
+                          <ThemeSelect
+                            id="pr-tt-class"
+                            value={ttEditClass}
+                            onChange={(e) => setTtEditClass(e.target.value)}
+                            className="h-9 rounded-xl border border-input bg-card px-3 text-xs font-semibold text-foreground outline-none"
+                          >
+                            {ALL_ACADEMY_CLASS_NAMES.map((cls) => (
+                              <option key={cls} value={cls}>
+                                Class {cls} ({getClassSemesterTimetableByClassName(cls).periods.length} Periods)
+                              </option>
+                            ))}
+                          </ThemeSelect>
+                        </div>
+
+                        <div className="inline-flex rounded-xl border border-border bg-card p-1">
+                          {([1, 2] as const).map((semTab) => (
+                            <button
+                              key={semTab}
+                              type="button"
+                              onClick={() => setTtEditSemesterTab(semTab)}
+                              className={cn(
+                                'rounded-lg px-3 py-1 text-xs font-semibold transition-all',
+                                ttEditSemesterTab === semTab
+                                  ? 'bg-cyan/20 text-cyan'
+                                  : 'text-muted-foreground hover:text-foreground',
+                              )}
+                            >
+                              Edit Semester {semTab} Subjects
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={ttDraft.periods.length >= 12}
+                          onClick={() => {
+                            const nextNum = ttDraft.periods.length + 1
+                            if (nextNum > 12) return
+                            const defaultUsthad =
+                              CLASS_USTHADS.find((u) => u.className === ttEditClass)?.name ??
+                              OFFICIAL_CLASS_USTHADS[0]?.name ??
+                              'Class Usthad'
+                            setTtDraft({
+                              periods: [
+                                ...ttDraft.periods,
+                                { label: `Period ${nextNum}`, time: '15:30 – 16:30' },
+                              ],
+                              semester1: [
+                                ...ttDraft.semester1,
+                                { subject: `Period ${nextNum} Subject`, teacher: defaultUsthad },
+                              ],
+                              semester2: [
+                                ...ttDraft.semester2,
+                                { subject: `Period ${nextNum} Subject`, teacher: defaultUsthad },
+                              ],
+                            })
+                          }}
+                          className="h-8 rounded-xl border-lime/40 bg-lime/15 px-3 text-xs font-semibold text-lime hover:bg-lime/25"
+                        >
+                          <Plus className="mr-1 size-3.5" aria-hidden="true" />
+                          Add Period ({ttDraft.periods.length}/12)
+                        </Button>
+
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={isTimetableAtDefault}
+                          onClick={() => {
+                            if (isTimetableAtDefault) return
+                            const resetTt = resetClassTimetableByPrincipal(ttEditClass)
+                            setTtDraft(resetTt)
+                            refreshAllCampusData()
+                            setTtAdminToast(`Reset Class ${ttEditClass} timetable to default!`)
+                            setTimeout(() => setTtAdminToast(null), 4000)
+                          }}
+                          className="h-8 rounded-xl text-xs font-semibold disabled:opacity-50"
+                        >
+                          <RotateCcw className="mr-1.5 size-3.5" aria-hidden="true" />
+                          Reset Class Default
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3">
+                      {ttDraft.periods.map((period, idx) => {
+                        const semKey = ttEditSemesterTab === 1 ? 'semester1' : 'semester2'
+                        const slot = ttDraft[semKey][idx] ?? { subject: '', teacher: '' }
+                        return (
+                          <div
+                            key={`${idx}-${period.label}`}
+                            className="grid gap-3 rounded-2xl border border-border bg-background/50 p-3.5 sm:grid-cols-12 sm:items-end"
+                          >
+                            <div className="flex flex-col gap-1 sm:col-span-3">
+                              <Label className="text-[11px] font-bold text-lime uppercase">
+                                {period.label} Timing
+                              </Label>
+                              <Input
+                                value={period.time}
+                                onChange={(e) => {
+                                  const nextPeriods = ttDraft.periods.map((p, pIdx) =>
+                                    pIdx === idx ? { ...p, time: e.target.value } : p,
+                                  )
+                                  setTtDraft({ ...ttDraft, periods: nextPeriods })
+                                }}
+                                placeholder="07:00 – 08:00"
+                                className="h-9 rounded-xl font-mono text-xs"
+                              />
+                            </div>
+
+                            <div className="flex flex-col gap-1 sm:col-span-4">
+                              <Label className="text-[11px] font-semibold text-foreground">
+                                Semester {ttEditSemesterTab} Subject / Kitab
+                              </Label>
+                              <Input
+                                required
+                                value={slot.subject}
+                                onChange={(e) => {
+                                  const nextSlots = ttDraft[semKey].map((s, sIdx) =>
+                                    sIdx === idx ? { ...s, subject: e.target.value } : s,
+                                  )
+                                  setTtDraft({ ...ttDraft, [semKey]: nextSlots })
+                                }}
+                                placeholder="e.g. Fath al-Mu’in / Tafsir al-Jalalayn"
+                                className="h-9 rounded-xl text-xs font-semibold"
+                              />
+                            </div>
+
+                            <div className="flex flex-col gap-1 sm:col-span-5">
+                              <Label className="text-[11px] font-semibold text-cyan">
+                                Teaching Usthad
+                              </Label>
+                              <div className="flex items-center gap-1.5">
+                                <Input
+                                  required
+                                  value={slot.teacher}
+                                  onChange={(e) => {
+                                    const nextSlots = ttDraft[semKey].map((s, sIdx) =>
+                                      sIdx === idx ? { ...s, teacher: e.target.value } : s,
+                                    )
+                                    setTtDraft({ ...ttDraft, [semKey]: nextSlots })
+                                  }}
+                                  placeholder="Usthad Name"
+                                  className="h-9 rounded-xl text-xs"
+                                />
+                                <ThemeSelect
+                                  aria-label={`Select Usthad for ${period.label}`}
+                                  value=""
+                                  onChange={(e) => {
+                                    if (!e.target.value) return
+                                    const nextSlots = ttDraft[semKey].map((s, sIdx) =>
+                                      sIdx === idx ? { ...s, teacher: e.target.value } : s,
+                                    )
+                                    setTtDraft({ ...ttDraft, [semKey]: nextSlots })
+                                  }}
+                                  className="h-9 w-24 shrink-0 rounded-xl border border-input bg-card px-2 text-[11px] font-semibold text-muted-foreground outline-none"
+                                >
+                                  <option value="">Pick...</option>
+                                  <option value="SHAIKHUNA HAMZA USTHAD">
+                                    SHAIKHUNA HAMZA USTHAD
+                                  </option>
+                                  {OFFICIAL_CLASS_USTHADS.map((u) => (
+                                    <option key={u.id} value={u.name}>
+                                      {u.shortName}
+                                    </option>
+                                  ))}
+                                </ThemeSelect>
+                                {ttDraft.periods.length > 1 && (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      const nextPeriods = ttDraft.periods
+                                        .filter((_, pIdx) => pIdx !== idx)
+                                        .map((p, newIdx) => ({
+                                          ...p,
+                                          label: `Period ${newIdx + 1}`,
+                                        }))
+                                      const nextSem1 = ttDraft.semester1.filter(
+                                        (_, sIdx) => sIdx !== idx,
+                                      )
+                                      const nextSem2 = ttDraft.semester2.filter(
+                                        (_, sIdx) => sIdx !== idx,
+                                      )
+                                      setTtDraft({
+                                        periods: nextPeriods,
+                                        semester1: nextSem1,
+                                        semester2: nextSem2,
+                                      })
+                                    }}
+                                    title={`Remove ${period.label}`}
+                                    className="h-9 shrink-0 rounded-xl px-2.5 text-red-500 hover:bg-red-500/10 hover:text-red-600"
+                                  >
+                                    <Trash2 className="size-3.5" aria-hidden="true" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                      {ttAdminToast ? (
+                        <span className="text-xs font-semibold text-emerald-600 dark:text-lime">
+                          {ttAdminToast}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          Total {ttDraft.periods.length} Periods • Changes apply immediately to Student, Class Leader &amp; Usthad portals
+                        </span>
+                      )}
+                      <Button
+                        type="submit"
+                        disabled={!isTimetableDirty}
+                        className="rounded-xl px-6 text-xs font-semibold disabled:opacity-50"
+                      >
+                        {isTimetableDirty
+                          ? `Save Class ${ttEditClass} Timetable (${ttDraft.periods.length} Periods)`
+                          : `Class ${ttEditClass} Timetable Saved ✓`}
+                      </Button>
+                    </div>
+                  </form>
                 </Panel>
               </div>
             )}
@@ -3031,7 +4276,11 @@ export function PrincipalDashboard() {
                     Pin to top of Campus Notice Board
                   </label>
 
-                  <Button type="submit" className="rounded-full px-6 text-xs font-semibold">
+                  <Button
+                    type="submit"
+                    disabled={!noticeTitle.trim() || !noticeBody.trim()}
+                    className="rounded-full px-6 text-xs font-semibold disabled:opacity-50"
+                  >
                     <Megaphone className="mr-1.5 size-3.5" aria-hidden="true" />
                     Publish Official Notice
                   </Button>
@@ -3253,8 +4502,13 @@ export function PrincipalDashboard() {
                   )}
                   <Button
                     type="submit"
-                    disabled={uploadingKitab}
-                    className="rounded-full px-6 text-xs font-semibold"
+                    disabled={
+                      uploadingKitab ||
+                      !kitabTitle.trim() ||
+                      !kitabAuthor.trim() ||
+                      !kitabSummary.trim()
+                    }
+                    className="rounded-full px-6 text-xs font-semibold disabled:opacity-50"
                   >
                     <Upload className="mr-1.5 size-3.5" aria-hidden="true" />
                     {uploadingKitab ? 'Uploading Kitab...' : 'Add Kitab to Digital Library'}

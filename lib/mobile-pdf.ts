@@ -114,12 +114,14 @@ export function playWhatsAppStyleNotificationTone(): void {
   }
 }
 
-export function triggerSystemNotification(title: string, message: string): void {
+export function triggerSystemNotification(
+  title: string,
+  message: string,
+  href = '#notices',
+): void {
   if (typeof window === 'undefined') return;
 
-  playWhatsAppStyleNotificationTone();
-
-  // 1. Native Android APK status-bar heads-up notification
+  // 1. Native Android APK status-bar heads-up notification (uses phone's default system notification channel & sound)
   if (window.ICSNativeBridge?.showNotification) {
     try {
       window.ICSNativeBridge.showNotification(title, message);
@@ -130,7 +132,9 @@ export function triggerSystemNotification(title: string, message: string): void 
   }
 
   // 2. Web Notification API / Service Worker notification (Android Chrome, PWA, Tablet, Desktop)
+  // Uses silent: false so the OS plays the user's configured default phone notification sound
   if ('Notification' in window && Notification.permission === 'granted') {
+    const tag = `ics-notif-${Date.now()}`;
     try {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready
@@ -139,19 +143,27 @@ export function triggerSystemNotification(title: string, message: string): void 
               body: message,
               icon: '/icons/icon-192.png',
               badge: '/icons/icon-192.png',
-              tag: `ics-notif-${Date.now()}`,
+              tag,
+              silent: false,
+              data: { href },
             });
           })
           .catch(() => {
             new Notification(title, {
               body: message,
               icon: '/icons/icon-192.png',
+              tag,
+              silent: false,
+              data: { href },
             });
           });
       } else {
         new Notification(title, {
           body: message,
           icon: '/icons/icon-192.png',
+          tag,
+          silent: false,
+          data: { href },
         });
       }
     } catch {

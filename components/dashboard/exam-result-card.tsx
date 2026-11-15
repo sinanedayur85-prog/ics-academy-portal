@@ -15,7 +15,7 @@ export function ExamResultCard() {
         <div className="flex items-center gap-4 sm:gap-4.5">
           <span className="flex size-16 shrink-0 items-center justify-center rounded-2xl border border-border/80 bg-white p-2.5 shadow-sm transition-colors duration-300 dark:border-lime/30 dark:bg-[#121418]/90 md:size-[4.5rem]">
             <img
-              src="/assets/aistudio/jamiathul_hind_logo_d2ba1165.svg"
+              src="/images/jamiathul-hind-logo.svg"
               alt="Jamiathul Hind Al Islamiyya Logo"
               className="size-full object-contain brightness-0 transition-all duration-300 dark:invert"
             />

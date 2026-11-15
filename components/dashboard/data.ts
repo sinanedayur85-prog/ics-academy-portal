@@ -853,7 +853,11 @@ export type ClassSemesterTimetable = {
 }
 
 /** Active semester configured by the Principal (1 or 2) */
-export const CURRENT_SEMESTER: 1 | 2 = 1
+export let CURRENT_SEMESTER: 1 | 2 = 1
+
+export function getActiveSemester(): 1 | 2 {
+  return CURRENT_SEMESTER
+}
 
 const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
   '8th': {
@@ -1111,12 +1115,16 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
   },
 }
 
-export function getClassSemesterTimetable(student: Student): ClassSemesterTimetable {
-  const key = normalizeClassName(student.className)
+export function getClassSemesterTimetableByClassName(className: string): ClassSemesterTimetable {
+  const key = normalizeClassName(className)
   return (
     CLASS_SEMESTER_SCHEDULES[key] ??
     CLASS_SEMESTER_SCHEDULES['BS 3']
   )
+}
+
+export function getClassSemesterTimetable(student: Student): ClassSemesterTimetable {
+  return getClassSemesterTimetableByClassName(student.className)
 }
 
 export const EXAM_RESULTS_URL = 'https://jamiathulhind.com/index.php'
@@ -1530,10 +1538,8 @@ export function saveAttendanceOverrides(map: AttendanceOverrideMap): void {
   ensureCleanLaunchStorage()
   try {
     const prev = loadAttendanceOverrides()
-    window.localStorage.setItem(ATTENDANCE_OVERRIDES_STORAGE_KEY, JSON.stringify(map))
-    window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
 
-    // Find changed student+month entry to emit a live notification
+    // Find changed or removed student+month entry
     let changedKey: string | null = null
     for (const k of Object.keys(map)) {
       const cur = map[k]
@@ -1543,13 +1549,21 @@ export function saveAttendanceOverrides(map: AttendanceOverrideMap): void {
         old.present !== cur.present ||
         old.absent !== cur.absent ||
         old.leave !== cur.leave ||
-        old.absentReason !== cur.absentReason ||
-        old.leaveReason !== cur.leaveReason
+        (old.absentReason ?? '') !== (cur.absentReason ?? '') ||
+        (old.leaveReason ?? '') !== (cur.leaveReason ?? '')
       ) {
         changedKey = k
         break
       }
     }
+
+    const removedKey = Object.keys(prev).find((k) => !(k in map)) ?? null
+    if (!changedKey && !removedKey) {
+      return
+    }
+
+    window.localStorage.setItem(ATTENDANCE_OVERRIDES_STORAGE_KEY, JSON.stringify(map))
+    window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
 
     let notif: CampusNotification | undefined
     if (changedKey) {
@@ -2087,7 +2101,13 @@ export type PeriodAttendanceSubmission = {
   teacher: string
   submittedByLeaderId: string
   submittedByName: string
+  submittedByRole?: 'Class Leader' | 'Class Usthad' | 'Principal'
   submittedAt: string // ISO string
+  lastEditedByName?: string
+  lastEditedByRole?: 'Class Leader' | 'Class Usthad' | 'Principal'
+  lastEditedById?: string
+  lastEditedAt?: string // ISO string
+  editCount?: number
   records: Record<string, PeriodAttendanceStatus> // studentId -> status
   reasons?: Record<string, string> // studentId -> selected reason for absent or leave
   sessionStatus?: PeriodSessionStatus // 'conducted' | 'not-held' | 'substituted'
@@ -2154,6 +2174,28 @@ export function findPrincipalByIdentifier(identifier: string): PrincipalProfile 
 }
 
 export const PERIOD_ATTENDANCE_STORAGE_KEY = 'ics_period_attendance_v2'
+export const DELETED_PERIOD_KEYS_STORAGE_KEY = 'ics_deleted_period_keys_v2'
+
+export function loadDeletedPeriodKeys(): Record<string, number> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = window.localStorage.getItem(DELETED_PERIOD_KEYS_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, number>
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveDeletedPeriodKeys(map: Record<string, number>): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(DELETED_PERIOD_KEYS_STORAGE_KEY, JSON.stringify(map))
+  } catch {
+    // Ignore storage errors
+  }
+}
 
 export function loadPeriodAttendanceSubmissions(): Record<string, PeriodAttendanceSubmission> {
   if (typeof window === 'undefined') return {}
@@ -2168,6 +2210,19 @@ export function loadPeriodAttendanceSubmissions(): Record<string, PeriodAttendan
   }
 }
 
+function isPeriodSubmissionDataIdentical(
+  a?: PeriodAttendanceSubmission,
+  b?: PeriodAttendanceSubmission,
+): boolean {
+  if (!a || !b) return false
+  if ((a.sessionStatus ?? 'conducted') !== (b.sessionStatus ?? 'conducted')) return false
+  if ((a.notHeldReason ?? '') !== (b.notHeldReason ?? '')) return false
+  if ((a.substituteUsthad?.usthadId ?? '') !== (b.substituteUsthad?.usthadId ?? '')) return false
+  if (JSON.stringify(a.records ?? {}) !== JSON.stringify(b.records ?? {})) return false
+  if (JSON.stringify(a.reasons ?? {}) !== JSON.stringify(b.reasons ?? {})) return false
+  return true
+}
+
 export function savePeriodAttendanceSubmissions(
   map: Record<string, PeriodAttendanceSubmission>,
 ): void {
@@ -2175,35 +2230,57 @@ export function savePeriodAttendanceSubmissions(
   ensureCleanLaunchStorage()
   try {
     const prev = loadPeriodAttendanceSubmissions()
-    window.localStorage.setItem(PERIOD_ATTENDANCE_STORAGE_KEY, JSON.stringify(map))
-    window.dispatchEvent(new CustomEvent('ics-period-attendance-updated'))
-    window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
 
     let changedSub: PeriodAttendanceSubmission | null = null
+    let isUpdate = false
     for (const k of Object.keys(map)) {
       const cur = map[k]
       const old = prev[k]
-      if (!old || old.submittedAt !== cur.submittedAt || old.sessionStatus !== cur.sessionStatus) {
+      if (!old || !isPeriodSubmissionDataIdentical(old, cur)) {
         changedSub = cur
+        isUpdate = Boolean(old)
         break
       }
     }
 
+    if (!changedSub) {
+      return
+    }
+
+    const deletedMap = loadDeletedPeriodKeys()
+    let deletedMapChanged = false
+    for (const k of Object.keys(map)) {
+      if (k in deletedMap) {
+        delete deletedMap[k]
+        deletedMapChanged = true
+      }
+    }
+    if (deletedMapChanged) {
+      saveDeletedPeriodKeys(deletedMap)
+    }
+
+    window.localStorage.setItem(PERIOD_ATTENDANCE_STORAGE_KEY, JSON.stringify(map))
+    window.dispatchEvent(new CustomEvent('ics-period-attendance-updated'))
+    window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
+
     let notif: CampusNotification | undefined
     if (changedSub) {
+      const actorDisplay = changedSub.lastEditedByName || changedSub.submittedByName
       const statusText =
         changedSub.sessionStatus === 'not-held'
           ? `Marked Not Held (${changedSub.notHeldReason || 'Usthad Leave'})`
           : changedSub.sessionStatus === 'substituted'
             ? `Substitute Assigned: ${changedSub.substituteUsthad?.usthadName || 'Usthad'}`
-            : `Attendance Marked by ${changedSub.submittedByName}`
+            : isUpdate
+              ? `Attendance Corrected by ${actorDisplay}${changedSub.lastEditedByRole ? ` (${changedSub.lastEditedByRole})` : ''}`
+              : `Attendance Marked by ${changedSub.submittedByName}`
 
       notif = createAndStoreCampusNotification({
         type: 'period-attendance',
         title: `${changedSub.periodLabel} • ${changedSub.className}`,
         message: `${changedSub.subject}: ${statusText} (${changedSub.date})`,
         targetClass: changedSub.className,
-        actorName: changedSub.submittedByName,
+        actorName: actorDisplay,
         href: '#attendance',
       })
     }
@@ -2217,11 +2294,59 @@ export function savePeriodAttendanceSubmissions(
   }
 }
 
+export function deletePeriodAttendanceSubmission(
+  key: string,
+  actorInfo?: { name: string; role: string },
+): Record<string, PeriodAttendanceSubmission> {
+  if (typeof window === 'undefined') return {}
+  ensureCleanLaunchStorage()
+  try {
+    const currentMap = loadPeriodAttendanceSubmissions()
+    const targetSub = currentMap[key]
+    const nextMap = { ...currentMap }
+    delete nextMap[key]
+
+    const deletedAtMs = Date.now()
+    const deletedMap = loadDeletedPeriodKeys()
+    deletedMap[key] = deletedAtMs
+    saveDeletedPeriodKeys(deletedMap)
+
+    window.localStorage.setItem(PERIOD_ATTENDANCE_STORAGE_KEY, JSON.stringify(nextMap))
+    window.dispatchEvent(new CustomEvent('ics-period-attendance-updated'))
+    window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
+
+    let notif: CampusNotification | undefined
+    if (targetSub) {
+      const actorText = actorInfo
+        ? `${actorInfo.name} (${actorInfo.role})`
+        : targetSub.submittedByName
+      notif = createAndStoreCampusNotification({
+        type: 'period-attendance',
+        title: `${targetSub.periodLabel} Reset • ${targetSub.className}`,
+        message: `${targetSub.subject} (${targetSub.date}) attendance submission was cleared by ${actorText}.`,
+        targetClass: targetSub.className,
+        actorName: actorInfo?.name || targetSub.submittedByName,
+        href: '#attendance',
+      })
+    }
+
+    pushCampusSyncToServer({
+      deletedPeriodKey: key,
+      deletedAtMs,
+      ...(notif ? { notification: notif } : {}),
+    })
+    return nextMap
+  } catch {
+    return loadPeriodAttendanceSubmissions()
+  }
+}
+
 export type CampusNotificationType =
   | 'notice'
   | 'attendance'
   | 'period-attendance'
   | 'leave'
+  | 'chat'
 
 export type CampusNotification = {
   id: string
@@ -2232,41 +2357,173 @@ export type CampusNotification = {
   targetClass?: string
   targetClasses?: string[]
   targetStudentId?: string
+  targetRecipientId?: string
+  targetStaffOnly?: boolean
+  actorId?: string
   actorName?: string
   href?: string
   createdAt: string
   createdAtMs: number
 }
 
+export function getCurrentSessionIdentity(): {
+  role: 'student' | 'class-leader' | 'usthad' | 'principal'
+  actorId: string
+  actorName: string
+  className: string
+  assignedClasses: string[]
+  isStaff: boolean
+  isPrincipal: boolean
+} {
+  if (typeof window === 'undefined') {
+    return {
+      role: 'student',
+      actorId: '',
+      actorName: '',
+      className: '',
+      assignedClasses: [],
+      isStaff: false,
+      isPrincipal: false,
+    }
+  }
+  try {
+    const rawRole = window.localStorage.getItem('authRole') || 'student'
+    if (rawRole === 'principal') {
+      return {
+        role: 'principal',
+        actorId: ACADEMY_PRINCIPAL.usthadId || 'usthad-07',
+        actorName: ACADEMY_PRINCIPAL.name,
+        className: ACADEMY_PRINCIPAL.assignedClassName || 'BS 3',
+        assignedClasses: ACADEMY_PRINCIPAL.assignedClasses || ['BS 3', 'BS 1'],
+        isStaff: true,
+        isPrincipal: true,
+      }
+    }
+    if (rawRole === 'usthad') {
+      const staffId = window.localStorage.getItem('usthadStaffId') || ''
+      const usthad = findUsthadByStaffId(staffId)
+      const isPrin = usthad?.id === ACADEMY_PRINCIPAL.usthadId
+      return {
+        role: 'usthad',
+        actorId: usthad?.id || '',
+        actorName: usthad?.name || '',
+        className: usthad?.className || '',
+        assignedClasses: isPrin
+          ? ACADEMY_PRINCIPAL.assignedClasses || ['BS 3', 'BS 1']
+          : usthad?.className
+            ? [usthad.className]
+            : [],
+        isStaff: true,
+        isPrincipal: isPrin,
+      }
+    }
+    if (rawRole === 'class-leader') {
+      const leaderId = window.localStorage.getItem('classLeaderId') || ''
+      const leaderMatch = findClassLeaderByIdentifier(leaderId)
+      return {
+        role: 'class-leader',
+        actorId: leaderMatch?.student.id || '',
+        actorName: leaderMatch?.student.name || '',
+        className: leaderMatch?.student.className || '',
+        assignedClasses: leaderMatch?.student.className ? [leaderMatch.student.className] : [],
+        isStaff: false,
+        isPrincipal: false,
+      }
+    }
+    const loggedInStudentId = window.localStorage.getItem('loggedInStudentId') || ''
+    const st = students.find((s) => s.id === loggedInStudentId) ?? students[0]
+    return {
+      role: 'student',
+      actorId: st?.id || '',
+      actorName: st?.name || '',
+      className: st?.className || '',
+      assignedClasses: st?.className ? [st.className] : [],
+      isStaff: false,
+      isPrincipal: false,
+    }
+  } catch {
+    return {
+      role: 'student',
+      actorId: '',
+      actorName: '',
+      className: '',
+      assignedClasses: [],
+      isStaff: false,
+      isPrincipal: false,
+    }
+  }
+}
+
 /**
- * Determines whether a notification should be shown to the given user context.
- * - When `studentId` is provided (Student / Class Leader session):
- *   1. Personal notifications (`type === 'attendance'` or `type === 'leave'`, or any notification with `targetStudentId`)
- *      are STRICTLY restricted to `notif.targetStudentId === studentId`. Another student's leave or attendance
- *      will NEVER be visible on this student's phone.
- *   2. Class/Batch-scoped notifications (`targetClasses` or `targetClass`) are only shown if the student's
- *      `classNameFilter` matches one of the target classes.
- *   3. General notices (`type === 'notice'` with no `targetClasses`/`targetClass`) are visible to everyone.
+ * Determines whether a notification should be shown to the current user session.
+ * Strict Rules:
+ * 1. Self-Exclusion: The sender (`notif.actorId` or `notif.actorName`) NEVER receives their own notification.
+ * 2. Direct Recipient (`notif.targetRecipientId`): Strictly shown ONLY to the user whose `actorId === notif.targetRecipientId`.
+ * 3. Staff Room (`notif.targetStaffOnly`): Strictly shown ONLY to Usthads and Principal (excluding sender).
+ * 4. Group Chat (`notif.type === 'chat'` with `targetClass`): Strictly shown ONLY to students of that class and the assigned Class Usthad (excluding sender).
+ * 5. Personal Student Records (`attendance` / `leave` / `targetStudentId`): Strictly shown ONLY to that student or their Class Usthad / Principal (excluding sender).
+ * 6. Class Notices (`targetClass` / `targetClasses`): Shown ONLY to members of those target classes (and Principal for official notices, excluding sender).
  */
 export function isNotificationVisibleForStudent(
   notif: CampusNotification,
   studentId?: string,
   classNameFilter?: string,
 ): boolean {
-  const normFilter = normalizeClassName(classNameFilter)
+  const session = getCurrentSessionIdentity()
+  const myActorId = studentId || session.actorId
+  const myActorName = session.actorName
+  const normFilter = normalizeClassName(classNameFilter || session.className)
+  const normAssignedClasses = session.assignedClasses.map((c) => normalizeClassName(c))
   const normTargetClass = normalizeClassName(notif.targetClass)
   const normTargetClasses = (notif.targetClasses ?? []).map((c) => normalizeClassName(c))
 
-  if (studentId) {
-    // 1. Any notification explicitly targeting a student ID must match this logged-in student
-    if (notif.targetStudentId && notif.targetStudentId !== studentId) {
+  // 1. Self-Exclusion: Never notify the person who sent/created this notification
+  if (notif.actorId && myActorId && notif.actorId === myActorId) {
+    return false
+  }
+  if (
+    !notif.actorId &&
+    notif.actorName &&
+    myActorName &&
+    notif.actorName.trim().toLowerCase() === myActorName.trim().toLowerCase()
+  ) {
+    return false
+  }
+
+  // 2. Direct 1-on-1 Chat or Specific Recipient Targeting
+  if (notif.targetRecipientId) {
+    return Boolean(myActorId && notif.targetRecipientId === myActorId)
+  }
+
+  // 3. Staff Room Group Targeting (Usthads & Principal only)
+  if (notif.targetStaffOnly) {
+    if (studentId || !session.isStaff) return false
+    return true
+  }
+
+  // 4. Batch Group Chat Targeting (Strictly members of that class + assigned Class Usthad)
+  if (notif.type === 'chat') {
+    if (normTargetClass && normTargetClass !== 'ALL') {
+      if (studentId || !session.isStaff) {
+        return normFilter === normTargetClass
+      }
+      return (
+        normFilter === normTargetClass ||
+        normAssignedClasses.includes(normTargetClass)
+      )
+    }
+    return false
+  }
+
+  // 5. Student / Class Leader session rules
+  if (studentId || !session.isStaff) {
+    const effectiveStudentId = studentId || session.actorId
+    if (notif.targetStudentId && notif.targetStudentId !== effectiveStudentId) {
       return false
     }
-    // 2. Personal attendance & leave notifications MUST have targetStudentId === studentId
     if (notif.type === 'attendance' || notif.type === 'leave') {
-      return notif.targetStudentId === studentId
+      return Boolean(effectiveStudentId && notif.targetStudentId === effectiveStudentId)
     }
-    // 3. Multi-class target filtering (for class-specific notices/holidays)
     if (
       normTargetClasses.length > 0 &&
       !normTargetClasses.includes('ALL')
@@ -2275,7 +2532,6 @@ export function isNotificationVisibleForStudent(
         return false
       }
     }
-    // 4. Single-class target filtering (for period-attendance or single-class notices)
     if (normTargetClass && normTargetClass !== 'ALL') {
       if (normFilter && normTargetClass !== normFilter) {
         return false
@@ -2284,52 +2540,35 @@ export function isNotificationVisibleForStudent(
     return true
   }
 
-  // Staff / Usthad / Principal view:
-  if (normFilter && normFilter !== 'ALL') {
+  // 6. Staff (Usthad / Principal) session rules for Notices, Attendance & Leave
+  if (!session.isPrincipal) {
     if (
       normTargetClasses.length > 0 &&
-      !normTargetClasses.includes('ALL') &&
-      !normTargetClasses.includes(normFilter)
+      !normTargetClasses.includes('ALL')
     ) {
-      return false
+      const matchesAny =
+        (normFilter && normTargetClasses.includes(normFilter)) ||
+        normAssignedClasses.some((c) => normTargetClasses.includes(c))
+      if (!matchesAny) return false
     }
-    if (
-      normTargetClass &&
-      normTargetClass !== 'ALL' &&
-      normTargetClass !== normFilter
-    ) {
-      return false
+    if (normTargetClass && normTargetClass !== 'ALL') {
+      const matchesSingle =
+        normFilter === normTargetClass ||
+        normAssignedClasses.includes(normTargetClass)
+      if (!matchesSingle) return false
     }
   }
+
   return true
 }
 
 function isNotificationRelevantForCurrentBrowserSession(notif: CampusNotification): boolean {
-  if (typeof window === 'undefined') return true
-  try {
-    const role = window.localStorage.getItem('authRole') || 'student'
-    if (role === 'principal') return true
-    if (role === 'usthad') {
-      const staffId = window.localStorage.getItem('usthadStaffId') || ''
-      const usthad = findUsthadByStaffId(staffId)
-      return isNotificationVisibleForStudent(notif, undefined, usthad?.className)
-    }
-    if (role === 'class-leader') {
-      const leaderId = window.localStorage.getItem('classLeaderId') || ''
-      const leaderMatch = findClassLeaderByIdentifier(leaderId)
-      return isNotificationVisibleForStudent(
-        notif,
-        leaderMatch?.student.id,
-        leaderMatch?.student.className,
-      )
-    }
-    // Default: Student role
-    const loggedInStudentId = window.localStorage.getItem('loggedInStudentId') || ''
-    const st = students.find((s) => s.id === loggedInStudentId) ?? students[0]
-    return isNotificationVisibleForStudent(notif, st?.id, st?.className)
-  } catch {
-    return true
+  if (typeof window === 'undefined') return false
+  const session = getCurrentSessionIdentity()
+  if (session.role === 'student' || session.role === 'class-leader') {
+    return isNotificationVisibleForStudent(notif, session.actorId, session.className)
   }
+  return isNotificationVisibleForStudent(notif, undefined, session.className)
 }
 
 export const CAMPUS_NOTIFICATIONS_STORAGE_KEY = 'ics_campus_notifications_v2'
@@ -2385,10 +2624,14 @@ export function createAndStoreCampusNotification(input: {
   targetClass?: string
   targetClasses?: string[]
   targetStudentId?: string
+  targetRecipientId?: string
+  targetStaffOnly?: boolean
+  actorId?: string
   actorName?: string
   href?: string
 }): CampusNotification {
   const now = new Date()
+  const session = getCurrentSessionIdentity()
   const notif: CampusNotification = {
     id: input.id || `notif_${now.getTime()}_${Math.random().toString(36).slice(2, 7)}`,
     type: input.type,
@@ -2398,7 +2641,10 @@ export function createAndStoreCampusNotification(input: {
     targetClass: input.targetClass,
     targetClasses: input.targetClasses,
     targetStudentId: input.targetStudentId,
-    actorName: input.actorName,
+    targetRecipientId: input.targetRecipientId,
+    targetStaffOnly: input.targetStaffOnly,
+    actorId: input.actorId || session.actorId || undefined,
+    actorName: input.actorName || session.actorName || undefined,
     href: input.href || '#notices',
     createdAt: now.toISOString(),
     createdAtMs: now.getTime(),
@@ -2414,11 +2660,7 @@ export function createAndStoreCampusNotification(input: {
           JSON.stringify(updated),
         )
       }
-      if (isNotificationRelevantForCurrentBrowserSession(notif)) {
-        window.dispatchEvent(
-          new CustomEvent('ics-campus-notification', { detail: notif }),
-        )
-      }
+      // Note: Do NOT trigger a pop-up/sound notification on the sender's own browser when creating it.
     } catch {
       // Ignore storage errors
     }
@@ -2435,6 +2677,9 @@ export function publishCampusNotification(input: {
   targetClass?: string
   targetClasses?: string[]
   targetStudentId?: string
+  targetRecipientId?: string
+  targetStaffOnly?: boolean
+  actorId?: string
   actorName?: string
   href?: string
 }): CampusNotification {
@@ -2443,10 +2688,710 @@ export function publishCampusNotification(input: {
   return notif
 }
 
+export type CustomStudentEntry = {
+  id: string
+  name: string
+  admissionNo: string
+  className: string
+  batch: string
+  avatarUrl?: string
+}
+
+export type UsthadProfileOverride = {
+  id: string
+  staffId: string
+  name: string
+  shortName: string
+  designation: string
+  institutionalRole?: 'Principal' | 'Swadr' | 'Class Usthad'
+  isPrincipalRole?: boolean
+  specialization: string
+  avatarUrl?: string
+  className: string
+  batch: string
+  batchCode: string
+}
+
+export type AcademyAdminConfig = {
+  updatedAtMs: number
+  activeSemester?: 1 | 2
+  addedStudents?: CustomStudentEntry[]
+  editedStudents?: Record<
+    string,
+    {
+      name?: string
+      admissionNo?: string
+      className?: string
+      batch?: string
+      avatarUrl?: string
+    }
+  >
+  removedStudentIds?: string[]
+  addedUsthads?: UsthadProfileOverride[]
+  editedUsthads?: Record<
+    string,
+    {
+      name?: string
+      staffId?: string
+      designation?: string
+      specialization?: string
+    }
+  >
+  /** Maps className (e.g. 'BS 3', '8th') -> Usthad staffId (e.g. 'UST-07') */
+  classUsthadAssignments?: Record<string, string>
+  /** Maps `${className}__Main Class Leader` or `${className}__Assistant Class Leader` -> studentId */
+  classLeaderAssignments?: Record<string, string>
+  /** Maps className -> ClassSemesterTimetable */
+  timetableOverrides?: Record<string, ClassSemesterTimetable>
+}
+
+export const ACADEMY_ADMIN_CONFIG_STORAGE_KEY = 'ics_academy_admin_config_v1'
+
+const BASE_STUDENTS_SNAPSHOT: Student[] = students.map((s) => ({
+  ...s,
+  attendance: { ...s.attendance },
+  monthlyAttendance: s.monthlyAttendance.map((m) => ({ ...m })),
+}))
+
+const BASE_OFFICIAL_USTHADS_SNAPSHOT: ClassUsthad[] = OFFICIAL_CLASS_USTHADS.map((u) => ({
+  ...u,
+  teachingBatches: u.teachingBatches ? [...u.teachingBatches] : undefined,
+}))
+
+const BASE_CLASS_USTHADS_SNAPSHOT: ClassUsthad[] = CLASS_USTHADS.map((u) => ({
+  ...u,
+  teachingBatches: u.teachingBatches ? [...u.teachingBatches] : undefined,
+}))
+
+const BASE_CLASS_LEADERS_SNAPSHOT: ClassLeaderInfo[] = CLASS_LEADERS.map((l) => ({
+  ...l,
+}))
+
+const BASE_TIMETABLES_SNAPSHOT: Record<string, ClassSemesterTimetable> = JSON.parse(
+  JSON.stringify(CLASS_SEMESTER_SCHEDULES),
+) as Record<string, ClassSemesterTimetable>
+
+const CLASS_BATCH_META_BY_NAME: Record<string, { batch: string; batchCode: string }> = {
+  '8th': { batch: 'Batch 14', batchCode: '14' },
+  '9th': { batch: 'Batch 13', batchCode: '13' },
+  '10th': { batch: 'Batch 12', batchCode: '12' },
+  'HS 1': { batch: 'Batch 11', batchCode: '11' },
+  'HS 2A': { batch: 'Batch 10', batchCode: '10' },
+  'HS 2B': { batch: 'Batch 10', batchCode: '10' },
+  'BS 1': { batch: 'Batch 09', batchCode: '09' },
+  'BS 2': { batch: 'Batch 08', batchCode: '08' },
+  'BS 3': { batch: 'Batch 07', batchCode: '07' },
+  'BS 4': { batch: 'Batch 06', batchCode: '06' },
+  'BS 5': { batch: 'Batch 05', batchCode: '05' },
+}
+
+export function getBatchLabelForClass(className: string): string {
+  const norm = normalizeClassName(className)
+  return CLASS_BATCH_META_BY_NAME[norm]?.batch ?? 'Batch 07'
+}
+
+export function getBatchCodeForClass(className: string): string {
+  const norm = normalizeClassName(className)
+  return CLASS_BATCH_META_BY_NAME[norm]?.batchCode ?? '07'
+}
+
+export function getNextSuggestedAdmissionNo(className: string): string {
+  const norm = normalizeClassName(className)
+  const classStudents = students.filter((s) => normalizeClassName(s.className) === norm)
+  const batchCode = getBatchCodeForClass(norm)
+  if (classStudents.length === 0) {
+    return `ICS2K26${batchCode}01`
+  }
+  const lastStudent = classStudents[classStudents.length - 1]
+  const match = lastStudent.admissionNo.match(/^(ICS2K\d{2}\d{2})(\d{2,3})$/i)
+  if (match) {
+    const prefix = match[1].toUpperCase()
+    const nextRoll = String(Number(match[2]) + 1).padStart(2, '0')
+    return `${prefix}${nextRoll}`
+  }
+  const nextRoll = String(classStudents.length + 1).padStart(2, '0')
+  return `ICS2K26${batchCode}${nextRoll}`
+}
+
+export function getDefaultClassTimetable(className: string): ClassSemesterTimetable {
+  const norm = normalizeClassName(className)
+  const snap = BASE_TIMETABLES_SNAPSHOT[norm] ?? BASE_TIMETABLES_SNAPSHOT['BS 3']
+  return JSON.parse(JSON.stringify(snap)) as ClassSemesterTimetable
+}
+
+export function loadAcademyAdminConfig(): AcademyAdminConfig {
+  if (typeof window === 'undefined') return { updatedAtMs: 0 }
+  try {
+    const raw = window.localStorage.getItem(ACADEMY_ADMIN_CONFIG_STORAGE_KEY)
+    if (!raw) return { updatedAtMs: 0 }
+    const parsed = JSON.parse(raw) as AcademyAdminConfig
+    return parsed && typeof parsed === 'object' ? parsed : { updatedAtMs: 0 }
+  } catch {
+    return { updatedAtMs: 0 }
+  }
+}
+
+export function applyAcademyAdminConfig(config: AcademyAdminConfig): void {
+  // 1. Active Semester
+  CURRENT_SEMESTER = config.activeSemester === 2 ? 2 : 1
+
+  // 2. Rebuild Students array in-place
+  const removedSet = new Set(config.removedStudentIds ?? [])
+  const editedMap = config.editedStudents ?? {}
+  const nextStudents: Student[] = []
+
+  for (const baseSt of BASE_STUDENTS_SNAPSHOT) {
+    if (removedSet.has(baseSt.id)) continue
+    const edit = editedMap[baseSt.id]
+    const updatedClassName = edit?.className ? normalizeClassName(edit.className) : baseSt.className
+    const updatedAdmissionNo = edit?.admissionNo?.trim() || baseSt.admissionNo
+    const updatedName = edit?.name?.trim() || baseSt.name
+    nextStudents.push({
+      ...baseSt,
+      name: updatedName,
+      firstName: updatedName,
+      admissionNo: updatedAdmissionNo,
+      className: updatedClassName,
+      batch: edit?.batch?.trim() || getBatchLabelForClass(updatedClassName),
+      avatarUrl:
+        edit?.avatarUrl ||
+        STUDENT_AVATAR_BY_ADMISSION_NO[updatedAdmissionNo] ||
+        baseSt.avatarUrl,
+      attendance: { ...baseSt.attendance },
+      monthlyAttendance: baseSt.monthlyAttendance.map((m) => ({ ...m })),
+    })
+  }
+
+  let customCounter = BASE_STUDENTS_SNAPSHOT.length + 1
+  for (const added of config.addedStudents ?? []) {
+    if (!added || !added.id || removedSet.has(added.id)) continue
+    const edit = editedMap[added.id]
+    const finalClassName = normalizeClassName(edit?.className || added.className || '8th')
+    const finalName = (edit?.name || added.name || 'Student').trim()
+    const finalAdmissionNo = (edit?.admissionNo || added.admissionNo || `ICS2K261499`).trim()
+    const { monthlyAttendance, attendance } = buildStudentMonthlyAttendance(customCounter++)
+    nextStudents.push({
+      id: added.id,
+      name: finalName,
+      firstName: finalName,
+      className: finalClassName,
+      batch: edit?.batch || added.batch || getBatchLabelForClass(finalClassName),
+      admissionNo: finalAdmissionNo,
+      avatarUrl:
+        edit?.avatarUrl ||
+        added.avatarUrl ||
+        STUDENT_AVATAR_BY_ADMISSION_NO[finalAdmissionNo],
+      attendance,
+      monthlyAttendance,
+    })
+  }
+
+  students.splice(0, students.length, ...nextStudents)
+
+  // 3. Rebuild OFFICIAL_CLASS_USTHADS and CLASS_USTHADS in-place
+  const usthadEdits = config.editedUsthads ?? {}
+  const basePlusAddedUsthads: ClassUsthad[] = [
+    ...BASE_OFFICIAL_USTHADS_SNAPSHOT.map((u) => {
+      const uEdit = usthadEdits[u.id]
+      const updatedName = uEdit?.name?.trim() || u.name
+      return {
+        ...u,
+        name: updatedName,
+        shortName: updatedName,
+        staffId: uEdit?.staffId?.trim() || u.staffId,
+        designation: uEdit?.designation?.trim() || u.designation,
+        specialization: uEdit?.specialization?.trim() || u.specialization,
+        teachingBatches: u.teachingBatches ? [...u.teachingBatches] : [u.className],
+      }
+    }),
+    ...(config.addedUsthads ?? []).map((u) => {
+      const uEdit = usthadEdits[u.id]
+      const updatedName = (uEdit?.name || u.name).trim()
+      return {
+        ...u,
+        name: updatedName,
+        shortName: updatedName,
+        staffId: (uEdit?.staffId || u.staffId).trim(),
+        designation: (uEdit?.designation || u.designation || 'Class Usthad').trim(),
+        specialization: (uEdit?.specialization || u.specialization || 'Islamic & Academic Studies').trim(),
+        fullClassLabel: `Class ${u.className}`,
+        teachingBatches: [u.className],
+      }
+    }),
+  ]
+
+  const classAssignments = config.classUsthadAssignments ?? {}
+  const nextClassUsthads: ClassUsthad[] = BASE_CLASS_USTHADS_SNAPSHOT.map((baseSlot) => {
+    const clsName = baseSlot.className
+    const assignedKey = classAssignments[clsName]
+    const matchedUsthad = assignedKey
+      ? basePlusAddedUsthads.find(
+          (u) =>
+            u.id === assignedKey ||
+            normalizeAdmissionKey(u.staffId) === normalizeAdmissionKey(assignedKey),
+        )
+      : basePlusAddedUsthads.find(
+          (u) =>
+            u.id === baseSlot.id ||
+            normalizeAdmissionKey(u.staffId) === normalizeAdmissionKey(baseSlot.staffId) ||
+            u.name === baseSlot.name,
+        )
+
+    if (!matchedUsthad) {
+      return { ...baseSlot }
+    }
+
+    return {
+      ...matchedUsthad,
+      id:
+        clsName === matchedUsthad.className
+          ? matchedUsthad.id
+          : `${matchedUsthad.id}-${clsName.toLowerCase().replace(/\s+/g, '')}`,
+      className: clsName,
+      fullClassLabel: `Class ${clsName}`,
+      batch: getBatchLabelForClass(clsName),
+      batchCode: getBatchCodeForClass(clsName),
+    }
+  })
+
+  // Update teachingBatches on each official usthad based on their assigned classes
+  for (const offUsthad of basePlusAddedUsthads) {
+    const assignedClassesForUsthad = nextClassUsthads
+      .filter(
+        (cu) =>
+          normalizeAdmissionKey(cu.staffId) === normalizeAdmissionKey(offUsthad.staffId) ||
+          cu.name === offUsthad.name,
+      )
+      .map((cu) => cu.className)
+
+    if (assignedClassesForUsthad.length > 0) {
+      offUsthad.teachingBatches = assignedClassesForUsthad
+      offUsthad.className = assignedClassesForUsthad[0]
+      offUsthad.fullClassLabel = `Class ${assignedClassesForUsthad[0]}`
+      offUsthad.batch = getBatchLabelForClass(assignedClassesForUsthad[0])
+    }
+  }
+
+  for (const cu of nextClassUsthads) {
+    const matchingOff = basePlusAddedUsthads.find(
+      (u) =>
+        normalizeAdmissionKey(u.staffId) === normalizeAdmissionKey(cu.staffId) ||
+        u.name === cu.name,
+    )
+    if (matchingOff?.teachingBatches) {
+      cu.teachingBatches = [...matchingOff.teachingBatches]
+    }
+  }
+
+  OFFICIAL_CLASS_USTHADS.splice(0, OFFICIAL_CLASS_USTHADS.length, ...basePlusAddedUsthads)
+  CLASS_USTHADS.splice(0, CLASS_USTHADS.length, ...nextClassUsthads)
+
+  // 4. Rebuild CLASS_LEADERS in-place
+  const leaderOverrides = config.classLeaderAssignments ?? {}
+  const nextLeaders: ClassLeaderInfo[] = BASE_CLASS_LEADERS_SNAPSHOT.map((baseLeader) => {
+    const overrideKey = `${baseLeader.className}__${baseLeader.roleTitle}`
+    const overrideStudentId = leaderOverrides[overrideKey]
+    const classRoster = students.filter(
+      (s) => normalizeClassName(s.className) === normalizeClassName(baseLeader.className),
+    )
+    const targetStudent =
+      (overrideStudentId
+        ? classRoster.find((s) => s.id === overrideStudentId) ??
+          students.find((s) => s.id === overrideStudentId)
+        : undefined) ??
+      classRoster.find((s) => s.id === baseLeader.studentId) ??
+      classRoster.find((s) => s.admissionNo === baseLeader.admissionNo) ??
+      (baseLeader.roleTitle === 'Main Class Leader'
+        ? classRoster[0]
+        : classRoster[1] ?? classRoster[0])
+
+    if (!targetStudent) return { ...baseLeader }
+
+    return {
+      ...baseLeader,
+      studentId: targetStudent.id,
+      admissionNo: targetStudent.admissionNo,
+      studentName: targetStudent.name,
+    }
+  })
+
+  CLASS_LEADERS.splice(0, CLASS_LEADERS.length, ...nextLeaders)
+
+  // 5. Rebuild CLASS_SEMESTER_SCHEDULES in-place
+  const ttOverrides = config.timetableOverrides ?? {}
+  for (const clsName of Object.keys(BASE_TIMETABLES_SNAPSHOT)) {
+    const customTt = ttOverrides[clsName]
+    if (
+      customTt &&
+      Array.isArray(customTt.periods) &&
+      Array.isArray(customTt.semester1) &&
+      Array.isArray(customTt.semester2)
+    ) {
+      CLASS_SEMESTER_SCHEDULES[clsName] = JSON.parse(
+        JSON.stringify(customTt),
+      ) as ClassSemesterTimetable
+    } else {
+      CLASS_SEMESTER_SCHEDULES[clsName] = JSON.parse(
+        JSON.stringify(BASE_TIMETABLES_SNAPSHOT[clsName]),
+      ) as ClassSemesterTimetable
+    }
+  }
+}
+
+export function saveAcademyAdminConfig(
+  nextConfig: AcademyAdminConfig,
+  notificationInput?: {
+    title: string
+    message: string
+    targetClass?: string
+  },
+): AcademyAdminConfig {
+  const stamped: AcademyAdminConfig = {
+    ...nextConfig,
+    updatedAtMs: Date.now(),
+  }
+  applyAcademyAdminConfig(stamped)
+
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem(ACADEMY_ADMIN_CONFIG_STORAGE_KEY, JSON.stringify(stamped))
+      window.dispatchEvent(new CustomEvent('ics-academy-config-updated'))
+      window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
+      window.dispatchEvent(new CustomEvent('ics-period-attendance-updated'))
+
+      let notif: CampusNotification | undefined
+      if (notificationInput) {
+        notif = createAndStoreCampusNotification({
+          type: 'notice',
+          title: notificationInput.title,
+          message: notificationInput.message,
+          category: 'Academic',
+          targetClass: notificationInput.targetClass,
+          actorName: `${ACADEMY_PRINCIPAL.name} (Principal)`,
+          href: '#timetable',
+        })
+      }
+
+      void pushCampusSyncToServer({
+        academyAdminConfig: stamped,
+        ...(notif ? { notification: notif } : {}),
+      })
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  return stamped
+}
+
+export function addStudentByPrincipal(input: {
+  name: string
+  admissionNo: string
+  className: string
+}): Student {
+  const current = loadAcademyAdminConfig()
+  const cleanName = input.name.trim()
+  const cleanAdmission = input.admissionNo.trim().toUpperCase()
+  const cleanClass = normalizeClassName(input.className) || '8th'
+  const newId = `std-custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+  const entry: CustomStudentEntry = {
+    id: newId,
+    name: cleanName,
+    admissionNo: cleanAdmission,
+    className: cleanClass,
+    batch: getBatchLabelForClass(cleanClass),
+  }
+  const nextAdded = [...(current.addedStudents ?? []), entry]
+  saveAcademyAdminConfig(
+    {
+      ...current,
+      addedStudents: nextAdded,
+    },
+    {
+      title: `New Student Enrolled • Class ${cleanClass}`,
+      message: `${cleanName} (${cleanAdmission}) has been added to Class ${cleanClass}.`,
+      targetClass: cleanClass,
+    },
+  )
+  return students.find((s) => s.id === newId) ?? students[students.length - 1]
+}
+
+export function updateStudentByPrincipal(
+  studentId: string,
+  updates: {
+    name: string
+    admissionNo: string
+    className: string
+  },
+): void {
+  const current = loadAcademyAdminConfig()
+  const cleanName = updates.name.trim()
+  const cleanAdmission = updates.admissionNo.trim().toUpperCase()
+  const cleanClass = normalizeClassName(updates.className) || '8th'
+  const existingSt = students.find((s) => s.id === studentId)
+  if (
+    existingSt &&
+    existingSt.name === cleanName &&
+    existingSt.admissionNo.toUpperCase() === cleanAdmission &&
+    normalizeClassName(existingSt.className) === cleanClass
+  ) {
+    return
+  }
+  const nextEdited = {
+    ...(current.editedStudents ?? {}),
+    [studentId]: {
+      ...(current.editedStudents?.[studentId] ?? {}),
+      name: cleanName,
+      admissionNo: cleanAdmission,
+      className: cleanClass,
+      batch: getBatchLabelForClass(cleanClass),
+    },
+  }
+  saveAcademyAdminConfig({
+    ...current,
+    editedStudents: nextEdited,
+  })
+}
+
+export function removeStudentByPrincipal(studentId: string): void {
+  const current = loadAcademyAdminConfig()
+  const removed = new Set(current.removedStudentIds ?? [])
+  if (removed.has(studentId)) return
+  removed.add(studentId)
+  saveAcademyAdminConfig({
+    ...current,
+    removedStudentIds: Array.from(removed),
+  })
+}
+
+export function restoreAllRemovedStudentsByPrincipal(): void {
+  const current = loadAcademyAdminConfig()
+  if (!current.removedStudentIds || current.removedStudentIds.length === 0) return
+  saveAcademyAdminConfig({
+    ...current,
+    removedStudentIds: [],
+  })
+}
+
+export function assignClassUsthadByPrincipal(className: string, usthadIdOrStaffId: string): void {
+  const current = loadAcademyAdminConfig()
+  const normClass = normalizeClassName(className)
+  const currentSlot = CLASS_USTHADS.find((u) => normalizeClassName(u.className) === normClass)
+  if (
+    currentSlot &&
+    (currentSlot.id === usthadIdOrStaffId ||
+      normalizeAdmissionKey(currentSlot.staffId) === normalizeAdmissionKey(usthadIdOrStaffId))
+  ) {
+    return
+  }
+  const nextAssignments = {
+    ...(current.classUsthadAssignments ?? {}),
+    [normClass]: usthadIdOrStaffId,
+  }
+  const targetUsthad = OFFICIAL_CLASS_USTHADS.find(
+    (u) =>
+      u.id === usthadIdOrStaffId ||
+      normalizeAdmissionKey(u.staffId) === normalizeAdmissionKey(usthadIdOrStaffId),
+  )
+  saveAcademyAdminConfig(
+    {
+      ...current,
+      classUsthadAssignments: nextAssignments,
+    },
+    targetUsthad
+      ? {
+          title: `Class Usthad Updated • Class ${normClass}`,
+          message: `${targetUsthad.name} (${targetUsthad.staffId}) is now assigned as Class Usthad for Class ${normClass}.`,
+          targetClass: normClass,
+        }
+      : undefined,
+  )
+}
+
+export function saveUsthadProfileByPrincipal(input: {
+  usthadId?: string
+  name: string
+  staffId: string
+  designation: string
+  specialization: string
+  assignedClassName?: string
+}): void {
+  const current = loadAcademyAdminConfig()
+  const cleanName = input.name.trim()
+  const cleanStaffId = input.staffId.trim().toUpperCase()
+  const cleanDesignation = input.designation.trim() || 'Class Usthad'
+  const cleanSpec = input.specialization.trim() || 'Islamic & Academic Studies'
+
+  if (input.usthadId) {
+    const existingUsthad = OFFICIAL_CLASS_USTHADS.find((u) => u.id === input.usthadId)
+    if (
+      existingUsthad &&
+      existingUsthad.name === cleanName &&
+      existingUsthad.staffId.toUpperCase() === cleanStaffId &&
+      existingUsthad.designation === cleanDesignation &&
+      existingUsthad.specialization === cleanSpec &&
+      !input.assignedClassName
+    ) {
+      return
+    }
+    const nextEdited = {
+      ...(current.editedUsthads ?? {}),
+      [input.usthadId]: {
+        name: cleanName,
+        staffId: cleanStaffId,
+        designation: cleanDesignation,
+        specialization: cleanSpec,
+      },
+    }
+    const nextAssignments = { ...(current.classUsthadAssignments ?? {}) }
+    if (input.assignedClassName) {
+      nextAssignments[normalizeClassName(input.assignedClassName)] = cleanStaffId
+    }
+    saveAcademyAdminConfig({
+      ...current,
+      editedUsthads: nextEdited,
+      classUsthadAssignments: nextAssignments,
+    })
+  } else {
+    const targetCls = normalizeClassName(input.assignedClassName || '8th')
+    const newId = `usthad-custom-${Date.now()}`
+    const newUsthad: UsthadProfileOverride = {
+      id: newId,
+      staffId: cleanStaffId,
+      name: cleanName,
+      shortName: cleanName,
+      designation: cleanDesignation,
+      institutionalRole: 'Class Usthad',
+      specialization: cleanSpec,
+      className: targetCls,
+      batch: getBatchLabelForClass(targetCls),
+      batchCode: getBatchCodeForClass(targetCls),
+    }
+    const nextAdded = [...(current.addedUsthads ?? []), newUsthad]
+    const nextAssignments = {
+      ...(current.classUsthadAssignments ?? {}),
+      ...(input.assignedClassName ? { [targetCls]: cleanStaffId } : {}),
+    }
+    saveAcademyAdminConfig({
+      ...current,
+      addedUsthads: nextAdded,
+      classUsthadAssignments: nextAssignments,
+    })
+  }
+}
+
+export function assignClassLeadersByPrincipal(input: {
+  className: string
+  mainStudentId: string
+  assistantStudentId: string
+}): void {
+  const current = loadAcademyAdminConfig()
+  const normClass = normalizeClassName(input.className)
+  const currentLeaders = getClassLeadersForClass(normClass)
+  if (
+    currentLeaders[0]?.studentId === input.mainStudentId &&
+    currentLeaders[1]?.studentId === input.assistantStudentId
+  ) {
+    return
+  }
+  const nextLeaders = {
+    ...(current.classLeaderAssignments ?? {}),
+    [`${normClass}__Main Class Leader`]: input.mainStudentId,
+    [`${normClass}__Assistant Class Leader`]: input.assistantStudentId,
+  }
+  const mainSt = students.find((s) => s.id === input.mainStudentId)
+  const asstSt = students.find((s) => s.id === input.assistantStudentId)
+  saveAcademyAdminConfig(
+    {
+      ...current,
+      classLeaderAssignments: nextLeaders,
+    },
+    {
+      title: `Class Leaders Updated • Class ${normClass}`,
+      message: `Main Leader: ${mainSt?.name || 'Updated'} • Assistant Leader: ${asstSt?.name || 'Updated'}.`,
+      targetClass: normClass,
+    },
+  )
+}
+
+export function saveClassTimetableByPrincipal(
+  className: string,
+  timetable: ClassSemesterTimetable,
+  activeSemester?: 1 | 2,
+): void {
+  const current = loadAcademyAdminConfig()
+  const normClass = normalizeClassName(className)
+  const existingTt = getClassSemesterTimetableByClassName(normClass)
+  if (
+    JSON.stringify(existingTt) === JSON.stringify(timetable) &&
+    (!activeSemester || activeSemester === getActiveSemester())
+  ) {
+    return
+  }
+  const nextTimetables = {
+    ...(current.timetableOverrides ?? {}),
+    [normClass]: JSON.parse(JSON.stringify(timetable)) as ClassSemesterTimetable,
+  }
+  saveAcademyAdminConfig(
+    {
+      ...current,
+      ...(activeSemester ? { activeSemester } : {}),
+      timetableOverrides: nextTimetables,
+    },
+    {
+      title: `Timetable Updated • Class ${normClass}`,
+      message: `Class ${normClass} subjects and period schedule have been updated by the Principal.`,
+      targetClass: normClass,
+    },
+  )
+}
+
+export function resetClassTimetableByPrincipal(className: string): ClassSemesterTimetable {
+  const current = loadAcademyAdminConfig()
+  const normClass = normalizeClassName(className)
+  const nextTimetables = { ...(current.timetableOverrides ?? {}) }
+  delete nextTimetables[normClass]
+  saveAcademyAdminConfig({
+    ...current,
+    timetableOverrides: nextTimetables,
+  })
+  return getDefaultClassTimetable(normClass)
+}
+
+export function setActiveSemesterByPrincipal(semester: 1 | 2): void {
+  if (getActiveSemester() === semester) return
+  const current = loadAcademyAdminConfig()
+  saveAcademyAdminConfig(
+    {
+      ...current,
+      activeSemester: semester,
+    },
+    {
+      title: `Academic Schedule Switched to Semester ${semester}`,
+      message: `All 11 classes are now following the Semester ${semester} timetable.`,
+    },
+  )
+}
+
+// Initialize stored Principal configuration immediately in browser
+if (typeof window !== 'undefined') {
+  try {
+    const initialConfig = loadAcademyAdminConfig()
+    if (initialConfig.updatedAtMs > 0) {
+      applyAcademyAdminConfig(initialConfig)
+    }
+  } catch {
+    // Ignore init errors
+  }
+}
+
 export async function pushCampusSyncToServer(payload: {
   customNotices?: Notice[]
   attendanceOverrides?: AttendanceOverrideMap
   periodSubmissions?: Record<string, PeriodAttendanceSubmission>
+  deletedPeriodKey?: string
+  deletedAtMs?: number
+  academyAdminConfig?: AcademyAdminConfig
   notification?: CampusNotification
 }): Promise<void> {
   if (typeof window === 'undefined') return
@@ -2479,7 +3424,28 @@ export async function pullCampusStateFromServer(): Promise<void> {
         customNotices?: Notice[] | null
         attendanceOverrides?: AttendanceOverrideMap | null
         periodSubmissions?: Record<string, PeriodAttendanceSubmission> | null
+        deletedPeriodKeys?: Record<string, number> | null
+        academyAdminConfig?: AcademyAdminConfig | null
         notifications?: CampusNotification[]
+      }
+
+      // 0. Merge Principal Academy Admin Config (Students, Usthads, Leaders, Timetables)
+      if (
+        data.academyAdminConfig &&
+        typeof data.academyAdminConfig === 'object' &&
+        typeof data.academyAdminConfig.updatedAtMs === 'number'
+      ) {
+        const localConfig = loadAcademyAdminConfig()
+        if (data.academyAdminConfig.updatedAtMs > (localConfig.updatedAtMs || 0)) {
+          window.localStorage.setItem(
+            ACADEMY_ADMIN_CONFIG_STORAGE_KEY,
+            JSON.stringify(data.academyAdminConfig),
+          )
+          applyAcademyAdminConfig(data.academyAdminConfig)
+          window.dispatchEvent(new CustomEvent('ics-academy-config-updated'))
+          window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
+          window.dispatchEvent(new CustomEvent('ics-period-attendance-updated'))
+        }
       }
 
       // 1. Merge custom notices
@@ -2510,16 +3476,67 @@ export async function pullCampusStateFromServer(): Promise<void> {
         }
       }
 
-      // 3. Merge period attendance submissions
-      if (data.periodSubmissions && typeof data.periodSubmissions === 'object') {
+      // 3. Merge period attendance submissions & respect deleted keys
+      const localDeleted = loadDeletedPeriodKeys()
+      const serverDeleted =
+        data.deletedPeriodKeys && typeof data.deletedPeriodKeys === 'object'
+          ? data.deletedPeriodKeys
+          : {}
+      const mergedDeleted: Record<string, number> = { ...localDeleted }
+      for (const [k, ts] of Object.entries(serverDeleted)) {
+        if (!mergedDeleted[k] || ts > mergedDeleted[k]) {
+          mergedDeleted[k] = ts
+        }
+      }
+      if (JSON.stringify(mergedDeleted) !== JSON.stringify(localDeleted)) {
+        saveDeletedPeriodKeys(mergedDeleted)
+      }
+
+      if (
+        (data.periodSubmissions && typeof data.periodSubmissions === 'object') ||
+        Object.keys(mergedDeleted).length > 0
+      ) {
         const localSubs = loadPeriodAttendanceSubmissions()
-        const mergedSubs = { ...localSubs, ...data.periodSubmissions }
+        const mergedSubs: Record<string, PeriodAttendanceSubmission> = { ...localSubs }
+
+        if (data.periodSubmissions && typeof data.periodSubmissions === 'object') {
+          for (const [k, serverSub] of Object.entries(data.periodSubmissions)) {
+            const localSub = mergedSubs[k]
+            if (!localSub) {
+              mergedSubs[k] = serverSub
+            } else {
+              const serverTouchMs = new Date(
+                serverSub.lastEditedAt || serverSub.submittedAt || 0,
+              ).getTime()
+              const localTouchMs = new Date(
+                localSub.lastEditedAt || localSub.submittedAt || 0,
+              ).getTime()
+              if (serverTouchMs >= localTouchMs) {
+                mergedSubs[k] = serverSub
+              }
+            }
+          }
+        }
+
+        for (const [delKey, delTs] of Object.entries(mergedDeleted)) {
+          const existing = mergedSubs[delKey]
+          if (existing) {
+            const subTouchMs = new Date(
+              existing.lastEditedAt || existing.submittedAt || 0,
+            ).getTime()
+            if (delTs >= subTouchMs) {
+              delete mergedSubs[delKey]
+            }
+          }
+        }
+
         if (JSON.stringify(mergedSubs) !== JSON.stringify(localSubs)) {
           window.localStorage.setItem(
             PERIOD_ATTENDANCE_STORAGE_KEY,
             JSON.stringify(mergedSubs),
           )
           window.dispatchEvent(new CustomEvent('ics-period-attendance-updated'))
+          window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
         }
       }
 
@@ -2554,6 +3571,7 @@ export async function pullCampusStateFromServer(): Promise<void> {
     }
   }
 }
+
 
 
 
