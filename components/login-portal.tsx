@@ -23,6 +23,7 @@ import {
   findPrincipalByIdentifier,
   findStudentByAdmissionNo,
   findUsthadByStaffId,
+  getCanonicalUsthadId,
   getPrimaryDeviceOwnerIdentity,
   CLASS_USTHADS,
   students,
@@ -242,17 +243,21 @@ export function LoginPortal({
       if (matchedUsthad && onUsthadLogin) {
         setInvalidRoleId(null)
         window.localStorage.setItem('loggedInUsthadId', matchedUsthad.id)
+        window.localStorage.setItem('usthadStaffId', matchedUsthad.staffId)
         window.localStorage.setItem('authRole', 'usthad')
-        const isPrin = matchedUsthad.id === ACADEMY_PRINCIPAL.usthadId
+        const canonicalUsthadId = getCanonicalUsthadId(matchedUsthad.id)
+        const isPrin = canonicalUsthadId === getCanonicalUsthadId(ACADEMY_PRINCIPAL.usthadId)
         bindDeviceNotificationIdentity(
           {
             role: 'usthad',
-            actorId: matchedUsthad.id,
+            actorId: canonicalUsthadId,
             actorName: matchedUsthad.name,
             className: matchedUsthad.className,
             assignedClasses: isPrin
               ? ACADEMY_PRINCIPAL.assignedClasses || ['BS 3', 'BS 1']
-              : [matchedUsthad.className],
+              : matchedUsthad.teachingBatches && matchedUsthad.teachingBatches.length > 0
+                ? [...matchedUsthad.teachingBatches]
+                : [matchedUsthad.className],
             isStaff: true,
             isPrincipal: isPrin,
           },

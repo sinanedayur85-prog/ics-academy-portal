@@ -49,6 +49,17 @@ service cloud.firestore {
         || isPortalStudentSession(uid, studentId);
     }
 
+    function isPortalActorId(actorId) {
+      return actorId is string
+        && actorId.size() >= 4
+        && actorId.size() <= 64
+        && (
+          actorId.matches('^st[d]?-[a-zA-Z0-9_\\-]+$')
+          || actorId.matches('^usthad-[a-zA-Z0-9_\\-]+$')
+          || actorId.matches('^principal-[a-zA-Z0-9_\\-]+$')
+        );
+    }
+
     // Validation Blueprint: StudyNote
     function isValidStudyNote(data) {
       return data.keys().hasAll(['uid', 'studentId', 'mode', 'language', 'prompt', 'response', 'createdAt'])
@@ -225,6 +236,242 @@ service cloud.firestore {
         && data.createdAt is timestamp;
     }
 
+    // Validation Blueprint: CampusChatMessage
+    function isValidChatMessage(data) {
+      return data.keys().hasAll([
+          'id',
+          'campusId',
+          'roomId',
+          'senderId',
+          'senderName',
+          'senderRole',
+          'text',
+          'mediaType',
+          'reactions',
+          'deliveredTo',
+          'readBy',
+          'deletedFor',
+          'isDeleted',
+          'createdAt',
+          'createdAtMs'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'campusId',
+          'roomId',
+          'senderId',
+          'senderName',
+          'senderRole',
+          'senderBadge',
+          'text',
+          'mediaType',
+          'mediaUrl',
+          'mediaName',
+          'mediaSizeLabel',
+          'mediaDurationSec',
+          'imageQuality',
+          'imageDimensions',
+          'replyTo',
+          'reactions',
+          'deliveredTo',
+          'readBy',
+          'deletedFor',
+          'isDeleted',
+          'deletedBy',
+          'deletedById',
+          'createdAt',
+          'createdAtMs'
+        ])
+        && isValidId(data.id)
+        && data.campusId == 'ics-academy'
+        && data.roomId is string
+        && data.roomId.size() >= 3
+        && data.roomId.size() <= 160
+        && isPortalActorId(data.senderId)
+        && data.senderName is string
+        && data.senderName.size() >= 1
+        && data.senderName.size() <= 120
+        && data.senderRole is string
+        && (data.senderRole == 'student' || data.senderRole == 'usthad' || data.senderRole == 'principal')
+        && (!('senderBadge' in data) || (data.senderBadge is string && data.senderBadge.size() <= 80))
+        && data.text is string
+        && data.text.size() <= 8000
+        && data.mediaType is string
+        && (data.mediaType == 'none' || data.mediaType == 'voice' || data.mediaType == 'image' || data.mediaType == 'pdf')
+        && (!('mediaUrl' in data) || (data.mediaUrl is string && data.mediaUrl.size() <= 750000))
+        && (!('mediaName' in data) || (data.mediaName is string && data.mediaName.size() <= 200))
+        && (!('mediaSizeLabel' in data) || (data.mediaSizeLabel is string && data.mediaSizeLabel.size() <= 64))
+        && (!('mediaDurationSec' in data) || (data.mediaDurationSec is number && data.mediaDurationSec >= 0 && data.mediaDurationSec <= 3600))
+        && (!('imageQuality' in data) || (data.imageQuality is string && (data.imageQuality == 'standard' || data.imageQuality == 'hd')))
+        && (!('imageDimensions' in data) || (data.imageDimensions is string && data.imageDimensions.size() <= 40))
+        && (!('replyTo' in data) || (data.replyTo is map && data.replyTo.size() <= 4))
+        && data.reactions is map
+        && data.reactions.size() <= 20
+        && data.deliveredTo is list
+        && data.deliveredTo.size() >= 1
+        && data.deliveredTo.size() <= 300
+        && data.deliveredTo[0] is string
+        && data.readBy is list
+        && data.readBy.size() >= 1
+        && data.readBy.size() <= 300
+        && data.readBy[0] is string
+        && data.deletedFor is list
+        && data.deletedFor.size() <= 300
+        && (data.deletedFor.size() == 0 || data.deletedFor[0] is string)
+        && data.isDeleted is bool
+        && (!('deletedBy' in data) || (data.deletedBy is string && data.deletedBy.size() <= 120))
+        && (!('deletedById' in data) || isPortalActorId(data.deletedById))
+        && data.createdAt is timestamp
+        && data.createdAtMs is int
+        && data.createdAtMs > 0;
+    }
+
+    // Validation Blueprint: CampusChatRoomMeta
+    function isValidChatRoomMeta(data) {
+      return data.keys().hasAll([
+          'campusId',
+          'roomId',
+          'onlyAdminsCanPost',
+          'pinnedMessageId',
+          'updatedByActorId',
+          'createdAt',
+          'updatedAtMs'
+        ])
+        && data.keys().hasOnly([
+          'campusId',
+          'roomId',
+          'onlyAdminsCanPost',
+          'pinnedMessageId',
+          'updatedByActorId',
+          'createdAt',
+          'updatedAtMs'
+        ])
+        && data.campusId == 'ics-academy'
+        && data.roomId is string
+        && data.roomId.size() >= 3
+        && data.roomId.size() <= 160
+        && data.onlyAdminsCanPost is bool
+        && (data.pinnedMessageId == null || isValidId(data.pinnedMessageId))
+        && isPortalActorId(data.updatedByActorId)
+        && data.createdAt is timestamp
+        && data.updatedAtMs is int
+        && data.updatedAtMs > 0;
+    }
+
+    // Validation Blueprint: CampusChatPresence
+    function isValidChatPresence(data) {
+      return data.keys().hasAll([
+          'campusId',
+          'actorId',
+          'actorName',
+          'actorRole',
+          'lastSeenMs',
+          'isOnline',
+          'hideOnline',
+          'typingRoomId',
+          'typingMode',
+          'typingUpdatedAtMs',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'campusId',
+          'actorId',
+          'actorName',
+          'actorRole',
+          'lastSeenMs',
+          'isOnline',
+          'hideOnline',
+          'typingRoomId',
+          'typingMode',
+          'typingUpdatedAtMs',
+          'createdAt'
+        ])
+        && data.campusId == 'ics-academy'
+        && isPortalActorId(data.actorId)
+        && data.actorName is string
+        && data.actorName.size() >= 1
+        && data.actorName.size() <= 120
+        && data.actorRole is string
+        && (data.actorRole == 'student' || data.actorRole == 'usthad' || data.actorRole == 'principal')
+        && data.lastSeenMs is int
+        && data.lastSeenMs > 0
+        && data.isOnline is bool
+        && data.hideOnline is bool
+        && data.typingRoomId is string
+        && data.typingRoomId.size() <= 160
+        && data.typingMode is string
+        && (data.typingMode == 'idle' || data.typingMode == 'typing' || data.typingMode == 'recording')
+        && data.typingUpdatedAtMs is int
+        && data.typingUpdatedAtMs >= 0
+        && data.createdAt is timestamp;
+    }
+
+    // Validation Blueprint: CampusNotification
+    function isValidCampusNotification(data) {
+      return data.keys().hasAll([
+          'id',
+          'campusId',
+          'type',
+          'title',
+          'message',
+          'href',
+          'createdAt',
+          'createdAtMs'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'campusId',
+          'type',
+          'title',
+          'message',
+          'category',
+          'targetClass',
+          'targetClasses',
+          'targetStudentId',
+          'targetRecipientId',
+          'targetStaffOnly',
+          'actorId',
+          'actorName',
+          'href',
+          'createdAt',
+          'createdAtMs'
+        ])
+        && isValidId(data.id)
+        && data.campusId == 'ics-academy'
+        && data.type is string
+        && (
+          data.type == 'notice'
+          || data.type == 'attendance'
+          || data.type == 'period-attendance'
+          || data.type == 'leave'
+          || data.type == 'chat'
+        )
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 240
+        && data.message is string
+        && data.message.size() >= 1
+        && data.message.size() <= 1500
+        && (!('category' in data) || (data.category is string && data.category.size() <= 40))
+        && (!('targetClass' in data) || (data.targetClass is string && data.targetClass.size() <= 40))
+        && (!('targetClasses' in data) || (
+          data.targetClasses is list
+          && data.targetClasses.size() <= 20
+          && (data.targetClasses.size() == 0 || data.targetClasses[0] is string)
+        ))
+        && (!('targetStudentId' in data) || isPortalActorId(data.targetStudentId))
+        && (!('targetRecipientId' in data) || isPortalActorId(data.targetRecipientId))
+        && (!('targetStaffOnly' in data) || data.targetStaffOnly is bool)
+        && (!('actorId' in data) || isPortalActorId(data.actorId))
+        && (!('actorName' in data) || (data.actorName is string && data.actorName.size() <= 120))
+        && data.href is string
+        && data.href.size() >= 1
+        && data.href.size() <= 120
+        && data.createdAt is timestamp
+        && data.createdAtMs is int
+        && data.createdAtMs > 0;
+    }
+
     // Collection: /studyNotes/{noteId}
     match /studyNotes/{noteId} {
       allow get: if isValidId(noteId)
@@ -283,6 +530,94 @@ service cloud.firestore {
       allow delete: if isValidId(kitabId)
         && resource != null
         && isAuthorizedStudent(existing().uid, existing().studentId);
+    }
+
+    // Collection: /campusChatMessages/{messageId}
+    match /campusChatMessages/{messageId} {
+      allow get: if isValidId(messageId)
+        && resource != null
+        && existing().campusId == 'ics-academy'
+        && isPortalActorId(existing().senderId);
+      allow list: if existing().campusId == 'ics-academy'
+        && isPortalActorId(existing().senderId);
+      allow create: if isValidId(messageId)
+        && isValidChatMessage(incoming())
+        && incoming().id == messageId
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(messageId)
+        && resource != null
+        && isValidChatMessage(incoming())
+        && incoming().id == existing().id
+        && incoming().campusId == existing().campusId
+        && incoming().roomId == existing().roomId
+        && incoming().senderId == existing().senderId
+        && incoming().createdAt == existing().createdAt
+        && incoming().createdAtMs == existing().createdAtMs
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['deliveredTo', 'readBy'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['reactions'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['deletedFor'])
+          || (!existing().isDeleted && incoming().isDeleted == true && incoming().diff(existing()).affectedKeys().hasOnly(['isDeleted', 'deletedBy', 'deletedById', 'text', 'mediaType', 'mediaUrl']))
+        );
+      allow delete: if false;
+    }
+
+    // Collection: /campusChatMeta/{roomDocId}
+    match /campusChatMeta/{roomDocId} {
+      allow get: if isValidId(roomDocId)
+        && resource != null
+        && existing().campusId == 'ics-academy'
+        && isPortalActorId(existing().updatedByActorId);
+      allow list: if existing().campusId == 'ics-academy'
+        && isPortalActorId(existing().updatedByActorId);
+      allow create: if isValidId(roomDocId)
+        && isValidChatRoomMeta(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(roomDocId)
+        && resource != null
+        && isValidChatRoomMeta(incoming())
+        && incoming().campusId == existing().campusId
+        && incoming().roomId == existing().roomId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['onlyAdminsCanPost', 'pinnedMessageId', 'updatedByActorId', 'updatedAtMs']);
+      allow delete: if false;
+    }
+
+    // Collection: /campusChatPresence/{actorId}
+    match /campusChatPresence/{actorId} {
+      allow get: if isValidId(actorId)
+        && resource != null
+        && existing().campusId == 'ics-academy'
+        && isPortalActorId(existing().actorId);
+      allow list: if existing().campusId == 'ics-academy'
+        && isPortalActorId(existing().actorId);
+      allow create: if isValidId(actorId)
+        && isValidChatPresence(incoming())
+        && incoming().actorId == actorId
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(actorId)
+        && resource != null
+        && isValidChatPresence(incoming())
+        && incoming().campusId == existing().campusId
+        && incoming().actorId == existing().actorId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['actorName', 'actorRole', 'lastSeenMs', 'isOnline', 'hideOnline', 'typingRoomId', 'typingMode', 'typingUpdatedAtMs']);
+      allow delete: if false;
+    }
+
+    // Collection: /campusNotifications/{notifId}
+    match /campusNotifications/{notifId} {
+      allow get: if isValidId(notifId)
+        && resource != null
+        && existing().campusId == 'ics-academy'
+        && existing().createdAtMs is int;
+      allow list: if existing().campusId == 'ics-academy'
+        && existing().createdAtMs is int;
+      allow create: if isValidId(notifId)
+        && isValidCampusNotification(incoming())
+        && incoming().id == notifId
+        && incoming().createdAt == request.time;
+      allow update, delete: if false;
     }
   }
 }

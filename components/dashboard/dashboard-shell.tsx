@@ -236,16 +236,10 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
             : 'max-lg:overflow-y-auto max-lg:overflow-x-hidden max-lg:overscroll-y-contain',
         )}
       >
-        <div
-          className={cn(
-            (mobileTab === 'chatbot' || mobileTab === 'campus-chat') && 'hidden lg:block',
-          )}
-        >
-          <CampusNotificationBar
-            studentId={student.id}
-            classNameFilter={student.className}
-          />
-        </div>
+        <CampusNotificationBar
+          studentId={student.id}
+          classNameFilter={student.className}
+        />
 
         <main
           className={cn(
@@ -418,7 +412,12 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
               : 'hidden lg:block',
           )}
         >
-          <CampusMessenger role="student" student={student} mobileFullScreen />
+          <CampusMessenger
+            role="student"
+            student={student}
+            mobileFullScreen
+            mobileTabActive={mobileTab === 'campus-chat'}
+          />
         </div>
 
         {/* 4. FULL-SCREEN AI CHATBOT TAB */}

@@ -61,54 +61,86 @@ export function isInstalledApp(): boolean {
   return false;
 }
 
+let sharedNotificationAudioCtx: AudioContext | null = null
+
+function getOrCreateAudioContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AudioCtx) return null
+    if (!sharedNotificationAudioCtx || sharedNotificationAudioCtx.state === 'closed') {
+      sharedNotificationAudioCtx = new AudioCtx()
+    }
+    return sharedNotificationAudioCtx
+  } catch {
+    return null
+  }
+}
+
+export function unlockNotificationAudio(): void {
+  const ctx = getOrCreateAudioContext()
+  if (!ctx) return
+  try {
+    if (ctx.state === 'suspended') {
+      void ctx.resume().catch(() => {})
+    }
+    // Silent warm-up pulse so iOS WebKit & Android Chrome unlock AudioContext immediately
+    const buffer = ctx.createBuffer(1, 1, 22050)
+    const source = ctx.createBufferSource()
+    source.buffer = buffer
+    source.connect(ctx.destination)
+    source.start(0)
+  } catch {
+    // Ignore unlock errors
+  }
+}
+
 export function playWhatsAppStyleNotificationTone(): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') return
   try {
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate([180, 80, 180]);
+      navigator.vibrate([180, 80, 180])
     }
   } catch {
     // Ignore vibrate restrictions
   }
 
   try {
-    const AudioCtx =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const now = ctx.currentTime;
+    const ctx = getOrCreateAudioContext()
+    if (!ctx) return
+    if (ctx.state === 'suspended') {
+      void ctx.resume().catch(() => {})
+    }
+    const now = ctx.currentTime
 
     // Note 1 (pleasant WhatsApp-style marimba/chime pop)
-    const osc1 = ctx.createOscillator();
-    const gain1 = ctx.createGain();
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(587.33, now); // D5
-    osc1.frequency.exponentialRampToValueAtTime(880, now + 0.09); // A5
-    gain1.gain.setValueAtTime(0.001, now);
-    gain1.gain.exponentialRampToValueAtTime(0.18, now + 0.015);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-    osc1.connect(gain1);
-    gain1.connect(ctx.destination);
-    osc1.start(now);
-    osc1.stop(now + 0.19);
+    const osc1 = ctx.createOscillator()
+    const gain1 = ctx.createGain()
+    osc1.type = 'sine'
+    osc1.frequency.setValueAtTime(587.33, now) // D5
+    osc1.frequency.exponentialRampToValueAtTime(880, now + 0.09) // A5
+    gain1.gain.setValueAtTime(0.001, now)
+    gain1.gain.exponentialRampToValueAtTime(0.22, now + 0.015)
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.18)
+    osc1.connect(gain1)
+    gain1.connect(ctx.destination)
+    osc1.start(now)
+    osc1.stop(now + 0.19)
 
     // Note 2 (higher harmonic confirmation note)
-    const osc2 = ctx.createOscillator();
-    const gain2 = ctx.createGain();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(1174.66, now + 0.11); // D6
-    gain2.gain.setValueAtTime(0.001, now + 0.11);
-    gain2.gain.exponentialRampToValueAtTime(0.15, now + 0.13);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.34);
-    osc2.connect(gain2);
-    gain2.connect(ctx.destination);
-    osc2.start(now + 0.11);
-    osc2.stop(now + 0.35);
-
-    window.setTimeout(() => {
-      ctx.close().catch(() => {});
-    }, 500);
+    const osc2 = ctx.createOscillator()
+    const gain2 = ctx.createGain()
+    osc2.type = 'sine'
+    osc2.frequency.setValueAtTime(1174.66, now + 0.11) // D6
+    gain2.gain.setValueAtTime(0.001, now + 0.11)
+    gain2.gain.exponentialRampToValueAtTime(0.18, now + 0.13)
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.36)
+    osc2.connect(gain2)
+    gain2.connect(ctx.destination)
+    osc2.start(now + 0.11)
+    osc2.stop(now + 0.37)
   } catch {
     // AudioContext may be blocked before user interaction
   }
@@ -119,34 +151,34 @@ export function triggerSystemNotification(
   message: string,
   href = '#notices',
 ): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') return
 
   // 1. Native Android APK status-bar heads-up notification (uses phone's default system notification channel & sound)
   if (window.ICSNativeBridge?.showNotification) {
     try {
-      window.ICSNativeBridge.showNotification(title, message);
-      return;
+      window.ICSNativeBridge.showNotification(title, message)
+      return
     } catch {
       // Fallback below
     }
   }
 
-  const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''
   const isIOS =
     /iPhone|iPad|iPod/i.test(ua) ||
     (typeof navigator !== 'undefined' &&
       navigator.platform === 'MacIntel' &&
-      navigator.maxTouchPoints > 1);
+      navigator.maxTouchPoints > 1)
   const isForeground =
-    typeof document !== 'undefined' && document.visibilityState === 'visible';
+    typeof document !== 'undefined' && document.visibilityState === 'visible'
 
   // 2. Web Notification API / Service Worker notification (Android Chrome, iOS Home Screen PWA, Tablet, Desktop)
   // Uses silent: false so the OS plays the user's configured default phone notification sound
   if ('Notification' in window && Notification.permission === 'granted') {
-    const tag = `ics-notif-${Date.now()}`;
-    // On iOS PWA in foreground, WebKit suppresses system banner sound, so play crisp alert tone in foreground
-    if (isIOS && isForeground) {
-      playWhatsAppStyleNotificationTone();
+    const tag = `ics-notif-${Date.now()}`
+    // In foreground browsers & iOS PWAs, play audible chime alongside OS notification banner
+    if (isForeground) {
+      playWhatsAppStyleNotificationTone()
     }
     try {
       if ('serviceWorker' in navigator) {
@@ -159,7 +191,7 @@ export function triggerSystemNotification(
               tag,
               silent: false,
               data: { href },
-            });
+            })
           })
           .catch(() => {
             try {
@@ -169,11 +201,11 @@ export function triggerSystemNotification(
                 tag,
                 silent: false,
                 data: { href },
-              });
+              })
             } catch {
-              playWhatsAppStyleNotificationTone();
+              if (!isForeground || !isIOS) playWhatsAppStyleNotificationTone()
             }
-          });
+          })
       } else {
         new Notification(title, {
           body: message,
@@ -181,18 +213,18 @@ export function triggerSystemNotification(
           tag,
           silent: false,
           data: { href },
-        });
+        })
       }
-      return;
+      return
     } catch {
       // Fallback if Notification constructor is blocked (e.g. mobile browser)
-      playWhatsAppStyleNotificationTone();
-      return;
+      if (!isForeground) playWhatsAppStyleNotificationTone()
+      return
     }
   }
 
   // 3. Fallback when OS Notification permission is not yet granted (e.g. iOS Safari or first-time browser session)
-  playWhatsAppStyleNotificationTone();
+  playWhatsAppStyleNotificationTone()
 }
 
 export function blobToBase64(blob: Blob): Promise<string> {

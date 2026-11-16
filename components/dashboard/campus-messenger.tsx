@@ -2,6 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  arrayUnion,
+  collection,
+  doc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore'
+import {
   ArrowLeft,
   BookOpen,
   Check,
@@ -39,6 +51,7 @@ import {
   CLASS_USTHADS,
   OFFICIAL_CLASS_USTHADS,
   ensureCleanLaunchStorage,
+  getCanonicalUsthadId,
   publishCampusNotification,
   pullCampusStateFromServer,
   students,
@@ -47,6 +60,8 @@ import {
   type Student,
 } from '@/components/dashboard/data'
 import { buildKitabPdfBlob, CURATED_KITABS } from '@/components/dashboard/digital-library'
+import { unlockNotificationAudio } from '@/lib/mobile-pdf'
+import { db, handleFirestoreError, OperationType } from '@/src/lib/firebase'
 import { cn } from '@/lib/utils'
 
 export type MessengerRole = 'student' | 'usthad' | 'principal'
@@ -239,6 +254,102 @@ function getOrderedChatSyncBases(): string[] {
   return CHAT_SYNC_BASES
 }
 
+function sanitizeFirestoreDocId(raw: string): string {
+  return raw.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128) || 'doc'
+}
+
+async function prepareMediaUrlForFirestore(
+  mediaType: ChatMessage['mediaType'],
+  mediaUrl?: string,
+): Promise<string | undefined> {
+  if (!mediaUrl || mediaUrl.startsWith('blob:')) return undefined
+  if (mediaUrl.length <= 720000) return mediaUrl
+  if (
+    mediaType === 'image' &&
+    mediaUrl.startsWith('data:image/') &&
+    typeof window !== 'undefined'
+  ) {
+    const attemptCompress = (maxDim: number, quality: number) =>
+      new Promise<string | undefined>((resolve) => {
+        const img = new window.Image()
+        img.onload = () => {
+          try {
+            const w = Math.max(1, img.naturalWidth || img.width || 1280)
+            const h = Math.max(1, img.naturalHeight || img.height || 960)
+            const scale = Math.max(w, h) > maxDim ? maxDim / Math.max(w, h) : 1
+            const canvas = document.createElement('canvas')
+            canvas.width = Math.max(1, Math.round(w * scale))
+            canvas.height = Math.max(1, Math.round(h * scale))
+            const ctx = canvas.getContext('2d')
+            if (!ctx) {
+              resolve(undefined)
+              return
+            }
+            ctx.imageSmoothingEnabled = true
+            ctx.imageSmoothingQuality = 'high'
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+            const compressed = canvas.toDataURL('image/jpeg', quality)
+            resolve(compressed.length <= 740000 ? compressed : undefined)
+          } catch {
+            resolve(undefined)
+          }
+        }
+        img.onerror = () => resolve(undefined)
+        img.src = mediaUrl
+      })
+    const firstPass = await attemptCompress(1440, 0.76)
+    if (firstPass) return firstPass
+    return attemptCompress(960, 0.65)
+  }
+  return undefined
+}
+
+function buildFirestoreChatMessagePayload(msg: ChatMessage, safeMediaUrl?: string) {
+  const payload: Record<string, unknown> = {
+    id: msg.id,
+    campusId: 'ics-academy',
+    roomId: msg.roomId.slice(0, 160),
+    senderId: msg.senderId,
+    senderName: (msg.senderName || 'Campus Member').slice(0, 120),
+    senderRole: msg.senderRole,
+    text: (msg.text || '').slice(0, 8000),
+    mediaType: msg.mediaType,
+    reactions: msg.reactions || {},
+    deliveredTo:
+      Array.isArray(msg.deliveredTo) && msg.deliveredTo.length > 0
+        ? msg.deliveredTo.slice(0, 300)
+        : [msg.senderId],
+    readBy:
+      Array.isArray(msg.readBy) && msg.readBy.length > 0
+        ? msg.readBy.slice(0, 300)
+        : [msg.senderId],
+    deletedFor: Array.isArray(msg.deletedFor) ? msg.deletedFor.slice(0, 300) : [],
+    isDeleted: Boolean(msg.isDeleted),
+    createdAt: serverTimestamp(),
+    createdAtMs: Math.floor(msg.createdAtMs || Date.now()),
+  }
+
+  if (msg.senderBadge) payload.senderBadge = msg.senderBadge.slice(0, 80)
+  if (safeMediaUrl && safeMediaUrl.length <= 750000) payload.mediaUrl = safeMediaUrl
+  if (msg.mediaName) payload.mediaName = msg.mediaName.slice(0, 200)
+  if (msg.mediaSizeLabel) payload.mediaSizeLabel = msg.mediaSizeLabel.slice(0, 64)
+  if (typeof msg.mediaDurationSec === 'number') {
+    payload.mediaDurationSec = Math.max(0, Math.min(3600, Math.round(msg.mediaDurationSec)))
+  }
+  if (msg.imageQuality === 'standard' || msg.imageQuality === 'hd') {
+    payload.imageQuality = msg.imageQuality
+  }
+  if (msg.imageDimensions) payload.imageDimensions = msg.imageDimensions.slice(0, 40)
+  if (msg.replyTo) {
+    payload.replyTo = {
+      messageId: String(msg.replyTo.messageId).slice(0, 128),
+      senderName: String(msg.replyTo.senderName).slice(0, 120),
+      previewText: String(msg.replyTo.previewText).slice(0, 200),
+    }
+  }
+  return payload
+}
+
 export function makeDirectRoomId(idA: string, idB: string): string {
   const sorted = [idA.trim(), idB.trim()].sort()
   return `direct__${sorted[0]}__${sorted[1]}`
@@ -371,6 +482,8 @@ export interface CampusMessengerProps {
   principal?: PrincipalProfile
   activeClassName?: string
   mobileFullScreen?: boolean
+  isMessengerVisible?: boolean
+  mobileTabActive?: boolean
 }
 
 export function CampusMessenger({
@@ -380,12 +493,14 @@ export function CampusMessenger({
   principal = ACADEMY_PRINCIPAL,
   activeClassName,
   mobileFullScreen = true,
+  isMessengerVisible,
+  mobileTabActive,
 }: CampusMessengerProps) {
-  // Resolve current actor identity
+  // Resolve current actor identity (canonicalizing Usthad/Principal IDs so rooms always match)
   const actor = useMemo(() => {
     if (role === 'principal') {
       return {
-        id: principal.usthadId || 'usthad-07',
+        id: getCanonicalUsthadId(principal.usthadId || 'usthad-07'),
         name: principal.name,
         role: 'principal' as MessengerRole,
         badge: 'Principal',
@@ -394,9 +509,10 @@ export function CampusMessenger({
       }
     }
     if (role === 'usthad' && usthad) {
-      const isPrincipalDual = usthad.id === ACADEMY_PRINCIPAL.usthadId
+      const canonicalId = getCanonicalUsthadId(usthad.id)
+      const isPrincipalDual = canonicalId === ACADEMY_PRINCIPAL.usthadId
       return {
-        id: usthad.id,
+        id: canonicalId,
         name: usthad.name,
         role: (isPrincipalDual ? 'principal' : 'usthad') as MessengerRole,
         badge: usthad.designation.split('•')[0].trim(),
@@ -447,6 +563,29 @@ export function CampusMessenger({
 
   const [selectedRoomId, setSelectedRoomId] = useState<string>(defaultRoomId)
   const [mobileShowChatPane, setMobileShowChatPane] = useState<boolean>(false)
+  const [isDesktopViewport, setIsDesktopViewport] = useState<boolean>(() =>
+    typeof window === 'undefined' ? true : window.innerWidth >= 1024,
+  )
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handleResize = () => setIsDesktopViewport(window.innerWidth >= 1024)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const isTabShown =
+    isMessengerVisible !== undefined
+      ? isMessengerVisible
+      : isDesktopViewport
+        ? true
+        : (mobileTabActive ?? true)
+  const isConversationPaneOpen = isTabShown && (isDesktopViewport || mobileShowChatPane)
+
+  const knownPresenceIdsRef = useRef<Set<string>>(new Set())
+  const knownMetaIdsRef = useRef<Set<string>>(new Set())
+  const firestoreMessageIdsRef = useRef<Set<string>>(new Set())
+  const sentReceiptKeysRef = useRef<Set<string>>(new Set())
 
   // Keep default room and per-actor "Delete for me" list synced when student/usthad switches profile
   useEffect(() => {
@@ -1009,7 +1148,7 @@ export function CampusMessenger({
       className: actor.className,
       isStaff: String(Boolean(actor.isStaff)),
     })
-    if (isDesktopOrMobilePaneOpen && isTabVisible && chatSettings.sendReadReceipts && selectedRoomId) {
+    if (isConversationPaneOpen && isTabVisible && chatSettings.sendReadReceipts && selectedRoomId) {
       queryParams.set('readRoomId', selectedRoomId)
     }
 
@@ -1049,18 +1188,303 @@ export function CampusMessenger({
     actor.id,
     actor.className,
     actor.isStaff,
-    mobileShowChatPane,
+    isConversationPaneOpen,
     selectedRoomId,
     chatSettings.sendReadReceipts,
     mergeIncomingChatStates,
   ])
 
-  // Poll chat state & send presence heartbeat every 2.5 seconds for real-time WhatsApp tick updates
+  const syncPresenceToFirestore = useCallback(
+    async (opts: {
+      isOnline: boolean
+      roomId?: string
+      typingMode?: 'idle' | 'typing' | 'recording'
+    }) => {
+      if (!actor.id) return
+      const docRef = doc(db, 'campusChatPresence', actor.id)
+      const now = Math.floor(Date.now())
+      const mutableFields = {
+        actorName: actor.name.slice(0, 120),
+        actorRole: actor.role,
+        lastSeenMs: now,
+        isOnline: opts.isOnline,
+        hideOnline: !chatSettings.showOnlineStatus,
+        typingRoomId: (opts.roomId || '').slice(0, 160),
+        typingMode: opts.typingMode || 'idle',
+        typingUpdatedAtMs: now,
+      }
+      try {
+        if (knownPresenceIdsRef.current.has(actor.id)) {
+          await updateDoc(docRef, mutableFields)
+          return
+        }
+        try {
+          await updateDoc(docRef, mutableFields)
+          knownPresenceIdsRef.current.add(actor.id)
+        } catch {
+          await setDoc(docRef, {
+            campusId: 'ics-academy',
+            actorId: actor.id,
+            ...mutableFields,
+            createdAt: serverTimestamp(),
+          })
+          knownPresenceIdsRef.current.add(actor.id)
+        }
+      } catch {
+        // Ignore transient offline errors
+      }
+    },
+    [actor.id, actor.name, actor.role, chatSettings.showOnlineStatus],
+  )
+
+  const syncRoomMetaToFirestore = useCallback(
+    async (
+      roomId: string,
+      onlyAdminsCanPost: boolean,
+      pinnedMessageId: string | null,
+    ) => {
+      if (!actor.id || !roomId) return
+      const roomDocId = sanitizeFirestoreDocId(roomId)
+      const metaRef = doc(db, 'campusChatMeta', roomDocId)
+      const now = Math.floor(Date.now())
+      const mutableFields = {
+        onlyAdminsCanPost,
+        pinnedMessageId,
+        updatedByActorId: actor.id,
+        updatedAtMs: now,
+      }
+      try {
+        if (knownMetaIdsRef.current.has(roomDocId)) {
+          await updateDoc(metaRef, mutableFields)
+          return
+        }
+        try {
+          await updateDoc(metaRef, mutableFields)
+          knownMetaIdsRef.current.add(roomDocId)
+        } catch {
+          await setDoc(metaRef, {
+            campusId: 'ics-academy',
+            roomId: roomId.slice(0, 160),
+            ...mutableFields,
+            createdAt: serverTimestamp(),
+          })
+          knownMetaIdsRef.current.add(roomDocId)
+        }
+      } catch {
+        // Ignore transient offline errors
+      }
+    },
+    [actor.id],
+  )
+
+  // Real-time Firestore listeners (<200ms) for Chat Messages, Delivery/Read Receipts, Room Meta & Presence/Typing
+  useEffect(() => {
+    const unsubscribes: Array<() => void> = []
+
+    try {
+      const msgQuery = query(
+        collection(db, 'campusChatMessages'),
+        orderBy('createdAtMs', 'desc'),
+        limit(250),
+      )
+      const unsubMsgs = onSnapshot(
+        msgQuery,
+        (snapshot) => {
+          const grouped: Record<string, ChatMessage[]> = {}
+          snapshot.forEach((docSnap) => {
+            const raw = docSnap.data() as Record<string, unknown>
+            if (!raw || typeof raw.id !== 'string' || typeof raw.roomId !== 'string') return
+            firestoreMessageIdsRef.current.add(raw.id)
+
+            const msg: ChatMessage = {
+              id: raw.id,
+              roomId: raw.roomId,
+              senderId: String(raw.senderId || ''),
+              senderName: String(raw.senderName || 'Member'),
+              senderRole: (raw.senderRole as MessengerRole) || 'student',
+              senderBadge:
+                typeof raw.senderBadge === 'string' ? raw.senderBadge : undefined,
+              text: typeof raw.text === 'string' ? raw.text : '',
+              mediaType:
+                (raw.mediaType as ChatMessage['mediaType']) || 'none',
+              mediaUrl: typeof raw.mediaUrl === 'string' && raw.mediaUrl ? raw.mediaUrl : undefined,
+              mediaName: typeof raw.mediaName === 'string' ? raw.mediaName : undefined,
+              mediaSizeLabel:
+                typeof raw.mediaSizeLabel === 'string' ? raw.mediaSizeLabel : undefined,
+              mediaDurationSec:
+                typeof raw.mediaDurationSec === 'number' ? raw.mediaDurationSec : undefined,
+              imageQuality:
+                raw.imageQuality === 'hd' || raw.imageQuality === 'standard'
+                  ? raw.imageQuality
+                  : undefined,
+              imageDimensions:
+                typeof raw.imageDimensions === 'string' ? raw.imageDimensions : undefined,
+              replyTo:
+                raw.replyTo && typeof raw.replyTo === 'object'
+                  ? (raw.replyTo as ChatReplyRef)
+                  : undefined,
+              reactions:
+                raw.reactions && typeof raw.reactions === 'object'
+                  ? (raw.reactions as Record<string, string[]>)
+                  : {},
+              deliveredTo: Array.isArray(raw.deliveredTo)
+                ? raw.deliveredTo.map(String)
+                : [String(raw.senderId || '')],
+              readBy: Array.isArray(raw.readBy)
+                ? raw.readBy.map(String)
+                : [String(raw.senderId || '')],
+              isDeleted: raw.isDeleted === true,
+              deletedBy: typeof raw.deletedBy === 'string' ? raw.deletedBy : undefined,
+              deletedById: typeof raw.deletedById === 'string' ? raw.deletedById : undefined,
+              deletedFor: Array.isArray(raw.deletedFor)
+                ? raw.deletedFor.map(String)
+                : [],
+              createdAt:
+                typeof raw.createdAtMs === 'number'
+                  ? new Date(raw.createdAtMs).toISOString()
+                  : new Date().toISOString(),
+              createdAtMs: typeof raw.createdAtMs === 'number' ? raw.createdAtMs : Date.now(),
+            }
+
+            if (!grouped[msg.roomId]) grouped[msg.roomId] = []
+            grouped[msg.roomId].push(msg)
+
+            // Immediately acknowledge delivery in Firestore if this room belongs to the current user
+            const isMyRoom =
+              (msg.roomId.startsWith('direct__') &&
+                msg.roomId.split('__').includes(actor.id)) ||
+              (msg.roomId === STAFF_ROOM_ID && actor.isStaff) ||
+              (msg.roomId.startsWith('batch_group__') &&
+                (actor.isStaff || msg.roomId === makeBatchRoomId(actor.className)))
+
+            if (
+              isMyRoom &&
+              !msg.isDeleted &&
+              msg.senderId !== actor.id &&
+              !(msg.deliveredTo ?? []).includes(actor.id)
+            ) {
+              const delivKey = `d:${msg.id}:${actor.id}`
+              if (!sentReceiptKeysRef.current.has(delivKey)) {
+                sentReceiptKeysRef.current.add(delivKey)
+                void updateDoc(doc(db, 'campusChatMessages', msg.id), {
+                  deliveredTo: arrayUnion(actor.id),
+                }).catch(() => {
+                  sentReceiptKeysRef.current.delete(delivKey)
+                })
+              }
+            }
+          })
+
+          for (const rId of Object.keys(grouped)) {
+            grouped[rId].sort((a, b) => a.createdAtMs - b.createdAtMs)
+          }
+
+          if (Object.keys(grouped).length > 0) {
+            mergeIncomingChatStates([{ messagesByRoom: grouped }])
+          }
+        },
+        (error) => {
+          const msg = error instanceof Error ? error.message : String(error)
+          if (msg.includes('permission') || msg.includes('insufficient')) {
+            try {
+              handleFirestoreError(error, OperationType.LIST, 'campusChatMessages')
+            } catch {
+              // Logged cleanly
+            }
+          }
+        },
+      )
+      unsubscribes.push(unsubMsgs)
+    } catch {
+      // Ignore listener attach error
+    }
+
+    try {
+      const unsubMeta = onSnapshot(collection(db, 'campusChatMeta'), (snapshot) => {
+        const fsMeta: Record<string, ChatRoomMeta> = {}
+        snapshot.forEach((docSnap) => {
+          knownMetaIdsRef.current.add(docSnap.id)
+          const raw = docSnap.data() as Record<string, unknown>
+          if (!raw || typeof raw.roomId !== 'string') return
+          fsMeta[raw.roomId] = {
+            roomId: raw.roomId,
+            onlyAdminsCanPost: Boolean(raw.onlyAdminsCanPost),
+            pinnedMessageId:
+              typeof raw.pinnedMessageId === 'string' ? raw.pinnedMessageId : null,
+            updatedAtMs:
+              typeof raw.updatedAtMs === 'number' ? raw.updatedAtMs : Date.now(),
+          }
+        })
+        if (Object.keys(fsMeta).length > 0) {
+          mergeIncomingChatStates([{ roomsMeta: fsMeta }])
+        }
+      })
+      unsubscribes.push(unsubMeta)
+    } catch {
+      // Ignore listener attach error
+    }
+
+    try {
+      const unsubPresence = onSnapshot(collection(db, 'campusChatPresence'), (snapshot) => {
+        const fsPresence: Record<string, ChatPresenceEntry> = {}
+        const fsTyping: Record<string, Record<string, ChatTypingEntry>> = {}
+        snapshot.forEach((docSnap) => {
+          knownPresenceIdsRef.current.add(docSnap.id)
+          const raw = docSnap.data() as Record<string, unknown>
+          if (!raw || typeof raw.actorId !== 'string') return
+          const entry: ChatPresenceEntry = {
+            actorId: raw.actorId,
+            actorName: String(raw.actorName || 'Member'),
+            actorRole: (raw.actorRole as MessengerRole) || 'student',
+            lastSeenMs: typeof raw.lastSeenMs === 'number' ? raw.lastSeenMs : 0,
+            isOnline: typeof raw.isOnline === 'boolean' ? raw.isOnline : true,
+            hideOnline: Boolean(raw.hideOnline),
+          }
+          fsPresence[entry.actorId] = entry
+
+          const typingRoomId = typeof raw.typingRoomId === 'string' ? raw.typingRoomId : ''
+          const typingMode = raw.typingMode as 'typing' | 'recording' | 'idle'
+          const typingUpdatedAtMs =
+            typeof raw.typingUpdatedAtMs === 'number' ? raw.typingUpdatedAtMs : 0
+          if (typingRoomId && (typingMode === 'typing' || typingMode === 'recording')) {
+            if (!fsTyping[typingRoomId]) fsTyping[typingRoomId] = {}
+            fsTyping[typingRoomId][entry.actorId] = {
+              actorId: entry.actorId,
+              actorName: entry.actorName,
+              mode: typingMode,
+              updatedAtMs: typingUpdatedAtMs,
+            }
+          }
+        })
+        mergeIncomingChatStates([{ presenceMap: fsPresence, typingMap: fsTyping }])
+      })
+      unsubscribes.push(unsubPresence)
+    } catch {
+      // Ignore listener attach error
+    }
+
+    return () => {
+      for (const unsub of unsubscribes) {
+        try {
+          unsub()
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+    }
+  }, [actor.id, actor.className, actor.isStaff, mergeIncomingChatStates])
+
+  // Poll chat state & send presence heartbeat every 4 seconds (HTTP backup + Firestore heartbeat)
   useEffect(() => {
     void pullChatStateFromServer()
     if (typeof document === 'undefined' || document.visibilityState === 'visible') {
       void sendChatActionToServer({
         action: 'heartbeat',
+        roomId: selectedRoomId,
+        typingMode: 'idle',
+      })
+      void syncPresenceToFirestore({
+        isOnline: true,
         roomId: selectedRoomId,
         typingMode: 'idle',
       })
@@ -1074,16 +1498,27 @@ export function CampusMessenger({
           roomId: selectedRoomId,
           typingMode: isRecordingVoice ? 'recording' : 'idle',
         })
+        void syncPresenceToFirestore({
+          isOnline: true,
+          roomId: selectedRoomId,
+          typingMode: isRecordingVoice ? 'recording' : 'idle',
+        })
       }
-    }, 2500)
+    }, 4000)
 
     const handleVisibilityOrLeave = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
         void sendChatActionToServer({ action: 'leave_presence' })
+        void syncPresenceToFirestore({ isOnline: false, roomId: '', typingMode: 'idle' })
       } else {
         void pullChatStateFromServer()
         void sendChatActionToServer({
           action: 'heartbeat',
+          roomId: selectedRoomId,
+          typingMode: 'idle',
+        })
+        void syncPresenceToFirestore({
+          isOnline: true,
           roomId: selectedRoomId,
           typingMode: 'idle',
         })
@@ -1092,6 +1527,7 @@ export function CampusMessenger({
 
     const handlePageHide = () => {
       void sendChatActionToServer({ action: 'leave_presence' })
+      void syncPresenceToFirestore({ isOnline: false, roomId: '', typingMode: 'idle' })
     }
 
     window.addEventListener('visibilitychange', handleVisibilityOrLeave)
@@ -1104,8 +1540,15 @@ export function CampusMessenger({
       window.removeEventListener('pagehide', handlePageHide)
       window.removeEventListener('beforeunload', handlePageHide)
       void sendChatActionToServer({ action: 'leave_presence' })
+      void syncPresenceToFirestore({ isOnline: false, roomId: '', typingMode: 'idle' })
     }
-  }, [pullChatStateFromServer, sendChatActionToServer, selectedRoomId, isRecordingVoice])
+  }, [
+    pullChatStateFromServer,
+    sendChatActionToServer,
+    syncPresenceToFirestore,
+    selectedRoomId,
+    isRecordingVoice,
+  ])
 
   // Active room descriptor & messages
   const activeRoom = useMemo<ChatRoomDescriptor>(() => {
@@ -1113,6 +1556,28 @@ export function CampusMessenger({
     if (found) return found
     return allRooms[0]
   }, [allRooms, selectedRoomId])
+
+  // Tell CampusNotificationBar whether user is actively viewing this exact open chat room
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    if (isConversationPaneOpen && activeRoom) {
+      document.body.dataset.icsActiveChatVisible = 'true'
+      document.body.dataset.icsActiveChatPeer = activeRoom.peerId || ''
+      document.body.dataset.icsActiveChatType = activeRoom.type || ''
+      document.body.dataset.icsActiveChatBatch = activeRoom.batchName || ''
+    } else {
+      document.body.dataset.icsActiveChatVisible = 'false'
+      document.body.dataset.icsActiveChatPeer = ''
+      document.body.dataset.icsActiveChatType = ''
+      document.body.dataset.icsActiveChatBatch = ''
+    }
+    return () => {
+      document.body.dataset.icsActiveChatVisible = 'false'
+      document.body.dataset.icsActiveChatPeer = ''
+      document.body.dataset.icsActiveChatType = ''
+      document.body.dataset.icsActiveChatBatch = ''
+    }
+  }, [isConversationPaneOpen, activeRoom])
 
   const activeMessages = useMemo<ChatMessage[]>(() => {
     const raw = messagesByRoom[activeRoom.roomId] ?? []
@@ -1139,22 +1604,21 @@ export function CampusMessenger({
     )
   }, [activeRoomMeta.pinnedMessageId, activeMessages])
 
-  // Mark messages in active room as delivered & read by current actor when conversation is open
+  // Mark messages in active room as delivered & read by current actor ONLY when conversation is visibly open
   useEffect(() => {
-    const isDesktopOrMobilePaneOpen =
-      typeof window !== 'undefined' && (window.innerWidth >= 1024 || mobileShowChatPane)
     const isTabVisible =
       typeof document === 'undefined' || document.visibilityState === 'visible'
-    if (!isDesktopOrMobilePaneOpen || !isTabVisible) return
+    if (!isConversationPaneOpen || !isTabVisible) return
 
     const rId = activeRoom.roomId
     const list = messagesByRoom[rId] ?? []
-    const needsReadOrDelivered = list.some(
+    const toUpdate = list.filter(
       (m) =>
-        !(m.deliveredTo ?? []).includes(actor.id) ||
-        (chatSettings.sendReadReceipts && !m.readBy.includes(actor.id)),
+        m.senderId !== actor.id &&
+        (!(m.deliveredTo ?? []).includes(actor.id) ||
+          (chatSettings.sendReadReceipts && !m.readBy.includes(actor.id))),
     )
-    if (!needsReadOrDelivered) return
+    if (toUpdate.length === 0) return
 
     setMessagesByRoom((prev) => {
       const currentList = prev[rId] ?? []
@@ -1173,6 +1637,20 @@ export function CampusMessenger({
         }),
       }
     })
+
+    for (const m of toUpdate) {
+      if (!firestoreMessageIdsRef.current.has(m.id)) continue
+      const receiptKey = `${chatSettings.sendReadReceipts ? 'r' : 'd'}:${m.id}:${actor.id}`
+      if (sentReceiptKeysRef.current.has(receiptKey)) continue
+      sentReceiptKeysRef.current.add(receiptKey)
+      void updateDoc(doc(db, 'campusChatMessages', m.id), {
+        deliveredTo: arrayUnion(actor.id),
+        ...(chatSettings.sendReadReceipts ? { readBy: arrayUnion(actor.id) } : {}),
+      }).catch(() => {
+        sentReceiptKeysRef.current.delete(receiptKey)
+      })
+    }
+
     void sendChatActionToServer({
       action: 'mark_read',
       roomId: rId,
@@ -1182,7 +1660,7 @@ export function CampusMessenger({
     activeRoom.roomId,
     actor.id,
     messagesByRoom,
-    mobileShowChatPane,
+    isConversationPaneOpen,
     sendChatActionToServer,
     chatSettings.sendReadReceipts,
   ])
@@ -1291,6 +1769,11 @@ export function CampusMessenger({
         roomId: activeRoom.roomId,
         typingMode: 'typing',
       })
+      void syncPresenceToFirestore({
+        isOnline: true,
+        roomId: activeRoom.roomId,
+        typingMode: 'typing',
+      })
     }
   }
 
@@ -1307,6 +1790,7 @@ export function CampusMessenger({
       imageDimensions?: string
     }) => {
       if (activeRoomMeta.onlyAdminsCanPost && !actor.isStaff) return
+      unlockNotificationAudio()
 
       const now = Date.now()
       const msgId = `msg_${now}_${Math.random().toString(36).slice(2, 7)}`
@@ -1349,6 +1833,27 @@ export function CampusMessenger({
       setShowPhotoQualitySheet(false)
       setPhotoQualityToast(null)
       setShowAttachMenu(false)
+
+      // Persist directly to Firestore for instant cross-domain delivery & WhatsApp ticks (<200ms)
+      void (async () => {
+        try {
+          const safeMediaUrl = await prepareMediaUrlForFirestore(
+            newMsg.mediaType,
+            newMsg.mediaUrl,
+          )
+          const fsPayload = buildFirestoreChatMessagePayload(newMsg, safeMediaUrl)
+          await setDoc(doc(db, 'campusChatMessages', newMsg.id), fsPayload)
+          firestoreMessageIdsRef.current.add(newMsg.id)
+        } catch {
+          // Fallback to HTTP sync already dispatched below
+        }
+      })()
+
+      void syncPresenceToFirestore({
+        isOnline: true,
+        roomId: activeRoom.roomId,
+        typingMode: 'idle',
+      })
 
       void sendChatActionToServer({
         action: 'send_message',
@@ -1418,6 +1923,7 @@ export function CampusMessenger({
       actor,
       replyingTo,
       sendChatActionToServer,
+      syncPresenceToFirestore,
       chatSettings.soundEffects,
     ],
   )
@@ -1453,6 +1959,11 @@ export function CampusMessenger({
 
     void sendChatActionToServer({
       action: 'heartbeat',
+      roomId: activeRoom.roomId,
+      typingMode: 'recording',
+    })
+    void syncPresenceToFirestore({
+      isOnline: true,
       roomId: activeRoom.roomId,
       typingMode: 'recording',
     })
@@ -1498,6 +2009,11 @@ export function CampusMessenger({
     setRecordingSeconds(0)
     void sendChatActionToServer({
       action: 'heartbeat',
+      roomId: activeRoom.roomId,
+      typingMode: 'idle',
+    })
+    void syncPresenceToFirestore({
+      isOnline: true,
       roomId: activeRoom.roomId,
       typingMode: 'idle',
     })
@@ -1796,6 +2312,22 @@ export function CampusMessenger({
   // Reactions, Pinning, Deleting & Group Lock Handlers
   const handleToggleReaction = (messageId: string, emoji: string) => {
     const rId = activeRoom.roomId
+    const targetMsg = (messagesByRoom[rId] ?? []).find((m) => m.id === messageId)
+    let updatedReactionsForFs: Record<string, string[]> | null = null
+    if (targetMsg) {
+      const cur = targetMsg.reactions[emoji] ?? []
+      const nextReactors = cur.includes(actor.id)
+        ? cur.filter((id) => id !== actor.id)
+        : [...cur, actor.id]
+      const nextReactions = { ...targetMsg.reactions }
+      if (nextReactors.length === 0) {
+        delete nextReactions[emoji]
+      } else {
+        nextReactions[emoji] = nextReactors
+      }
+      updatedReactionsForFs = nextReactions
+    }
+
     setMessagesByRoom((prev) => {
       const list = prev[rId] ?? []
       return {
@@ -1817,6 +2349,11 @@ export function CampusMessenger({
       }
     })
     setActiveReactionMessageId(null)
+    if (updatedReactionsForFs && firestoreMessageIdsRef.current.has(messageId)) {
+      void updateDoc(doc(db, 'campusChatMessages', messageId), {
+        reactions: updatedReactionsForFs,
+      }).catch(() => {})
+    }
     void sendChatActionToServer({
       action: 'toggle_reaction',
       roomId: rId,
@@ -1837,6 +2374,7 @@ export function CampusMessenger({
         updatedAtMs: Date.now(),
       },
     }))
+    void syncRoomMetaToFirestore(rId, activeRoomMeta.onlyAdminsCanPost, nextPin)
     void sendChatActionToServer({
       action: 'toggle_pin',
       roomId: rId,
@@ -1875,6 +2413,16 @@ export function CampusMessenger({
     setDeleteModalMessage(null)
     setActiveReactionMessageId(null)
     setLightboxImage(null)
+    if (firestoreMessageIdsRef.current.has(messageId)) {
+      void updateDoc(doc(db, 'campusChatMessages', messageId), {
+        isDeleted: true,
+        deletedBy: actor.name.slice(0, 120),
+        deletedById: actor.id,
+        text: '',
+        mediaType: 'none',
+        mediaUrl: '',
+      }).catch(() => {})
+    }
     void sendChatActionToServer({
       action: 'delete_message',
       deleteMode: 'everyone',
@@ -1903,6 +2451,11 @@ export function CampusMessenger({
     setDeleteModalMessage(null)
     setActiveReactionMessageId(null)
     setLightboxImage(null)
+    if (firestoreMessageIdsRef.current.has(messageId)) {
+      void updateDoc(doc(db, 'campusChatMessages', messageId), {
+        deletedFor: arrayUnion(actor.id),
+      }).catch(() => {})
+    }
     void sendChatActionToServer({
       action: 'delete_message',
       deleteMode: 'me',
@@ -1923,6 +2476,7 @@ export function CampusMessenger({
         updatedAtMs: Date.now(),
       },
     }))
+    void syncRoomMetaToFirestore(rId, nextLocked, activeRoomMeta.pinnedMessageId)
     void sendChatActionToServer({
       action: 'toggle_group_lock',
       roomId: rId,
@@ -2102,6 +2656,7 @@ export function CampusMessenger({
                   key={room.roomId}
                   type="button"
                   onClick={() => {
+                    unlockNotificationAudio()
                     setShowAttachMenu(false)
                     setActiveReactionMessageId(null)
                     if (isRecordingVoice) cancelVoiceRecording()

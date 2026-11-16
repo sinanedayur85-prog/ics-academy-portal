@@ -6,7 +6,12 @@
 export interface DirtyDozenTestCase {
   id: number
   name: string
-  collection: 'studyNotes' | 'leaveRecords' | 'digitalKitabs'
+  collection:
+    | 'studyNotes'
+    | 'leaveRecords'
+    | 'digitalKitabs'
+    | 'campusChatMessages'
+    | 'campusNotifications'
   operation: 'create' | 'read' | 'update' | 'delete'
   auth: { uid: string; email_verified: boolean } | null
   docId: string
@@ -120,19 +125,27 @@ export const dirtyDozenTestCases: DirtyDozenTestCase[] = [
   },
   {
     id: 7,
-    name: 'Forged Client Timestamp',
-    collection: 'studyNotes',
+    name: 'Forged Client Timestamp on CampusChatMessage',
+    collection: 'campusChatMessages',
     operation: 'create',
-    auth: { uid: 'user_1', email_verified: true },
-    docId: 'note_7',
+    auth: null,
+    docId: 'msg_7',
     payload: {
-      uid: 'user_1',
-      studentId: 'st-101',
-      mode: 'kitab',
-      language: 'ml',
-      prompt: 'Valid prompt',
-      response: 'Valid response',
+      id: 'msg_7',
+      campusId: 'ics-academy',
+      roomId: 'direct__std-101__usthad-06',
+      senderId: 'usthad-06',
+      senderName: 'Usthad Razaq Saqafi',
+      senderRole: 'usthad',
+      text: 'Assalamu Alaikum',
+      mediaType: 'none',
+      reactions: {},
+      deliveredTo: ['usthad-06'],
+      readBy: ['usthad-06'],
+      deletedFor: [],
+      isDeleted: false,
       createdAt: '1999-01-01T00:00:00Z',
+      createdAtMs: 1793980600000,
     },
     expectedResult: 'PERMISSION_DENIED',
   },
@@ -156,13 +169,14 @@ export const dirtyDozenTestCases: DirtyDozenTestCase[] = [
   },
   {
     id: 10,
-    name: 'Owner Hijack on Update',
-    collection: 'studyNotes',
+    name: 'Sender Hijack on Chat Update',
+    collection: 'campusChatMessages',
     operation: 'update',
-    auth: { uid: 'user_1', email_verified: true },
-    docId: 'note_1',
+    auth: null,
+    docId: 'msg_10',
     payload: {
-      uid: 'user_2',
+      senderId: 'usthad-07',
+      text: 'Tampered text',
     },
     expectedResult: 'PERMISSION_DENIED',
   },
@@ -189,24 +203,20 @@ export const dirtyDozenTestCases: DirtyDozenTestCase[] = [
   },
   {
     id: 12,
-    name: 'Storage Path Traversal on DigitalKitab',
-    collection: 'digitalKitabs',
+    name: 'Shadow Field Injection on CampusNotification',
+    collection: 'campusNotifications',
     operation: 'create',
-    auth: { uid: 'user_1', email_verified: true },
-    docId: 'kitab_1',
+    auth: null,
+    docId: 'notif_12',
     payload: {
-      uid: 'user_1',
-      studentId: 'std-1',
-      title: 'Fath al-Muin',
-      arabicTitle: 'فتح المعين',
-      author: 'Shaykh Zayn al-Din',
-      category: 'fiqh',
-      classBatch: 'S3 Da’wa',
-      language: 'Arabic',
-      pages: 412,
-      storagePath: '../secrets/private.pem',
-      pdfUrl: '',
-      summary: 'Classical Shafi’i Fiqh treatise.',
+      id: 'notif_12',
+      campusId: 'ics-academy',
+      type: 'chat',
+      title: 'Test',
+      message: 'Message',
+      href: '#campus-chat',
+      createdAtMs: 1793980600000,
+      ghostAdminOverride: true,
     },
     expectedResult: 'PERMISSION_DENIED',
   },

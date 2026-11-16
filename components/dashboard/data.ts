@@ -1,3 +1,17 @@
+import {
+  arrayUnion,
+  collection,
+  doc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore'
+import { db, handleFirestoreError, OperationType } from '@/src/lib/firebase'
+
 export type MonthlyAttendance = {
   id: string
   month: string
@@ -1471,6 +1485,33 @@ export function findUsthadByStaffId(identifier: string): ClassUsthad | undefined
   return undefined
 }
 
+export function getCanonicalUsthadId(rawId?: string): string {
+  const cleaned = (rawId ?? '').trim()
+  if (!cleaned) return ''
+  if (cleaned === 'usthad-10' || cleaned === 'usthad-10b') {
+    return 'usthad-06'
+  }
+  if (cleaned === 'usthad-07-bs1' || cleaned.startsWith('usthad-07-')) {
+    return 'usthad-07'
+  }
+  const directOfficial = OFFICIAL_CLASS_USTHADS.find((u) => u.id === cleaned)
+  if (directOfficial) return directOfficial.id
+  const prefixOfficial = OFFICIAL_CLASS_USTHADS.find((u) =>
+    cleaned.startsWith(`${u.id}-`),
+  )
+  if (prefixOfficial) return prefixOfficial.id
+  const classSlot = CLASS_USTHADS.find((u) => u.id === cleaned)
+  if (classSlot) {
+    const matchedOfficial = OFFICIAL_CLASS_USTHADS.find(
+      (u) =>
+        normalizeAdmissionKey(u.staffId) === normalizeAdmissionKey(classSlot.staffId) ||
+        u.name === classSlot.name,
+    )
+    if (matchedOfficial) return matchedOfficial.id
+  }
+  return cleaned
+}
+
 export const OFFICIAL_LAUNCH_TIMESTAMP_MS = 1793980600000
 const OFFICIAL_LAUNCH_RESET_FLAG = 'ics_official_launch_clean_v1'
 
@@ -2385,19 +2426,26 @@ export function bindDeviceNotificationIdentity(
 ): void {
   if (typeof window === 'undefined' || !identity.actorId) return
   try {
+    const canonicalActorId = identity.actorId.startsWith('usthad-')
+      ? getCanonicalUsthadId(identity.actorId)
+      : identity.actorId
+    const normalizedIdentity = {
+      ...identity,
+      actorId: canonicalActorId,
+    }
     const existing = loadDeviceBoundIdentity()
     // If this phone already has a Primary Owner and a different person (e.g. a friend) logs in,
     // DO NOT overwrite the phone's Primary Owner unless forceOverwritePrimaryOwner is explicitly true!
     if (
       existing &&
       existing.actorId &&
-      existing.actorId !== identity.actorId &&
+      getCanonicalUsthadId(existing.actorId) !== canonicalActorId &&
       !options?.forceOverwritePrimaryOwner
     ) {
       return
     }
     const payload: DeviceBoundIdentity = {
-      ...identity,
+      ...normalizedIdentity,
       boundAtMs: Date.now(),
     }
     window.localStorage.setItem(DEVICE_BOUND_IDENTITY_STORAGE_KEY, JSON.stringify(payload))
@@ -2460,7 +2508,9 @@ export function getCurrentSessionIdentity(): {
           isAuthenticated: false,
           hasDeviceIdentity: true,
           role: bound.role,
-          actorId: bound.actorId,
+          actorId: bound.actorId.startsWith('usthad-')
+            ? getCanonicalUsthadId(bound.actorId)
+            : bound.actorId,
           actorName: bound.actorName,
           className: bound.className,
           assignedClasses: Array.isArray(bound.assignedClasses) ? bound.assignedClasses : [],
@@ -2485,7 +2535,7 @@ export function getCurrentSessionIdentity(): {
     if (rawRole === 'principal') {
       const identity = {
         role: 'principal' as const,
-        actorId: ACADEMY_PRINCIPAL.usthadId || 'usthad-07',
+        actorId: getCanonicalUsthadId(ACADEMY_PRINCIPAL.usthadId || 'usthad-07'),
         actorName: ACADEMY_PRINCIPAL.name,
         className: ACADEMY_PRINCIPAL.assignedClassName || 'BS 3',
         assignedClasses: ACADEMY_PRINCIPAL.assignedClasses || ['BS 3', 'BS 1'],
@@ -2501,22 +2551,27 @@ export function getCurrentSessionIdentity(): {
     }
     if (rawRole === 'usthad') {
       const savedUsthadId = window.localStorage.getItem('loggedInUsthadId') || ''
+      const canonicalSavedId = getCanonicalUsthadId(savedUsthadId)
       const staffId = window.localStorage.getItem('usthadStaffId') || ''
       const usthad =
+        OFFICIAL_CLASS_USTHADS.find((u) => u.id === canonicalSavedId) ??
         OFFICIAL_CLASS_USTHADS.find((u) => u.id === savedUsthadId) ??
         CLASS_USTHADS.find((u) => u.id === savedUsthadId) ??
         findUsthadByStaffId(staffId)
-      const isPrin = usthad?.id === ACADEMY_PRINCIPAL.usthadId
+      const canonicalActorId = getCanonicalUsthadId(usthad?.id)
+      const isPrin = canonicalActorId === getCanonicalUsthadId(ACADEMY_PRINCIPAL.usthadId)
       const identity = {
         role: 'usthad' as const,
-        actorId: usthad?.id || '',
+        actorId: canonicalActorId,
         actorName: usthad?.name || '',
         className: usthad?.className || '',
         assignedClasses: isPrin
           ? ACADEMY_PRINCIPAL.assignedClasses || ['BS 3', 'BS 1']
-          : usthad?.className
-            ? [usthad.className]
-            : [],
+          : usthad?.teachingBatches && usthad.teachingBatches.length > 0
+            ? [...usthad.teachingBatches]
+            : usthad?.className
+              ? [usthad.className]
+              : [],
         isStaff: true,
         isPrincipal: isPrin,
       }
@@ -3551,6 +3606,71 @@ function saveDeliveredNotifIdsForActor(actorId: string, ids: Set<string>): void 
   }
 }
 
+function isValidPortalActorIdForFirestore(id?: string): id is string {
+  if (!id || typeof id !== 'string') return false
+  return /^(st[d]?|usthad|principal)-[a-zA-Z0-9_\-]+$/.test(id)
+}
+
+export async function writeNotificationToFirestore(
+  notif: CampusNotification,
+): Promise<void> {
+  if (typeof window === 'undefined' || !notif?.id) return
+  const cleanId = notif.id.replace(/[^a-zA-Z0-9_\-]/g, '_').slice(0, 128)
+  if (!cleanId) return
+  const payload: Record<string, unknown> = {
+    id: cleanId,
+    campusId: 'ics-academy',
+    type: notif.type,
+    title: (notif.title || 'ICS Academy Notification').slice(0, 240),
+    message: (notif.message || 'Update').slice(0, 1500),
+    href: (notif.href || '#notices').slice(0, 120),
+    createdAt: serverTimestamp(),
+    createdAtMs:
+      typeof notif.createdAtMs === 'number' && notif.createdAtMs > 0
+        ? Math.floor(notif.createdAtMs)
+        : Date.now(),
+  }
+  if (notif.category) payload.category = String(notif.category).slice(0, 40)
+  if (notif.targetClass) payload.targetClass = String(notif.targetClass).slice(0, 40)
+  if (Array.isArray(notif.targetClasses) && notif.targetClasses.length > 0) {
+    payload.targetClasses = notif.targetClasses
+      .slice(0, 20)
+      .map((c) => String(c).slice(0, 40))
+  }
+  if (isValidPortalActorIdForFirestore(notif.targetStudentId)) {
+    payload.targetStudentId = notif.targetStudentId
+  }
+  if (isValidPortalActorIdForFirestore(notif.targetRecipientId)) {
+    payload.targetRecipientId = notif.targetRecipientId
+  }
+  if (typeof notif.targetStaffOnly === 'boolean') {
+    payload.targetStaffOnly = notif.targetStaffOnly
+  }
+  const canonicalActor = notif.actorId?.startsWith('usthad-')
+    ? getCanonicalUsthadId(notif.actorId)
+    : notif.actorId
+  if (isValidPortalActorIdForFirestore(canonicalActor)) {
+    payload.actorId = canonicalActor
+  }
+  if (notif.actorName) {
+    payload.actorName = String(notif.actorName).slice(0, 120)
+  }
+
+  const firestorePath = `campusNotifications/${cleanId}`
+  try {
+    await setDoc(doc(db, 'campusNotifications', cleanId), payload)
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    if (msg.includes('permission') || msg.includes('insufficient')) {
+      try {
+        handleFirestoreError(error, OperationType.CREATE, firestorePath)
+      } catch {
+        // Logged cleanly by handleFirestoreError
+      }
+    }
+  }
+}
+
 export async function pushCampusSyncToServer(payload: {
   customNotices?: Notice[]
   attendanceOverrides?: AttendanceOverrideMap
@@ -3561,6 +3681,9 @@ export async function pushCampusSyncToServer(payload: {
   notification?: CampusNotification
 }): Promise<void> {
   if (typeof window === 'undefined') return
+  if (payload.notification) {
+    void writeNotificationToFirestore(payload.notification)
+  }
   const bases = Array.from(new Set(getOrderedSyncBases()))
   await Promise.allSettled(
     bases.map((base) =>
@@ -3804,6 +3927,304 @@ export async function pullCampusStateFromServer(): Promise<void> {
     }
   } catch {
     // Ignore merge errors
+  }
+}
+
+function isRoomTargetedToCurrentSession(
+  roomId: string,
+  session: ReturnType<typeof getCurrentSessionIdentity>,
+): boolean {
+  if (!roomId || !session.hasDeviceIdentity || !session.actorId) return false
+  if (roomId.startsWith('direct__')) {
+    return roomId.split('__').includes(session.actorId)
+  }
+  if (roomId === 'staff_group__usthads') {
+    return Boolean(session.isStaff)
+  }
+  if (roomId.startsWith('batch_group__')) {
+    const batch = roomId.slice('batch_group__'.length)
+    if (session.isStaff) {
+      return (
+        normalizeClassName(session.className) === normalizeClassName(batch) ||
+        session.assignedClasses.some((c) => normalizeClassName(c) === normalizeClassName(batch)) ||
+        Boolean(session.isPrincipal)
+      )
+    }
+    return normalizeClassName(session.className) === normalizeClassName(batch)
+  }
+  return false
+}
+
+/**
+ * Real-time Firestore listener (<200ms) across ais-dev, ais-pre, vercel.app, Android APK, and iOS PWA:
+ * 1. Receives incoming campusNotifications immediately and triggers popup + phone notification sound.
+ * 2. Listens to incoming campusChatMessages on any screen (even outside Messenger) to immediately write
+ *    Firestore `deliveredTo` receipts (turning sender's grey ✓ into Double Grey Tick ✓✓) and emit chat notification if missed.
+ */
+export function subscribeRealtimeCampusNotificationsAndDelivery(
+  overrideStudentId?: string,
+  overrideClassName?: string,
+): () => void {
+  if (typeof window === 'undefined') return () => {}
+
+  const unsubscribes: Array<() => void> = []
+
+  try {
+    const notifQuery = query(
+      collection(db, 'campusNotifications'),
+      orderBy('createdAtMs', 'desc'),
+      limit(60),
+    )
+
+    const unsubNotif = onSnapshot(
+      notifQuery,
+      (snapshot) => {
+        try {
+          const session = getCurrentSessionIdentity()
+          const localNotifs = loadCampusNotifications()
+          const byId = new Map<string, CampusNotification>()
+          for (const n of localNotifs) {
+            if (n && n.id) byId.set(n.id, n)
+          }
+
+          let addedNewToStore = false
+          const incomingNotifs: CampusNotification[] = []
+          snapshot.forEach((docSnap) => {
+            const raw = docSnap.data() as Record<string, unknown>
+            if (!raw || typeof raw.id !== 'string' || typeof raw.title !== 'string') return
+            const item: CampusNotification = {
+              id: raw.id,
+              type: (raw.type as CampusNotificationType) || 'notice',
+              title: String(raw.title),
+              message: String(raw.message || ''),
+              category: typeof raw.category === 'string' ? raw.category : undefined,
+              targetClass: typeof raw.targetClass === 'string' ? raw.targetClass : undefined,
+              targetClasses: Array.isArray(raw.targetClasses)
+                ? raw.targetClasses.map(String)
+                : undefined,
+              targetStudentId:
+                typeof raw.targetStudentId === 'string' ? raw.targetStudentId : undefined,
+              targetRecipientId:
+                typeof raw.targetRecipientId === 'string' ? raw.targetRecipientId : undefined,
+              targetStaffOnly:
+                typeof raw.targetStaffOnly === 'boolean' ? raw.targetStaffOnly : undefined,
+              actorId: typeof raw.actorId === 'string' ? raw.actorId : undefined,
+              actorName: typeof raw.actorName === 'string' ? raw.actorName : undefined,
+              href: typeof raw.href === 'string' ? raw.href : '#notices',
+              createdAt:
+                typeof raw.createdAtMs === 'number'
+                  ? new Date(raw.createdAtMs).toISOString()
+                  : new Date().toISOString(),
+              createdAtMs: typeof raw.createdAtMs === 'number' ? raw.createdAtMs : Date.now(),
+            }
+            incomingNotifs.push(item)
+            if (!byId.has(item.id)) {
+              byId.set(item.id, item)
+              addedNewToStore = true
+            }
+          })
+
+          const combined = Array.from(byId.values())
+            .sort((a, b) => b.createdAtMs - a.createdAtMs)
+            .slice(0, 80)
+
+          if (addedNewToStore) {
+            window.localStorage.setItem(
+              CAMPUS_NOTIFICATIONS_STORAGE_KEY,
+              JSON.stringify(combined),
+            )
+            window.dispatchEvent(new CustomEvent('ics-notices-updated'))
+          }
+
+          const effectiveActorId = overrideStudentId || session.actorId
+          if ((session.hasDeviceIdentity || overrideStudentId) && effectiveActorId) {
+            const deliveredSet = loadDeliveredNotifIdsForActor(effectiveActorId)
+            const nowMs = Date.now()
+            const maxAgeMs = 12 * 60 * 60 * 1000
+            let modified = false
+            const toFire: CampusNotification[] = []
+
+            for (const n of incomingNotifs.sort((a, b) => a.createdAtMs - b.createdAtMs)) {
+              if (deliveredSet.has(n.id)) continue
+              if (nowMs - (n.createdAtMs || 0) > maxAgeMs) {
+                deliveredSet.add(n.id)
+                modified = true
+                continue
+              }
+              if (isNotificationVisibleForStudent(n, overrideStudentId, overrideClassName)) {
+                deliveredSet.add(n.id)
+                modified = true
+                toFire.push(n)
+              }
+            }
+
+            if (modified) {
+              saveDeliveredNotifIdsForActor(effectiveActorId, deliveredSet)
+            }
+
+            const newestRelevant = toFire[toFire.length - 1]
+            if (newestRelevant) {
+              window.dispatchEvent(
+                new CustomEvent('ics-campus-notification', {
+                  detail: newestRelevant,
+                }),
+              )
+            }
+          }
+        } catch {
+          // Ignore snapshot merge errors
+        }
+      },
+      (error) => {
+        const msg = error instanceof Error ? error.message : String(error)
+        if (msg.includes('permission') || msg.includes('insufficient')) {
+          try {
+            handleFirestoreError(error, OperationType.LIST, 'campusNotifications')
+          } catch {
+            // Logged cleanly
+          }
+        }
+      },
+    )
+    unsubscribes.push(unsubNotif)
+  } catch {
+    // Ignore listener attach errors
+  }
+
+  try {
+    const msgQuery = query(
+      collection(db, 'campusChatMessages'),
+      orderBy('createdAtMs', 'desc'),
+      limit(80),
+    )
+
+    const unsubMsgs = onSnapshot(
+      msgQuery,
+      (snapshot) => {
+        const session = getCurrentSessionIdentity()
+        const effectiveActorId = overrideStudentId || session.actorId
+        if (!effectiveActorId || (!session.hasDeviceIdentity && !overrideStudentId)) return
+
+        const deliveredNotifSet = loadDeliveredNotifIdsForActor(effectiveActorId)
+        let notifSetModified = false
+        const nowMs = Date.now()
+        const maxAgeMs = 12 * 60 * 60 * 1000
+
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data() as Record<string, unknown>
+          if (!data || typeof data.id !== 'string' || typeof data.roomId !== 'string') return
+          if (data.isDeleted === true) return
+          const senderId = typeof data.senderId === 'string' ? data.senderId : ''
+          if (!senderId || senderId === effectiveActorId) return
+
+          const effectiveSession = {
+            ...session,
+            actorId: effectiveActorId,
+            className: overrideClassName || session.className,
+          }
+          if (!isRoomTargetedToCurrentSession(data.roomId, effectiveSession)) return
+
+          // 1. Immediately record Firestore deliveredTo receipt so sender gets Double Grey Tick (✓✓)
+          const deliveredTo = Array.isArray(data.deliveredTo)
+            ? (data.deliveredTo as string[])
+            : []
+          if (!deliveredTo.includes(effectiveActorId)) {
+            void updateDoc(doc(db, 'campusChatMessages', data.id), {
+              deliveredTo: arrayUnion(effectiveActorId),
+            }).catch(() => {})
+          }
+
+          // 2. Backup real-time chat alert dispatch if notif_chat_<msgId> wasn't fired yet
+          const detNotifId = `notif_chat_${data.id}`
+          const createdAtMs =
+            typeof data.createdAtMs === 'number' ? data.createdAtMs : nowMs
+          if (!deliveredNotifSet.has(detNotifId) && nowMs - createdAtMs <= maxAgeMs) {
+            const roomId = data.roomId
+            const targetRecipientId = roomId.startsWith('direct__')
+              ? effectiveActorId
+              : undefined
+            const targetClass = roomId.startsWith('batch_group__')
+              ? roomId.slice('batch_group__'.length)
+              : undefined
+            const targetStaffOnly = roomId === 'staff_group__usthads' ? true : undefined
+            const senderName =
+              typeof data.senderName === 'string' ? data.senderName : 'Campus Member'
+            const text = typeof data.text === 'string' ? data.text : ''
+            const mediaType = typeof data.mediaType === 'string' ? data.mediaType : 'none'
+            const preview =
+              mediaType === 'pdf'
+                ? `📄 Shared PDF Note: ${String(data.mediaName || 'Document')}`
+                : mediaType === 'voice'
+                  ? `🎤 Sent a Voice Note`
+                  : mediaType === 'image'
+                    ? `📷 Shared Photo${text ? `: ${text.slice(0, 80)}` : ''}`
+                    : text.slice(0, 120)
+
+            const fallbackNotif: CampusNotification = {
+              id: detNotifId,
+              type: 'chat',
+              title: targetClass
+                ? `${senderName} • ${targetClass} Group`
+                : targetStaffOnly
+                  ? `${senderName} • Staff Room`
+                  : `New Message from ${senderName}`,
+              message: preview || 'New message received',
+              targetClass,
+              targetRecipientId,
+              targetStaffOnly,
+              actorId: senderId,
+              actorName: senderName,
+              href: '#campus-chat',
+              createdAt: new Date(createdAtMs).toISOString(),
+              createdAtMs,
+            }
+
+            if (
+              isNotificationVisibleForStudent(
+                fallbackNotif,
+                overrideStudentId,
+                overrideClassName,
+              )
+            ) {
+              deliveredNotifSet.add(detNotifId)
+              notifSetModified = true
+              window.dispatchEvent(
+                new CustomEvent('ics-campus-notification', {
+                  detail: fallbackNotif,
+                }),
+              )
+            }
+          }
+        })
+
+        if (notifSetModified) {
+          saveDeliveredNotifIdsForActor(effectiveActorId, deliveredNotifSet)
+        }
+      },
+      (error) => {
+        const msg = error instanceof Error ? error.message : String(error)
+        if (msg.includes('permission') || msg.includes('insufficient')) {
+          try {
+            handleFirestoreError(error, OperationType.LIST, 'campusChatMessages')
+          } catch {
+            // Logged cleanly
+          }
+        }
+      },
+    )
+    unsubscribes.push(unsubMsgs)
+  } catch {
+    // Ignore listener attach errors
+  }
+
+  return () => {
+    for (const unsub of unsubscribes) {
+      try {
+        unsub()
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
   }
 }
 

@@ -20,10 +20,14 @@ import {
   isNotificationVisibleForStudent,
   loadCampusNotifications,
   pullCampusStateFromServer,
+  subscribeRealtimeCampusNotificationsAndDelivery,
   type CampusNotification,
   type CampusNotificationType,
 } from '@/components/dashboard/data'
-import { triggerSystemNotification } from '@/lib/mobile-pdf'
+import {
+  triggerSystemNotification,
+  unlockNotificationAudio,
+} from '@/lib/mobile-pdf'
 import { cn } from '@/lib/utils'
 
 const READ_NOTIF_IDS_STORAGE_KEY = 'ics_read_notification_ids_v2'
@@ -153,8 +157,9 @@ export function CampusNotificationBar({
   const [activeToast, setActiveToast] = useState<CampusNotification | null>(null)
 
   useEffect(() => {
-    // Request system notification permission on first user tap/click (works on Android, Desktop & iOS 16.4+ Home Screen PWA)
-    function requestPermissionOnce() {
+    // Unlock AudioContext + request system notification permission on first user interaction
+    function handleUserGestureUnlock() {
+      unlockNotificationAudio()
       if (
         typeof window !== 'undefined' &&
         'Notification' in window &&
@@ -162,17 +167,22 @@ export function CampusNotificationBar({
       ) {
         Notification.requestPermission().catch(() => {})
       }
-      window.removeEventListener('click', requestPermissionOnce)
-      window.removeEventListener('touchend', requestPermissionOnce)
     }
-    window.addEventListener('click', requestPermissionOnce, { once: true })
-    window.addEventListener('touchend', requestPermissionOnce, { once: true })
+    window.addEventListener('click', handleUserGestureUnlock, { passive: true })
+    window.addEventListener('touchend', handleUserGestureUnlock, { passive: true })
+    window.addEventListener('keydown', handleUserGestureUnlock, { passive: true })
 
-    // Poll cloud sync every 2.5 seconds + immediately when phone/tablet wakes or tab focuses
+    // Subscribe to real-time Firestore notifications & instant chat delivery receipts (<200ms)
+    const unsubscribeRealtime = subscribeRealtimeCampusNotificationsAndDelivery(
+      studentId,
+      classNameFilter,
+    )
+
+    // Also pull HTTP sync immediately + every 4 seconds as backup
     void pullCampusStateFromServer()
     const timer = window.setInterval(() => {
       void pullCampusStateFromServer()
-    }, 2500)
+    }, 4000)
 
     function handleWakeOrFocus() {
       if (document.visibilityState === 'visible') {
@@ -197,15 +207,35 @@ export function CampusNotificationBar({
       if (lastToasted === notif.id) return
       window.sessionStorage.setItem(toastKey, notif.id)
 
-      setActiveToast(notif)
+      // Skip redundant floating banner only if user currently has that exact chat open in foreground
+      const activeChatOpen =
+        document.visibilityState === 'visible' &&
+        document.body.dataset.icsActiveChatVisible === 'true'
+      const activePeerId = document.body.dataset.icsActiveChatPeer || ''
+      const activeRoomType = document.body.dataset.icsActiveChatType || ''
+      const activeRoomBatch = document.body.dataset.icsActiveChatBatch || ''
+      const isViewingSameChatRoom =
+        activeChatOpen &&
+        notif.type === 'chat' &&
+        ((notif.targetRecipientId && notif.actorId && notif.actorId === activePeerId) ||
+          (notif.targetStaffOnly && activeRoomType === 'staff_group') ||
+          (notif.targetClass &&
+            activeRoomType === 'batch_group' &&
+            notif.targetClass === activeRoomBatch))
+
+      if (!isViewingSameChatRoom) {
+        setActiveToast(notif)
+      }
       triggerSystemNotification(notif.title, notif.message, notif.href)
     }
 
     window.addEventListener('ics-campus-notification', handleIncoming)
     return () => {
+      unsubscribeRealtime()
       window.clearInterval(timer)
-      window.removeEventListener('click', requestPermissionOnce)
-      window.removeEventListener('touchend', requestPermissionOnce)
+      window.removeEventListener('click', handleUserGestureUnlock)
+      window.removeEventListener('touchend', handleUserGestureUnlock)
+      window.removeEventListener('keydown', handleUserGestureUnlock)
       window.removeEventListener('focus', handleWakeOrFocus)
       document.removeEventListener('visibilitychange', handleWakeOrFocus)
       window.removeEventListener('ics-campus-notification', handleIncoming)
@@ -367,6 +397,7 @@ export function CampusNotificationBell({
   }, [filteredNotifications, readIds, studentId, classNameFilter])
 
   const requestAndTestNotification = useCallback(async () => {
+    unlockNotificationAudio()
     if (typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission === 'default') {
         try {
@@ -381,7 +412,7 @@ export function CampusNotificationBell({
       type: 'notice',
       title: 'ICS Academy Live Notifications Active',
       message:
-        'You will immediately receive notification bars for all Usthad announcements, holiday notices, and attendance updates.',
+        'Sound & push notifications are enabled for messages, Usthad announcements, and attendance updates.',
       actorName: 'ICS Academy Portal',
       href: '#notices',
       createdAt: new Date().toISOString(),

@@ -1581,9 +1581,7 @@ export function PrincipalDashboard() {
             : 'max-lg:overflow-y-auto max-lg:overflow-x-hidden max-lg:overscroll-y-contain',
         )}
       >
-        <div className={cn(activeTab === 'chat' && 'hidden lg:block')}>
-          <CampusNotificationBar />
-        </div>
+        <CampusNotificationBar />
 
         <main
           className={cn(
@@ -4557,17 +4555,22 @@ export function PrincipalDashboard() {
           </div>
         )}
 
-        {/* TAB 3: WHATSAPP-STYLE CAMPUS MESSENGER & STAFF ROOM */}
-        {activeTab === 'chat' && (
-          <div className="max-lg:flex max-lg:flex-1 max-lg:min-h-0 max-lg:w-full max-lg:flex-col max-lg:overflow-hidden animate-in fade-in-0 duration-300">
-            <CampusMessenger
-              role="principal"
-              principal={principal}
-              activeClassName={selectedClassName}
-              mobileFullScreen
-            />
-          </div>
-        )}
+        {/* TAB 3: WHATSAPP-STYLE CAMPUS MESSENGER & STAFF ROOM (Kept mounted for live delivery & presence sync) */}
+        <div
+          className={cn(
+            activeTab === 'chat'
+              ? 'max-lg:flex max-lg:flex-1 max-lg:min-h-0 max-lg:w-full max-lg:flex-col max-lg:overflow-hidden animate-in fade-in-0 duration-300'
+              : 'hidden',
+          )}
+        >
+          <CampusMessenger
+            role="principal"
+            principal={principal}
+            activeClassName={selectedClassName}
+            mobileFullScreen
+            isMessengerVisible={activeTab === 'chat'}
+          />
+        </div>
         </main>
       </div>
 

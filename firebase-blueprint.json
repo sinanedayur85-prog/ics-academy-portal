@@ -244,6 +244,425 @@
         "summary",
         "createdAt"
       ]
+    },
+    "CampusChatMessage": {
+      "title": "CampusChatMessage",
+      "description": "A real-time message in ICS Academy Campus Messenger supporting direct chats, batch groups, Staff Room, delivery ticks, and read receipts.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique message identifier.",
+          "minLength": 4,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "campusId": {
+          "type": "string",
+          "description": "Fixed campus tenant identifier (ics-academy).",
+          "enum": ["ics-academy"],
+          "minLength": 11,
+          "maxLength": 16
+        },
+        "roomId": {
+          "type": "string",
+          "description": "Target room identifier (direct__, batch_group__, or staff_group__usthads).",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "senderId": {
+          "type": "string",
+          "description": "Canonical actor ID of the sender (std-..., usthad-..., principal-...).",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^(st[d]?|usthad|principal)-[a-zA-Z0-9_\\-]+$"
+        },
+        "senderName": {
+          "type": "string",
+          "description": "Display name of the sender.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "senderRole": {
+          "type": "string",
+          "description": "Role of the sender.",
+          "enum": ["student", "usthad", "principal"],
+          "minLength": 6,
+          "maxLength": 12
+        },
+        "senderBadge": {
+          "type": "string",
+          "description": "Optional role or class badge.",
+          "minLength": 0,
+          "maxLength": 80
+        },
+        "text": {
+          "type": "string",
+          "description": "Message body or caption.",
+          "minLength": 0,
+          "maxLength": 8000
+        },
+        "mediaType": {
+          "type": "string",
+          "description": "Attached media category.",
+          "enum": ["none", "voice", "image", "pdf"],
+          "minLength": 3,
+          "maxLength": 10
+        },
+        "mediaUrl": {
+          "type": "string",
+          "description": "Optional bounded data URL or HTTPS link for attached media.",
+          "minLength": 0,
+          "maxLength": 750000
+        },
+        "mediaName": {
+          "type": "string",
+          "description": "Optional attachment filename.",
+          "minLength": 0,
+          "maxLength": 200
+        },
+        "mediaSizeLabel": {
+          "type": "string",
+          "description": "Optional formatted attachment size.",
+          "minLength": 0,
+          "maxLength": 64
+        },
+        "mediaDurationSec": {
+          "type": "number",
+          "description": "Optional duration in seconds for voice notes.",
+          "minimum": 0,
+          "maximum": 3600
+        },
+        "imageQuality": {
+          "type": "string",
+          "description": "Optional image quality tier.",
+          "enum": ["standard", "hd"],
+          "minLength": 2,
+          "maxLength": 10
+        },
+        "imageDimensions": {
+          "type": "string",
+          "description": "Optional image pixel dimensions string.",
+          "minLength": 0,
+          "maxLength": 40
+        },
+        "replyTo": {
+          "type": "object",
+          "description": "Optional reference to a replied message."
+        },
+        "reactions": {
+          "type": "object",
+          "description": "Emoji reactions map keyed by emoji string."
+        },
+        "deliveredTo": {
+          "type": "array",
+          "description": "Bounded list of actor IDs that received the message."
+        },
+        "readBy": {
+          "type": "array",
+          "description": "Bounded list of actor IDs that read the message."
+        },
+        "deletedFor": {
+          "type": "array",
+          "description": "Bounded list of actor IDs who deleted this message for themselves."
+        },
+        "isDeleted": {
+          "type": "boolean",
+          "description": "Whether the message was deleted for everyone."
+        },
+        "deletedBy": {
+          "type": "string",
+          "description": "Display name of the actor who deleted the message for everyone.",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "deletedById": {
+          "type": "string",
+          "description": "Actor ID of the deleter.",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^(st[d]?|usthad|principal)-[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the message was created."
+        },
+        "createdAtMs": {
+          "type": "integer",
+          "description": "Epoch milliseconds timestamp for deterministic sorting.",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id",
+        "campusId",
+        "roomId",
+        "senderId",
+        "senderName",
+        "senderRole",
+        "text",
+        "mediaType",
+        "reactions",
+        "deliveredTo",
+        "readBy",
+        "deletedFor",
+        "isDeleted",
+        "createdAt",
+        "createdAtMs"
+      ]
+    },
+    "CampusChatRoomMeta": {
+      "title": "CampusChatRoomMeta",
+      "description": "Room moderation metadata such as pinned message ID and Usthad-only lock state.",
+      "type": "object",
+      "properties": {
+        "campusId": {
+          "type": "string",
+          "description": "Fixed campus tenant identifier (ics-academy).",
+          "enum": ["ics-academy"],
+          "minLength": 11,
+          "maxLength": 16
+        },
+        "roomId": {
+          "type": "string",
+          "description": "Canonical room identifier.",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "onlyAdminsCanPost": {
+          "type": "boolean",
+          "description": "Whether messaging is restricted to Usthads and Principal."
+        },
+        "pinnedMessageId": {
+          "type": "string",
+          "description": "Optional pinned message identifier or null.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "updatedByActorId": {
+          "type": "string",
+          "description": "Actor ID who last updated the room metadata.",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^(st[d]?|usthad|principal)-[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when metadata was created."
+        },
+        "updatedAtMs": {
+          "type": "integer",
+          "description": "Last update epoch milliseconds.",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "campusId",
+        "roomId",
+        "onlyAdminsCanPost",
+        "pinnedMessageId",
+        "updatedByActorId",
+        "createdAt",
+        "updatedAtMs"
+      ]
+    },
+    "CampusChatPresence": {
+      "title": "CampusChatPresence",
+      "description": "Live online status, last seen timestamp, and typing/recording indicator for an ICS Academy portal actor.",
+      "type": "object",
+      "properties": {
+        "campusId": {
+          "type": "string",
+          "description": "Fixed campus tenant identifier (ics-academy).",
+          "enum": ["ics-academy"],
+          "minLength": 11,
+          "maxLength": 16
+        },
+        "actorId": {
+          "type": "string",
+          "description": "Canonical portal actor ID.",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^(st[d]?|usthad|principal)-[a-zA-Z0-9_\\-]+$"
+        },
+        "actorName": {
+          "type": "string",
+          "description": "Display name of the actor.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "actorRole": {
+          "type": "string",
+          "description": "Role of the actor.",
+          "enum": ["student", "usthad", "principal"],
+          "minLength": 6,
+          "maxLength": 12
+        },
+        "lastSeenMs": {
+          "type": "integer",
+          "description": "Last heartbeat epoch milliseconds.",
+          "minimum": 1
+        },
+        "isOnline": {
+          "type": "boolean",
+          "description": "Whether the actor is currently active in the app."
+        },
+        "hideOnline": {
+          "type": "boolean",
+          "description": "Whether the user opted to hide online status."
+        },
+        "typingRoomId": {
+          "type": "string",
+          "description": "Room ID where the user is currently typing or recording.",
+          "minLength": 0,
+          "maxLength": 160
+        },
+        "typingMode": {
+          "type": "string",
+          "description": "Current composer activity state.",
+          "enum": ["idle", "typing", "recording"],
+          "minLength": 4,
+          "maxLength": 12
+        },
+        "typingUpdatedAtMs": {
+          "type": "integer",
+          "description": "Timestamp of last typing state update.",
+          "minimum": 0
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when presence doc was initialized."
+        }
+      },
+      "required": [
+        "campusId",
+        "actorId",
+        "actorName",
+        "actorRole",
+        "lastSeenMs",
+        "isOnline",
+        "hideOnline",
+        "typingRoomId",
+        "typingMode",
+        "typingUpdatedAtMs",
+        "createdAt"
+      ]
+    },
+    "CampusNotification": {
+      "title": "CampusNotification",
+      "description": "Real-time targeted notification event for notices, chat messages, attendance, or leave updates.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique notification ID.",
+          "minLength": 4,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "campusId": {
+          "type": "string",
+          "description": "Fixed campus tenant identifier (ics-academy).",
+          "enum": ["ics-academy"],
+          "minLength": 11,
+          "maxLength": 16
+        },
+        "type": {
+          "type": "string",
+          "description": "Notification category.",
+          "enum": ["notice", "attendance", "period-attendance", "leave", "chat"],
+          "minLength": 4,
+          "maxLength": 24
+        },
+        "title": {
+          "type": "string",
+          "description": "Notification title.",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "message": {
+          "type": "string",
+          "description": "Notification preview body.",
+          "minLength": 1,
+          "maxLength": 1500
+        },
+        "category": {
+          "type": "string",
+          "description": "Optional notice category.",
+          "minLength": 0,
+          "maxLength": 40
+        },
+        "targetClass": {
+          "type": "string",
+          "description": "Optional single target class.",
+          "minLength": 0,
+          "maxLength": 40
+        },
+        "targetClasses": {
+          "type": "array",
+          "description": "Optional bounded list of target classes."
+        },
+        "targetStudentId": {
+          "type": "string",
+          "description": "Optional targeted student ID.",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^(st[d]?|usthad|principal)-[a-zA-Z0-9_\\-]+$"
+        },
+        "targetRecipientId": {
+          "type": "string",
+          "description": "Optional direct recipient actor ID.",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^(st[d]?|usthad|principal)-[a-zA-Z0-9_\\-]+$"
+        },
+        "targetStaffOnly": {
+          "type": "boolean",
+          "description": "Whether notification is restricted to Usthads and Principal."
+        },
+        "actorId": {
+          "type": "string",
+          "description": "Sender actor ID for self-exclusion.",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^(st[d]?|usthad|principal)-[a-zA-Z0-9_\\-]+$"
+        },
+        "actorName": {
+          "type": "string",
+          "description": "Sender display name.",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "href": {
+          "type": "string",
+          "description": "Target hash route.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when notification was created."
+        },
+        "createdAtMs": {
+          "type": "integer",
+          "description": "Epoch milliseconds timestamp.",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id",
+        "campusId",
+        "type",
+        "title",
+        "message",
+        "href",
+        "createdAt",
+        "createdAtMs"
+      ]
     }
   },
   "firestore": {
@@ -258,6 +677,22 @@
     "/digitalKitabs/{kitabId}": {
       "schema": { "$ref": "#/entities/DigitalKitab" },
       "description": "Stores metadata and Firebase Storage paths for academic Kitabs and PDFs in the Digital Library."
+    },
+    "/campusChatMessages/{messageId}": {
+      "schema": { "$ref": "#/entities/CampusChatMessage" },
+      "description": "Stores real-time Campus Messenger messages, delivery receipts, and read receipts synced across web, iOS PWA, and Android APK."
+    },
+    "/campusChatMeta/{roomDocId}": {
+      "schema": { "$ref": "#/entities/CampusChatRoomMeta" },
+      "description": "Stores per-room moderation settings (pinned message, admin-only lock) synced across devices."
+    },
+    "/campusChatPresence/{actorId}": {
+      "schema": { "$ref": "#/entities/CampusChatPresence" },
+      "description": "Stores real-time online heartbeat, last seen, and typing indicator for each portal actor."
+    },
+    "/campusNotifications/{notifId}": {
+      "schema": { "$ref": "#/entities/CampusNotification" },
+      "description": "Stores real-time targeted campus announcements, chat alerts, attendance updates, and leave notifications."
     }
   }
 }

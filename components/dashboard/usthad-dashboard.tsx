@@ -950,9 +950,7 @@ export function UsthadDashboard() {
             : 'max-lg:overflow-y-auto max-lg:overflow-x-hidden max-lg:overscroll-y-contain',
         )}
       >
-        <div className={cn(mobileTab === 'chat' && 'hidden lg:block')}>
-          <CampusNotificationBar classNameFilter={usthad.className} />
-        </div>
+        <CampusNotificationBar classNameFilter={usthad.className} />
 
         <main
           className={cn(
@@ -2705,6 +2703,7 @@ export function UsthadDashboard() {
             usthad={usthad}
             activeClassName={activeClassName}
             mobileFullScreen
+            mobileTabActive={mobileTab === 'chat'}
           />
         </div>
 
