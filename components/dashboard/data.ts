@@ -9,6 +9,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
 } from 'firebase/firestore'
 import { db, handleFirestoreError, OperationType } from '@/src/lib/firebase'
 
@@ -3972,6 +3973,7 @@ export function subscribeRealtimeCampusNotificationsAndDelivery(
   try {
     const notifQuery = query(
       collection(db, 'campusNotifications'),
+      where('createdAtMs', '>', 0),
       orderBy('createdAtMs', 'desc'),
       limit(60),
     )
@@ -4094,6 +4096,7 @@ export function subscribeRealtimeCampusNotificationsAndDelivery(
   try {
     const msgQuery = query(
       collection(db, 'campusChatMessages'),
+      where('createdAtMs', '>', 0),
       orderBy('createdAtMs', 'desc'),
       limit(80),
     )

@@ -12,6 +12,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
 } from 'firebase/firestore'
 import {
   ArrowLeft,
@@ -1284,6 +1285,7 @@ export function CampusMessenger({
     try {
       const msgQuery = query(
         collection(db, 'campusChatMessages'),
+        where('createdAtMs', '>', 0),
         orderBy('createdAtMs', 'desc'),
         limit(250),
       )
@@ -1400,7 +1402,11 @@ export function CampusMessenger({
     }
 
     try {
-      const unsubMeta = onSnapshot(collection(db, 'campusChatMeta'), (snapshot) => {
+      const metaQuery = query(
+        collection(db, 'campusChatMeta'),
+        where('campusId', '==', 'ics-academy'),
+      )
+      const unsubMeta = onSnapshot(metaQuery, (snapshot) => {
         const fsMeta: Record<string, ChatRoomMeta> = {}
         snapshot.forEach((docSnap) => {
           knownMetaIdsRef.current.add(docSnap.id)
@@ -1425,7 +1431,11 @@ export function CampusMessenger({
     }
 
     try {
-      const unsubPresence = onSnapshot(collection(db, 'campusChatPresence'), (snapshot) => {
+      const presenceQuery = query(
+        collection(db, 'campusChatPresence'),
+        where('campusId', '==', 'ics-academy'),
+      )
+      const unsubPresence = onSnapshot(presenceQuery, (snapshot) => {
         const fsPresence: Record<string, ChatPresenceEntry> = {}
         const fsTyping: Record<string, Record<string, ChatTypingEntry>> = {}
         snapshot.forEach((docSnap) => {

@@ -538,8 +538,7 @@ service cloud.firestore {
         && resource != null
         && existing().campusId == 'ics-academy'
         && isPortalActorId(existing().senderId);
-      allow list: if existing().campusId == 'ics-academy'
-        && isPortalActorId(existing().senderId);
+      allow list: if existing().createdAtMs > 0;
       allow create: if isValidId(messageId)
         && isValidChatMessage(incoming())
         && incoming().id == messageId
@@ -568,8 +567,7 @@ service cloud.firestore {
         && resource != null
         && existing().campusId == 'ics-academy'
         && isPortalActorId(existing().updatedByActorId);
-      allow list: if existing().campusId == 'ics-academy'
-        && isPortalActorId(existing().updatedByActorId);
+      allow list: if existing().campusId == 'ics-academy';
       allow create: if isValidId(roomDocId)
         && isValidChatRoomMeta(incoming())
         && incoming().createdAt == request.time;
@@ -589,8 +587,7 @@ service cloud.firestore {
         && resource != null
         && existing().campusId == 'ics-academy'
         && isPortalActorId(existing().actorId);
-      allow list: if existing().campusId == 'ics-academy'
-        && isPortalActorId(existing().actorId);
+      allow list: if existing().campusId == 'ics-academy';
       allow create: if isValidId(actorId)
         && isValidChatPresence(incoming())
         && incoming().actorId == actorId
@@ -611,8 +608,7 @@ service cloud.firestore {
         && resource != null
         && existing().campusId == 'ics-academy'
         && existing().createdAtMs is int;
-      allow list: if existing().campusId == 'ics-academy'
-        && existing().createdAtMs is int;
+      allow list: if existing().createdAtMs > 0;
       allow create: if isValidId(notifId)
         && isValidCampusNotification(incoming())
         && incoming().id == notifId
