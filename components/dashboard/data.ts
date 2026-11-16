@@ -2809,6 +2809,7 @@ export function createAndStoreCampusNotification(input: {
 }
 
 export function publishCampusNotification(input: {
+  id?: string
   type: CampusNotificationType
   title: string
   message: string
@@ -2823,7 +2824,7 @@ export function publishCampusNotification(input: {
   href?: string
 }): CampusNotification {
   const notif = createAndStoreCampusNotification(input)
-  pushCampusSyncToServer({ notification: notif })
+  void pushCampusSyncToServer({ notification: notif })
   return notif
 }
 
@@ -3524,6 +3525,32 @@ if (typeof window !== 'undefined') {
   }
 }
 
+const DELIVERED_NOTIF_IDS_BY_ACTOR_PREFIX = 'ics_delivered_notifs_v3_'
+
+function loadDeliveredNotifIdsForActor(actorId: string): Set<string> {
+  if (typeof window === 'undefined' || !actorId) return new Set()
+  try {
+    const raw = window.localStorage.getItem(`${DELIVERED_NOTIF_IDS_BY_ACTOR_PREFIX}${actorId}`)
+    if (!raw) return new Set()
+    const parsed = JSON.parse(raw) as string[]
+    return new Set(Array.isArray(parsed) ? parsed : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function saveDeliveredNotifIdsForActor(actorId: string, ids: Set<string>): void {
+  if (typeof window === 'undefined' || !actorId) return
+  try {
+    window.localStorage.setItem(
+      `${DELIVERED_NOTIF_IDS_BY_ACTOR_PREFIX}${actorId}`,
+      JSON.stringify(Array.from(ids).slice(-150)),
+    )
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export async function pushCampusSyncToServer(payload: {
   customNotices?: Notice[]
   attendanceOverrides?: AttendanceOverrideMap
@@ -3534,32 +3561,40 @@ export async function pushCampusSyncToServer(payload: {
   notification?: CampusNotification
 }): Promise<void> {
   if (typeof window === 'undefined') return
-  const bases = getOrderedSyncBases()
-  for (const base of bases) {
-    try {
-      const res = await fetch(`${base}/sync`, {
+  const bases = Array.from(new Set(getOrderedSyncBases()))
+  await Promise.allSettled(
+    bases.map((base) =>
+      fetch(`${base}/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      })
-      if (res.ok) return
-    } catch {
-      // Try next endpoint
-    }
-  }
+      }),
+    ),
+  )
 }
 
 export async function pullCampusStateFromServer(): Promise<void> {
   if (typeof window === 'undefined') return
-  const bases = getOrderedSyncBases()
-  for (const base of bases) {
-    try {
-      const res = await fetch(`${base}/state?t=${Date.now()}`, {
+  const bases = Array.from(new Set(getOrderedSyncBases()))
+  const session = getCurrentSessionIdentity()
+  const queryParams = new URLSearchParams({
+    t: String(Date.now()),
+  })
+  if (session.hasDeviceIdentity && session.actorId) {
+    queryParams.set('actorId', session.actorId)
+    if (session.className) queryParams.set('className', session.className)
+    queryParams.set('isStaff', String(Boolean(session.isStaff)))
+  }
+
+  const results = await Promise.allSettled(
+    bases.map(async (base) => {
+      const res = await fetch(`${base}/state?${queryParams.toString()}`, {
         method: 'GET',
         cache: 'no-store',
       })
-      if (!res.ok) continue
-      const data = (await res.json()) as {
+      if (!res.ok) throw new Error('Not OK')
+      return (await res.json()) as {
+        updatedAtMs?: number
         customNotices?: Notice[] | null
         attendanceOverrides?: AttendanceOverrideMap | null
         periodSubmissions?: Record<string, PeriodAttendanceSubmission> | null
@@ -3567,147 +3602,208 @@ export async function pullCampusStateFromServer(): Promise<void> {
         academyAdminConfig?: AcademyAdminConfig | null
         notifications?: CampusNotification[]
       }
+    }),
+  )
 
-      // 0. Merge Principal Academy Admin Config (Students, Usthads, Leaders, Timetables)
+  const validStates = results
+    .filter((r): r is PromiseFulfilledResult<{
+      updatedAtMs?: number
+      customNotices?: Notice[] | null
+      attendanceOverrides?: AttendanceOverrideMap | null
+      periodSubmissions?: Record<string, PeriodAttendanceSubmission> | null
+      deletedPeriodKeys?: Record<string, number> | null
+      academyAdminConfig?: AcademyAdminConfig | null
+      notifications?: CampusNotification[]
+    }> => r.status === 'fulfilled' && Boolean(r.value))
+    .map((r) => r.value)
+
+  if (validStates.length === 0) return
+
+  // Sort by updatedAtMs descending so primary/newest state is processed first while notifications merge across all
+  validStates.sort((a, b) => (b.updatedAtMs || 0) - (a.updatedAtMs || 0))
+  const data = validStates[0]
+
+  try {
+    // 0. Merge Principal Academy Admin Config (Students, Usthads, Leaders, Timetables)
+    for (const st of validStates) {
       if (
-        data.academyAdminConfig &&
-        typeof data.academyAdminConfig === 'object' &&
-        typeof data.academyAdminConfig.updatedAtMs === 'number'
+        st.academyAdminConfig &&
+        typeof st.academyAdminConfig === 'object' &&
+        typeof st.academyAdminConfig.updatedAtMs === 'number'
       ) {
         const localConfig = loadAcademyAdminConfig()
-        if (data.academyAdminConfig.updatedAtMs > (localConfig.updatedAtMs || 0)) {
+        if (st.academyAdminConfig.updatedAtMs > (localConfig.updatedAtMs || 0)) {
           window.localStorage.setItem(
             ACADEMY_ADMIN_CONFIG_STORAGE_KEY,
-            JSON.stringify(data.academyAdminConfig),
+            JSON.stringify(st.academyAdminConfig),
           )
-          applyAcademyAdminConfig(data.academyAdminConfig)
+          applyAcademyAdminConfig(st.academyAdminConfig)
           window.dispatchEvent(new CustomEvent('ics-academy-config-updated'))
           window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
           window.dispatchEvent(new CustomEvent('ics-period-attendance-updated'))
         }
       }
+    }
 
-      // 1. Merge custom notices
-      if (Array.isArray(data.customNotices) && data.customNotices.length > 0) {
-        const localNotices = loadCustomNotices()
-        const localIds = new Set(localNotices.map((n) => n.id))
-        const hasNewNotice = data.customNotices.some((n) => !localIds.has(n.id))
-        if (hasNewNotice || data.customNotices.length !== localNotices.length) {
-          window.localStorage.setItem(
-            CUSTOM_NOTICES_STORAGE_KEY,
-            JSON.stringify(data.customNotices),
-          )
-          window.dispatchEvent(new CustomEvent('ics-notices-updated'))
-          window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
-        }
+    // 1. Merge custom notices
+    if (Array.isArray(data.customNotices) && data.customNotices.length > 0) {
+      const localNotices = loadCustomNotices()
+      const localIds = new Set(localNotices.map((n) => n.id))
+      const hasNewNotice = data.customNotices.some((n) => !localIds.has(n.id))
+      if (hasNewNotice || data.customNotices.length !== localNotices.length) {
+        window.localStorage.setItem(
+          CUSTOM_NOTICES_STORAGE_KEY,
+          JSON.stringify(data.customNotices),
+        )
+        window.dispatchEvent(new CustomEvent('ics-notices-updated'))
+        window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
       }
+    }
 
-      // 2. Merge attendance overrides
-      if (data.attendanceOverrides && typeof data.attendanceOverrides === 'object') {
-        const localOverrides = loadAttendanceOverrides()
-        const mergedOverrides = { ...localOverrides, ...data.attendanceOverrides }
-        if (JSON.stringify(mergedOverrides) !== JSON.stringify(localOverrides)) {
-          window.localStorage.setItem(
-            ATTENDANCE_OVERRIDES_STORAGE_KEY,
-            JSON.stringify(mergedOverrides),
-          )
-          window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
-        }
+    // 2. Merge attendance overrides across all reachable endpoints
+    const localOverrides = loadAttendanceOverrides()
+    let mergedOverrides = { ...localOverrides }
+    for (const st of [...validStates].reverse()) {
+      if (st.attendanceOverrides && typeof st.attendanceOverrides === 'object') {
+        mergedOverrides = { ...mergedOverrides, ...st.attendanceOverrides }
       }
+    }
+    if (JSON.stringify(mergedOverrides) !== JSON.stringify(localOverrides)) {
+      window.localStorage.setItem(
+        ATTENDANCE_OVERRIDES_STORAGE_KEY,
+        JSON.stringify(mergedOverrides),
+      )
+      window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
+    }
 
-      // 3. Merge period attendance submissions & respect deleted keys
-      const localDeleted = loadDeletedPeriodKeys()
+    // 3. Merge period attendance submissions & respect deleted keys
+    const localDeleted = loadDeletedPeriodKeys()
+    const mergedDeleted: Record<string, number> = { ...localDeleted }
+    for (const st of validStates) {
       const serverDeleted =
-        data.deletedPeriodKeys && typeof data.deletedPeriodKeys === 'object'
-          ? data.deletedPeriodKeys
+        st.deletedPeriodKeys && typeof st.deletedPeriodKeys === 'object'
+          ? st.deletedPeriodKeys
           : {}
-      const mergedDeleted: Record<string, number> = { ...localDeleted }
       for (const [k, ts] of Object.entries(serverDeleted)) {
         if (!mergedDeleted[k] || ts > mergedDeleted[k]) {
           mergedDeleted[k] = ts
         }
       }
-      if (JSON.stringify(mergedDeleted) !== JSON.stringify(localDeleted)) {
-        saveDeletedPeriodKeys(mergedDeleted)
-      }
-
-      if (
-        (data.periodSubmissions && typeof data.periodSubmissions === 'object') ||
-        Object.keys(mergedDeleted).length > 0
-      ) {
-        const localSubs = loadPeriodAttendanceSubmissions()
-        const mergedSubs: Record<string, PeriodAttendanceSubmission> = { ...localSubs }
-
-        if (data.periodSubmissions && typeof data.periodSubmissions === 'object') {
-          for (const [k, serverSub] of Object.entries(data.periodSubmissions)) {
-            const localSub = mergedSubs[k]
-            if (!localSub) {
-              mergedSubs[k] = serverSub
-            } else {
-              const serverTouchMs = new Date(
-                serverSub.lastEditedAt || serverSub.submittedAt || 0,
-              ).getTime()
-              const localTouchMs = new Date(
-                localSub.lastEditedAt || localSub.submittedAt || 0,
-              ).getTime()
-              if (serverTouchMs >= localTouchMs) {
-                mergedSubs[k] = serverSub
-              }
-            }
-          }
-        }
-
-        for (const [delKey, delTs] of Object.entries(mergedDeleted)) {
-          const existing = mergedSubs[delKey]
-          if (existing) {
-            const subTouchMs = new Date(
-              existing.lastEditedAt || existing.submittedAt || 0,
-            ).getTime()
-            if (delTs >= subTouchMs) {
-              delete mergedSubs[delKey]
-            }
-          }
-        }
-
-        if (JSON.stringify(mergedSubs) !== JSON.stringify(localSubs)) {
-          window.localStorage.setItem(
-            PERIOD_ATTENDANCE_STORAGE_KEY,
-            JSON.stringify(mergedSubs),
-          )
-          window.dispatchEvent(new CustomEvent('ics-period-attendance-updated'))
-          window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
-        }
-      }
-
-      // 4. Merge notifications and emit banner ONLY for brand-new notifications relevant to this logged-in user
-      if (Array.isArray(data.notifications) && data.notifications.length > 0) {
-        const localNotifs = loadCampusNotifications()
-        const localIds = new Set(localNotifs.map((n) => n.id))
-        const brandNew = data.notifications.filter((n) => !localIds.has(n.id))
-        if (brandNew.length > 0) {
-          const combined = [...brandNew, ...localNotifs]
-            .sort((a, b) => b.createdAtMs - a.createdAtMs)
-            .slice(0, 60)
-          window.localStorage.setItem(
-            CAMPUS_NOTIFICATIONS_STORAGE_KEY,
-            JSON.stringify(combined),
-          )
-          const relevantNew = brandNew.find((n) =>
-            isNotificationRelevantForCurrentBrowserSession(n),
-          )
-          if (relevantNew) {
-            window.dispatchEvent(
-              new CustomEvent('ics-campus-notification', {
-                detail: relevantNew,
-              }),
-            )
-          }
-        }
-      }
-      return
-    } catch {
-      // Try next endpoint
     }
+    if (JSON.stringify(mergedDeleted) !== JSON.stringify(localDeleted)) {
+      saveDeletedPeriodKeys(mergedDeleted)
+    }
+
+    const localSubs = loadPeriodAttendanceSubmissions()
+    const mergedSubs: Record<string, PeriodAttendanceSubmission> = { ...localSubs }
+    for (const st of validStates) {
+      if (st.periodSubmissions && typeof st.periodSubmissions === 'object') {
+        for (const [k, serverSub] of Object.entries(st.periodSubmissions)) {
+          const localSub = mergedSubs[k]
+          if (!localSub) {
+            mergedSubs[k] = serverSub
+          } else {
+            const serverTouchMs = new Date(
+              serverSub.lastEditedAt || serverSub.submittedAt || 0,
+            ).getTime()
+            const localTouchMs = new Date(
+              localSub.lastEditedAt || localSub.submittedAt || 0,
+            ).getTime()
+            if (serverTouchMs >= localTouchMs) {
+              mergedSubs[k] = serverSub
+            }
+          }
+        }
+      }
+    }
+
+    for (const [delKey, delTs] of Object.entries(mergedDeleted)) {
+      const existing = mergedSubs[delKey]
+      if (existing) {
+        const subTouchMs = new Date(
+          existing.lastEditedAt || existing.submittedAt || 0,
+        ).getTime()
+        if (delTs >= subTouchMs) {
+          delete mergedSubs[delKey]
+        }
+      }
+    }
+
+    if (JSON.stringify(mergedSubs) !== JSON.stringify(localSubs)) {
+      window.localStorage.setItem(
+        PERIOD_ATTENDANCE_STORAGE_KEY,
+        JSON.stringify(mergedSubs),
+      )
+      window.dispatchEvent(new CustomEvent('ics-period-attendance-updated'))
+      window.dispatchEvent(new CustomEvent('ics-attendance-updated'))
+    }
+
+    // 4. Merge notifications across all endpoints and emit banner for any notification not yet delivered to this actorId
+    const localNotifs = loadCampusNotifications()
+    const byId = new Map<string, CampusNotification>()
+    for (const n of localNotifs) {
+      if (n && n.id) byId.set(n.id, n)
+    }
+    let hasNewStored = false
+    for (const st of validStates) {
+      if (Array.isArray(st.notifications)) {
+        for (const sn of st.notifications) {
+          if (sn && sn.id && !byId.has(sn.id)) {
+            byId.set(sn.id, sn)
+            hasNewStored = true
+          }
+        }
+      }
+    }
+
+    const combined = Array.from(byId.values())
+      .sort((a, b) => b.createdAtMs - a.createdAtMs)
+      .slice(0, 80)
+
+    if (hasNewStored || combined.length !== localNotifs.length) {
+      window.localStorage.setItem(
+        CAMPUS_NOTIFICATIONS_STORAGE_KEY,
+        JSON.stringify(combined),
+      )
+    }
+
+    if (session.hasDeviceIdentity && session.actorId && combined.length > 0) {
+      const deliveredSet = loadDeliveredNotifIdsForActor(session.actorId)
+      const nowMs = Date.now()
+      const maxAgeMs = 12 * 60 * 60 * 1000 // 12 hours
+      let setModified = false
+      let notifToFire: CampusNotification | null = null
+
+      for (const n of combined) {
+        if (deliveredSet.has(n.id)) continue
+        if (nowMs - (n.createdAtMs || 0) > maxAgeMs) {
+          deliveredSet.add(n.id)
+          setModified = true
+          continue
+        }
+        if (isNotificationRelevantForCurrentBrowserSession(n)) {
+          deliveredSet.add(n.id)
+          setModified = true
+          if (!notifToFire) {
+            notifToFire = n
+          }
+        }
+      }
+
+      if (setModified) {
+        saveDeliveredNotifIdsForActor(session.actorId, deliveredSet)
+      }
+
+      if (notifToFire) {
+        window.dispatchEvent(
+          new CustomEvent('ics-campus-notification', {
+            detail: notifToFire,
+          }),
+        )
+      }
+    }
+  } catch {
+    // Ignore merge errors
   }
 }
 

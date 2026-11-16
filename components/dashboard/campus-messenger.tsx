@@ -40,6 +40,7 @@ import {
   OFFICIAL_CLASS_USTHADS,
   ensureCleanLaunchStorage,
   publishCampusNotification,
+  pullCampusStateFromServer,
   students,
   type ClassUsthad,
   type PrincipalProfile,
@@ -73,6 +74,7 @@ export interface ChatMessage {
   imageDimensions?: string
   replyTo?: ChatReplyRef
   reactions: Record<string, string[]>
+  deliveredTo?: string[]
   readBy: string[]
   isDeleted?: boolean
   deletedBy?: string
@@ -726,149 +728,334 @@ export function CampusMessenger({
   }
 
   // Real-Time Server Sync Helper
+  const mergeIncomingChatStates = useCallback(
+    (
+      states: Array<{
+        roomsMeta?: Record<string, ChatRoomMeta>
+        messagesByRoom?: Record<string, ChatMessage[]>
+        presenceMap?: Record<string, ChatPresenceEntry>
+        typingMap?: Record<string, Record<string, ChatTypingEntry>>
+      }>,
+    ) => {
+      if (states.length === 0) return
+
+      // Merge presenceMap (taking latest lastSeenMs per actor)
+      const mergedPresence: Record<string, ChatPresenceEntry> = {}
+      for (const st of states) {
+        if (!st.presenceMap) continue
+        for (const [aId, p] of Object.entries(st.presenceMap)) {
+          const cur = mergedPresence[aId]
+          if (!cur || (p.lastSeenMs || 0) >= (cur.lastSeenMs || 0)) {
+            mergedPresence[aId] = p
+          }
+        }
+      }
+      if (Object.keys(mergedPresence).length > 0) {
+        setPresenceMap((prev) => ({ ...prev, ...mergedPresence }))
+      }
+
+      // Merge typingMap
+      const mergedTyping: Record<string, Record<string, ChatTypingEntry>> = {}
+      for (const st of states) {
+        if (!st.typingMap) continue
+        for (const [rId, roomTypers] of Object.entries(st.typingMap)) {
+          if (!roomTypers) continue
+          mergedTyping[rId] = { ...(mergedTyping[rId] || {}), ...roomTypers }
+        }
+      }
+      setTypingMap(mergedTyping)
+
+      // Merge roomsMeta (latest updatedAtMs wins)
+      const mergedMeta: Record<string, ChatRoomMeta> = {}
+      for (const st of states) {
+        if (!st.roomsMeta) continue
+        for (const [rId, meta] of Object.entries(st.roomsMeta)) {
+          const cur = mergedMeta[rId]
+          if (!cur || (meta.updatedAtMs || 0) >= (cur.updatedAtMs || 0)) {
+            mergedMeta[rId] = meta
+          }
+        }
+      }
+      if (Object.keys(mergedMeta).length > 0) {
+        setRoomsMeta((prev) => ({ ...prev, ...mergedMeta }))
+      }
+
+      // Merge messagesByRoom across all endpoints monotonically (preserving deliveredTo & readBy sets)
+      const hasAnyMessages = states.some(
+        (st) => st.messagesByRoom && Object.keys(st.messagesByRoom).length > 0,
+      )
+      if (!hasAnyMessages) return
+
+      let localDeletedEverMap: Record<string, { deletedBy: string; deletedById: string }> = {}
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = window.localStorage.getItem('ics_chat_deleted_for_everyone_v1')
+          if (raw) localDeletedEverMap = JSON.parse(raw)
+        } catch {
+          // Ignore
+        }
+      }
+
+      let discoveredNewIncomingFromOthers = false
+
+      setMessagesByRoom((prev) => {
+        let anyRoomChanged = false
+        const next = { ...prev }
+        const allRoomIds = new Set<string>()
+        for (const st of states) {
+          if (st.messagesByRoom) {
+            for (const rId of Object.keys(st.messagesByRoom)) {
+              allRoomIds.add(rId)
+            }
+          }
+        }
+
+        for (const rId of allRoomIds) {
+          let roomChanged = false
+          const localList = next[rId] ?? []
+          const byId = new Map<string, ChatMessage>()
+          for (const m of localList) byId.set(m.id, m)
+
+          // Check if this room belongs to the current user (for automatic delivery receipt)
+          const isMyRoom =
+            (rId.startsWith('direct__') && rId.split('__').includes(actor.id)) ||
+            (rId === STAFF_ROOM_ID && actor.isStaff) ||
+            (rId.startsWith('batch_group__') &&
+              (actor.isStaff || rId === makeBatchRoomId(actor.className)))
+
+          for (const st of states) {
+            const serverMsgs = st.messagesByRoom?.[rId]
+            if (!Array.isArray(serverMsgs) || serverMsgs.length === 0) continue
+
+            for (const sm of serverMsgs) {
+              const existing = byId.get(sm.id)
+              if (!existing && sm.senderId !== actor.id && isMyRoom) {
+                discoveredNewIncomingFromOthers = true
+              }
+
+              const localTombstone = localDeletedEverMap[sm.id]
+              const shouldBeDeleted = Boolean(
+                existing?.isDeleted || sm.isDeleted || localTombstone,
+              )
+              const mergedDeletedFor = Array.from(
+                new Set([...(existing?.deletedFor ?? []), ...(sm.deletedFor ?? [])]),
+              )
+
+              // Monotonically union readBy & deliveredTo across local and server states
+              const mergedReadBy = Array.from(
+                new Set(
+                  [
+                    sm.senderId,
+                    ...(existing?.readBy ?? []),
+                    ...(sm.readBy ?? []),
+                  ].filter(Boolean),
+                ),
+              )
+              const mergedDeliveredTo = Array.from(
+                new Set(
+                  [
+                    sm.senderId,
+                    ...(existing?.deliveredTo ?? []),
+                    ...(sm.deliveredTo ?? []),
+                    ...mergedReadBy,
+                    ...(isMyRoom ? [actor.id] : []),
+                  ].filter(Boolean),
+                ),
+              )
+
+              // Merge reactions across endpoints
+              const mergedReactions: Record<string, string[]> = {
+                ...(existing?.reactions ?? {}),
+                ...(sm.reactions ?? {}),
+              }
+
+              const mergedMsg: ChatMessage = shouldBeDeleted
+                ? {
+                    ...sm,
+                    deliveredTo: mergedDeliveredTo,
+                    readBy: mergedReadBy,
+                    reactions: mergedReactions,
+                    isDeleted: true,
+                    deletedBy:
+                      existing?.deletedBy ||
+                      sm.deletedBy ||
+                      localTombstone?.deletedBy ||
+                      'Member',
+                    deletedById:
+                      existing?.deletedById ||
+                      sm.deletedById ||
+                      localTombstone?.deletedById,
+                    deletedFor: mergedDeletedFor,
+                    text: '',
+                    mediaType: 'none',
+                    mediaUrl: undefined,
+                  }
+                : {
+                    ...sm,
+                    deliveredTo: mergedDeliveredTo,
+                    readBy: mergedReadBy,
+                    reactions: mergedReactions,
+                    deletedFor: mergedDeletedFor,
+                  }
+
+              const prevDeliveredLen = existing?.deliveredTo?.length ?? 0
+              const prevReadLen = existing?.readBy?.length ?? 0
+
+              if (
+                !existing ||
+                existing.isDeleted !== mergedMsg.isDeleted ||
+                existing.deletedById !== mergedMsg.deletedById ||
+                prevDeliveredLen !== mergedDeliveredTo.length ||
+                prevReadLen !== mergedReadBy.length ||
+                JSON.stringify(existing.deletedFor ?? []) !==
+                  JSON.stringify(mergedMsg.deletedFor ?? []) ||
+                JSON.stringify(existing.reactions) !== JSON.stringify(mergedMsg.reactions)
+              ) {
+                byId.set(sm.id, mergedMsg)
+                roomChanged = true
+                anyRoomChanged = true
+              }
+            }
+          }
+
+          if (roomChanged) {
+            next[rId] = Array.from(byId.values()).sort(
+              (a, b) => a.createdAtMs - b.createdAtMs,
+            )
+          }
+        }
+        return anyRoomChanged ? next : prev
+      })
+
+      if (discoveredNewIncomingFromOthers) {
+        void pullCampusStateFromServer()
+      }
+    },
+    [actor.id, actor.className, actor.isStaff],
+  )
+
   const sendChatActionToServer = useCallback(
     async (payload: Record<string, unknown>) => {
-      const bases = getOrderedChatSyncBases()
-      for (const base of bases) {
-        try {
+      const bases = Array.from(new Set(getOrderedChatSyncBases()))
+      const bodyStr = JSON.stringify({
+        actorId: actor.id,
+        actorName: actor.name,
+        actorRole: actor.role,
+        actorClassName: actor.className,
+        hideOnline: !chatSettings.showOnlineStatus,
+        sendReadReceipts: chatSettings.sendReadReceipts,
+        ...payload,
+      })
+
+      const results = await Promise.allSettled(
+        bases.map(async (base) => {
           const res = await fetch(`${base}/action`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              actorId: actor.id,
-              actorName: actor.name,
-              actorRole: actor.role,
-              hideOnline: !chatSettings.showOnlineStatus,
-              ...payload,
-            }),
+            body: bodyStr,
           })
-          if (res.ok) {
-            const data = (await res.json()) as {
-              state?: {
-                roomsMeta?: Record<string, ChatRoomMeta>
-                messagesByRoom?: Record<string, ChatMessage[]>
-                presenceMap?: Record<string, ChatPresenceEntry>
-                typingMap?: Record<string, Record<string, ChatTypingEntry>>
-              }
+          if (!res.ok) throw new Error('Not OK')
+          return (await res.json()) as {
+            state?: {
+              roomsMeta?: Record<string, ChatRoomMeta>
+              messagesByRoom?: Record<string, ChatMessage[]>
+              presenceMap?: Record<string, ChatPresenceEntry>
+              typingMap?: Record<string, Record<string, ChatTypingEntry>>
             }
-            if (data.state) {
-              if (data.state.presenceMap) setPresenceMap(data.state.presenceMap)
-              if (data.state.typingMap) setTypingMap(data.state.typingMap)
-            }
-            return
           }
-        } catch {
-          // Try next endpoint
-        }
+        }),
+      )
+
+      const returnedStates = results
+        .filter(
+          (
+            r,
+          ): r is PromiseFulfilledResult<{
+            state?: {
+              roomsMeta?: Record<string, ChatRoomMeta>
+              messagesByRoom?: Record<string, ChatMessage[]>
+              presenceMap?: Record<string, ChatPresenceEntry>
+              typingMap?: Record<string, Record<string, ChatTypingEntry>>
+            }
+          }> => r.status === 'fulfilled' && Boolean(r.value?.state),
+        )
+        .map((r) => r.value.state!)
+
+      if (returnedStates.length > 0) {
+        mergeIncomingChatStates(returnedStates)
       }
     },
-    [actor.id, actor.name, actor.role, chatSettings.showOnlineStatus],
+    [
+      actor.id,
+      actor.name,
+      actor.role,
+      actor.className,
+      chatSettings.showOnlineStatus,
+      chatSettings.sendReadReceipts,
+      mergeIncomingChatStates,
+    ],
   )
 
   const pullChatStateFromServer = useCallback(async () => {
-    const bases = getOrderedChatSyncBases()
-    for (const base of bases) {
-      try {
-        const res = await fetch(`${base}/state?t=${Date.now()}`, {
+    const bases = Array.from(new Set(getOrderedChatSyncBases()))
+    const isDesktopOrMobilePaneOpen =
+      typeof window !== 'undefined' && (window.innerWidth >= 1024 || mobileShowChatPane)
+    const isTabVisible =
+      typeof document === 'undefined' || document.visibilityState === 'visible'
+
+    const queryParams = new URLSearchParams({
+      t: String(Date.now()),
+      actorId: actor.id,
+      className: actor.className,
+      isStaff: String(Boolean(actor.isStaff)),
+    })
+    if (isDesktopOrMobilePaneOpen && isTabVisible && chatSettings.sendReadReceipts && selectedRoomId) {
+      queryParams.set('readRoomId', selectedRoomId)
+    }
+
+    const results = await Promise.allSettled(
+      bases.map(async (base) => {
+        const res = await fetch(`${base}/state?${queryParams.toString()}`, {
           method: 'GET',
           cache: 'no-store',
         })
-        if (!res.ok) continue
-        const data = (await res.json()) as {
+        if (!res.ok) throw new Error('Not OK')
+        return (await res.json()) as {
           roomsMeta?: Record<string, ChatRoomMeta>
           messagesByRoom?: Record<string, ChatMessage[]>
           presenceMap?: Record<string, ChatPresenceEntry>
           typingMap?: Record<string, Record<string, ChatTypingEntry>>
         }
+      }),
+    )
 
-        if (data.presenceMap) setPresenceMap(data.presenceMap)
-        if (data.typingMap) setTypingMap(data.typingMap)
+    const validStates = results
+      .filter(
+        (
+          r,
+        ): r is PromiseFulfilledResult<{
+          roomsMeta?: Record<string, ChatRoomMeta>
+          messagesByRoom?: Record<string, ChatMessage[]>
+          presenceMap?: Record<string, ChatPresenceEntry>
+          typingMap?: Record<string, Record<string, ChatTypingEntry>>
+        }> => r.status === 'fulfilled' && Boolean(r.value),
+      )
+      .map((r) => r.value)
 
-        if (data.roomsMeta && Object.keys(data.roomsMeta).length > 0) {
-          setRoomsMeta((prev) => ({ ...prev, ...data.roomsMeta }))
-        }
-
-        if (data.messagesByRoom && Object.keys(data.messagesByRoom).length > 0) {
-          let localDeletedEverMap: Record<string, { deletedBy: string; deletedById: string }> = {}
-          if (typeof window !== 'undefined') {
-            try {
-              const raw = window.localStorage.getItem('ics_chat_deleted_for_everyone_v1')
-              if (raw) localDeletedEverMap = JSON.parse(raw)
-            } catch {
-              // Ignore
-            }
-          }
-
-          setMessagesByRoom((prev) => {
-            let changed = false
-            const next = { ...prev }
-            for (const [rId, serverMsgs] of Object.entries(data.messagesByRoom!)) {
-              if (!Array.isArray(serverMsgs) || serverMsgs.length === 0) continue
-              const localList = next[rId] ?? []
-              const byId = new Map<string, ChatMessage>()
-              for (const m of localList) byId.set(m.id, m)
-              for (const sm of serverMsgs) {
-                const existing = byId.get(sm.id)
-                const localTombstone = localDeletedEverMap[sm.id]
-                const shouldBeDeleted = Boolean(
-                  existing?.isDeleted || sm.isDeleted || localTombstone,
-                )
-                const mergedDeletedFor = Array.from(
-                  new Set([...(existing?.deletedFor ?? []), ...(sm.deletedFor ?? [])]),
-                )
-                const mergedMsg: ChatMessage = shouldBeDeleted
-                  ? {
-                      ...sm,
-                      isDeleted: true,
-                      deletedBy:
-                        existing?.deletedBy ||
-                        sm.deletedBy ||
-                        localTombstone?.deletedBy ||
-                        'Member',
-                      deletedById:
-                        existing?.deletedById ||
-                        sm.deletedById ||
-                        localTombstone?.deletedById,
-                      deletedFor: mergedDeletedFor,
-                      text: '',
-                      mediaType: 'none',
-                      mediaUrl: undefined,
-                    }
-                  : {
-                      ...sm,
-                      deletedFor: mergedDeletedFor,
-                    }
-
-                if (
-                  !existing ||
-                  existing.isDeleted !== mergedMsg.isDeleted ||
-                  existing.deletedById !== mergedMsg.deletedById ||
-                  JSON.stringify(existing.deletedFor ?? []) !==
-                    JSON.stringify(mergedMsg.deletedFor ?? []) ||
-                  JSON.stringify(existing.reactions) !== JSON.stringify(mergedMsg.reactions) ||
-                  existing.readBy.length !== mergedMsg.readBy.length
-                ) {
-                  byId.set(sm.id, mergedMsg)
-                  changed = true
-                }
-              }
-              if (changed) {
-                next[rId] = Array.from(byId.values()).sort(
-                  (a, b) => a.createdAtMs - b.createdAtMs,
-                )
-              }
-            }
-            return changed ? next : prev
-          })
-        }
-        return
-      } catch {
-        // Try next endpoint
-      }
+    if (validStates.length > 0) {
+      mergeIncomingChatStates(validStates)
     }
-  }, [])
+  }, [
+    actor.id,
+    actor.className,
+    actor.isStaff,
+    mobileShowChatPane,
+    selectedRoomId,
+    chatSettings.sendReadReceipts,
+    mergeIncomingChatStates,
+  ])
 
-  // Poll chat state & send presence heartbeat every 4 seconds ONLY while app is actively visible
+  // Poll chat state & send presence heartbeat every 2.5 seconds for real-time WhatsApp tick updates
   useEffect(() => {
     void pullChatStateFromServer()
     if (typeof document === 'undefined' || document.visibilityState === 'visible') {
@@ -888,12 +1075,13 @@ export function CampusMessenger({
           typingMode: isRecordingVoice ? 'recording' : 'idle',
         })
       }
-    }, 4000)
+    }, 2500)
 
     const handleVisibilityOrLeave = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
         void sendChatActionToServer({ action: 'leave_presence' })
       } else {
+        void pullChatStateFromServer()
         void sendChatActionToServer({
           action: 'heartbeat',
           roomId: selectedRoomId,
@@ -951,28 +1139,50 @@ export function CampusMessenger({
     )
   }, [activeRoomMeta.pinnedMessageId, activeMessages])
 
-  // Mark messages in active room as read by current actor (if Read Receipts are enabled)
+  // Mark messages in active room as delivered & read by current actor when conversation is open
   useEffect(() => {
-    if (!chatSettings.sendReadReceipts) return
+    const isDesktopOrMobilePaneOpen =
+      typeof window !== 'undefined' && (window.innerWidth >= 1024 || mobileShowChatPane)
+    const isTabVisible =
+      typeof document === 'undefined' || document.visibilityState === 'visible'
+    if (!isDesktopOrMobilePaneOpen || !isTabVisible) return
+
     const rId = activeRoom.roomId
     const list = messagesByRoom[rId] ?? []
-    const hasUnread = list.some((m) => !m.readBy.includes(actor.id))
-    if (!hasUnread) return
+    const needsReadOrDelivered = list.some(
+      (m) =>
+        !(m.deliveredTo ?? []).includes(actor.id) ||
+        (chatSettings.sendReadReceipts && !m.readBy.includes(actor.id)),
+    )
+    if (!needsReadOrDelivered) return
 
     setMessagesByRoom((prev) => {
       const currentList = prev[rId] ?? []
       return {
         ...prev,
-        [rId]: currentList.map((m) =>
-          m.readBy.includes(actor.id) ? m : { ...m, readBy: [...m.readBy, actor.id] },
-        ),
+        [rId]: currentList.map((m) => {
+          const nextDelivered = Array.from(new Set([...(m.deliveredTo ?? [m.senderId]), actor.id]))
+          const nextRead = chatSettings.sendReadReceipts
+            ? Array.from(new Set([...m.readBy, actor.id]))
+            : m.readBy
+          return {
+            ...m,
+            deliveredTo: nextDelivered,
+            readBy: nextRead,
+          }
+        }),
       }
     })
-    void sendChatActionToServer({ action: 'mark_read', roomId: rId })
+    void sendChatActionToServer({
+      action: 'mark_read',
+      roomId: rId,
+      sendReadReceipts: chatSettings.sendReadReceipts,
+    })
   }, [
     activeRoom.roomId,
     actor.id,
     messagesByRoom,
+    mobileShowChatPane,
     sendChatActionToServer,
     chatSettings.sendReadReceipts,
   ])
@@ -1099,8 +1309,9 @@ export function CampusMessenger({
       if (activeRoomMeta.onlyAdminsCanPost && !actor.isStaff) return
 
       const now = Date.now()
+      const msgId = `msg_${now}_${Math.random().toString(36).slice(2, 7)}`
       const newMsg: ChatMessage = {
-        id: `msg_${now}_${Math.random().toString(36).slice(2, 7)}`,
+        id: msgId,
         roomId: activeRoom.roomId,
         senderId: actor.id,
         senderName: actor.name,
@@ -1116,6 +1327,7 @@ export function CampusMessenger({
         imageDimensions: params.imageDimensions,
         replyTo: replyingTo ?? undefined,
         reactions: {},
+        deliveredTo: [actor.id],
         readBy: [actor.id],
         isDeleted: false,
         createdAt: new Date(now).toISOString(),
@@ -1154,6 +1366,8 @@ export function CampusMessenger({
               ? `📷 Shared ${newMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo${newMsg.text ? `: ${newMsg.text.slice(0, 80)}` : ''}`
               : newMsg.text.slice(0, 120)
 
+      const deterministicNotifId = `notif_chat_${msgId}`
+
       // 1. Direct 1-on-1 Chat (Student <-> Usthad, Student <-> Student, Usthad <-> Usthad)
       // Strictly notify ONLY the target recipient (peerId)
       if (
@@ -1161,6 +1375,7 @@ export function CampusMessenger({
         activeRoom.peerId
       ) {
         publishCampusNotification({
+          id: deterministicNotifId,
           type: 'chat',
           title: `New Message from ${actor.name}`,
           message: preview,
@@ -1173,6 +1388,7 @@ export function CampusMessenger({
       // 2. Class Batch Group Chat (Notify ONLY members & Class Usthad of that batch, excluding sender)
       else if (activeRoom.type === 'batch_group' && activeRoom.batchName) {
         publishCampusNotification({
+          id: deterministicNotifId,
           type: 'chat',
           title: `${actor.name} • ${activeRoom.batchName} Group`,
           message: preview,
@@ -1185,6 +1401,7 @@ export function CampusMessenger({
       // 3. Staff Room Group Chat (Notify ONLY Usthads & Principal, excluding sender)
       else if (activeRoom.type === 'staff_group') {
         publishCampusNotification({
+          id: deterministicNotifId,
           type: 'chat',
           title: `${actor.name} • Staff Room`,
           message: preview,
@@ -1890,6 +2107,11 @@ export function CampusMessenger({
                     if (isRecordingVoice) cancelVoiceRecording()
                     setSelectedRoomId(room.roomId)
                     setMobileShowChatPane(true)
+                    void sendChatActionToServer({
+                      action: 'mark_read',
+                      roomId: room.roomId,
+                      sendReadReceipts: chatSettings.sendReadReceipts,
+                    })
                   }}
                   className={cn(
                     'flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors min-h-[68px]',
@@ -1961,9 +2183,9 @@ export function CampusMessenger({
                           {roomTyping}
                         </p>
                       ) : lastMsg ? (
-                        <p className="truncate text-[11px] text-foreground/80">
+                        <p className="flex min-w-0 items-center truncate text-[11px] text-foreground/80">
                           {lastMsg.isDeleted ? (
-                            <span className="italic text-muted-foreground">
+                            <span className="truncate italic text-muted-foreground">
                               🚫{' '}
                               {lastMsg.deletedById === actor.id ||
                               (!lastMsg.deletedById && lastMsg.senderId === actor.id)
@@ -1972,18 +2194,55 @@ export function CampusMessenger({
                             </span>
                           ) : (
                             <>
-                              <span className="font-semibold">
+                              {lastMsg.senderId === actor.id &&
+                                (() => {
+                                  const lastReadByOthers =
+                                    (lastMsg.readBy ?? []).some(
+                                      (id) => id && id !== lastMsg.senderId,
+                                    ) || (lastMsg.readBy?.length ?? 0) > 1
+                                  const lastDeliveredToOthers =
+                                    lastReadByOthers ||
+                                    (lastMsg.deliveredTo ?? []).some(
+                                      (id) => id && id !== lastMsg.senderId,
+                                    ) ||
+                                    (lastMsg.deliveredTo?.length ?? 0) > 1
+                                  if (lastReadByOthers) {
+                                    return (
+                                      <CheckCheck
+                                        className="mr-1 inline-block size-3.5 shrink-0 text-[#0095f6] dark:text-[#38bdf8] stroke-[2.5]"
+                                        aria-label="Read"
+                                      />
+                                    )
+                                  }
+                                  if (lastDeliveredToOthers) {
+                                    return (
+                                      <CheckCheck
+                                        className="mr-1 inline-block size-3.5 shrink-0 text-zinc-500 dark:text-zinc-300 stroke-[2.2]"
+                                        aria-label="Delivered"
+                                      />
+                                    )
+                                  }
+                                  return (
+                                    <Check
+                                      className="mr-1 inline-block size-3.5 shrink-0 text-zinc-400 dark:text-zinc-500 stroke-[2.2]"
+                                      aria-label="Sent"
+                                    />
+                                  )
+                                })()}
+                              <span className="font-semibold shrink-0 mr-1">
                                 {lastMsg.senderId === actor.id
-                                  ? 'You: '
-                                  : `${lastMsg.senderName.split(' ').slice(0, 2).join(' ')}: `}
+                                  ? 'You:'
+                                  : `${lastMsg.senderName.split(' ').slice(0, 2).join(' ')}:`}
                               </span>
-                              {lastMsg.mediaType === 'voice'
-                                ? `🎤 ${formatVoiceDuration(lastMsg.mediaDurationSec || 4)}`
-                                : lastMsg.mediaType === 'pdf'
-                                  ? `📄 ${lastMsg.mediaName || 'PDF Note'}`
-                                  : lastMsg.mediaType === 'image'
-                                    ? `📷 ${lastMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo`
-                                    : lastMsg.text}
+                              <span className="truncate">
+                                {lastMsg.mediaType === 'voice'
+                                  ? `🎤 ${formatVoiceDuration(lastMsg.mediaDurationSec || 4)}`
+                                  : lastMsg.mediaType === 'pdf'
+                                    ? `📄 ${lastMsg.mediaName || 'PDF Note'}`
+                                    : lastMsg.mediaType === 'image'
+                                      ? `📷 ${lastMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo`
+                                      : lastMsg.text}
+                              </span>
                             </>
                           )}
                         </p>
@@ -2215,7 +2474,15 @@ export function CampusMessenger({
             {activeMessages.map((msg) => {
               const isMine = msg.senderId === actor.id
               const isPinned = activeRoomMeta.pinnedMessageId === msg.id
-              const isReadByOthers = msg.readBy.length > 1
+              const otherReadersCount = (msg.readBy ?? []).filter(
+                (id) => id && id !== msg.senderId,
+              ).length
+              const otherDeliveredCount = (msg.deliveredTo ?? []).filter(
+                (id) => id && id !== msg.senderId,
+              ).length
+              const isReadByOthers = otherReadersCount > 0 || (msg.readBy?.length ?? 0) > 1
+              const isDeliveredToOthers =
+                isReadByOthers || otherDeliveredCount > 0 || (msg.deliveredTo?.length ?? 0) > 1
               const isSelectedMenuOpen = activeReactionMessageId === msg.id
               const isImageMessage =
                 !msg.isDeleted && msg.mediaType === 'image' && Boolean(msg.mediaUrl)
@@ -2437,15 +2704,28 @@ export function CampusMessenger({
                                     <span
                                       title={
                                         isReadByOthers
-                                          ? `Read by ${msg.readBy.length - 1} member(s)`
-                                          : 'Sent'
+                                          ? `Seen / Read`
+                                          : isDeliveredToOthers
+                                            ? 'Delivered'
+                                            : 'Sent'
                                       }
                                       className="inline-flex items-center"
                                     >
                                       {isReadByOthers ? (
-                                        <CheckCheck className="size-3.5 text-sky-500 dark:text-sky-400" aria-label="Read" />
+                                        <CheckCheck
+                                          className="size-4 text-[#0095f6] dark:text-[#38bdf8] stroke-[2.6]"
+                                          aria-label="Read"
+                                        />
+                                      ) : isDeliveredToOthers ? (
+                                        <CheckCheck
+                                          className="size-4 text-zinc-500 dark:text-zinc-300 stroke-[2.2]"
+                                          aria-label="Delivered"
+                                        />
                                       ) : (
-                                        <Check className="size-3.5 opacity-70" aria-label="Sent" />
+                                        <Check
+                                          className="size-3.5 text-zinc-500/80 dark:text-zinc-400 stroke-[2.2]"
+                                          aria-label="Sent"
+                                        />
                                       )}
                                     </span>
                                   )}
@@ -2542,9 +2822,20 @@ export function CampusMessenger({
                                 {isMine && !msg.isDeleted && (
                                   <span className="inline-flex items-center">
                                     {isReadByOthers ? (
-                                      <CheckCheck className="size-3.5 text-sky-400" aria-label="Read" />
+                                      <CheckCheck
+                                        className="size-4 text-[#38bdf8] stroke-[2.6]"
+                                        aria-label="Read"
+                                      />
+                                    ) : isDeliveredToOthers ? (
+                                      <CheckCheck
+                                        className="size-4 text-white/95 stroke-[2.2]"
+                                        aria-label="Delivered"
+                                      />
                                     ) : (
-                                      <Check className="size-3.5 text-white/90" aria-label="Sent" />
+                                      <Check
+                                        className="size-3.5 text-white/85 stroke-[2.2]"
+                                        aria-label="Sent"
+                                      />
                                     )}
                                   </span>
                                 )}
@@ -2572,33 +2863,46 @@ export function CampusMessenger({
                       </>
                     )}
 
-                    {/* Timestamp & WhatsApp Double Tick (✓✓) for non-voice & non-captionless-image messages */}
+                    {/* Timestamp & WhatsApp Double Tick (✓ / ✓✓ Grey / ✓✓ Blue) for non-voice & non-captionless-image messages */}
                     {msg.mediaType !== 'voice' && !isImageOnlyWithoutCaption && (
                       <div
                         className={cn(
-                          'mt-1 flex items-center justify-end gap-1 text-[10px] opacity-75',
+                          'mt-1 flex items-center justify-end gap-1 text-[10px] opacity-85',
                           isImageMessage && 'px-2 pb-0.5',
                         )}
                       >
                         {isPinned && (
                           <Pin className="size-3 opacity-80" aria-label="Pinned message" />
                         )}
-                        <span className="font-poppins tabular-nums">
+                        <span className="font-poppins tabular-nums opacity-80">
                           {formatChatTime(msg.createdAtMs)}
                         </span>
                         {isMine && !msg.isDeleted && (
                           <span
                             title={
                               isReadByOthers
-                                ? `Read by ${msg.readBy.length - 1} member(s)`
-                                : 'Sent'
+                                ? `Seen / Read`
+                                : isDeliveredToOthers
+                                  ? 'Delivered'
+                                  : 'Sent'
                             }
                             className="inline-flex items-center"
                           >
                             {isReadByOthers ? (
-                              <CheckCheck className="size-3.5 text-sky-500 dark:text-sky-400" aria-label="Read" />
+                              <CheckCheck
+                                className="size-4 text-[#0095f6] dark:text-[#38bdf8] stroke-[2.6]"
+                                aria-label="Read"
+                              />
+                            ) : isDeliveredToOthers ? (
+                              <CheckCheck
+                                className="size-4 text-zinc-500 dark:text-zinc-300 stroke-[2.2]"
+                                aria-label="Delivered"
+                              />
                             ) : (
-                              <Check className="size-3.5 opacity-75" aria-label="Sent" />
+                              <Check
+                                className="size-3.5 text-zinc-500/80 dark:text-zinc-400 stroke-[2.2]"
+                                aria-label="Sent"
+                              />
                             )}
                           </span>
                         )}

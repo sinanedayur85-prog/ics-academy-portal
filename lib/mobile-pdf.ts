@@ -131,10 +131,23 @@ export function triggerSystemNotification(
     }
   }
 
-  // 2. Web Notification API / Service Worker notification (Android Chrome, PWA, Tablet, Desktop)
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+  const isIOS =
+    /iPhone|iPad|iPod/i.test(ua) ||
+    (typeof navigator !== 'undefined' &&
+      navigator.platform === 'MacIntel' &&
+      navigator.maxTouchPoints > 1);
+  const isForeground =
+    typeof document !== 'undefined' && document.visibilityState === 'visible';
+
+  // 2. Web Notification API / Service Worker notification (Android Chrome, iOS Home Screen PWA, Tablet, Desktop)
   // Uses silent: false so the OS plays the user's configured default phone notification sound
   if ('Notification' in window && Notification.permission === 'granted') {
     const tag = `ics-notif-${Date.now()}`;
+    // On iOS PWA in foreground, WebKit suppresses system banner sound, so play crisp alert tone in foreground
+    if (isIOS && isForeground) {
+      playWhatsAppStyleNotificationTone();
+    }
     try {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready
@@ -149,13 +162,17 @@ export function triggerSystemNotification(
             });
           })
           .catch(() => {
-            new Notification(title, {
-              body: message,
-              icon: '/icons/icon-192.png',
-              tag,
-              silent: false,
-              data: { href },
-            });
+            try {
+              new Notification(title, {
+                body: message,
+                icon: '/icons/icon-192.png',
+                tag,
+                silent: false,
+                data: { href },
+              });
+            } catch {
+              playWhatsAppStyleNotificationTone();
+            }
           });
       } else {
         new Notification(title, {
@@ -166,10 +183,16 @@ export function triggerSystemNotification(
           data: { href },
         });
       }
+      return;
     } catch {
-      // Ignore notification errors
+      // Fallback if Notification constructor is blocked (e.g. mobile browser)
+      playWhatsAppStyleNotificationTone();
+      return;
     }
   }
+
+  // 3. Fallback when OS Notification permission is not yet granted (e.g. iOS Safari or first-time browser session)
+  playWhatsAppStyleNotificationTone();
 }
 
 export function blobToBase64(blob: Blob): Promise<string> {

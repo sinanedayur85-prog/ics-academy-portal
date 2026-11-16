@@ -153,7 +153,7 @@ export function CampusNotificationBar({
   const [activeToast, setActiveToast] = useState<CampusNotification | null>(null)
 
   useEffect(() => {
-    // Request system notification permission on first user tap if not yet granted
+    // Request system notification permission on first user tap/click (works on Android, Desktop & iOS 16.4+ Home Screen PWA)
     function requestPermissionOnce() {
       if (
         typeof window !== 'undefined' &&
@@ -162,19 +162,21 @@ export function CampusNotificationBar({
       ) {
         Notification.requestPermission().catch(() => {})
       }
-      window.removeEventListener('pointerdown', requestPermissionOnce)
+      window.removeEventListener('click', requestPermissionOnce)
+      window.removeEventListener('touchend', requestPermissionOnce)
     }
-    window.addEventListener('pointerdown', requestPermissionOnce, { once: true })
+    window.addEventListener('click', requestPermissionOnce, { once: true })
+    window.addEventListener('touchend', requestPermissionOnce, { once: true })
 
-    // Poll cloud sync every 4 seconds + immediately when phone/tablet wakes or tab focuses
-    pullCampusStateFromServer()
+    // Poll cloud sync every 2.5 seconds + immediately when phone/tablet wakes or tab focuses
+    void pullCampusStateFromServer()
     const timer = window.setInterval(() => {
-      pullCampusStateFromServer()
-    }, 4000)
+      void pullCampusStateFromServer()
+    }, 2500)
 
     function handleWakeOrFocus() {
       if (document.visibilityState === 'visible') {
-        pullCampusStateFromServer()
+        void pullCampusStateFromServer()
       }
     }
     window.addEventListener('focus', handleWakeOrFocus)
@@ -202,7 +204,8 @@ export function CampusNotificationBar({
     window.addEventListener('ics-campus-notification', handleIncoming)
     return () => {
       window.clearInterval(timer)
-      window.removeEventListener('pointerdown', requestPermissionOnce)
+      window.removeEventListener('click', requestPermissionOnce)
+      window.removeEventListener('touchend', requestPermissionOnce)
       window.removeEventListener('focus', handleWakeOrFocus)
       document.removeEventListener('visibilitychange', handleWakeOrFocus)
       window.removeEventListener('ics-campus-notification', handleIncoming)

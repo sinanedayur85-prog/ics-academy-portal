@@ -1256,6 +1256,18 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     }
   })
 
+  // Enable CORS on /api/campus/* so Website (ais-dev / ais-pre), Android APK, and iPhone Home Screen PWA can sync seamlessly
+  app.use('/api/campus', (req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    if (req.method === 'OPTIONS') {
+      res.status(204).end()
+      return
+    }
+    next()
+  })
+
   // Real-time Campus Sync & Notifications State (Notices, Attendance, Period Attendance, Notifications)
   interface ServerCampusNotification {
     id: string
@@ -1295,9 +1307,138 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     notifications: [],
   }
 
-  app.get('/api/campus/state', (_req, res) => {
+  // Real-Time WhatsApp-Style Campus Messenger State (Rooms, Messages, Presence, Typing, Moderation)
+  interface ServerChatReplyRef {
+    messageId: string
+    senderName: string
+    previewText: string
+  }
+
+  interface ServerChatMessage {
+    id: string
+    roomId: string
+    senderId: string
+    senderName: string
+    senderRole: 'student' | 'usthad' | 'principal'
+    senderBadge?: string
+    text: string
+    mediaType: 'none' | 'voice' | 'image' | 'pdf'
+    mediaUrl?: string
+    mediaName?: string
+    mediaSizeLabel?: string
+    mediaDurationSec?: number
+    imageQuality?: 'standard' | 'hd'
+    imageDimensions?: string
+    replyTo?: ServerChatReplyRef
+    reactions: Record<string, string[]>
+    deliveredTo: string[]
+    readBy: string[]
+    isDeleted?: boolean
+    deletedBy?: string
+    deletedById?: string
+    deletedFor?: string[]
+    createdAt: string
+    createdAtMs: number
+  }
+
+  interface ServerChatRoomMeta {
+    roomId: string
+    onlyAdminsCanPost: boolean
+    pinnedMessageId: string | null
+    updatedAtMs: number
+  }
+
+  interface ServerPresenceEntry {
+    actorId: string
+    actorName: string
+    actorRole: 'student' | 'usthad' | 'principal'
+    lastSeenMs: number
+    isOnline?: boolean
+    hideOnline?: boolean
+  }
+
+  interface ServerTypingEntry {
+    actorId: string
+    actorName: string
+    mode: 'typing' | 'recording' | 'idle'
+    updatedAtMs: number
+  }
+
+  interface ServerCampusChatState {
+    updatedAtMs: number
+    roomsMeta: Record<string, ServerChatRoomMeta>
+    messagesByRoom: Record<string, ServerChatMessage[]>
+    presenceMap: Record<string, ServerPresenceEntry>
+    typingMap: Record<string, Record<string, ServerTypingEntry>>
+  }
+
+  const campusChatState: ServerCampusChatState = {
+    updatedAtMs: Date.now(),
+    roomsMeta: {},
+    messagesByRoom: {},
+    presenceMap: {},
+    typingMap: {},
+  }
+
+  function isRoomRelevantToActor(
+    rId: string,
+    actorId: string,
+    className?: string,
+    isStaff?: boolean,
+  ): boolean {
+    if (!actorId) return false
+    if (rId.startsWith('direct__')) {
+      const parts = rId.split('__')
+      return parts[1] === actorId || parts[2] === actorId
+    }
+    if (rId === 'staff_group__usthads') {
+      return Boolean(isStaff)
+    }
+    if (rId.startsWith('batch_group__')) {
+      if (isStaff) return true
+      if (!className) return false
+      const roomBatch = rId.replace(/^batch_group__/, '').trim().toLowerCase()
+      const userBatch = className.replace(/^Class\s+/i, '').trim().toLowerCase()
+      return roomBatch === userBatch
+    }
+    return false
+  }
+
+  function acknowledgeDeliveryForActor(
+    actorId?: string,
+    className?: string,
+    isStaff?: boolean,
+  ): boolean {
+    if (!actorId || typeof actorId !== 'string') return false
+    let changed = false
+    for (const [rId, list] of Object.entries(campusChatState.messagesByRoom)) {
+      if (!Array.isArray(list) || list.length === 0) continue
+      if (!isRoomRelevantToActor(rId, actorId, className, isStaff)) continue
+      for (const msg of list) {
+        if (!Array.isArray(msg.deliveredTo)) {
+          msg.deliveredTo = msg.senderId ? [msg.senderId] : []
+        }
+        if (!msg.deliveredTo.includes(actorId)) {
+          msg.deliveredTo.push(actorId)
+          changed = true
+        }
+      }
+    }
+    if (changed) {
+      campusChatState.updatedAtMs = Date.now()
+    }
+    return changed
+  }
+
+  app.get('/api/campus/state', (req, res) => {
     res.setHeader('Content-Type', 'application/json')
     res.setHeader('Cache-Control', 'no-store')
+    const qActorId = typeof req.query.actorId === 'string' ? req.query.actorId.trim() : ''
+    const qClassName = typeof req.query.className === 'string' ? req.query.className.trim() : ''
+    const qIsStaff = req.query.isStaff === 'true'
+    if (qActorId) {
+      acknowledgeDeliveryForActor(qActorId, qClassName, qIsStaff)
+    }
     res.json(campusState)
   })
 
@@ -1383,7 +1524,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
               createdAtMs: Number(incomingNotif.createdAtMs) || Date.now(),
             },
             ...campusState.notifications,
-          ].slice(0, 60)
+          ].slice(0, 80)
           campusState.updatedAtMs = Date.now()
         }
       }
@@ -1394,83 +1535,34 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     }
   })
 
-  // Real-Time WhatsApp-Style Campus Messenger State (Rooms, Messages, Presence, Typing, Moderation)
-  interface ServerChatReplyRef {
-    messageId: string
-    senderName: string
-    previewText: string
-  }
-
-  interface ServerChatMessage {
-    id: string
-    roomId: string
-    senderId: string
-    senderName: string
-    senderRole: 'student' | 'usthad' | 'principal'
-    senderBadge?: string
-    text: string
-    mediaType: 'none' | 'voice' | 'image' | 'pdf'
-    mediaUrl?: string
-    mediaName?: string
-    mediaSizeLabel?: string
-    mediaDurationSec?: number
-    imageQuality?: 'standard' | 'hd'
-    imageDimensions?: string
-    replyTo?: ServerChatReplyRef
-    reactions: Record<string, string[]>
-    readBy: string[]
-    isDeleted?: boolean
-    deletedBy?: string
-    deletedById?: string
-    deletedFor?: string[]
-    createdAt: string
-    createdAtMs: number
-  }
-
-  interface ServerChatRoomMeta {
-    roomId: string
-    onlyAdminsCanPost: boolean
-    pinnedMessageId: string | null
-    updatedAtMs: number
-  }
-
-  interface ServerPresenceEntry {
-    actorId: string
-    actorName: string
-    actorRole: 'student' | 'usthad' | 'principal'
-    lastSeenMs: number
-    isOnline?: boolean
-    hideOnline?: boolean
-  }
-
-  interface ServerTypingEntry {
-    actorId: string
-    actorName: string
-    mode: 'typing' | 'recording' | 'idle'
-    updatedAtMs: number
-  }
-
-  interface ServerCampusChatState {
-    updatedAtMs: number
-    roomsMeta: Record<string, ServerChatRoomMeta>
-    messagesByRoom: Record<string, ServerChatMessage[]>
-    presenceMap: Record<string, ServerPresenceEntry>
-    typingMap: Record<string, Record<string, ServerTypingEntry>>
-  }
-
-  const campusChatState: ServerCampusChatState = {
-    updatedAtMs: Date.now(),
-    roomsMeta: {},
-    messagesByRoom: {},
-    presenceMap: {},
-    typingMap: {},
-  }
-
-  app.get('/api/campus/chat/state', (_req, res) => {
+  app.get('/api/campus/chat/state', (req, res) => {
     res.setHeader('Content-Type', 'application/json')
     res.setHeader('Cache-Control', 'no-store')
-    // Clean up stale typing indicators older than 8 seconds and mark stale presence (>15s) as offline
     const now = Date.now()
+    const qActorId = typeof req.query.actorId === 'string' ? req.query.actorId.trim() : ''
+    const qClassName = typeof req.query.className === 'string' ? req.query.className.trim() : ''
+    const qIsStaff = req.query.isStaff === 'true'
+    const qReadRoomId = typeof req.query.readRoomId === 'string' ? req.query.readRoomId.trim() : ''
+
+    if (qActorId) {
+      acknowledgeDeliveryForActor(qActorId, qClassName, qIsStaff)
+      if (qReadRoomId && Array.isArray(campusChatState.messagesByRoom[qReadRoomId])) {
+        for (const msg of campusChatState.messagesByRoom[qReadRoomId]) {
+          if (!Array.isArray(msg.deliveredTo)) msg.deliveredTo = msg.senderId ? [msg.senderId] : []
+          if (!msg.deliveredTo.includes(qActorId)) {
+            msg.deliveredTo.push(qActorId)
+            campusChatState.updatedAtMs = now
+          }
+          if (!Array.isArray(msg.readBy)) msg.readBy = msg.senderId ? [msg.senderId] : []
+          if (!msg.readBy.includes(qActorId)) {
+            msg.readBy.push(qActorId)
+            campusChatState.updatedAtMs = now
+          }
+        }
+      }
+    }
+
+    // Clean up stale typing indicators older than 8 seconds and mark stale presence (>15s) as offline
     for (const rId of Object.keys(campusChatState.typingMap)) {
       const roomTyping = campusChatState.typingMap[rId]
       if (!roomTyping) continue
@@ -1498,6 +1590,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
         actorId,
         actorName,
         actorRole,
+        actorClassName,
         message,
         messageId,
         deleteMode,
@@ -1506,9 +1599,11 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
         pinnedMessageId,
         typingMode,
         hideOnline,
+        sendReadReceipts,
       } = req.body ?? {}
 
       const now = Date.now()
+      const isStaffActor = actorRole === 'usthad' || actorRole === 'principal'
 
       if (action === 'leave_presence') {
         if (actorId && typeof actorId === 'string') {
@@ -1543,6 +1638,17 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
           isOnline: !shouldHide,
           hideOnline: shouldHide,
         }
+        // Automatically mark all incoming messages for this actor as delivered
+        acknowledgeDeliveryForActor(
+          actorId,
+          typeof actorClassName === 'string' ? actorClassName : undefined,
+          isStaffActor,
+        )
+      }
+
+      if (action === 'mark_delivered_all') {
+        res.json({ ok: true, state: campusChatState })
+        return
       }
 
       if (action === 'heartbeat') {
@@ -1585,8 +1691,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
 
       if (action === 'send_message' && message && typeof message === 'object') {
         const roomMeta = campusChatState.roomsMeta[roomId]
-        const isStaff = actorRole === 'usthad' || actorRole === 'principal'
-        if (roomMeta.onlyAdminsCanPost && !isStaff) {
+        if (roomMeta.onlyAdminsCanPost && !isStaffActor) {
           res.status(403).json({
             error: 'Only Usthads and Principal can send messages in this group right now.',
           })
@@ -1598,6 +1703,30 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
             ? message.id
             : `msg_${now}_${Math.random().toString(36).slice(2, 7)}`
 
+        const senderIdStr = String(message.senderId || actorId || 'unknown').slice(0, 120)
+        const senderNameStr = String(message.senderName || actorName || 'Member').slice(0, 120)
+
+        // Check if recipient peer in a direct chat is currently online; if so, include them in deliveredTo immediately
+        const initialDelivered = new Set<string>(
+          Array.isArray(message.deliveredTo) ? message.deliveredTo : [senderIdStr],
+        )
+        initialDelivered.add(senderIdStr)
+        if (roomId.startsWith('direct__')) {
+          const parts = roomId.split('__')
+          const peerId = parts[1] === senderIdStr ? parts[2] : parts[1]
+          if (peerId) {
+            const peerPresence = campusChatState.presenceMap[peerId]
+            if (peerPresence && now - peerPresence.lastSeenMs < 20000) {
+              initialDelivered.add(peerId)
+            }
+          }
+        }
+
+        const initialReadBy = new Set<string>(
+          Array.isArray(message.readBy) ? message.readBy : [senderIdStr],
+        )
+        initialReadBy.add(senderIdStr)
+
         const existingIdx = campusChatState.messagesByRoom[roomId].findIndex(
           (m) => m.id === msgId,
         )
@@ -1605,8 +1734,8 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
           const newMsg: ServerChatMessage = {
             id: msgId,
             roomId,
-            senderId: String(message.senderId || actorId || 'unknown').slice(0, 120),
-            senderName: String(message.senderName || actorName || 'Member').slice(0, 120),
+            senderId: senderIdStr,
+            senderName: senderNameStr,
             senderRole:
               message.senderRole === 'principal' || message.senderRole === 'usthad'
                 ? message.senderRole
@@ -1642,9 +1771,8 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
               message.reactions && typeof message.reactions === 'object'
                 ? message.reactions
                 : {},
-            readBy: Array.isArray(message.readBy)
-              ? message.readBy
-              : [String(message.senderId || actorId || '')],
+            deliveredTo: Array.from(initialDelivered),
+            readBy: Array.from(initialReadBy),
             isDeleted: false,
             createdAt: message.createdAt || new Date(now).toISOString(),
             createdAtMs: Number(message.createdAtMs) || now,
@@ -1655,6 +1783,62 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
           ].slice(-150)
           campusChatState.roomsMeta[roomId].updatedAtMs = now
           campusChatState.updatedAtMs = now
+
+          // Also guarantee a corresponding Campus Notification in campusState.notifications
+          // so any device polling /api/campus/state immediately receives the message notification!
+          const deterministicNotifId = `notif_chat_${msgId}`
+          if (!campusState.notifications.some((n) => n.id === deterministicNotifId)) {
+            const preview =
+              newMsg.mediaType === 'pdf'
+                ? `📄 Shared PDF Note: ${newMsg.mediaName || 'Document'}`
+                : newMsg.mediaType === 'voice'
+                  ? `🎤 Sent a Voice Note`
+                  : newMsg.mediaType === 'image'
+                    ? `📷 Shared ${newMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo${newMsg.text ? `: ${newMsg.text.slice(0, 80)}` : ''}`
+                    : newMsg.text.slice(0, 120)
+
+            let targetRecipientId: string | undefined
+            let targetClass: string | undefined
+            let targetStaffOnly: boolean | undefined
+            let notifTitle = `New Message from ${senderNameStr}`
+
+            if (roomId.startsWith('direct__')) {
+              const parts = roomId.split('__')
+              targetRecipientId = parts[1] === senderIdStr ? parts[2] : parts[1]
+            } else if (roomId.startsWith('batch_group__')) {
+              targetClass = roomId.replace(/^batch_group__/, '').trim()
+              notifTitle = `${senderNameStr} • ${targetClass} Group`
+            } else if (roomId === 'staff_group__usthads') {
+              targetStaffOnly = true
+              notifTitle = `${senderNameStr} • Staff Room`
+            }
+
+            const chatNotif: ServerCampusNotification = {
+              id: deterministicNotifId,
+              type: 'chat',
+              title: notifTitle,
+              message: preview,
+              targetRecipientId,
+              targetClass,
+              targetStaffOnly,
+              actorId: senderIdStr,
+              actorName: senderNameStr,
+              href: '#campus-chat',
+              createdAt: newMsg.createdAt,
+              createdAtMs: newMsg.createdAtMs,
+            }
+            campusState.notifications = [chatNotif, ...campusState.notifications].slice(0, 80)
+            campusState.updatedAtMs = now
+          }
+        } else {
+          // Merge deliveredTo and readBy if message already exists
+          const existingMsg = campusChatState.messagesByRoom[roomId][existingIdx]
+          existingMsg.deliveredTo = Array.from(
+            new Set([...(existingMsg.deliveredTo || []), ...Array.from(initialDelivered)]),
+          )
+          existingMsg.readBy = Array.from(
+            new Set([...(existingMsg.readBy || []), ...Array.from(initialReadBy)]),
+          )
         }
 
         if (actorId && campusChatState.typingMap[roomId]) {
@@ -1678,22 +1862,47 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
           }
           campusChatState.updatedAtMs = now
         }
-      } else if (action === 'mark_read' && actorId) {
+      } else if (action === 'mark_delivered' && actorId) {
         const list = campusChatState.messagesByRoom[roomId] || []
         let changed = false
         for (const msg of list) {
-          if (!Array.isArray(msg.readBy)) msg.readBy = []
-          if (!msg.readBy.includes(actorId)) {
-            msg.readBy.push(actorId)
+          if (!Array.isArray(msg.deliveredTo)) {
+            msg.deliveredTo = msg.senderId ? [msg.senderId] : []
+          }
+          if (!msg.deliveredTo.includes(actorId)) {
+            msg.deliveredTo.push(actorId)
             changed = true
           }
         }
         if (changed) {
           campusChatState.updatedAtMs = now
         }
+      } else if (action === 'mark_read' && actorId) {
+        const list = campusChatState.messagesByRoom[roomId] || []
+        let changed = false
+        for (const msg of list) {
+          if (!Array.isArray(msg.deliveredTo)) {
+            msg.deliveredTo = msg.senderId ? [msg.senderId] : []
+          }
+          if (!msg.deliveredTo.includes(actorId)) {
+            msg.deliveredTo.push(actorId)
+            changed = true
+          }
+          if (sendReadReceipts !== false) {
+            if (!Array.isArray(msg.readBy)) {
+              msg.readBy = msg.senderId ? [msg.senderId] : []
+            }
+            if (!msg.readBy.includes(actorId)) {
+              msg.readBy.push(actorId)
+              changed = true
+            }
+          }
+        }
+        if (changed) {
+          campusChatState.updatedAtMs = now
+        }
       } else if (action === 'toggle_pin') {
-        const isStaff = actorRole === 'usthad' || actorRole === 'principal'
-        if (isStaff) {
+        if (isStaffActor) {
           campusChatState.roomsMeta[roomId].pinnedMessageId =
             typeof pinnedMessageId === 'string' && pinnedMessageId ? pinnedMessageId : null
           campusChatState.roomsMeta[roomId].updatedAtMs = now
@@ -1723,8 +1932,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
           }
         }
       } else if (action === 'toggle_group_lock') {
-        const isStaff = actorRole === 'usthad' || actorRole === 'principal'
-        if (isStaff) {
+        if (isStaffActor) {
           campusChatState.roomsMeta[roomId].onlyAdminsCanPost = Boolean(onlyAdminsCanPost)
           campusChatState.roomsMeta[roomId].updatedAtMs = now
           campusChatState.updatedAtMs = now
