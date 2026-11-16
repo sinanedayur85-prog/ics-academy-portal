@@ -39,6 +39,7 @@ import {
   RotateCcw,
   Search,
   Trash2,
+  Trophy,
   UserCheck,
   Users,
   X,
@@ -50,6 +51,7 @@ import {
   CampusNotificationBar,
   CampusNotificationBell,
 } from '@/components/campus-notifications'
+import { UsthadAcademicHub } from '@/components/dashboard/campus-academic-hub'
 import { CampusMessenger } from '@/components/dashboard/campus-messenger'
 import {
   ABSENT_REASONS,
@@ -111,6 +113,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
 const usthadNavItems = [
   { label: 'Class Students', href: '#class-roster', icon: Users },
+  { label: 'Tests & Zadul Khair', href: '#academic-hub', icon: Trophy },
   { label: 'Attendance Status', href: '#usthad-attendance', icon: CalendarCheck },
   { label: 'Leave Register', href: '#usthad-leave', icon: ClipboardList },
   { label: 'Campus Messenger', href: '#campus-chat', icon: MessageCircle },
@@ -2688,6 +2691,20 @@ export function UsthadDashboard() {
             </div>
           ) : null}
         </Panel>
+        </div>
+
+        {/* MONTHLY TESTS, STAR OF THE MONTH, HOLIDAY & SSF DA'WA LOGS, PRIVATE CONDUCT & ZADUL KHAIR PDF HUB */}
+        <div
+          className={cn(
+            mobileTab === 'roster' || mobileTab === 'notices' ? 'block' : 'hidden lg:block',
+          )}
+        >
+          <UsthadAcademicHub
+            actorId={usthad.id}
+            actorName={usthad.name}
+            role="usthad"
+            activeClassName={activeClassName}
+          />
         </div>
 
         {/* WHATSAPP-STYLE CAMPUS MESSENGER FOR USTHAD (Class Group, Staff Room & Direct Chats) */}

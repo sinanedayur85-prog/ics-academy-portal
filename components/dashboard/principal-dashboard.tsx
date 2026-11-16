@@ -62,6 +62,7 @@ import {
   CampusNotificationBar,
   CampusNotificationBell,
 } from '@/components/campus-notifications'
+import { UsthadAcademicHub } from '@/components/dashboard/campus-academic-hub'
 import { CampusMessenger } from '@/components/dashboard/campus-messenger'
 import { ClassLeaderAttendanceCard } from '@/components/dashboard/class-leader-attendance-card'
 import {
@@ -4553,6 +4554,16 @@ export function PrincipalDashboard() {
 
             <LibraryBooks />
           </div>
+        )}
+
+        {/* MONTHLY TESTS, STAR OF THE MONTH, HOLIDAY & SSF DA'WA LOGS, PRIVATE CONDUCT & ZADUL KHAIR PDF HUB (PRINCIPAL VIEW) */}
+        {(activeTab === 'monitor' || activeTab === 'people' || activeTab === 'notices') && (
+          <UsthadAcademicHub
+            actorId={`principal-${principal.usthadId || 'principal'}`}
+            actorName={principal.name}
+            role="principal"
+            activeClassName={selectedClassName}
+          />
         )}
 
         {/* TAB 3: WHATSAPP-STYLE CAMPUS MESSENGER & STAFF ROOM (Kept mounted for live delivery & presence sync) */}

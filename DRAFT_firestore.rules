@@ -602,6 +602,108 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Validation Blueprint: CampusAcademicRecord
+    function isValidCampusAcademicRecord(data) {
+      return data.keys().hasAll([
+          'id',
+          'campusId',
+          'recordKind',
+          'className',
+          'actorId',
+          'actorName',
+          'status',
+          'isDeleted',
+          'createdAt',
+          'updatedAtMs'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'campusId',
+          'recordKind',
+          'className',
+          'actorId',
+          'actorName',
+          'status',
+          'isDeleted',
+          'studentId',
+          'studentName',
+          'admissionNo',
+          'month',
+          'title',
+          'subjectOrCategory',
+          'description',
+          'remarks',
+          'dateString',
+          'receiptNo',
+          'photoUrl',
+          'totalMarks',
+          'obtainedMarks',
+          'fixedAmount',
+          'paidAmount',
+          'acknowledged',
+          'questions',
+          'answers',
+          'questionMarks',
+          'createdAt',
+          'updatedAtMs'
+        ])
+        && isValidId(data.id)
+        && data.campusId == 'ics-academy'
+        && data.recordKind is string
+        && (
+          data.recordKind == 'unit_test'
+          || data.recordKind == 'test_submission'
+          || data.recordKind == 'holiday_log'
+          || data.recordKind == 'discipline_note'
+          || data.recordKind == 'zadul_khair'
+        )
+        && data.className is string
+        && data.className.size() >= 1
+        && data.className.size() <= 40
+        && isPortalActorId(data.actorId)
+        && data.actorName is string
+        && data.actorName.size() >= 1
+        && data.actorName.size() <= 120
+        && data.status is string
+        && (
+          data.status == 'active'
+          || data.status == 'submitted'
+          || data.status == 'graded'
+          || data.status == 'pending'
+          || data.status == 'verified'
+          || data.status == 'advisory'
+          || data.status == 'warning'
+          || data.status == 'serious'
+          || data.status == 'paid'
+          || data.status == 'partial'
+          || data.status == 'unpaid'
+          || data.status == 'deleted'
+        )
+        && data.isDeleted is bool
+        && (!('studentId' in data) || isPortalActorId(data.studentId))
+        && (!('studentName' in data) || (data.studentName is string && data.studentName.size() <= 120))
+        && (!('admissionNo' in data) || (data.admissionNo is string && data.admissionNo.size() <= 40))
+        && (!('month' in data) || (data.month is string && data.month.size() <= 40))
+        && (!('title' in data) || (data.title is string && data.title.size() <= 240))
+        && (!('subjectOrCategory' in data) || (data.subjectOrCategory is string && data.subjectOrCategory.size() <= 120))
+        && (!('description' in data) || (data.description is string && data.description.size() <= 5000))
+        && (!('remarks' in data) || (data.remarks is string && data.remarks.size() <= 2000))
+        && (!('dateString' in data) || (data.dateString is string && data.dateString.size() <= 40))
+        && (!('receiptNo' in data) || (data.receiptNo is string && data.receiptNo.size() <= 60))
+        && (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 700000))
+        && (!('totalMarks' in data) || (data.totalMarks is number && data.totalMarks >= 0 && data.totalMarks <= 1000))
+        && (!('obtainedMarks' in data) || (data.obtainedMarks is number && data.obtainedMarks >= 0 && data.obtainedMarks <= 1000))
+        && (!('fixedAmount' in data) || (data.fixedAmount is number && data.fixedAmount >= 0 && data.fixedAmount <= 1000000))
+        && (!('paidAmount' in data) || (data.paidAmount is number && data.paidAmount >= 0 && data.paidAmount <= 1000000))
+        && (!('acknowledged' in data) || data.acknowledged is bool)
+        && (!('questions' in data) || (data.questions is list && data.questions.size() <= 50 && (data.questions.size() == 0 || data.questions[0] is map)))
+        && (!('answers' in data) || (data.answers is map && data.answers.size() <= 50))
+        && (!('questionMarks' in data) || (data.questionMarks is map && data.questionMarks.size() <= 50))
+        && data.createdAt is timestamp
+        && data.updatedAtMs is int
+        && data.updatedAtMs > 0;
+    }
+
     // Collection: /campusNotifications/{notifId}
     match /campusNotifications/{notifId} {
       allow get: if isValidId(notifId)
@@ -614,6 +716,54 @@ service cloud.firestore {
         && incoming().id == notifId
         && incoming().createdAt == request.time;
       allow update, delete: if false;
+    }
+
+    // Collection: /campusAcademicRecords/{recordId}
+    match /campusAcademicRecords/{recordId} {
+      allow get: if isValidId(recordId)
+        && resource != null
+        && existing().campusId == 'ics-academy'
+        && existing().updatedAtMs > 0;
+      allow list: if existing().updatedAtMs > 0;
+      allow create: if isValidId(recordId)
+        && isValidCampusAcademicRecord(incoming())
+        && incoming().id == recordId
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(recordId)
+        && resource != null
+        && isValidCampusAcademicRecord(incoming())
+        && incoming().id == existing().id
+        && incoming().campusId == existing().campusId
+        && incoming().recordKind == existing().recordKind
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'className',
+          'actorId',
+          'actorName',
+          'status',
+          'isDeleted',
+          'studentId',
+          'studentName',
+          'admissionNo',
+          'month',
+          'title',
+          'subjectOrCategory',
+          'description',
+          'remarks',
+          'dateString',
+          'receiptNo',
+          'photoUrl',
+          'totalMarks',
+          'obtainedMarks',
+          'fixedAmount',
+          'paidAmount',
+          'acknowledged',
+          'questions',
+          'answers',
+          'questionMarks',
+          'updatedAtMs'
+        ]);
+      allow delete: if false;
     }
   }
 }

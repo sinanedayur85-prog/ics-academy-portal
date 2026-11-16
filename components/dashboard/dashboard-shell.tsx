@@ -14,6 +14,7 @@ import {
   MessageCircle,
   MessageSquareText,
   Sparkles,
+  Trophy,
   UserCheck,
 } from 'lucide-react'
 import { AppUpdateButton } from '@/components/app-update-manager'
@@ -23,6 +24,7 @@ import {
   CampusNotificationBell,
 } from '@/components/campus-notifications'
 import { AttendanceCard } from '@/components/dashboard/attendance-card'
+import { StudentAcademicHub } from '@/components/dashboard/campus-academic-hub'
 import { CampusMessenger } from '@/components/dashboard/campus-messenger'
 import { ClassLeaderAttendanceCard } from '@/components/dashboard/class-leader-attendance-card'
 import {
@@ -43,6 +45,7 @@ import { cn } from '@/lib/utils'
 
 const studentNavItems = [
   { label: 'Notices', href: '#notices', icon: Megaphone },
+  { label: 'Tests & Zadul Khair', href: '#academic-hub', icon: Trophy },
   { label: 'Attendance', href: '#attendance', icon: CalendarCheck },
   { label: 'Leave', href: '#leave', icon: ClipboardList },
   { label: 'Messenger', href: '#campus-chat', icon: MessageCircle },
@@ -55,6 +58,7 @@ const studentNavItems = [
 
 const classLeaderNavItems = [
   { label: 'Notices', href: '#notices', icon: Megaphone },
+  { label: 'Tests & Zadul Khair', href: '#academic-hub', icon: Trophy },
   { label: 'Attendance', href: '#attendance', icon: CalendarCheck },
   { label: 'Class Attendance', href: '#class-attendance', icon: UserCheck },
   { label: 'Leave', href: '#leave', icon: ClipboardList },
@@ -109,7 +113,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
       if (typeof window === 'undefined') return
       const hash = window.location.hash.replace('#', '')
       if (!hash) return
-      if (hash === 'notices') {
+      if (hash === 'notices' || hash === 'academic-hub') {
         setMobileTab('home')
       } else if (hash === 'attendance') {
         setMobileTab('attendance')
@@ -339,9 +343,10 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
           </div>
         </div>
 
-        {/* 1. HOME / NOTICE BOARD TAB */}
-        <div className={cn(mobileTab === 'home' ? 'block' : 'hidden lg:block')}>
+        {/* 1. HOME / NOTICE BOARD & STUDENT ACADEMIC HUB (Monthly Tests, Star of the Month, Holiday Da'wa, Private Conduct & Zadul Khair PDF) */}
+        <div className={cn(mobileTab === 'home' ? 'space-y-6 block' : 'hidden lg:block lg:space-y-6')}>
           <NoticeBoard studentClass={student.className} />
+          <StudentAcademicHub student={student} />
         </div>
 
         {/* 2. ATTENDANCE TAB (With Class Leader Sub-Switcher on Phone/Tablet) */}

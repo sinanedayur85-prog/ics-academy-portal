@@ -663,6 +663,212 @@
         "createdAt",
         "createdAtMs"
       ]
+    },
+    "CampusAcademicRecord": {
+      "title": "CampusAcademicRecord",
+      "description": "Unified real-time academic and institutional record for Monthly/Unit Tests, Student Test Submissions, Holiday Academic & SSF Da'wa/Ziyarat Logs, Private Student Discipline Notes, and Zadul Khair Monthly Household Contributions.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique record identifier.",
+          "minLength": 4,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "campusId": {
+          "type": "string",
+          "description": "Fixed campus tenant identifier (ics-academy).",
+          "enum": ["ics-academy"],
+          "minLength": 11,
+          "maxLength": 16
+        },
+        "recordKind": {
+          "type": "string",
+          "description": "Category of campus record.",
+          "enum": [
+            "unit_test",
+            "test_submission",
+            "holiday_log",
+            "discipline_note",
+            "zadul_khair"
+          ],
+          "minLength": 8,
+          "maxLength": 24
+        },
+        "className": {
+          "type": "string",
+          "description": "Target class or batch name.",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "actorId": {
+          "type": "string",
+          "description": "Canonical portal actor ID who created or last updated the record.",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^(st[d]?|usthad|principal)-[a-zA-Z0-9_\\-]+$"
+        },
+        "actorName": {
+          "type": "string",
+          "description": "Display name of the actor.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "status": {
+          "type": "string",
+          "description": "Current workflow or payment status of the record.",
+          "enum": [
+            "active",
+            "submitted",
+            "graded",
+            "pending",
+            "verified",
+            "advisory",
+            "warning",
+            "serious",
+            "paid",
+            "partial",
+            "unpaid",
+            "deleted"
+          ],
+          "minLength": 4,
+          "maxLength": 24
+        },
+        "isDeleted": {
+          "type": "boolean",
+          "description": "Whether the record has been soft-deleted."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Optional associated student portal ID.",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^(st[d]?|usthad|principal)-[a-zA-Z0-9_\\-]+$"
+        },
+        "studentName": {
+          "type": "string",
+          "description": "Optional associated student full name.",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "admissionNo": {
+          "type": "string",
+          "description": "Optional student admission number.",
+          "minLength": 0,
+          "maxLength": 40
+        },
+        "month": {
+          "type": "string",
+          "description": "Optional month label (e.g., November 2026).",
+          "minLength": 0,
+          "maxLength": 40
+        },
+        "title": {
+          "type": "string",
+          "description": "Optional title of test, holiday activity, or discipline note.",
+          "minLength": 0,
+          "maxLength": 240
+        },
+        "subjectOrCategory": {
+          "type": "string",
+          "description": "Optional subject name, testId reference, holiday category, or discipline category.",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional detailed body, reflection note, or violation details.",
+          "minLength": 0,
+          "maxLength": 5000
+        },
+        "remarks": {
+          "type": "string",
+          "description": "Optional Usthad remarks, corrective guidance, or payment note.",
+          "minLength": 0,
+          "maxLength": 2000
+        },
+        "dateString": {
+          "type": "string",
+          "description": "Optional formatted date string.",
+          "minLength": 0,
+          "maxLength": 40
+        },
+        "receiptNo": {
+          "type": "string",
+          "description": "Optional Zadul Khair receipt number or reference ID.",
+          "minLength": 0,
+          "maxLength": 60
+        },
+        "photoUrl": {
+          "type": "string",
+          "description": "Optional compressed photo proof data URL.",
+          "minLength": 0,
+          "maxLength": 700000
+        },
+        "totalMarks": {
+          "type": "number",
+          "description": "Optional maximum marks for a test or submission.",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "obtainedMarks": {
+          "type": "number",
+          "description": "Optional marks scored by the student.",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "fixedAmount": {
+          "type": "number",
+          "description": "Optional monthly fixed household contribution amount in INR.",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "paidAmount": {
+          "type": "number",
+          "description": "Optional paid household contribution amount in INR.",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "acknowledged": {
+          "type": "boolean",
+          "description": "Optional student acknowledgement flag for discipline advisory."
+        },
+        "questions": {
+          "type": "array",
+          "description": "Optional bounded list of MCQ and Objective question objects."
+        },
+        "answers": {
+          "type": "object",
+          "description": "Optional map of questionId to student's selected/typed answer."
+        },
+        "questionMarks": {
+          "type": "object",
+          "description": "Optional map of questionId to awarded marks."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the record was created."
+        },
+        "updatedAtMs": {
+          "type": "integer",
+          "description": "Epoch milliseconds of creation or last update.",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id",
+        "campusId",
+        "recordKind",
+        "className",
+        "actorId",
+        "actorName",
+        "status",
+        "isDeleted",
+        "createdAt",
+        "updatedAtMs"
+      ]
     }
   },
   "firestore": {
@@ -693,6 +899,10 @@
     "/campusNotifications/{notifId}": {
       "schema": { "$ref": "#/entities/CampusNotification" },
       "description": "Stores real-time targeted campus announcements, chat alerts, attendance updates, and leave notifications."
+    },
+    "/campusAcademicRecords/{recordId}": {
+      "schema": { "$ref": "#/entities/CampusAcademicRecord" },
+      "description": "Stores real-time Monthly/Unit Tests, Student Submissions, Holiday Academic & SSF Da'wa Logs, Private Discipline Notes, and Zadul Khair Monthly Contribution Records."
     }
   }
 }
