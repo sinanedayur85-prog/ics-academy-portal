@@ -90,17 +90,17 @@ export function StarOfTheMonthSpotlight({
   const winner = summary.winner
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-lime/35 bg-gradient-to-br from-[#081E21] via-[#0B272B] to-[#071619] p-5 text-white shadow-lg sm:p-6">
-      <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-4 sm:flex-row sm:items-center">
+    <div className="relative overflow-hidden rounded-2xl border border-emerald-600/25 bg-gradient-to-br from-card via-[#F3FAF5] to-[#E8F5EC] p-5 text-foreground shadow-sm transition-colors duration-300 sm:p-6 dark:border-lime/35 dark:from-[#081E21] dark:via-[#0B272B] dark:to-[#071619] dark:text-white dark:shadow-lg">
+      <div className="flex flex-col justify-between gap-4 border-b border-border/80 pb-4 sm:flex-row sm:items-center dark:border-white/10">
         <div>
-          <p className="flex items-center gap-2 text-[11px] font-bold tracking-[0.18em] text-lime uppercase">
-            <Trophy className="size-3.5 text-lime" aria-hidden="true" />
+          <p className="flex items-center gap-2 text-[11px] font-bold tracking-[0.18em] text-emerald-700 uppercase dark:text-lime">
+            <Trophy className="size-3.5 text-emerald-600 dark:text-lime" aria-hidden="true" />
             Star of the Month · Class {summary.className}
           </p>
-          <h3 className="mt-1 font-display text-xl font-bold tracking-tight text-white sm:text-2xl">
+          <h3 className="mt-1 font-display text-xl font-bold tracking-tight text-foreground sm:text-2xl dark:text-white">
             {summary.monthLabel} Academic & Attendance Excellence
           </h3>
-          <p className="mt-0.5 text-xs text-slate-300">
+          <p className="mt-0.5 text-xs text-muted-foreground dark:text-slate-300">
             Automatically selected from Monthly/Unit Test Marks (70% weight) + Monthly Attendance (30% weight)
           </p>
         </div>
@@ -111,7 +111,7 @@ export function StarOfTheMonthSpotlight({
               value={monthId}
               onChange={(e) => onSelectMonth(e.target.value)}
               aria-label="Select Star of the Month period"
-              className="border-white/20 bg-white/10 text-xs text-white"
+              className="border-border bg-background/90 text-xs text-foreground dark:border-white/20 dark:bg-white/10 dark:text-white"
             >
               {MONTHS_META.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -130,7 +130,7 @@ export function StarOfTheMonthSpotlight({
               <ProfileInitialsAvatar
                 name={winner.student.name}
                 avatarUrl={winner.student.avatarUrl}
-                className="size-16 ring-2 ring-lime shadow-md sm:size-20"
+                className="size-16 ring-2 ring-emerald-600/45 shadow-md sm:size-20 dark:ring-lime"
               />
               <span className="absolute -bottom-1.5 -right-1.5 flex size-7 items-center justify-center rounded-full bg-lime text-slate-950 shadow">
                 <Crown className="size-4" aria-hidden="true" />
@@ -138,40 +138,50 @@ export function StarOfTheMonthSpotlight({
             </div>
 
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-lime">
+              <p className="text-xs font-semibold text-emerald-700 dark:text-lime">
                 #1 Ranked Performer · {winner.student.admissionNo}
               </p>
-              <h4 className="truncate font-display text-xl font-bold text-white sm:text-2xl">
+              <h4 className="truncate font-display text-xl font-bold text-foreground sm:text-2xl dark:text-white">
                 {winner.student.name}
               </h4>
-              <p className="mt-1 text-xs text-slate-300 tabular-nums">
-                Composite Score: <strong className="text-lime">{winner.compositeScore}%</strong> ·{' '}
-                Unit Tests: <strong className="text-white">{winner.testPercentage}%</strong> (
-                {winner.totalObtainedMarks}/{winner.totalMaxMarks || 20} marks) · Attendance:{' '}
-                <strong className="text-white">{winner.attendancePercentage}%</strong>
+              <p className="mt-1 text-xs text-muted-foreground tabular-nums dark:text-slate-300">
+                Composite Score:{' '}
+                <strong className="text-emerald-700 dark:text-lime">
+                  {winner.compositeScore}%
+                </strong>{' '}
+                · Unit Tests:{' '}
+                <strong className="text-foreground dark:text-white">
+                  {winner.testPercentage}%
+                </strong>{' '}
+                ({winner.totalObtainedMarks}/{winner.totalMaxMarks || 20} marks) · Attendance:{' '}
+                <strong className="text-foreground dark:text-white">
+                  {winner.attendancePercentage}%
+                </strong>
               </p>
             </div>
           </div>
 
-          <div className="border-t border-white/10 pt-4 lg:col-span-5 lg:border-t-0 lg:border-l lg:pl-5 lg:pt-0">
-            <p className="text-[11px] font-semibold tracking-wider text-slate-300 uppercase">
+          <div className="border-t border-border/80 pt-4 lg:col-span-5 lg:border-t-0 lg:border-l lg:pl-5 lg:pt-0 dark:border-white/10">
+            <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase dark:text-slate-300">
               Class Top Performers ({summary.className})
             </p>
-            <div className="mt-2.5 divide-y divide-white/10">
+            <div className="mt-2.5 divide-y divide-border/70 dark:divide-white/10">
               {summary.allRankings.slice(0, 3).map((item) => (
                 <div
                   key={item.student.id}
                   className="flex items-center justify-between gap-2 py-1.5 text-xs"
                 >
-                  <span className="truncate font-medium text-white">
-                    <span className="mr-2 font-mono font-bold text-lime tabular-nums">
+                  <span className="truncate font-medium text-foreground dark:text-white">
+                    <span className="mr-2 font-mono font-bold text-emerald-700 tabular-nums dark:text-lime">
                       #{item.rank}
                     </span>
                     {item.student.name}
                   </span>
-                  <span className="shrink-0 font-mono text-slate-300 tabular-nums">
+                  <span className="shrink-0 font-mono text-muted-foreground tabular-nums dark:text-slate-300">
                     Test {item.testPercentage}% · Att {item.attendancePercentage}% ·{' '}
-                    <strong className="text-lime">{item.compositeScore}%</strong>
+                    <strong className="text-emerald-700 dark:text-lime">
+                      {item.compositeScore}%
+                    </strong>
                   </span>
                 </div>
               ))}
@@ -179,7 +189,7 @@ export function StarOfTheMonthSpotlight({
           </div>
         </div>
       ) : (
-        <p className="mt-4 text-sm text-slate-300">
+        <p className="mt-4 text-sm text-muted-foreground dark:text-slate-300">
           No graded monthly test records available for this class yet.
         </p>
       )}
@@ -663,7 +673,9 @@ export function StudentAcademicHub({ student }: { student: Student }) {
                         <p className="font-display text-2xl font-bold text-foreground tabular-nums">
                           {currentSubmission ? (
                             <>
-                              <span className="text-lime">{currentSubmission.obtainedMarks ?? 0}</span>
+                              <span className="text-emerald-700 dark:text-lime">
+                                {currentSubmission.obtainedMarks ?? 0}
+                              </span>
                               <span className="text-muted-foreground">
                                 /{currentTest.totalMarks || 20}
                               </span>
@@ -702,7 +714,7 @@ export function StudentAcademicHub({ student }: { student: Student }) {
                           >
                             <div className="flex items-start justify-between gap-3">
                               <p className="text-sm font-semibold text-foreground">
-                                <span className="mr-2 font-mono text-xs font-bold text-lime tabular-nums">
+                                <span className="mr-2 font-mono text-xs font-bold text-emerald-700 tabular-nums dark:text-lime">
                                   Q{qIndex + 1}.
                                 </span>
                                 {q.prompt}
@@ -747,7 +759,7 @@ export function StudentAcademicHub({ student }: { student: Student }) {
                                       </span>
                                       {isSelected && (
                                         <CheckCircle2
-                                          className="size-4 shrink-0 text-lime"
+                                          className="size-4 shrink-0 text-emerald-700 dark:text-lime"
                                           aria-hidden="true"
                                         />
                                       )}
@@ -968,7 +980,9 @@ export function StudentAcademicHub({ student }: { student: Student }) {
                         <span
                           className={cn(
                             'text-xs font-bold',
-                            log.status === 'verified' ? 'text-lime' : 'text-amber-400',
+                            log.status === 'verified'
+                              ? 'text-emerald-700 dark:text-lime'
+                              : 'text-amber-700 dark:text-amber-400',
                           )}
                         >
                           {log.status === 'verified'
@@ -995,7 +1009,8 @@ export function StudentAcademicHub({ student }: { student: Student }) {
 
                       {log.remarks && (
                         <p className="mt-3 border-t border-border/70 pt-2.5 text-xs text-foreground">
-                          <strong className="text-lime">Usthad Note:</strong> {log.remarks}
+                          <strong className="text-emerald-700 dark:text-lime">Usthad Note:</strong>{' '}
+                          {log.remarks}
                         </p>
                       )}
                     </div>
@@ -1011,7 +1026,7 @@ export function StudentAcademicHub({ student }: { student: Student }) {
           <div className="mt-5 space-y-5">
             <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-background/60 p-4 sm:flex-row sm:items-center sm:p-5">
               <div>
-                <p className="text-xs font-semibold tracking-wider text-lime uppercase">
+                <p className="text-xs font-semibold tracking-wider text-emerald-700 uppercase dark:text-lime">
                   زاد الخير · Zadul Khair Household Contribution
                 </p>
                 <h4 className="mt-1 font-display text-lg font-bold text-foreground sm:text-xl">
@@ -1133,10 +1148,10 @@ export function StudentAcademicHub({ student }: { student: Student }) {
                           <span
                             className={cn(
                               row.status === 'paid'
-                                ? 'text-lime'
+                                ? 'text-emerald-700 dark:text-lime'
                                 : row.status === 'partial'
-                                  ? 'text-amber-400'
-                                  : 'text-red-400',
+                                  ? 'text-amber-700 dark:text-amber-400'
+                                  : 'text-red-600 dark:text-red-400',
                             )}
                           >
                             {row.status}
@@ -1156,7 +1171,7 @@ export function StudentAcademicHub({ student }: { student: Student }) {
         {activeTab === 'discipline' && (
           <div className="mt-5 space-y-4">
             <div className="flex items-center gap-2.5 rounded-xl border border-border bg-background/60 px-4 py-3 text-xs text-muted-foreground">
-              <Lock className="size-4 shrink-0 text-lime" aria-hidden="true" />
+              <Lock className="size-4 shrink-0 text-emerald-700 dark:text-lime" aria-hidden="true" />
               <span>
                 <strong>Confidentiality Guarantee:</strong> Notes in this section are strictly private between you ({student.name}) and your Class Usthad / Principal. No other student can view this record.
               </span>
@@ -1164,7 +1179,7 @@ export function StudentAcademicHub({ student }: { student: Student }) {
 
             {myDisciplineNotes.length === 0 ? (
               <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6 text-center">
-                <CheckCircle2 className="mx-auto size-8 text-lime" aria-hidden="true" />
+                <CheckCircle2 className="mx-auto size-8 text-emerald-700 dark:text-lime" aria-hidden="true" />
                 <h4 className="mt-2 font-display text-base font-bold text-foreground">
                   Exemplary Institutional Conduct — No Disciplinary Notes
                 </h4>
@@ -1180,7 +1195,7 @@ export function StudentAcademicHub({ student }: { student: Student }) {
                     className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 sm:p-5"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs font-semibold text-amber-300 uppercase tabular-nums">
+                      <p className="text-xs font-semibold text-amber-800 uppercase tabular-nums dark:text-amber-300">
                         {note.status} Note · {note.dateString} · Logged by {note.actorName}
                       </p>
                       <span className="text-xs font-semibold text-muted-foreground">
@@ -1923,7 +1938,7 @@ export function UsthadAcademicHub({
                       className="space-y-3 rounded-xl border border-border bg-card/70 p-4"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-mono text-xs font-bold text-lime">
+                        <span className="font-mono text-xs font-bold text-emerald-700 dark:text-lime">
                           Question #{idx + 1} ({q.type === 'mcq' ? 'Multiple Choice' : 'Objective / Typed'})
                         </span>
                         <div className="flex items-center gap-2">
@@ -2120,7 +2135,8 @@ export function UsthadAcademicHub({
                               </p>
                             </div>
                             <div className="text-right font-mono text-sm font-bold tabular-nums">
-                              Total: <span className="text-lime">{liveSum}</span>/
+                              Total:{' '}
+                              <span className="text-emerald-700 dark:text-lime">{liveSum}</span>/
                               {activeGradingTest.totalMarks || 20}
                             </div>
                           </div>
@@ -2245,7 +2261,9 @@ export function UsthadAcademicHub({
                         <span
                           className={cn(
                             'text-xs font-bold',
-                            log.status === 'verified' ? 'text-lime' : 'text-amber-400',
+                            log.status === 'verified'
+                              ? 'text-emerald-700 dark:text-lime'
+                              : 'text-amber-700 dark:text-amber-400',
                           )}
                         >
                           {log.status === 'verified' ? '✓ Verified' : '⏳ Pending Review'}
@@ -2310,7 +2328,7 @@ export function UsthadAcademicHub({
               className="space-y-4 rounded-2xl border border-border bg-background/60 p-4 sm:p-5 lg:col-span-5"
             >
               <div>
-                <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-amber-400 uppercase">
+                <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-amber-700 uppercase dark:text-amber-400">
                   <Lock className="size-3.5" aria-hidden="true" />
                   Strictly Confidential Student Note
                 </p>
@@ -2435,7 +2453,9 @@ export function UsthadAcademicHub({
                           <span
                             className={cn(
                               'text-xs font-semibold',
-                              note.acknowledged ? 'text-lime' : 'text-amber-400',
+                              note.acknowledged
+                                ? 'text-emerald-700 dark:text-lime'
+                                : 'text-amber-700 dark:text-amber-400',
                             )}
                           >
                             {note.acknowledged ? '✓ Acknowledged by Student' : 'Unread by Student'}
@@ -2457,7 +2477,10 @@ export function UsthadAcademicHub({
                       <p className="mt-1 text-xs text-muted-foreground">{note.description}</p>
                       {note.remarks && (
                         <p className="mt-1.5 text-xs text-foreground">
-                          <strong className="text-lime">Corrective Advice:</strong> {note.remarks}
+                          <strong className="text-emerald-700 dark:text-lime">
+                            Corrective Advice:
+                          </strong>{' '}
+                          {note.remarks}
                         </p>
                       )}
                     </div>
@@ -2473,7 +2496,7 @@ export function UsthadAcademicHub({
           <div className="mt-5 space-y-5">
             <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-background/60 p-4 sm:flex-row sm:items-center sm:p-5">
               <div>
-                <p className="text-xs font-semibold tracking-wider text-lime uppercase">
+                <p className="text-xs font-semibold tracking-wider text-emerald-700 uppercase dark:text-lime">
                   زاد الخير · Zadul Khair Class Collection Ledger
                 </p>
                 <h4 className="mt-1 font-display text-lg font-bold text-foreground">
@@ -2505,7 +2528,10 @@ export function UsthadAcademicHub({
                   variant="outline"
                   className="rounded-xl text-xs"
                 >
-                  <CheckCircle2 className="mr-1.5 size-3.5 text-lime" aria-hidden="true" />
+                  <CheckCircle2
+                    className="mr-1.5 size-3.5 text-emerald-700 dark:text-lime"
+                    aria-hidden="true"
+                  />
                   Mark All Paid
                 </Button>
                 <Button
@@ -2634,10 +2660,10 @@ export function UsthadAcademicHub({
                           <span
                             className={cn(
                               statusVal === 'paid'
-                                ? 'text-lime'
+                                ? 'text-emerald-700 dark:text-lime'
                                 : statusVal === 'partial'
-                                  ? 'text-amber-400'
-                                  : 'text-red-400',
+                                  ? 'text-amber-700 dark:text-amber-400'
+                                  : 'text-red-600 dark:text-red-400',
                             )}
                           >
                             {statusVal}
