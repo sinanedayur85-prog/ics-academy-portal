@@ -16,6 +16,8 @@ import {
   ACADEMY_CLASSES,
   CLASS_USTHADS,
   MONTHS_META,
+  findUsthadForTeacherName,
+  getClassSemesterTimetableByClassName,
   getEffectiveStudentAttendance,
   loadAttendanceOverrides,
   loadCustomNotices,
@@ -33,6 +35,7 @@ export type AcademicRecordKind =
   | 'holiday_log'
   | 'discipline_note'
   | 'zadul_khair'
+  | 'monthly_syllabus'
 
 export type AcademicRecordStatus =
   | 'active'
@@ -92,9 +95,9 @@ export type CampusAcademicRecord = {
 }
 
 const STORAGE_KEY = 'ics_campus_academic_records_v1'
-const SEEDED_VERSION_KEY = 'ics_campus_academic_records_seeded_v1'
+const SEEDED_VERSION_KEY = 'ics_campus_academic_records_seeded_v3_syllabus'
 
-export const ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT = 500
+export const ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT = 600
 
 export const HOLIDAY_ACTIVITY_CATEGORIES = [
   'Academic Study (Kitab / Revision)',
@@ -332,9 +335,72 @@ function buildInitialSeededAcademicRecords(): CampusAcademicRecord[] {
         updatedAtMs: baseTs + seq++,
       })
     })
+
+    // 5. Seed Jamiathul Hind (ജാമിഅതുൽ ഹിന്ദ്) Monthly Syllabus & Kitab Page Tracker records for each timetable period
+    const semTimetable = getClassSemesterTimetableByClassName(className)
+    const sampleChapters = [
+      'ബാബു ശുറൂത്തി സ്വലാത്ത് (Bab Shurut al-Salah — Ch. 3)',
+      'ബാബുൽ ഇഅ്റാബി വൽ ബിനാഅ് (Bab al-I’rab wa al-Bina — Ch. 2)',
+      'കിതാബുൽ ഇൽമ് വൽ അദബ് (Kitab al-Ilm — Hadith 15–35)',
+      'സൂറത്തു യാസീൻ തഫ്സീർ (Tafsir Clarifications — Part 2)',
+      'ഉസൂലുൽ ഫിഖ്ഹ് — അൽ അഹ്കാം (Al-Ahkam al-Taklifiyyah)',
+    ]
+    const samplePageTargets = [
+      { total: 30, completed: 22 },
+      { total: 24, completed: 18 },
+      { total: 28, completed: 28 },
+      { total: 20, completed: 12 },
+      { total: 26, completed: 19 },
+    ]
+    const classLeaderStu = classStudents[0]
+    semTimetable.semester1.forEach((slot, pIdx) => {
+      const periodMeta = semTimetable.periods[pIdx]
+      const periodLabel = periodMeta?.label || `Period ${pIdx + 1}`
+      const assignedTeacher = findUsthadForTeacherName(slot.teacher)
+      const pages = samplePageTargets[pIdx % samplePageTargets.length]
+      const isComplete = pages.completed >= pages.total && pages.total > 0
+      const cleanBatchSlug = className.replace(/\s+/g, '_').toLowerCase()
+      records.push({
+        id: `syl_2026-11_${cleanBatchSlug}_p${pIdx + 1}`,
+        campusId: 'ics-academy',
+        recordKind: 'monthly_syllabus',
+        className,
+        studentId: assignedTeacher?.id || usthad.id,
+        studentName: slot.teacher,
+        admissionNo: periodLabel,
+        month: '2026-11',
+        title: slot.subject,
+        subjectOrCategory: sampleChapters[pIdx % sampleChapters.length],
+        description: `Jamiathul Hind Monthly Syllabus target for Class ${className} (${slot.subject}).`,
+        remarks: isComplete
+          ? 'Monthly Jamiathul Hind target pages completed on schedule.'
+          : 'Monthly Kitab pages in progress as per Jamiathul Hind circular.',
+        status: isComplete ? 'verified' : 'active',
+        actorId: classLeaderStu?.id || usthad.id,
+        actorName: classLeaderStu ? `${classLeaderStu.name} (Class Leader)` : usthad.name,
+        dateString: '16 Nov 2026',
+        totalMarks: pages.total,
+        obtainedMarks: pages.completed,
+        isDeleted: false,
+        updatedAtMs: baseTs + seq++,
+      })
+    })
   }
 
   return records
+}
+
+function normalizeLegacyZadulKhairAmount(rec: CampusAcademicRecord): CampusAcademicRecord {
+  if (rec.recordKind !== 'zadul_khair') return rec
+  if (rec.fixedAmount === 500 || rec.fixedAmount === undefined) {
+    const wasPaid500 = rec.status === 'paid' && (rec.paidAmount === 500 || rec.paidAmount === undefined)
+    return {
+      ...rec,
+      fixedAmount: ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT,
+      paidAmount: wasPaid500 ? ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT : rec.paidAmount,
+    }
+  }
+  return rec
 }
 
 export function loadCampusAcademicRecords(): CampusAcademicRecord[] {
@@ -344,6 +410,28 @@ export function loadCampusAcademicRecords(): CampusAcademicRecord[] {
     const seeded = window.localStorage.getItem(SEEDED_VERSION_KEY)
     const defaults = buildInitialSeededAcademicRecords()
     if (!raw || !seeded) {
+      if (raw) {
+        try {
+          const prev = JSON.parse(raw) as CampusAcademicRecord[]
+          if (Array.isArray(prev)) {
+            const byId = new Map<string, CampusAcademicRecord>()
+            for (const d of defaults) byId.set(d.id, d)
+            for (const p of prev) {
+              if (p && typeof p.id === 'string') {
+                byId.set(p.id, normalizeLegacyZadulKhairAmount(p))
+              }
+            }
+            const upgraded = Array.from(byId.values())
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(upgraded))
+            window.localStorage.setItem(SEEDED_VERSION_KEY, '1')
+            return upgraded
+              .filter((r) => !r.isDeleted && r.status !== 'deleted')
+              .sort((a, b) => (b.updatedAtMs || 0) - (a.updatedAtMs || 0))
+          }
+        } catch {
+          // Fallback to defaults below
+        }
+      }
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults))
       window.localStorage.setItem(SEEDED_VERSION_KEY, '1')
       return defaults
@@ -357,9 +445,10 @@ export function loadCampusAcademicRecords(): CampusAcademicRecord[] {
     }
     for (const p of parsed) {
       if (p && typeof p.id === 'string') {
-        const existing = byId.get(p.id)
-        if (!existing || (p.updatedAtMs || 0) >= (existing.updatedAtMs || 0)) {
-          byId.set(p.id, p)
+        const normalized = normalizeLegacyZadulKhairAmount(p)
+        const existing = byId.get(normalized.id)
+        if (!existing || (normalized.updatedAtMs || 0) >= (existing.updatedAtMs || 0)) {
+          byId.set(normalized.id, normalized)
         }
       }
     }

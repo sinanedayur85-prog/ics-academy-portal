@@ -1416,6 +1416,109 @@ export const CLASS_USTHADS: ClassUsthad[] = [
   OFFICIAL_CLASS_USTHADS[1], // BS 5 (Batch 05) — Usthad Hafiz Fazlul Abid Naeemi (Swadr, UST-05)
 ]
 
+export type UsthadScheduledPeriodSlot = {
+  className: string
+  periodIndex: number
+  periodLabel: string
+  time: string
+  subject: string
+  teacher: string
+}
+
+function normalizeUsthadNameToken(raw: string): string {
+  return String(raw || '')
+    .toLowerCase()
+    .replace(/\b(usthad|ustad|muhammed|mohammed|hafiz|shaikhuna|manhappatta)\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export function doesUsthadMatchTeacherName(
+  usthad: Pick<ClassUsthad, 'id' | 'staffId' | 'name' | 'shortName'>,
+  teacherName: string,
+): boolean {
+  if (!usthad || !teacherName) return false
+  const tNorm = normalizeUsthadNameToken(teacherName)
+  const uNorm = normalizeUsthadNameToken(usthad.name || usthad.shortName)
+  if (!tNorm || !uNorm) return false
+  if (tNorm === uNorm) return true
+  if (tNorm.includes(uNorm) || uNorm.includes(tNorm)) return true
+
+  const tTokens = tNorm.split(' ').filter((w) => w.length >= 3)
+  const uTokens = uNorm.split(' ').filter((w) => w.length >= 3)
+  if (tTokens.length === 0 || uTokens.length === 0) return false
+  // Match distinct personal name token (first token after stripping Usthad/Muhammed/Hafiz)
+  return tTokens[0] === uTokens[0]
+}
+
+export function findUsthadForTeacherName(teacherName: string): ClassUsthad | undefined {
+  if (!teacherName) return undefined
+  return OFFICIAL_CLASS_USTHADS.find((u) => doesUsthadMatchTeacherName(u, teacherName))
+}
+
+export function getUsthadScheduledPeriodsAcrossClasses(
+  usthad: Pick<ClassUsthad, 'id' | 'staffId' | 'name' | 'shortName'>,
+  semester: 1 | 2 = CURRENT_SEMESTER,
+): UsthadScheduledPeriodSlot[] {
+  const result: UsthadScheduledPeriodSlot[] = []
+  const allClassKeys = Object.keys(CLASS_SEMESTER_SCHEDULES)
+  for (const className of allClassKeys) {
+    const schedule = CLASS_SEMESTER_SCHEDULES[className]
+    if (!schedule) continue
+    const slots = semester === 1 ? schedule.semester1 : schedule.semester2
+    schedule.periods.forEach((p, idx) => {
+      const slot = slots[idx]
+      if (!slot) return
+      if (doesUsthadMatchTeacherName(usthad, slot.teacher)) {
+        result.push({
+          className,
+          periodIndex: idx + 1,
+          periodLabel: p.label,
+          time: p.time,
+          subject: slot.subject,
+          teacher: slot.teacher,
+        })
+      }
+    })
+  }
+  return result
+}
+
+export function getUsthadTeachingClasses(
+  usthad: ClassUsthad,
+  semester: 1 | 2 = CURRENT_SEMESTER,
+): string[] {
+  const seen = new Set<string>()
+  const addClass = (c?: string) => {
+    if (!c) return
+    const norm = normalizeClassName(c)
+    if (CLASS_SEMESTER_SCHEDULES[norm]) {
+      seen.add(norm)
+    }
+  }
+  if (usthad.teachingBatches && usthad.teachingBatches.length > 0) {
+    usthad.teachingBatches.forEach(addClass)
+  }
+  addClass(usthad.className)
+  const scheduled = getUsthadScheduledPeriodsAcrossClasses(usthad, semester)
+  scheduled.forEach((slot) => addClass(slot.className))
+  return Array.from(seen)
+}
+
+export function isUsthadAssignedClassUsthadOfBatch(
+  usthad: ClassUsthad,
+  className: string,
+): boolean {
+  if (!usthad || !className) return false
+  if (usthad.isPrincipalRole) return true
+  if (usthad.designation === 'Teaching Usthad') return false
+  const norm = normalizeClassName(className)
+  const classUsthadEntry = CLASS_USTHADS.find((c) => normalizeClassName(c.className) === norm)
+  if (!classUsthadEntry) return false
+  return doesUsthadMatchTeacherName(usthad, classUsthadEntry.name)
+}
+
 export function findUsthadByStaffId(identifier: string): ClassUsthad | undefined {
   const cleaned = normalizeAdmissionKey(identifier)
   if (!cleaned) return undefined

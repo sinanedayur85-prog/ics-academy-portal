@@ -46,10 +46,16 @@ import {
   type UnitTestQuestionType,
 } from '@/components/dashboard/academic-hub-data'
 import {
+  CLASS_USTHADS,
   MONTHS_META,
+  doesUsthadMatchTeacherName,
+  findUsthadForTeacherName,
+  getClassSemesterTimetableByClassName,
+  getUsthadScheduledPeriodsAcrossClasses,
   normalizeClassName,
   publishCampusNotification,
   students,
+  type ClassUsthad,
   type Student,
 } from '@/components/dashboard/data'
 import { Panel } from '@/components/dashboard/panel'
@@ -68,8 +74,8 @@ function formatTodayDateDisplay(): string {
   })
 }
 
-type StudentHubTab = 'tests' | 'holiday' | 'zadul_khair' | 'discipline'
-type UsthadHubTab = 'tests' | 'holiday' | 'discipline' | 'zadul_khair'
+type StudentHubTab = 'tests' | 'syllabus' | 'holiday' | 'zadul_khair' | 'discipline'
+type UsthadHubTab = 'syllabus' | 'tests' | 'holiday' | 'discipline' | 'zadul_khair'
 
 export function StarOfTheMonthSpotlight({
   className,
@@ -197,9 +203,123 @@ export function StarOfTheMonthSpotlight({
   )
 }
 
-export function StudentAcademicHub({ student }: { student: Student }) {
+export function buildClassSyllabusRows(
+  className: string,
+  monthId: string,
+  allRecords: CampusAcademicRecord[],
+): CampusAcademicRecord[] {
+  const normClass = normalizeClassName(className)
+  const cleanBatchSlug = normClass.replace(/\s+/g, '_').toLowerCase()
+  const semTimetable = getClassSemesterTimetableByClassName(normClass)
+
+  const existingForMonth = allRecords.filter(
+    (r) =>
+      r.recordKind === 'monthly_syllabus' &&
+      !r.isDeleted &&
+      normalizeClassName(r.className) === normClass &&
+      (r.month || '2026-11') === monthId,
+  )
+
+  const byId = new Map<string, CampusAcademicRecord>()
+  for (const rec of existingForMonth) {
+    byId.set(rec.id, rec)
+  }
+
+  // Ensure every timetable period has a syllabus tracker row for this month
+  semTimetable.semester1.forEach((slot, pIdx) => {
+    const periodNumber = pIdx + 1
+    const periodLabel = semTimetable.periods[pIdx]?.label || `Period ${periodNumber}`
+    const deterministicId = `syl_${monthId}_${cleanBatchSlug}_p${periodNumber}`
+    const matchByPeriod = existingForMonth.find(
+      (r) => r.id === deterministicId || r.admissionNo === periodLabel,
+    )
+    if (matchByPeriod) {
+      byId.set(matchByPeriod.id, matchByPeriod)
+      return
+    }
+
+    // Fallback to November 2026 chapter template if switching months
+    const novFallback = allRecords.find(
+      (r) =>
+        r.recordKind === 'monthly_syllabus' &&
+        !r.isDeleted &&
+        normalizeClassName(r.className) === normClass &&
+        r.admissionNo === periodLabel,
+    )
+    const assignedTeacher = findUsthadForTeacherName(slot.teacher)
+
+    byId.set(deterministicId, {
+      id: deterministicId,
+      campusId: 'ics-academy',
+      recordKind: 'monthly_syllabus',
+      className: normClass,
+      studentId: assignedTeacher?.id || 'usthad-bs3',
+      studentName: slot.teacher,
+      admissionNo: periodLabel,
+      month: monthId,
+      title: slot.subject,
+      subjectOrCategory:
+        novFallback?.subjectOrCategory || 'ജാമിഅതുൽ ഹിന്ദ് നിശ്ചയിച്ച അദ്ധ്യായം രേഖപ്പെടുത്തുക',
+      description: `Jamiathul Hind Monthly Syllabus target for Class ${normClass} (${slot.subject}).`,
+      remarks: 'Monthly syllabus tracking active.',
+      status: 'active',
+      actorId: assignedTeacher?.id || 'usthad-bs3',
+      actorName: slot.teacher,
+      dateString: formatTodayDateDisplay(),
+      totalMarks: novFallback?.totalMarks ?? 25,
+      obtainedMarks: 0,
+      isDeleted: false,
+      updatedAtMs: 0,
+    })
+  })
+
+  return Array.from(byId.values()).sort((a, b) =>
+    (a.admissionNo || '').localeCompare(b.admissionNo || '', undefined, { numeric: true }),
+  )
+}
+
+export function buildUsthadTeachingSyllabusRows(
+  usthad: ClassUsthad,
+  monthId: string,
+  allRecords: CampusAcademicRecord[],
+): CampusAcademicRecord[] {
+  const scheduledSlots = getUsthadScheduledPeriodsAcrossClasses(usthad, 1)
+  const resultMap = new Map<string, CampusAcademicRecord>()
+
+  for (const slot of scheduledSlots) {
+    const classRows = buildClassSyllabusRows(slot.className, monthId, allRecords)
+    const matched = classRows.find(
+      (r) => r.admissionNo === slot.periodLabel || r.title === slot.subject,
+    )
+    if (matched) {
+      resultMap.set(matched.id, matched)
+    }
+  }
+
+  // Also include any custom syllabus rows assigned to this Usthad
+  for (const r of allRecords) {
+    if (
+      r.recordKind === 'monthly_syllabus' &&
+      !r.isDeleted &&
+      (r.month || '2026-11') === monthId &&
+      (r.studentId === usthad.id || doesUsthadMatchTeacherName(usthad, r.studentName || ''))
+    ) {
+      resultMap.set(r.id, r)
+    }
+  }
+
+  return Array.from(resultMap.values())
+}
+
+export function StudentAcademicHub({
+  student,
+  isClassLeader = false,
+}: {
+  student: Student
+  isClassLeader?: boolean
+}) {
   const [records, setRecords] = useState<CampusAcademicRecord[]>([])
-  const [activeTab, setActiveTab] = useState<StudentHubTab>('tests')
+  const [activeTab, setActiveTab] = useState<StudentHubTab>(isClassLeader ? 'syllabus' : 'tests')
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-11')
   const [statusBanner, setStatusBanner] = useState<string | null>(null)
 
@@ -207,6 +327,27 @@ export function StudentAcademicHub({ student }: { student: Student }) {
   const [selectedTestId, setSelectedTestId] = useState<string>('')
   const [draftAnswers, setDraftAnswers] = useState<Record<string, string>>({})
   const [isSubmittingTest, setIsSubmittingTest] = useState(false)
+
+  // Jamiathul Hind Monthly Syllabus Draft Edits (for Class Leader)
+  const [syllabusEdits, setSyllabusEdits] = useState<
+    Record<
+      string,
+      {
+        chapter: string
+        totalPages: number
+        completedPages: number
+        remarks: string
+      }
+    >
+  >({})
+  const [savingSyllabusId, setSavingSyllabusId] = useState<string | null>(null)
+  const [showAddKitabForm, setShowAddKitabForm] = useState(false)
+  const [newKitabName, setNewKitabName] = useState('')
+  const [newKitabPeriodLabel, setNewKitabPeriodLabel] = useState('Extra Kitab')
+  const [newKitabUsthadId, setNewKitabUsthadId] = useState<string>(CLASS_USTHADS[0]?.id || 'usthad-09')
+  const [newKitabChapter, setNewKitabChapter] = useState('')
+  const [newKitabTotalPages, setNewKitabTotalPages] = useState('25')
+  const [newKitabCompletedPages, setNewKitabCompletedPages] = useState('0')
 
   // Holiday & SSF Da'wa Log Form State
   const [holidayCategory, setHolidayCategory] = useState<string>(HOLIDAY_ACTIVITY_CATEGORIES[0])
@@ -230,6 +371,135 @@ export function StudentAcademicHub({ student }: { student: Student }) {
   }, [])
 
   const normClass = normalizeClassName(student.className)
+
+  const classSyllabusRows = useMemo(
+    () => buildClassSyllabusRows(normClass, selectedMonth, records),
+    [normClass, selectedMonth, records],
+  )
+
+  const classSyllabusTotals = useMemo(() => {
+    let totalTarget = 0
+    let totalCompleted = 0
+    for (const r of classSyllabusRows) {
+      const draft = syllabusEdits[r.id]
+      const t = Number(draft?.totalPages ?? r.totalMarks ?? 0)
+      const c = Number(draft?.completedPages ?? r.obtainedMarks ?? 0)
+      totalTarget += t
+      totalCompleted += c
+    }
+    return {
+      totalTarget,
+      totalCompleted,
+      totalRemaining: Math.max(0, totalTarget - totalCompleted),
+    }
+  }, [classSyllabusRows, syllabusEdits])
+
+  async function handleClassLeaderSaveSyllabusRow(row: CampusAcademicRecord) {
+    if (!isClassLeader) return
+    setSavingSyllabusId(row.id)
+    try {
+      const draft = syllabusEdits[row.id]
+      const chapter = (draft?.chapter ?? row.subjectOrCategory ?? '').trim() || 'നിശ്ചയിച്ച അദ്ധ്യായം'
+      const totalPages = Math.max(0, Math.min(1000, Number(draft?.totalPages ?? row.totalMarks ?? 0)))
+      const completedPages = Math.max(
+        0,
+        Math.min(1000, Number(draft?.completedPages ?? row.obtainedMarks ?? 0)),
+      )
+      const remainingPages = Math.max(0, totalPages - completedPages)
+      const remarks =
+        (draft?.remarks ?? row.remarks ?? '').trim() ||
+        `Updated by Class Leader ${student.name}: ${completedPages}/${totalPages} pages (${remainingPages} remaining).`
+
+      const updatedRecord: CampusAcademicRecord = {
+        ...row,
+        className: normClass,
+        month: selectedMonth,
+        subjectOrCategory: chapter,
+        totalMarks: totalPages,
+        obtainedMarks: completedPages,
+        remarks,
+        status: completedPages >= totalPages && totalPages > 0 ? 'verified' : 'active',
+        actorId: student.id,
+        actorName: `${student.name} (Class Leader)`,
+        dateString: formatTodayDateDisplay(),
+        isDeleted: false,
+        updatedAtMs: Date.now(),
+      }
+
+      await upsertCampusAcademicRecord(updatedRecord)
+
+      publishCampusNotification({
+        type: 'notice',
+        title: `ജാമിഅതുൽ ഹിന്ദ് സിലബസ് അപ്ഡേറ്റ് • Class ${normClass}`,
+        message: `${student.name} (Class Leader) updated "${row.title}" (${row.studentName}): Chapter "${chapter}" — ആകെ ${totalPages} പേജ്, എടുത്തത് ${completedPages} പേജ്, ബാക്കി ${remainingPages} പേജ്.`,
+        targetClass: normClass,
+        targetStaffOnly: true,
+        actorId: student.id,
+        actorName: `${student.name} (Class Leader)`,
+        href: '#academic-hub',
+      })
+
+      setStatusBanner(
+        `✅ "${row.title}" ജാമിഅതുൽ ഹിന്ദ് സിലബസ് സേവ് ചെയ്ത് ${row.studentName}-നെ അറിയിച്ചു! (ആകെ: ${totalPages} പേജ് · എടുത്തത്: ${completedPages} · ബാക്കി: ${remainingPages} പേജ്)`,
+      )
+    } finally {
+      setSavingSyllabusId(null)
+    }
+  }
+
+  async function handleClassLeaderAddCustomKitab(e: React.FormEvent) {
+    e.preventDefault()
+    if (!isClassLeader || !newKitabName.trim() || !newKitabChapter.trim()) return
+    const matchedUsthad =
+      CLASS_USTHADS.find((u) => u.id === newKitabUsthadId) || CLASS_USTHADS[0]
+    const totalPages = Math.max(1, Math.min(1000, Number(newKitabTotalPages) || 25))
+    const completedPages = Math.max(0, Math.min(1000, Number(newKitabCompletedPages) || 0))
+    const remainingPages = Math.max(0, totalPages - completedPages)
+    const cleanSlug = normClass.replace(/\s+/g, '_').toLowerCase()
+
+    const customRecord: CampusAcademicRecord = {
+      id: `syl_${selectedMonth}_${cleanSlug}_extra_${Date.now()}`,
+      campusId: 'ics-academy',
+      recordKind: 'monthly_syllabus',
+      className: normClass,
+      studentId: matchedUsthad.id,
+      studentName: matchedUsthad.name,
+      admissionNo: newKitabPeriodLabel.trim() || 'Extra Kitab',
+      month: selectedMonth,
+      title: newKitabName.trim(),
+      subjectOrCategory: newKitabChapter.trim(),
+      description: `Jamiathul Hind Monthly Syllabus target for Class ${normClass}.`,
+      remarks: `Added by Class Leader ${student.name}.`,
+      status: completedPages >= totalPages ? 'verified' : 'active',
+      actorId: student.id,
+      actorName: `${student.name} (Class Leader)`,
+      dateString: formatTodayDateDisplay(),
+      totalMarks: totalPages,
+      obtainedMarks: completedPages,
+      isDeleted: false,
+      updatedAtMs: Date.now(),
+    }
+
+    await upsertCampusAcademicRecord(customRecord)
+
+    publishCampusNotification({
+      type: 'notice',
+      title: `പുതിയ കിതാബ് സിലബസ് • Class ${normClass}`,
+      message: `${student.name} (Class Leader) added "${customRecord.title}" for ${matchedUsthad.name}: അദ്ധ്യായം "${customRecord.subjectOrCategory}" (${totalPages} പേജ്, ബാക്കി ${remainingPages} പേജ്).`,
+      targetClass: normClass,
+      targetStaffOnly: true,
+      actorId: student.id,
+      actorName: `${student.name} (Class Leader)`,
+      href: '#academic-hub',
+    })
+
+    setNewKitabName('')
+    setNewKitabChapter('')
+    setShowAddKitabForm(false)
+    setStatusBanner(
+      `✅ പുതിയ കിതാബ് "${customRecord.title}" സിലബസ് ചേർത്തു, ${matchedUsthad.name}-ന് അറിയിപ്പ് അയച്ചു!`,
+    )
+  }
 
   const classUnitTests = useMemo(
     () =>
@@ -510,15 +780,35 @@ export function StudentAcademicHub({ student }: { student: Student }) {
         onSelectMonth={setSelectedMonth}
       />
 
-      {/* 2. Main Student Academic, Da'wa, Conduct & Zadul Khair Panel */}
+      {/* 2. Main Student Academic, Syllabus, Da'wa, Conduct & Zadul Khair Panel */}
       <Panel
         id="student-academic-hub-panel"
-        title="Monthly Tests, Holiday Da'wa Log & Zadul Khair"
-        eyebrow={`Class ${student.className} · ${student.name}`}
+        title="Jamiathul Hind Syllabus, Monthly Tests, Holiday Da'wa & Zadul Khair"
+        eyebrow={`Class ${student.className} · ${student.name}${isClassLeader ? ' (Class Leader)' : ''}`}
         icon={Trophy}
       >
         {/* Tab Bar */}
         <div className="flex flex-wrap items-center gap-2 border-b border-border pb-4">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('syllabus')
+              setStatusBanner(null)
+            }}
+            className={cn(
+              'flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
+              activeTab === 'syllabus'
+                ? 'bg-lime text-slate-950 shadow-sm'
+                : 'border border-border bg-background/60 text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <BookOpen className="size-3.5" aria-hidden="true" />
+            <span>
+              Jamiathul Hind Syllabus ({classSyllabusRows.length})
+              {isClassLeader ? ' • ക്ലാസ്സ് ലീഡർ അപ്ഡേഷൻ' : ''}
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -603,6 +893,349 @@ export function StudentAcademicHub({ student }: { student: Student }) {
             >
               Dismiss
             </button>
+          </div>
+        )}
+
+        {/* TAB 0: JAMIATHUL HIND MONTHLY SYLLABUS UPDATION & KITAB PAGE TRACKER */}
+        {activeTab === 'syllabus' && (
+          <div className="mt-5 space-y-5">
+            <div className="flex flex-col justify-between gap-4 rounded-2xl border border-emerald-600/25 bg-emerald-500/[0.06] p-4 sm:flex-row sm:items-center sm:p-5 dark:border-lime/30 dark:bg-lime/[0.06]">
+              <div>
+                <p className="text-xs font-bold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                  ജാമിഅതുൽ ഹിന്ദ് മാസ സിലബസ് · Jamiathul Hind Monthly Syllabus Updation
+                </p>
+                <h4 className="mt-1 font-display text-lg font-bold text-foreground sm:text-xl">
+                  Class {normClass} — കിതാബുകളും അദ്ധ്യായങ്ങളും പേജ് കണക്കും
+                </h4>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {isClassLeader
+                    ? 'ക്ലാസ്സ് ലീഡർക്ക് ജാമിഅതുൽ ഹിന്ദ് നിശ്ചയിച്ച അദ്ധ്യായം (Chapter), എടുക്കേണ്ട പേജുകൾ, എടുത്ത പേജുകൾ എന്നിവ രേഖപ്പെടുത്തി ഉസ്താദുമാരെ അറിയിക്കാം.'
+                    : 'ജാമിഅതുൽ ഹിന്ദ് നിശ്ചയിച്ച പ്രകാരം ഓരോ വിഷയത്തിലും എടുക്കേണ്ട അദ്ധ്യായവും പേജ് കണക്കും താഴെ കാണാം.'}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-44">
+                  <ThemeSelect
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    aria-label="Select Syllabus Month"
+                  >
+                    {MONTHS_META.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.month} {m.year}
+                      </option>
+                    ))}
+                  </ThemeSelect>
+                </div>
+                {isClassLeader && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setShowAddKitabForm((v) => !v)}
+                    className="rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                  >
+                    <Plus className="mr-1.5 size-3.5" aria-hidden="true" />
+                    {showAddKitabForm ? 'Close Form' : 'Add Kitab / Subject'}
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* 3-Box Summary KPI Strip */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-border bg-background/60 p-4">
+                <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                  ആകെ എടുക്കേണ്ട പേജുകൾ (Total Target Pages)
+                </p>
+                <p className="mt-1 font-display text-2xl font-bold text-foreground tabular-nums">
+                  {classSyllabusTotals.totalTarget}{' '}
+                  <span className="text-xs font-normal text-muted-foreground">Pages</span>
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                <p className="text-[11px] font-semibold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                  ഇതുവരെ എടുത്ത പേജുകൾ (Completed Pages)
+                </p>
+                <p className="mt-1 font-display text-2xl font-bold text-emerald-700 tabular-nums dark:text-lime">
+                  {classSyllabusTotals.totalCompleted}{' '}
+                  <span className="text-xs font-normal opacity-80">Pages Completed</span>
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                <p className="text-[11px] font-semibold tracking-wider text-amber-800 uppercase dark:text-amber-300">
+                  ഇനി എടുക്കാനുള്ള പേജുകൾ (Remaining Pages)
+                </p>
+                <p className="mt-1 font-display text-2xl font-bold text-amber-700 tabular-nums dark:text-amber-300">
+                  {classSyllabusTotals.totalRemaining}{' '}
+                  <span className="text-xs font-normal opacity-80">Pages Remaining</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Class Leader Add Custom Kitab Form */}
+            {isClassLeader && showAddKitabForm && (
+              <form
+                onSubmit={handleClassLeaderAddCustomKitab}
+                className="space-y-4 rounded-2xl border border-lime/40 bg-background/80 p-4 sm:p-5"
+              >
+                <h5 className="font-display text-sm font-bold text-foreground">
+                  പുതിയ കിതാബ് / വിഷയം ചേർക്കുക (Add Kitab to Class {normClass} Monthly Syllabus)
+                </h5>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">കിതാബ് / വിഷയം (Kitab / Subject Name) *</Label>
+                    <Input
+                      value={newKitabName}
+                      onChange={(e) => setNewKitabName(e.target.value)}
+                      placeholder="e.g., Fath al-Mu'in / Minhaj"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">വിഷയം എടുക്കുന്ന ഉസ്താദ് (Teaching Usthad) *</Label>
+                    <ThemeSelect
+                      value={newKitabUsthadId}
+                      onChange={(e) => setNewKitabUsthadId(e.target.value)}
+                      aria-label="Select Teaching Usthad"
+                    >
+                      {CLASS_USTHADS.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} ({u.staffId})
+                        </option>
+                      ))}
+                    </ThemeSelect>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">പിരീഡ് (Period Label)</Label>
+                    <Input
+                      value={newKitabPeriodLabel}
+                      onChange={(e) => setNewKitabPeriodLabel(e.target.value)}
+                      placeholder="e.g., Period 6 / Extra Kitab"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="space-y-1 sm:col-span-1">
+                    <Label className="text-xs">
+                      ജാമിഅതുൽ ഹിന്ദ് നിശ്ചയിച്ച അദ്ധ്യായം (Chapter Name) *
+                    </Label>
+                    <Input
+                      value={newKitabChapter}
+                      onChange={(e) => setNewKitabChapter(e.target.value)}
+                      placeholder="അദ്ധ്യായം ഇവിടെ ടൈപ്പ് ചെയ്യുക..."
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">എത്ര പേജാണ് എടുക്കേണ്ടത് (Target Pages)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={1000}
+                      value={newKitabTotalPages}
+                      onChange={(e) => setNewKitabTotalPages(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">എത്ര പേജ് എടുത്തു (Completed Pages)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={1000}
+                      value={newKitabCompletedPages}
+                      onChange={(e) => setNewKitabCompletedPages(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    type="submit"
+                    className="rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                  >
+                    <Send className="mr-1.5 size-3.5" aria-hidden="true" />
+                    സേവ് ചെയ്ത് ഉസ്താദിനെ അറിയിക്കുക (Save & Notify Usthad)
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {/* Kitab Syllabus Cards / Rows */}
+            <div className="space-y-3.5">
+              {classSyllabusRows.map((row) => {
+                const draft = syllabusEdits[row.id]
+                const chapterVal = draft?.chapter ?? row.subjectOrCategory ?? ''
+                const totalPagesVal = Number(draft?.totalPages ?? row.totalMarks ?? 0)
+                const completedPagesVal = Number(draft?.completedPages ?? row.obtainedMarks ?? 0)
+                const remainingPagesVal = Math.max(0, totalPagesVal - completedPagesVal)
+                const progressPct =
+                  totalPagesVal > 0
+                    ? Math.min(100, Math.round((completedPagesVal / totalPagesVal) * 100))
+                    : 0
+
+                return (
+                  <div
+                    key={row.id}
+                    className="rounded-2xl border border-border bg-background/60 p-4 sm:p-5"
+                  >
+                    <div className="flex flex-col justify-between gap-3 border-b border-border/70 pb-3.5 sm:flex-row sm:items-center">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-lg border border-emerald-600/30 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-bold text-emerald-700 dark:border-lime/30 dark:bg-lime/10 dark:text-lime">
+                            {row.admissionNo || 'Period'}
+                          </span>
+                          <span className="text-xs font-semibold text-muted-foreground">
+                            ഉസ്താദ്: <strong className="text-foreground">{row.studentName}</strong>
+                          </span>
+                        </div>
+                        <h5 className="mt-1.5 font-display text-base font-bold text-foreground sm:text-lg">
+                          {row.title}
+                        </h5>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs tabular-nums">
+                        <div className="rounded-xl border border-border bg-card px-3 py-1.5">
+                          <span className="text-muted-foreground">എടുക്കേണ്ടത്: </span>
+                          <strong className="font-mono text-sm text-foreground">
+                            {totalPagesVal}p
+                          </strong>
+                        </div>
+                        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5">
+                          <span className="text-emerald-700 dark:text-lime">എടുത്തത്: </span>
+                          <strong className="font-mono text-sm text-emerald-700 dark:text-lime">
+                            {completedPagesVal}p
+                          </strong>
+                        </div>
+                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5">
+                          <span className="text-amber-800 dark:text-amber-300">ഇനി ബാക്കി: </span>
+                          <strong className="font-mono text-sm text-amber-700 dark:text-amber-300">
+                            {remainingPagesVal}p
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground tabular-nums">
+                        <span>
+                          അദ്ധ്യായം (Prescribed Chapter):{' '}
+                          <strong className="text-foreground">
+                            {chapterVal || 'രേഖപ്പെടുത്തിയിട്ടില്ല'}
+                          </strong>
+                        </span>
+                        <span className="font-mono font-semibold text-emerald-700 dark:text-lime">
+                          {progressPct}% Completed
+                        </span>
+                      </div>
+                      <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-emerald-600 transition-all duration-300 dark:bg-lime"
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {isClassLeader ? (
+                      <div className="mt-4 grid gap-3 border-t border-border/60 pt-3.5 sm:grid-cols-12 sm:items-end">
+                        <div className="space-y-1 sm:col-span-5">
+                          <Label className="text-[11px] text-muted-foreground">
+                            ജാമിഅതുൽ ഹിന്ദ് അദ്ധ്യായം (Type Chapter Name)
+                          </Label>
+                          <Input
+                            value={chapterVal}
+                            onChange={(e) =>
+                              setSyllabusEdits((prev) => ({
+                                ...prev,
+                                [row.id]: {
+                                  chapter: e.target.value,
+                                  totalPages: totalPagesVal,
+                                  completedPages: completedPagesVal,
+                                  remarks: draft?.remarks ?? row.remarks ?? '',
+                                },
+                              }))
+                            }
+                            placeholder="അദ്ധ്യായം ഇവിടെ ടൈപ്പ് ചെയ്യുക..."
+                            className="h-9 text-xs"
+                          />
+                        </div>
+
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label className="text-[11px] text-muted-foreground">
+                            എടുക്കേണ്ട പേജ് (Target)
+                          </Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={1000}
+                            value={totalPagesVal}
+                            onChange={(e) =>
+                              setSyllabusEdits((prev) => ({
+                                ...prev,
+                                [row.id]: {
+                                  chapter: chapterVal,
+                                  totalPages: Math.max(0, Number(e.target.value) || 0),
+                                  completedPages: completedPagesVal,
+                                  remarks: draft?.remarks ?? row.remarks ?? '',
+                                },
+                              }))
+                            }
+                            className="h-9 font-mono text-xs font-bold tabular-nums"
+                          />
+                        </div>
+
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label className="text-[11px] text-emerald-700 dark:text-lime">
+                            എടുത്ത പേജ് (Completed)
+                          </Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={1000}
+                            value={completedPagesVal}
+                            onChange={(e) =>
+                              setSyllabusEdits((prev) => ({
+                                ...prev,
+                                [row.id]: {
+                                  chapter: chapterVal,
+                                  totalPages: totalPagesVal,
+                                  completedPages: Math.max(0, Number(e.target.value) || 0),
+                                  remarks: draft?.remarks ?? row.remarks ?? '',
+                                },
+                              }))
+                            }
+                            className="h-9 font-mono text-xs font-bold tabular-nums"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-3">
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={savingSyllabusId === row.id}
+                            onClick={() => handleClassLeaderSaveSyllabusRow(row)}
+                            className="h-9 w-full rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                          >
+                            <Send className="mr-1.5 size-3.5" aria-hidden="true" />
+                            {savingSyllabusId === row.id
+                              ? 'Saving...'
+                              : 'Save & Notify Usthad'}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-2.5 text-[11px] text-muted-foreground">
+                        Last updated by {row.actorName} on {row.dateString || 'Nov 2026'}
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
 
@@ -1242,16 +1875,23 @@ export function UsthadAcademicHub({
   actorName,
   role,
   activeClassName,
+  usthad,
 }: {
   actorId: string
   actorName: string
   role: 'usthad' | 'principal'
   activeClassName: string
+  usthad?: ClassUsthad
 }) {
   const [records, setRecords] = useState<CampusAcademicRecord[]>([])
-  const [activeTab, setActiveTab] = useState<UsthadHubTab>('tests')
+  const [activeTab, setActiveTab] = useState<UsthadHubTab>('syllabus')
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-11')
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  const resolvedUsthad = useMemo<ClassUsthad | undefined>(() => {
+    if (usthad) return usthad
+    return CLASS_USTHADS.find((u) => u.id === actorId || u.name === actorName)
+  }, [usthad, actorId, actorName])
 
   const normClass = normalizeClassName(activeClassName || 'BS 3')
   const classStudents = useMemo(
@@ -1266,6 +1906,90 @@ export function UsthadAcademicHub({
     })
     return unsub
   }, [])
+
+  // --- 0. Jamiathul Hind Monthly Syllabus & Kitab Page Tracker State ---
+  const [usthadSyllabusEdits, setUsthadSyllabusEdits] = useState<
+    Record<
+      string,
+      {
+        chapter: string
+        totalPages: number
+        completedPages: number
+        remarks: string
+      }
+    >
+  >({})
+  const [savingSyllabusId, setSavingSyllabusId] = useState<string | null>(null)
+
+  const myTeachingSyllabusRows = useMemo(
+    () =>
+      resolvedUsthad
+        ? buildUsthadTeachingSyllabusRows(resolvedUsthad, selectedMonth, records)
+        : [],
+    [resolvedUsthad, selectedMonth, records],
+  )
+
+  const activeClassSyllabusRows = useMemo(
+    () => buildClassSyllabusRows(normClass, selectedMonth, records),
+    [normClass, selectedMonth, records],
+  )
+
+  async function handleUsthadUpdateSyllabusPages(
+    row: CampusAcademicRecord,
+    allowFullEdit: boolean,
+  ) {
+    setSavingSyllabusId(row.id)
+    try {
+      const draft = usthadSyllabusEdits[row.id]
+      const chapter = allowFullEdit
+        ? (draft?.chapter ?? row.subjectOrCategory ?? '').trim() || 'നിശ്ചയിച്ച അദ്ധ്യായം'
+        : row.subjectOrCategory || 'നിശ്ചയിച്ച അദ്ധ്യായം'
+      const totalPages = allowFullEdit
+        ? Math.max(0, Math.min(1000, Number(draft?.totalPages ?? row.totalMarks ?? 0)))
+        : Math.max(0, Math.min(1000, Number(row.totalMarks ?? 0)))
+      const completedPages = Math.max(
+        0,
+        Math.min(1000, Number(draft?.completedPages ?? row.obtainedMarks ?? 0)),
+      )
+      const remainingPages = Math.max(0, totalPages - completedPages)
+      const remarks =
+        (draft?.remarks ?? row.remarks ?? '').trim() ||
+        `Updated by ${actorName}: ${completedPages}/${totalPages} pages completed (${remainingPages} pages remaining).`
+
+      const updatedRecord: CampusAcademicRecord = {
+        ...row,
+        month: selectedMonth,
+        subjectOrCategory: chapter,
+        totalMarks: totalPages,
+        obtainedMarks: completedPages,
+        remarks,
+        status: completedPages >= totalPages && totalPages > 0 ? 'verified' : 'active',
+        actorId,
+        actorName,
+        dateString: formatTodayDateDisplay(),
+        isDeleted: false,
+        updatedAtMs: Date.now(),
+      }
+
+      await upsertCampusAcademicRecord(updatedRecord)
+
+      publishCampusNotification({
+        type: 'notice',
+        title: `കിതാബ് പേജ് അപ്ഡേറ്റ് • Class ${row.className}`,
+        message: `${actorName} updated "${row.title}" (Class ${row.className}): എടുത്ത പേജ് ${completedPages}/${totalPages} (ഇനി ബാക്കി: ${remainingPages} പേജ്).`,
+        targetClass: row.className,
+        actorId,
+        actorName,
+        href: '#academic-hub',
+      })
+
+      setToastMessage(
+        `✅ Class ${row.className} "${row.title}" പേജ് കണക്ക് അപ്ഡേറ്റ് ചെയ്തു! (എടുത്തത്: ${completedPages} പേജ് · ഇനി എടുക്കാനുള്ളത്: ${remainingPages} പേജ്)`,
+      )
+    } finally {
+      setSavingSyllabusId(null)
+    }
+  }
 
   // --- 1. Monthly / Unit Test Builder & Grader State ---
   const [showCreateTestForm, setShowCreateTestForm] = useState(false)
@@ -1731,7 +2455,7 @@ export function UsthadAcademicHub({
         monthId: selectedMonth,
         rows,
         preparedByName: actorName,
-        preparedByRole: role === 'principal' ? 'Principal' : 'Class Usthad',
+        preparedByRole: role === 'principal' ? 'Principal' : 'Usthad',
         mode,
       })
     } finally {
@@ -1795,11 +2519,28 @@ export function UsthadAcademicHub({
       {/* 2. Usthad / Principal Control Hub */}
       <Panel
         id="usthad-academic-hub-panel"
-        title={`Class ${normClass} — Monthly Tests, Holiday Da'wa, Conduct & Zadul Khair`}
-        eyebrow={`Managed by ${actorName} (${role === 'principal' ? 'Principal' : 'Class Usthad'})`}
+        title={`Class ${normClass} — Jamiathul Hind Syllabus, Monthly Tests, Holiday Da'wa & Zadul Khair`}
+        eyebrow={`Managed by ${actorName} (${role === 'principal' ? 'Principal' : 'Usthad'})`}
         icon={Trophy}
       >
         <div className="flex flex-wrap items-center gap-2 border-b border-border pb-4">
+          <button
+            type="button"
+            onClick={() => setActiveTab('syllabus')}
+            className={cn(
+              'flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
+              activeTab === 'syllabus'
+                ? 'bg-lime text-slate-950 shadow-sm'
+                : 'border border-border bg-background/60 text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <BookOpen className="size-3.5" aria-hidden="true" />
+            <span>
+              Jamiathul Hind Syllabus & My Subjects (
+              {myTeachingSyllabusRows.length || activeClassSyllabusRows.length})
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={() => setActiveTab('tests')}
@@ -1867,6 +2608,265 @@ export function UsthadAcademicHub({
             >
               Close
             </button>
+          </div>
+        )}
+
+        {/* USTHAD TAB 0: JAMIATHUL HIND MONTHLY SYLLABUS & MY TEACHING SUBJECTS ACROSS CLASSES */}
+        {activeTab === 'syllabus' && (
+          <div className="mt-5 space-y-6">
+            {/* Section A: My Teaching Subjects Across All Classes */}
+            {myTeachingSyllabusRows.length > 0 && (
+              <div className="space-y-4 rounded-2xl border border-emerald-600/30 bg-emerald-500/[0.06] p-4 sm:p-5 dark:border-lime/35 dark:bg-lime/[0.06]">
+                <div className="flex flex-col justify-between gap-3 border-b border-border/70 pb-3.5 sm:flex-row sm:items-center">
+                  <div>
+                    <p className="text-xs font-bold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                      എൻ്റെ ക്ലാസ്സുകളും വിഷയങ്ങളും · My Teaching Subjects Across All Classes
+                    </p>
+                    <h4 className="mt-1 font-display text-base font-bold text-foreground sm:text-lg">
+                      {actorName} — ജാമിഅതുൽ ഹിന്ദ് മാസ സിലബസ് & പേജ് കണക്ക് ({myTeachingSyllabusRows.length} Subjects)
+                    </h4>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      നിങ്ങൾ വിവിധ ക്ലാസ്സുകളിൽ എടുക്കുന്ന കിതാബുകൾ, ക്ലാസ്സ് ലീഡർ രേഖപ്പെടുത്തിയ ജാമിഅതുൽ ഹിന്ദ് അദ്ധ്യായം, എടുക്കേണ്ട പേജ്, എടുത്ത പേജ്, ഇനി എടുക്കാനുള്ള പേജ് എന്നിവ ഇവിടെ കാണാം. എടുത്ത പേജുകളുടെ എണ്ണം അപ്ഡേറ്റ് ചെയ്യാം.
+                    </p>
+                  </div>
+
+                  <div className="w-44 shrink-0">
+                    <ThemeSelect
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(e.target.value)}
+                      aria-label="Select Syllabus Month"
+                    >
+                      {MONTHS_META.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.month} {m.year}
+                        </option>
+                      ))}
+                    </ThemeSelect>
+                  </div>
+                </div>
+
+                <div className="grid gap-3.5 md:grid-cols-2">
+                  {myTeachingSyllabusRows.map((row) => {
+                    const draft = usthadSyllabusEdits[row.id]
+                    const totalPagesVal = Number(draft?.totalPages ?? row.totalMarks ?? 0)
+                    const completedPagesVal = Number(
+                      draft?.completedPages ?? row.obtainedMarks ?? 0,
+                    )
+                    const remainingPagesVal = Math.max(0, totalPagesVal - completedPagesVal)
+                    const progressPct =
+                      totalPagesVal > 0
+                        ? Math.min(100, Math.round((completedPagesVal / totalPagesVal) * 100))
+                        : 0
+
+                    return (
+                      <div
+                        key={row.id}
+                        className="flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-2xs"
+                      >
+                        <div>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600/35 bg-emerald-500/15 px-2.5 py-0.5 font-mono text-xs font-bold text-emerald-800 dark:border-lime/40 dark:bg-lime/15 dark:text-lime">
+                              Class {row.className} · {row.admissionNo}
+                            </span>
+                            <span className="font-mono text-xs font-bold text-emerald-700 tabular-nums dark:text-lime">
+                              {progressPct}% Done
+                            </span>
+                          </div>
+
+                          <h5 className="mt-2 font-display text-base font-bold text-foreground">
+                            {row.title}
+                          </h5>
+
+                          <p className="mt-1 rounded-lg border border-border/70 bg-background/70 px-3 py-2 text-xs text-foreground">
+                            <span className="font-semibold text-muted-foreground">
+                              ജാമിഅതുൽ ഹിന്ദ് അദ്ധ്യായം:{' '}
+                            </span>
+                            <strong className="text-emerald-700 dark:text-lime">
+                              {row.subjectOrCategory || 'രേഖപ്പെടുത്തിയിട്ടില്ല'}
+                            </strong>
+                          </p>
+
+                          <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs tabular-nums">
+                            <div className="rounded-lg border border-border bg-background/60 p-2">
+                              <span className="block text-[10px] text-muted-foreground">
+                                എടുക്കേണ്ടത്
+                              </span>
+                              <strong className="font-mono text-sm text-foreground">
+                                {totalPagesVal}p
+                              </strong>
+                            </div>
+                            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2">
+                              <span className="block text-[10px] text-emerald-700 dark:text-lime">
+                                എടുത്തത്
+                              </span>
+                              <strong className="font-mono text-sm text-emerald-700 dark:text-lime">
+                                {completedPagesVal}p
+                              </strong>
+                            </div>
+                            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2">
+                              <span className="block text-[10px] text-amber-800 dark:text-amber-300">
+                                ഇനി ബാക്കി
+                              </span>
+                              <strong className="font-mono text-sm text-amber-700 dark:text-amber-300">
+                                {remainingPagesVal}p
+                              </strong>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-3.5 flex items-end gap-2 border-t border-border/70 pt-3">
+                          <div className="flex-1 space-y-1">
+                            <Label className="text-[11px] font-semibold text-foreground">
+                              എത്ര പേജ് എടുത്തു (Update Completed Pages):
+                            </Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={1000}
+                              value={completedPagesVal}
+                              onChange={(e) =>
+                                setUsthadSyllabusEdits((prev) => ({
+                                  ...prev,
+                                  [row.id]: {
+                                    chapter: row.subjectOrCategory || '',
+                                    totalPages: totalPagesVal,
+                                    completedPages: Math.max(0, Number(e.target.value) || 0),
+                                    remarks: draft?.remarks ?? row.remarks ?? '',
+                                  },
+                                }))
+                              }
+                              className="h-9 font-mono text-xs font-bold tabular-nums"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={savingSyllabusId === row.id}
+                            onClick={() =>
+                              handleUsthadUpdateSyllabusPages(row, role === 'principal')
+                            }
+                            className="h-9 rounded-xl bg-lime px-3.5 text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                          >
+                            <Check className="mr-1.5 size-3.5" aria-hidden="true" />
+                            {savingSyllabusId === row.id ? 'Saving...' : 'Save Pages'}
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Section B: Full Class Syllabus Table for Active Class */}
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h4 className="font-display text-base font-bold text-foreground">
+                    Class {normClass} — Complete Jamiathul Hind Monthly Syllabus ({selectedMonth})
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    All subjects in Class {normClass} with prescribed chapter, target pages, completed pages, and remaining pages.
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-border bg-background/60">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-border bg-muted/50 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                    <tr>
+                      <th className="px-3.5 py-3">Period & Kitab</th>
+                      <th className="px-3.5 py-3">Teaching Usthad</th>
+                      <th className="px-3.5 py-3">അദ്ധ്യായം (Jamiathul Hind Chapter)</th>
+                      <th className="px-3.5 py-3">എടുക്കേണ്ടത്</th>
+                      <th className="px-3.5 py-3">എടുത്ത പേജ്</th>
+                      <th className="px-3.5 py-3">ഇനി ബാക്കി</th>
+                      <th className="px-3.5 py-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border tabular-nums">
+                    {activeClassSyllabusRows.map((row) => {
+                      const canEditThisSubject =
+                        role === 'principal' ||
+                        row.studentId === actorId ||
+                        (resolvedUsthad
+                          ? doesUsthadMatchTeacherName(resolvedUsthad, row.studentName || '')
+                          : false)
+                      const draft = usthadSyllabusEdits[row.id]
+                      const totalVal = Number(draft?.totalPages ?? row.totalMarks ?? 0)
+                      const completedVal = Number(draft?.completedPages ?? row.obtainedMarks ?? 0)
+                      const remainingVal = Math.max(0, totalVal - completedVal)
+
+                      return (
+                        <tr key={row.id} className="hover:bg-muted/25">
+                          <td className="px-3.5 py-3">
+                            <span className="font-mono text-[11px] font-bold text-emerald-700 dark:text-lime">
+                              {row.admissionNo}
+                            </span>
+                            <p className="font-semibold text-foreground">{row.title}</p>
+                          </td>
+                          <td className="px-3.5 py-3 font-medium text-foreground">
+                            {row.studentName}
+                          </td>
+                          <td className="px-3.5 py-3 text-foreground">
+                            {row.subjectOrCategory || '-'}
+                          </td>
+                          <td className="px-3.5 py-3 font-mono font-bold text-foreground">
+                            {totalVal} പേജ്
+                          </td>
+                          <td className="px-3.5 py-3">
+                            {canEditThisSubject ? (
+                              <Input
+                                type="number"
+                                min={0}
+                                max={1000}
+                                value={completedVal}
+                                onChange={(e) =>
+                                  setUsthadSyllabusEdits((prev) => ({
+                                    ...prev,
+                                    [row.id]: {
+                                      chapter: row.subjectOrCategory || '',
+                                      totalPages: totalVal,
+                                      completedPages: Math.max(0, Number(e.target.value) || 0),
+                                      remarks: draft?.remarks ?? row.remarks ?? '',
+                                    },
+                                  }))
+                                }
+                                className="h-8 w-24 font-mono text-xs font-bold tabular-nums"
+                              />
+                            ) : (
+                              <span className="font-mono font-bold text-emerald-700 dark:text-lime">
+                                {completedVal} പേജ്
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3.5 py-3 font-mono font-bold text-amber-700 dark:text-amber-300">
+                            {remainingVal} പേജ്
+                          </td>
+                          <td className="px-3.5 py-3 text-right">
+                            {canEditThisSubject ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={savingSyllabusId === row.id}
+                                onClick={() =>
+                                  handleUsthadUpdateSyllabusPages(row, role === 'principal')
+                                }
+                                className="h-8 rounded-lg bg-lime px-3 text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                              >
+                                Save
+                              </Button>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground">View Only</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 

@@ -67,10 +67,10 @@ const classLeaderRole: Role = {
 const teacherRole: Role = {
   id: 'teacher',
   tier: 'Usthad',
-  title: 'Class Usthad',
-  description: 'Manage class attendance, leave & notices.',
+  title: 'Usthad',
+  description: 'Mark period attendance, syllabus & class duties.',
   idLabel: 'Staff ID or Name',
-  idPlaceholder: 'e.g. UST-14',
+  idPlaceholder: 'e.g. UST-14 or UST-09',
   icon: BookOpen,
   tone: 'lime',
 }

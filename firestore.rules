@@ -656,6 +656,7 @@ service cloud.firestore {
           || data.recordKind == 'holiday_log'
           || data.recordKind == 'discipline_note'
           || data.recordKind == 'zadul_khair'
+          || data.recordKind == 'monthly_syllabus'
         )
         && data.className is string
         && data.className.size() >= 1

@@ -65,6 +65,9 @@ import {
   formatTargetClassesBadge,
   getEffectiveStudentAttendance,
   getNoticeTargetClasses,
+  getUsthadScheduledPeriodsAcrossClasses,
+  getUsthadTeachingClasses,
+  isUsthadAssignedClassUsthadOfBatch,
   leaveReasons,
   loadAttendanceOverrides,
   loadCustomNotices,
@@ -113,8 +116,8 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
 const usthadNavItems = [
   { label: 'Class Students', href: '#class-roster', icon: Users },
-  { label: 'Tests & Zadul Khair', href: '#academic-hub', icon: Trophy },
-  { label: 'Attendance Status', href: '#usthad-attendance', icon: CalendarCheck },
+  { label: 'Syllabus, Tests & Zadul Khair', href: '#academic-hub', icon: Trophy },
+  { label: 'My Periods & Attendance', href: '#usthad-attendance', icon: CalendarCheck },
   { label: 'Leave Register', href: '#usthad-leave', icon: ClipboardList },
   { label: 'Campus Messenger', href: '#campus-chat', icon: MessageCircle },
   { label: 'Notice Board', href: '#usthad-notices', icon: Megaphone },
@@ -187,6 +190,27 @@ export function UsthadDashboard() {
   })
 
   const [activeClassName, setActiveClassName] = useState<string>(() => baseUsthad.className)
+
+  const allScheduledPeriods = useMemo(
+    () => getUsthadScheduledPeriodsAcrossClasses(baseUsthad, 1),
+    [baseUsthad],
+  )
+
+  const allTeachingClasses = useMemo(
+    () => getUsthadTeachingClasses(baseUsthad, 1),
+    [baseUsthad],
+  )
+
+  const isAssignedClassUsthadForActiveClass = useMemo(
+    () => isUsthadAssignedClassUsthadOfBatch(baseUsthad, activeClassName),
+    [baseUsthad, activeClassName],
+  )
+
+  const [selectedAttendancePeriodIndex, setSelectedAttendancePeriodIndex] = useState<number>(() => {
+    const initialSlots = getUsthadScheduledPeriodsAcrossClasses(baseUsthad, 1)
+    const matchInOwnClass = initialSlots.find((s) => s.className === baseUsthad.className)
+    return matchInOwnClass?.periodIndex ?? initialSlots[0]?.periodIndex ?? 1
+  })
 
   const usthad = useMemo<ClassUsthad>(() => {
     const classMatch = CLASS_USTHADS.find((u) => u.className === activeClassName)
@@ -876,9 +900,9 @@ export function UsthadDashboard() {
           />
         </Link>
 
-        <nav aria-label="Class Usthad Dashboard" className="flex flex-1 flex-col gap-1 p-4">
+        <nav aria-label="Usthad Dashboard" className="flex flex-1 flex-col gap-1 p-4">
           <p className="px-3 pb-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            Class Usthad Portal
+            Usthad Portal
           </p>
           {usthadNavItems.map((item) => (
             <a
@@ -929,10 +953,13 @@ export function UsthadDashboard() {
 
           <div className="hidden lg:block">
             <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Class Usthad Dashboard
+              Usthad Dashboard
             </p>
             <p className="text-sm font-medium text-foreground">
-              {usthad.fullClassLabel} · Academic Year 2026–27
+              {usthad.fullClassLabel} ·{' '}
+              {isAssignedClassUsthadForActiveClass
+                ? 'Class Usthad & Period Attendance'
+                : 'Subject Usthad (My Scheduled Periods)'}
             </p>
           </div>
 
@@ -972,11 +999,11 @@ export function UsthadDashboard() {
         >
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-lime">
-                {usthad.designation} ·{' '}
-                {usthad.teachingBatches && usthad.teachingBatches.length > 1
-                  ? `Class ${usthad.teachingBatches.join(' & ')}`
-                  : usthad.fullClassLabel}
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-lime">
+                Usthad ·{' '}
+                {isAssignedClassUsthadForActiveClass
+                  ? `Class Usthad (${activeClassName})`
+                  : `Subject Usthad (${activeClassName})`}
               </p>
               {usthad.isPrincipalRole && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-cyan uppercase">
@@ -1021,33 +1048,48 @@ export function UsthadDashboard() {
               </Button>
             )}
 
-            {usthad.teachingBatches && usthad.teachingBatches.length > 1 && (
+            {allTeachingClasses.length > 1 && (
               <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-lime/35 bg-lime/10 p-1.5">
-                <span className="px-2 text-[11px] font-bold text-lime uppercase">
-                  Assigned Classes:
+                <span className="px-2 text-[11px] font-bold text-emerald-700 uppercase dark:text-lime">
+                  My Classes ({allTeachingClasses.length}):
                 </span>
-                {usthad.teachingBatches.map((batch) => (
-                  <button
-                    key={batch}
-                    type="button"
-                    onClick={() => {
-                      setActiveClassName(batch)
-                      const firstSt = students.find((s) => s.className === batch)
-                      if (firstSt) {
-                        setSelectedStudentId(firstSt.id)
-                        setLeaveStudentId(firstSt.id)
+                {allTeachingClasses.map((batch) => {
+                  const isOwnClass = isUsthadAssignedClassUsthadOfBatch(baseUsthad, batch)
+                  return (
+                    <button
+                      key={batch}
+                      type="button"
+                      onClick={() => {
+                        setActiveClassName(batch)
+                        const mySlotInBatch = allScheduledPeriods.find(
+                          (s) => s.className === batch,
+                        )
+                        if (mySlotInBatch) {
+                          setSelectedAttendancePeriodIndex(mySlotInBatch.periodIndex)
+                        }
+                        const firstSt = students.find((s) => s.className === batch)
+                        if (firstSt) {
+                          setSelectedStudentId(firstSt.id)
+                          setLeaveStudentId(firstSt.id)
+                        }
+                      }}
+                      className={cn(
+                        'rounded-lg px-2.5 py-1 text-xs font-semibold transition-all',
+                        activeClassName === batch
+                          ? 'bg-lime text-slate-950 shadow-2xs'
+                          : 'bg-background/80 text-foreground hover:bg-background',
+                      )}
+                      title={
+                        isOwnClass
+                          ? `Class ${batch} (Your Assigned Class)`
+                          : `Class ${batch} (Scheduled Teaching Periods)`
                       }
-                    }}
-                    className={cn(
-                      'rounded-lg px-2.5 py-1 text-xs font-semibold transition-all',
-                      activeClassName === batch
-                        ? 'bg-lime text-slate-950 shadow-2xs'
-                        : 'bg-background/80 text-foreground hover:bg-background',
-                    )}
-                  >
-                    {batch}
-                  </button>
-                ))}
+                    >
+                      {batch}
+                      {isOwnClass ? ' ★' : ''}
+                    </button>
+                  )
+                })}
               </div>
             )}
 
@@ -1712,15 +1754,87 @@ export function UsthadDashboard() {
           ) : null}
         </Panel>
 
-        {/* 2B. PERIOD-BY-PERIOD CLASS ATTENDANCE SUBMISSION FOR USTHAD */}
+        {/* 2B. MY SCHEDULED TEACHING PERIODS ACROSS ALL CLASSES + PERIOD-SPECIFIC ATTENDANCE CONTROL */}
+        {allScheduledPeriods.length > 0 && (
+          <div className="rounded-2xl border border-emerald-600/30 bg-emerald-500/[0.06] p-4 sm:p-5 dark:border-lime/35 dark:bg-lime/[0.06]">
+            <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+              <div>
+                <p className="text-[11px] font-bold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                  എൻ്റെ പിരീഡുകൾ · My Scheduled Teaching Periods Across Classes
+                </p>
+                <h3 className="mt-0.5 font-display text-base font-bold text-foreground sm:text-lg">
+                  {baseUsthad.name} — Select Your Period to Mark Attendance ({allScheduledPeriods.length} Periods)
+                </h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  നിങ്ങൾ വിവിധ ക്ലാസ്സുകളിൽ എടുക്കുന്ന പിരീഡുകൾ താഴെ കാണാം. ഏത് പിരീഡിലാണോ ക്ലാസ്സ് എടുക്കുന്നത് അതിൽ ക്ലിക്ക് ചെയ്ത് ആ പിരീഡിന്റെ ഹാജർ മാത്രം രേഖപ്പെടുത്താം.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3.5 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+              {allScheduledPeriods.map((slot) => {
+                const isSelectedSlot =
+                  activeClassName === slot.className &&
+                  selectedAttendancePeriodIndex === slot.periodIndex
+                return (
+                  <button
+                    key={`${slot.className}_p${slot.periodIndex}`}
+                    type="button"
+                    onClick={() => {
+                      setActiveClassName(slot.className)
+                      setSelectedAttendancePeriodIndex(slot.periodIndex)
+                      const firstSt = students.find((s) => s.className === slot.className)
+                      if (firstSt) {
+                        setSelectedStudentId(firstSt.id)
+                        setLeaveStudentId(firstSt.id)
+                      }
+                    }}
+                    className={cn(
+                      'flex flex-col items-start justify-between gap-1.5 rounded-xl border p-3 text-left transition-all',
+                      isSelectedSlot
+                        ? 'border-emerald-600 bg-lime text-slate-950 shadow-sm dark:border-lime'
+                        : 'border-border bg-card text-foreground hover:border-lime/50 hover:bg-muted/60',
+                    )}
+                  >
+                    <div className="flex w-full items-center justify-between gap-2">
+                      <span
+                        className={cn(
+                          'rounded-md px-2 py-0.5 font-mono text-[11px] font-bold uppercase',
+                          isSelectedSlot
+                            ? 'bg-slate-950/15 text-slate-950'
+                            : 'bg-emerald-500/15 text-emerald-700 dark:bg-lime/15 dark:text-lime',
+                        )}
+                      >
+                        Class {slot.className} · {slot.periodLabel}
+                      </span>
+                      <span
+                        className={cn(
+                          'font-mono text-[10px] font-semibold tabular-nums',
+                          isSelectedSlot ? 'text-slate-900' : 'text-muted-foreground',
+                        )}
+                      >
+                        {slot.time}
+                      </span>
+                    </div>
+                    <p className="line-clamp-1 text-xs font-bold">{slot.subject}</p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {classStudents[0] ? (
           <ClassLeaderAttendanceCard
             leader={classStudents[0]}
             leaderId={usthad.staffId}
-            eyebrowLabel={usthad.fullClassLabel}
+            eyebrowLabel={`${usthad.fullClassLabel} · Period Attendance`}
             submittedByNameOverride={usthad.shortName}
             highlightLeaderBadge={false}
-            actorRoleLabel="Class Usthad"
+            actorRoleLabel="Usthad"
+            restrictedUsthad={baseUsthad}
+            controlledPeriodIndex={selectedAttendancePeriodIndex}
+            onControlledPeriodIndexChange={setSelectedAttendancePeriodIndex}
           />
         ) : null}
         </div>
@@ -2693,17 +2807,18 @@ export function UsthadDashboard() {
         </Panel>
         </div>
 
-        {/* MONTHLY TESTS, STAR OF THE MONTH, HOLIDAY & SSF DA'WA LOGS, PRIVATE CONDUCT & ZADUL KHAIR PDF HUB */}
+        {/* MONTHLY TESTS, STAR OF THE MONTH, JAMIATHUL HIND SYLLABUS, HOLIDAY & SSF DA'WA LOGS, PRIVATE CONDUCT & ZADUL KHAIR PDF HUB */}
         <div
           className={cn(
             mobileTab === 'roster' || mobileTab === 'notices' ? 'block' : 'hidden lg:block',
           )}
         >
           <UsthadAcademicHub
-            actorId={usthad.id}
-            actorName={usthad.name}
+            actorId={baseUsthad.id}
+            actorName={baseUsthad.name}
             role="usthad"
             activeClassName={activeClassName}
+            usthad={baseUsthad}
           />
         </div>
 

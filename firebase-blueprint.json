@@ -691,7 +691,8 @@
             "test_submission",
             "holiday_log",
             "discipline_note",
-            "zadul_khair"
+            "zadul_khair",
+            "monthly_syllabus"
           ],
           "minLength": 8,
           "maxLength": 24

@@ -343,10 +343,10 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
           </div>
         </div>
 
-        {/* 1. HOME / NOTICE BOARD & STUDENT ACADEMIC HUB (Monthly Tests, Star of the Month, Holiday Da'wa, Private Conduct & Zadul Khair PDF) */}
+        {/* 1. HOME / NOTICE BOARD & STUDENT ACADEMIC HUB (Monthly Tests, Star of the Month, Jamiathul Hind Syllabus, Holiday Da'wa, Private Conduct & Zadul Khair PDF) */}
         <div className={cn(mobileTab === 'home' ? 'space-y-6 block' : 'hidden lg:block lg:space-y-6')}>
           <NoticeBoard studentClass={student.className} />
-          <StudentAcademicHub student={student} />
+          <StudentAcademicHub student={student} isClassLeader={isClassLeader} />
         </div>
 
         {/* 2. ATTENDANCE TAB (With Class Leader Sub-Switcher on Phone/Tablet) */}

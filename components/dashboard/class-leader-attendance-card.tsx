@@ -31,11 +31,13 @@ import {
   CURRENT_SEMESTER,
   NOT_HELD_REASONS,
   deletePeriodAttendanceSubmission,
+  doesUsthadMatchTeacherName,
   getClassLeadersForClass,
   getClassSemesterTimetable,
   loadPeriodAttendanceSubmissions,
   savePeriodAttendanceSubmissions,
   students,
+  type ClassUsthad,
   type PeriodAttendanceStatus,
   type PeriodAttendanceSubmission,
   type PeriodSessionStatus,
@@ -101,9 +103,12 @@ type ClassLeaderAttendanceCardProps = {
   eyebrowLabel?: string
   submittedByNameOverride?: string
   highlightLeaderBadge?: boolean
-  actorRoleLabel?: 'Class Leader' | 'Class Usthad' | 'Principal'
+  actorRoleLabel?: 'Class Leader' | 'Usthad' | 'Class Usthad' | 'Principal'
+  restrictedUsthad?: ClassUsthad
   controlledDate?: string
   onControlledDateChange?: (date: string) => void
+  controlledPeriodIndex?: number
+  onControlledPeriodIndexChange?: (periodIndex: number) => void
 }
 
 export function ClassLeaderAttendanceCard({
@@ -113,8 +118,11 @@ export function ClassLeaderAttendanceCard({
   submittedByNameOverride,
   highlightLeaderBadge = true,
   actorRoleLabel,
+  restrictedUsthad,
   controlledDate,
   onControlledDateChange,
+  controlledPeriodIndex,
+  onControlledPeriodIndexChange,
 }: ClassLeaderAttendanceCardProps) {
   const [internalDate, setInternalDate] = useState<string>(getTodayDateString)
   const selectedDate = controlledDate ?? internalDate
@@ -124,7 +132,13 @@ export function ClassLeaderAttendanceCard({
     onControlledDateChange?.(clean)
   }
 
-  const [selectedPeriodIndex, setSelectedPeriodIndex] = useState<number>(1)
+  const [internalPeriodIndex, setInternalPeriodIndex] = useState<number>(1)
+  const selectedPeriodIndex = controlledPeriodIndex ?? internalPeriodIndex
+  const setSelectedPeriodIndex = (nextIdx: number) => {
+    setInternalPeriodIndex(nextIdx)
+    onControlledPeriodIndexChange?.(nextIdx)
+  }
+
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [submissions, setSubmissions] = useState<Record<string, PeriodAttendanceSubmission>>({})
   const [draftRecords, setDraftRecords] = useState<Record<string, PeriodAttendanceStatus>>({})
@@ -141,9 +155,11 @@ export function ClassLeaderAttendanceCard({
   const [configVersion, setConfigVersion] = useState(0)
 
   const effectiveRoleLabel =
-    actorRoleLabel ?? (highlightLeaderBadge ? 'Class Leader' : 'Class Usthad')
+    actorRoleLabel ?? (highlightLeaderBadge ? 'Class Leader' : 'Usthad')
   const isStaffViewer =
-    effectiveRoleLabel === 'Class Usthad' || effectiveRoleLabel === 'Principal'
+    effectiveRoleLabel === 'Usthad' ||
+    effectiveRoleLabel === 'Class Usthad' ||
+    effectiveRoleLabel === 'Principal'
 
   const classStudents = useMemo(
     () => students.filter((s) => s.className === leader.className),
@@ -167,7 +183,7 @@ export function ClassLeaderAttendanceCard({
       timetable.periods.map((period, idx) => {
         const slot = semesterSubjects[idx] ?? {
           subject: 'General Study',
-          teacher: 'Class Usthad',
+          teacher: 'Usthad',
         }
         return {
           index: idx + 1,
@@ -180,8 +196,29 @@ export function ClassLeaderAttendanceCard({
     [timetable.periods, semesterSubjects],
   )
 
+  // When restrictedUsthad is passed and class changes, auto-select the Usthad's first scheduled period in this class
+  useEffect(() => {
+    if (!restrictedUsthad) return
+    const currentSlot = periods.find((p) => p.index === selectedPeriodIndex)
+    if (currentSlot && doesUsthadMatchTeacherName(restrictedUsthad, currentSlot.teacher)) {
+      return
+    }
+    const firstOwned = periods.find((p) =>
+      doesUsthadMatchTeacherName(restrictedUsthad, p.teacher),
+    )
+    if (firstOwned) {
+      setInternalPeriodIndex(firstOwned.index)
+      onControlledPeriodIndexChange?.(firstOwned.index)
+    }
+  }, [leader.className, restrictedUsthad, periods])
+
   const activePeriod =
     periods.find((p) => p.index === selectedPeriodIndex) ?? periods[0]
+
+  const isPeriodLockedForUsthad = useMemo(() => {
+    if (!restrictedUsthad) return false
+    return !doesUsthadMatchTeacherName(restrictedUsthad, activePeriod.teacher)
+  }, [restrictedUsthad, activePeriod.teacher])
 
   const currentSubmissionKey = `${selectedDate}__${leader.className}__${activePeriod.index}`
   const existingSubmission = submissions[currentSubmissionKey]
@@ -366,7 +403,7 @@ export function ClassLeaderAttendanceCard({
   }, [periods, submissions, selectedDate, leader.className])
 
   function handleStatusChange(studentId: string, status: PeriodAttendanceStatus) {
-    if (isSessionNotHeld) return
+    if (isSessionNotHeld || isPeriodLockedForUsthad) return
     setDraftRecords((prev) => ({
       ...prev,
       [studentId]: status,
@@ -390,7 +427,7 @@ export function ClassLeaderAttendanceCard({
   }
 
   function handleReasonChange(studentId: string, reason: string) {
-    if (isSessionNotHeld) return
+    if (isSessionNotHeld || isPeriodLockedForUsthad) return
     setDraftReasons((prev) => ({
       ...prev,
       [studentId]: reason,
@@ -399,7 +436,7 @@ export function ClassLeaderAttendanceCard({
   }
 
   function handleMarkAllPresent() {
-    if (isSessionNotHeld) return
+    if (isSessionNotHeld || isPeriodLockedForUsthad) return
     const next: Record<string, PeriodAttendanceStatus> = {}
     const nextReasons: Record<string, string> = {}
     for (const student of classStudents) {
@@ -415,6 +452,7 @@ export function ClassLeaderAttendanceCard({
   }
 
   function handleResetPeriod() {
+    if (isPeriodLockedForUsthad) return
     if (existingSubmission && Object.keys(existingSubmission.records ?? {}).length > 0) {
       setDraftRecords({ ...existingSubmission.records })
       setDraftReasons({ ...(existingSubmission.reasons ?? {}) })
@@ -438,11 +476,15 @@ export function ClassLeaderAttendanceCard({
   }
 
   function handleSaveClassNotHeld() {
+    if (isPeriodLockedForUsthad) return
     if (existingSubmission && !hasUnsavedChanges) return
     const nowIso = new Date().toISOString()
     const actorName = submittedByNameOverride ?? leader.name
     const actorDisplay = `${effectiveRoleLabel} • ${actorName} (${leaderId})`
     const isUpdatingExisting = Boolean(existingSubmission)
+
+    const persistedRole: 'Class Leader' | 'Class Usthad' | 'Principal' =
+      effectiveRoleLabel === 'Usthad' ? 'Class Usthad' : effectiveRoleLabel
 
     const submission: PeriodAttendanceSubmission = {
       key: currentSubmissionKey,
@@ -455,12 +497,12 @@ export function ClassLeaderAttendanceCard({
       teacher: activePeriod.teacher,
       submittedByLeaderId: existingSubmission?.submittedByLeaderId ?? leaderId,
       submittedByName: existingSubmission?.submittedByName ?? actorName,
-      submittedByRole: existingSubmission?.submittedByRole ?? effectiveRoleLabel,
+      submittedByRole: existingSubmission?.submittedByRole ?? persistedRole,
       submittedAt: existingSubmission?.submittedAt ?? nowIso,
       ...(isUpdatingExisting
         ? {
             lastEditedByName: actorName,
-            lastEditedByRole: effectiveRoleLabel,
+            lastEditedByRole: persistedRole,
             lastEditedById: leaderId,
             lastEditedAt: nowIso,
             editCount: (existingSubmission?.editCount ?? 0) + 1,
@@ -487,6 +529,7 @@ export function ClassLeaderAttendanceCard({
   }
 
   function handleSubmitPeriodAttendance() {
+    if (isPeriodLockedForUsthad) return
     if (existingSubmission && !hasUnsavedChanges) return
     if (isSessionNotHeld) {
       handleSaveClassNotHeld()
@@ -496,6 +539,8 @@ export function ClassLeaderAttendanceCard({
     const nowIso = new Date().toISOString()
     const actorName = submittedByNameOverride ?? leader.name
     const isUpdatingExisting = Boolean(existingSubmission)
+    const persistedRole: 'Class Leader' | 'Class Usthad' | 'Principal' =
+      effectiveRoleLabel === 'Usthad' ? 'Class Usthad' : effectiveRoleLabel
 
     const cleanReasons: Record<string, string> = {}
     for (const student of classStudents) {
@@ -507,11 +552,6 @@ export function ClassLeaderAttendanceCard({
       }
     }
 
-    const effectiveTeacher =
-      isSessionSubstituted && selectedSubstituteUsthad
-        ? `${selectedSubstituteUsthad.shortName} (Substitute for ${activePeriod.teacher})`
-        : activePeriod.teacher
-
     const submission: PeriodAttendanceSubmission = {
       key: currentSubmissionKey,
       date: selectedDate,
@@ -520,15 +560,15 @@ export function ClassLeaderAttendanceCard({
       periodLabel: activePeriod.label,
       periodTime: activePeriod.time,
       subject: activePeriod.subject,
-      teacher: effectiveTeacher,
+      teacher: activePeriod.teacher,
       submittedByLeaderId: existingSubmission?.submittedByLeaderId ?? leaderId,
       submittedByName: existingSubmission?.submittedByName ?? actorName,
-      submittedByRole: existingSubmission?.submittedByRole ?? effectiveRoleLabel,
+      submittedByRole: existingSubmission?.submittedByRole ?? persistedRole,
       submittedAt: existingSubmission?.submittedAt ?? nowIso,
       ...(isUpdatingExisting
         ? {
             lastEditedByName: actorName,
-            lastEditedByRole: effectiveRoleLabel,
+            lastEditedByRole: persistedRole,
             lastEditedById: leaderId,
             lastEditedAt: nowIso,
             editCount: (existingSubmission?.editCount ?? 0) + 1,
@@ -536,21 +576,7 @@ export function ClassLeaderAttendanceCard({
         : { editCount: 0 }),
       records: { ...draftRecords },
       reasons: cleanReasons,
-      sessionStatus: isSessionSubstituted ? 'substituted' : 'conducted',
-      ...(isSessionSubstituted
-        ? {
-            notHeldReason: draftNotHeldReason,
-            markedNotHeldBy:
-              existingSubmission?.markedNotHeldBy ??
-              `${effectiveRoleLabel} • ${actorName}`,
-            substituteUsthad: {
-              usthadId: selectedSubstituteUsthad.id,
-              usthadName: selectedSubstituteUsthad.name,
-              assignedBy: `${effectiveRoleLabel} (${actorName})`,
-              assignedAt: nowIso,
-            },
-          }
-        : {}),
+      sessionStatus: 'conducted',
     }
 
     const updated = {
@@ -563,13 +589,12 @@ export function ClassLeaderAttendanceCard({
     setJustSubmittedMessage(
       isUpdatingExisting
         ? `${activePeriod.label} (${activePeriod.subject}) ഹാജർ തിരുത്തി സേവ് ചെയ്തു (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`
-        : isSessionSubstituted
-          ? `${activePeriod.label} (${activePeriod.subject}) attendance recorded under Substitute Usthad (${selectedSubstituteUsthad.shortName}) (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`
-          : `${activePeriod.label} (${activePeriod.subject}) attendance submitted (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`,
+        : `${activePeriod.label} (${activePeriod.subject}) attendance submitted (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`,
     )
   }
 
   function handleDeletePeriodSubmission() {
+    if (isPeriodLockedForUsthad) return
     const actorName = submittedByNameOverride ?? leader.name
     const nextMap = deletePeriodAttendanceSubmission(currentSubmissionKey, {
       name: actorName,
@@ -598,7 +623,7 @@ export function ClassLeaderAttendanceCard({
     <Panel
       id="class-attendance"
       eyebrow={eyebrowLabel ?? (isStaffViewer ? leader.className : 'Daily Register')}
-      title="Class Attendance"
+      title="Period Attendance"
       icon={UserCheck}
       action={
         <div className="flex flex-wrap items-center gap-2">
@@ -606,12 +631,6 @@ export function ClassLeaderAttendanceCard({
             <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/15 px-3 py-1 text-xs font-semibold text-red-600 dark:text-red-400 tabular-nums">
               <Ban className="size-3.5" aria-hidden="true" />
               {periodStatusCountsForDate.notHeld} Not Held
-            </span>
-          )}
-          {periodStatusCountsForDate.substituted > 0 && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan/40 bg-cyan/15 px-3 py-1 text-xs font-semibold text-cyan tabular-nums">
-              <UserCog className="size-3.5" aria-hidden="true" />
-              {periodStatusCountsForDate.substituted} Sub
             </span>
           )}
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-700 dark:border-lime/40 dark:bg-lime/15 dark:text-lime tabular-nums">
@@ -626,7 +645,7 @@ export function ClassLeaderAttendanceCard({
         <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-background/50 p-4 sm:flex-row sm:items-center">
           <div className="flex flex-col gap-1">
             <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-              {isStaffViewer ? `${leader.className} Periods` : 'Daily Periods'}
+              {isStaffViewer ? `Class ${leader.className} Periods` : 'Daily Periods'}
             </p>
             {classLeaders.length > 0 && (
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -684,6 +703,9 @@ export function ClassLeaderAttendanceCard({
               const isSubmitted = Boolean(sub)
               const sessionState = sub?.sessionStatus ?? (isSubmitted ? 'conducted' : 'pending')
               const isSelected = period.index === activePeriod.index
+              const isOwnedByRestrictedUsthad = restrictedUsthad
+                ? doesUsthadMatchTeacherName(restrictedUsthad, period.teacher)
+                : true
 
               return (
                 <button
@@ -700,7 +722,9 @@ export function ClassLeaderAttendanceCard({
                         : 'border-lime bg-lime/10 shadow-[0_0_0_1px_var(--lime)]'
                       : sessionState === 'not-held'
                         ? 'border-red-500/40 bg-red-500/[0.04] hover:border-red-500/70'
-                        : 'border-border bg-background/60 hover:border-foreground/30 hover:bg-background',
+                        : !isOwnedByRestrictedUsthad
+                          ? 'border-border/70 bg-muted/25 opacity-80 hover:opacity-100'
+                          : 'border-border bg-background/60 hover:border-foreground/30 hover:bg-background',
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -710,7 +734,7 @@ export function ClassLeaderAttendanceCard({
                         isSelected
                           ? sessionState === 'not-held'
                             ? 'text-red-500 dark:text-red-400'
-                            : 'text-lime'
+                            : 'text-emerald-700 dark:text-lime'
                           : 'text-foreground',
                       )}
                     >
@@ -720,11 +744,6 @@ export function ClassLeaderAttendanceCard({
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 dark:text-red-400">
                         <Ban className="size-3.5" aria-hidden="true" />
                         Not Held
-                      </span>
-                    ) : sessionState === 'substituted' ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan">
-                        <UserCog className="size-3.5" aria-hidden="true" />
-                        Substituted
                       </span>
                     ) : isSubmitted ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-lime">
@@ -744,30 +763,84 @@ export function ClassLeaderAttendanceCard({
                       {period.subject}
                     </p>
                     <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                      {sub?.substituteUsthad
-                        ? `Sub: ${sub.substituteUsthad.usthadName}`
-                        : period.teacher}
+                      {period.teacher}
                     </p>
                   </div>
 
-                  <p className="text-[11px] font-medium text-muted-foreground tabular-nums">
-                    {period.time}
-                  </p>
+                  <div className="flex items-center justify-between gap-1.5">
+                    <p className="text-[11px] font-medium text-muted-foreground tabular-nums">
+                      {period.time}
+                    </p>
+                    {restrictedUsthad && (
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1 text-[10px] font-bold',
+                          isOwnedByRestrictedUsthad
+                            ? 'text-emerald-700 dark:text-lime'
+                            : 'text-muted-foreground',
+                        )}
+                      >
+                        {isOwnedByRestrictedUsthad ? (
+                          '• എൻ്റെ പിരീഡ്'
+                        ) : (
+                          <>
+                            <Lock className="size-2.5" aria-hidden="true" />
+                            View Only
+                          </>
+                        )}
+                      </span>
+                    )}
+                  </div>
                 </button>
               )
             })}
           </div>
         </div>
 
-        {/* Period Session Status Control Bar (Conducted vs Class Not Held vs Substitute Usthad) */}
+        {/* Strict Period Ownership Lock Notice when viewing another Usthad's period */}
+        {isPeriodLockedForUsthad && restrictedUsthad && (
+          <div className="flex flex-col justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 sm:flex-row sm:items-center">
+            <div className="flex items-start gap-3">
+              <Lock
+                className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-400"
+                aria-hidden="true"
+              />
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                  {activePeriod.label} ({activePeriod.subject}) — ടൈംടേബിൾ പ്രകാരം{' '}
+                  <span className="underline">{activePeriod.teacher}</span> എടുക്കുന്ന പിരീഡാണ്
+                </p>
+                <p className="text-xs text-amber-800/90 dark:text-amber-300/90">
+                  നിശ്ചയിച്ച ടൈംടേബിളിലെ ഉസ്താദിനും ({activePeriod.teacher}) ഈ ക്ലാസ്സിലെ ക്ലാസ്സ് ലീഡർക്കും മാത്രമേ ഈ പിരീഡിൻ്റെ ഹാജർ രേഖപ്പെടുത്താനും തിരുത്താനും അനുവാദമുള്ളൂ. നിങ്ങളുടെ സ്വന്തം പിരീഡ് മുകളിൽ നിന്ന് തിരഞ്ഞെടുക്കുക.
+                </p>
+              </div>
+            </div>
+            {periods.some((p) => doesUsthadMatchTeacherName(restrictedUsthad, p.teacher)) && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  const myFirst = periods.find((p) =>
+                    doesUsthadMatchTeacherName(restrictedUsthad, p.teacher),
+                  )
+                  if (myFirst) setSelectedPeriodIndex(myFirst.index)
+                }}
+                className="shrink-0 rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+              >
+                എൻ്റെ പിരീഡിലേക്ക് പോകുക
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Period Session Status Control Bar (Conducted vs Class Not Held) */}
         <div
           className={cn(
             'flex flex-col gap-4 rounded-2xl border p-4 transition-colors',
             isSessionNotHeld
               ? 'border-red-500/50 bg-red-500/[0.06]'
-              : isSessionSubstituted
-                ? 'border-cyan/50 bg-cyan/[0.06]'
-                : 'border-border bg-background/60',
+              : 'border-border bg-background/60',
+            isPeriodLockedForUsthad && 'opacity-65',
           )}
         >
           <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
@@ -776,11 +849,11 @@ export function ClassLeaderAttendanceCard({
                 {activePeriod.label} Session Control • Select Session Status
               </p>
               <p className="mt-0.5 text-sm text-foreground">
-                If the regular Usthad did not take the class, select{' '}
+                ടൈംടേബിളിലെ ഉസ്താദിനും ക്ലാസ്സ് ലീഡർക്കും മാത്രം ഹാജർ നിയന്ത്രണം. ക്ലാസ്സ് നടന്നില്ലെങ്കിൽ{' '}
                 <strong className="text-red-600 dark:text-red-400">
                   &ldquo;Class Not Held&rdquo;
                 </strong>{' '}
-                to lock student attendance.
+                തിരഞ്ഞെടുക്കുക.
               </p>
             </div>
 
@@ -792,13 +865,15 @@ export function ClassLeaderAttendanceCard({
               <button
                 type="button"
                 role="radio"
+                disabled={isPeriodLockedForUsthad}
                 aria-checked={draftSessionStatus === 'conducted'}
                 onClick={() => {
+                  if (isPeriodLockedForUsthad) return
                   setDraftSessionStatus('conducted')
                   setJustSubmittedMessage(null)
                 }}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all',
+                  'inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50',
                   draftSessionStatus === 'conducted'
                     ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:border-lime dark:bg-lime/20 dark:text-lime'
                     : 'border-border bg-background text-muted-foreground hover:text-foreground',
@@ -811,13 +886,15 @@ export function ClassLeaderAttendanceCard({
               <button
                 type="button"
                 role="radio"
+                disabled={isPeriodLockedForUsthad}
                 aria-checked={draftSessionStatus === 'not-held'}
                 onClick={() => {
+                  if (isPeriodLockedForUsthad) return
                   setDraftSessionStatus('not-held')
                   setJustSubmittedMessage(null)
                 }}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all',
+                  'inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50',
                   draftSessionStatus === 'not-held'
                     ? 'border-red-500 bg-red-500/20 text-red-700 dark:border-red-400 dark:text-red-300'
                     : 'border-border bg-background text-muted-foreground hover:border-red-500/40 hover:text-red-500',
@@ -826,30 +903,11 @@ export function ClassLeaderAttendanceCard({
                 <Ban className="size-4" aria-hidden="true" />
                 Class Not Held
               </button>
-
-              <button
-                type="button"
-                role="radio"
-                aria-checked={draftSessionStatus === 'substituted'}
-                onClick={() => {
-                  setDraftSessionStatus('substituted')
-                  setJustSubmittedMessage(null)
-                }}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all',
-                  draftSessionStatus === 'substituted'
-                    ? 'border-cyan bg-cyan/20 text-cyan'
-                    : 'border-border bg-background text-muted-foreground hover:border-cyan/40 hover:text-cyan',
-                )}
-              >
-                <UserCog className="size-4" aria-hidden="true" />
-                Substitute Usthad
-              </button>
             </div>
           </div>
 
-          {/* Reason & Substitute Controls when Not Held or Substituted */}
-          {(isSessionNotHeld || isSessionSubstituted) && (
+          {/* Reason Controls when Not Held */}
+          {isSessionNotHeld && (
             <div className="flex flex-col gap-3 border-t border-border/70 pt-3">
               <div className="flex flex-col gap-2">
                 <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
@@ -862,16 +920,16 @@ export function ClassLeaderAttendanceCard({
                       <button
                         key={reason}
                         type="button"
+                        disabled={isPeriodLockedForUsthad}
                         onClick={() => {
+                          if (isPeriodLockedForUsthad) return
                           setDraftNotHeldReason(reason)
                           setJustSubmittedMessage(null)
                         }}
                         className={cn(
-                          'flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs font-medium transition-all',
+                          'flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs font-medium transition-all disabled:cursor-not-allowed',
                           isSelected
-                            ? isSessionNotHeld
-                              ? 'border-red-500 bg-red-500/15 font-semibold text-red-700 dark:border-red-400 dark:text-red-200'
-                              : 'border-cyan bg-cyan/15 font-semibold text-cyan'
+                            ? 'border-red-500 bg-red-500/15 font-semibold text-red-700 dark:border-red-400 dark:text-red-200'
                             : 'border-border bg-background/80 text-muted-foreground hover:text-foreground',
                         )}
                       >
@@ -886,34 +944,6 @@ export function ClassLeaderAttendanceCard({
                   })}
                 </div>
               </div>
-
-              {isSessionSubstituted && (
-                <div className="flex flex-col justify-between gap-3 rounded-xl border border-cyan/30 bg-cyan/5 p-3 sm:flex-row sm:items-center">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-xs font-semibold text-cyan uppercase">
-                      Assign Substitute Usthad
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      Student attendance can be recorded normally when a substitute Usthad conducts the class.
-                    </span>
-                  </div>
-                  <ThemeSelect
-                    aria-label="Select Substitute Usthad"
-                    value={draftSubstituteUsthadId}
-                    onChange={(e) => {
-                      setDraftSubstituteUsthadId(e.target.value)
-                      setJustSubmittedMessage(null)
-                    }}
-                    className="h-10 rounded-xl border border-cyan/40 bg-background px-3 text-xs font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-cyan"
-                  >
-                    {CLASS_USTHADS.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name} ({u.staffId} • {u.className})
-                      </option>
-                    ))}
-                  </ThemeSelect>
-                </div>
-              )}
 
               {isSessionNotHeld && (
                 <div className="flex flex-col justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 sm:flex-row sm:items-center">
@@ -930,7 +960,9 @@ export function ClassLeaderAttendanceCard({
                   </div>
                   <Button
                     type="button"
-                    disabled={Boolean(existingSubmission && !hasUnsavedChanges)}
+                    disabled={
+                      isPeriodLockedForUsthad || Boolean(existingSubmission && !hasUnsavedChanges)
+                    }
                     onClick={handleSaveClassNotHeld}
                     className="h-10 rounded-xl bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50 whitespace-nowrap shrink-0"
                   >
@@ -949,15 +981,13 @@ export function ClassLeaderAttendanceCard({
         <div className="grid gap-4 rounded-2xl border border-border bg-background/60 p-4 xl:grid-cols-[1.2fr_1fr] xl:items-center">
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-semibold text-lime uppercase">{activePeriod.label}</span>
+              <span className="font-semibold text-emerald-700 uppercase dark:text-lime">
+                {activePeriod.label}
+              </span>
               <span aria-hidden="true">•</span>
               <span className="tabular-nums">{activePeriod.time}</span>
               <span aria-hidden="true">•</span>
-              <span>
-                {isSessionSubstituted && selectedSubstituteUsthad
-                  ? `Substitute: ${selectedSubstituteUsthad.name} (for ${activePeriod.teacher})`
-                  : activePeriod.teacher}
-              </span>
+              <span className="font-medium text-foreground">{activePeriod.teacher}</span>
             </div>
             <div className="flex flex-wrap items-center gap-2.5">
               <h3 className="font-display text-lg font-bold text-foreground sm:text-xl">
@@ -969,10 +999,10 @@ export function ClassLeaderAttendanceCard({
                   Class Not Held • Attendance Locked
                 </span>
               )}
-              {isSessionSubstituted && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-xs font-bold text-cyan">
-                  <UserCog className="size-3" aria-hidden="true" />
-                  Substitute Usthad Active
+              {isPeriodLockedForUsthad && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300">
+                  <Lock className="size-3" aria-hidden="true" />
+                  Read-Only ({activePeriod.teacher})
                 </span>
               )}
             </div>
@@ -1085,7 +1115,7 @@ export function ClassLeaderAttendanceCard({
               type="button"
               variant="outline"
               size="sm"
-              disabled={isSessionNotHeld || isAllDefaultPresent}
+              disabled={isSessionNotHeld || isPeriodLockedForUsthad || isAllDefaultPresent}
               onClick={handleMarkAllPresent}
               className="rounded-xl text-xs font-semibold"
             >
@@ -1097,9 +1127,10 @@ export function ClassLeaderAttendanceCard({
               variant="ghost"
               size="sm"
               disabled={
-                existingSubmission
+                isPeriodLockedForUsthad ||
+                (existingSubmission
                   ? !hasUnsavedChanges
-                  : draftSessionStatus === 'conducted' && isAllDefaultPresent
+                  : draftSessionStatus === 'conducted' && isAllDefaultPresent)
               }
               onClick={handleResetPeriod}
               className="rounded-xl text-xs font-medium text-muted-foreground hover:text-foreground"
@@ -1120,13 +1151,6 @@ export function ClassLeaderAttendanceCard({
                   Student attendance is locked because {activePeriod.label} ({activePeriod.subject}) was not held.
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => setDraftSessionStatus('substituted')}
-                className="rounded-lg border border-cyan/50 bg-cyan/15 px-2.5 py-1 text-[11px] font-bold text-cyan hover:bg-cyan/25 whitespace-nowrap shrink-0"
-              >
-                Assign Substitute Usthad to Unlock
-              </button>
             </div>
           )}
 
@@ -1137,14 +1161,19 @@ export function ClassLeaderAttendanceCard({
             <span className="text-right">{activePeriod.label} Status</span>
           </div>
 
-          <div className={cn('divide-y divide-border', isSessionNotHeld && ' opacity-60')}>
+          <div
+            className={cn(
+              'divide-y divide-border',
+              (isSessionNotHeld || isPeriodLockedForUsthad) && 'opacity-70',
+            )}
+          >
             {filteredStudents.map((student, index) => {
               const status = draftRecords[student.id] ?? 'present'
               const isLiveOnLeave = onLeaveStudentIds.has(student.id)
               const reasonOptions =
-                !isSessionNotHeld && status === 'absent'
+                !isSessionNotHeld && !isPeriodLockedForUsthad && status === 'absent'
                   ? ABSENT_REASONS
-                  : !isSessionNotHeld && status === 'leave'
+                  : !isSessionNotHeld && !isPeriodLockedForUsthad && status === 'leave'
                     ? ATTENDANCE_LEAVE_REASONS
                     : null
               const selectedReason =
@@ -1211,6 +1240,20 @@ export function ClassLeaderAttendanceCard({
                         <span className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400">
                           <Lock className="size-3.5" aria-hidden="true" />
                           Class Not Held (Locked)
+                        </span>
+                      ) : isPeriodLockedForUsthad ? (
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold uppercase',
+                            status === 'present'
+                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-lime'
+                              : status === 'absent'
+                                ? 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400'
+                                : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
+                          )}
+                        >
+                          <Lock className="size-3" aria-hidden="true" />
+                          {status}
                         </span>
                       ) : (
                         <>
@@ -1346,6 +1389,10 @@ export function ClassLeaderAttendanceCard({
                 <Check className="size-4 shrink-0" aria-hidden="true" />
                 {justSubmittedMessage}
               </p>
+            ) : isPeriodLockedForUsthad ? (
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                Locked: Only {activePeriod.teacher} or the Class Leader can record/edit attendance for {activePeriod.label}.
+              </p>
             ) : isSessionNotHeld ? (
               <p className="text-xs text-red-600 dark:text-red-400">
                 Click &ldquo;Record Class Not Held&rdquo; if the Usthad did not conduct this period. Student attendance will be locked.
@@ -1358,7 +1405,7 @@ export function ClassLeaderAttendanceCard({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 sm:justify-end">
-            {existingSubmission ? (
+            {existingSubmission && !isPeriodLockedForUsthad ? (
               confirmDeleteOpen ? (
                 <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-red-500/40 bg-red-500/10 px-3 py-1.5">
                   <span className="text-xs font-semibold text-red-600 dark:text-red-300">
@@ -1398,14 +1445,19 @@ export function ClassLeaderAttendanceCard({
 
             <Button
               type="button"
-              disabled={Boolean(existingSubmission && !hasUnsavedChanges)}
+              disabled={isPeriodLockedForUsthad || Boolean(existingSubmission && !hasUnsavedChanges)}
               onClick={handleSubmitPeriodAttendance}
               className={cn(
                 'h-11 rounded-full px-6 text-sm font-semibold whitespace-nowrap shrink-0 disabled:opacity-55',
                 isSessionNotHeld && 'bg-red-600 text-white hover:bg-red-700',
               )}
             >
-              {existingSubmission && !hasUnsavedChanges ? (
+              {isPeriodLockedForUsthad ? (
+                <>
+                  <Lock className="mr-2 size-4" aria-hidden="true" />
+                  {activePeriod.teacher} Only
+                </>
+              ) : existingSubmission && !hasUnsavedChanges ? (
                 <>
                   <Check className="mr-2 size-4" aria-hidden="true" />
                   {activePeriod.label} Saved (മാറ്റം വരുത്തിയാൽ വീണ്ടും സേവ് ചെയ്യാം)
