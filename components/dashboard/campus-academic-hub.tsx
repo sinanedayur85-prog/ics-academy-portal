@@ -203,6 +203,47 @@ export function StarOfTheMonthSpotlight({
   )
 }
 
+export function extractSyllabusChapterRange(row: CampusAcademicRecord): {
+  fromChapter: string
+  toChapter: string
+  formattedRange: string
+} {
+  const ansFrom = row.answers?.fromChapter?.trim()
+  const ansTo = row.answers?.toChapter?.trim()
+  if (ansFrom || ansTo) {
+    const f = ansFrom || 'ഒന്നാം അദ്ധ്യായം'
+    const t = ansTo || 'നിശ്ചയിച്ച അദ്ധ്യായം'
+    return {
+      fromChapter: f,
+      toChapter: t,
+      formattedRange: `${f} മുതൽ ${t} വരെ`,
+    }
+  }
+
+  const raw = (row.subjectOrCategory || '').trim()
+  if (raw.includes(' മുതൽ ')) {
+    const [left, rightRaw] = raw.split(' മുതൽ ')
+    const right = (rightRaw || '').replace(/\s*വരെ$/, '').trim()
+    return {
+      fromChapter: left.trim() || 'ഒന്നാം അദ്ധ്യായം',
+      toChapter: right || 'നിശ്ചയിച്ച അദ്ധ്യായം',
+      formattedRange: raw,
+    }
+  }
+
+  return {
+    fromChapter: raw || 'ഒന്നാം അദ്ധ്യായം (Starting Chapter)',
+    toChapter: 'നിശ്ചയിച്ച അദ്ധ്യായം (Ending Chapter)',
+    formattedRange: raw || 'അദ്ധ്യായം രേഖപ്പെടുത്തിയിട്ടില്ല',
+  }
+}
+
+export function formatSyllabusChapterRange(fromChapter: string, toChapter: string): string {
+  const f = fromChapter.trim() || 'ഒന്നാം അദ്ധ്യായം'
+  const t = toChapter.trim() || 'നിശ്ചയിച്ച അദ്ധ്യായം'
+  return `${f} മുതൽ ${t} വരെ`.slice(0, 120)
+}
+
 export function buildClassSyllabusRows(
   className: string,
   monthId: string,
@@ -247,6 +288,13 @@ export function buildClassSyllabusRows(
         r.admissionNo === periodLabel,
     )
     const assignedTeacher = findUsthadForTeacherName(slot.teacher)
+    const fallbackRange = novFallback
+      ? extractSyllabusChapterRange(novFallback)
+      : {
+          fromChapter: 'ഒന്നാം അദ്ധ്യായം (Chapter 1)',
+          toChapter: 'മൂന്നാം അദ്ധ്യായം (Chapter 3)',
+          formattedRange: 'ഒന്നാം അദ്ധ്യായം (Chapter 1) മുതൽ മൂന്നാം അദ്ധ്യായം (Chapter 3) വരെ',
+        }
 
     byId.set(deterministicId, {
       id: deterministicId,
@@ -258,8 +306,11 @@ export function buildClassSyllabusRows(
       admissionNo: periodLabel,
       month: monthId,
       title: slot.subject,
-      subjectOrCategory:
-        novFallback?.subjectOrCategory || 'ജാമിഅതുൽ ഹിന്ദ് നിശ്ചയിച്ച അദ്ധ്യായം രേഖപ്പെടുത്തുക',
+      subjectOrCategory: fallbackRange.formattedRange,
+      answers: {
+        fromChapter: fallbackRange.fromChapter,
+        toChapter: fallbackRange.toChapter,
+      },
       description: `Jamiathul Hind Monthly Syllabus target for Class ${normClass} (${slot.subject}).`,
       remarks: 'Monthly syllabus tracking active.',
       status: 'active',
@@ -333,7 +384,8 @@ export function StudentAcademicHub({
     Record<
       string,
       {
-        chapter: string
+        fromChapter: string
+        toChapter: string
         totalPages: number
         completedPages: number
         remarks: string
@@ -345,7 +397,8 @@ export function StudentAcademicHub({
   const [newKitabName, setNewKitabName] = useState('')
   const [newKitabPeriodLabel, setNewKitabPeriodLabel] = useState('Extra Kitab')
   const [newKitabUsthadId, setNewKitabUsthadId] = useState<string>(CLASS_USTHADS[0]?.id || 'usthad-09')
-  const [newKitabChapter, setNewKitabChapter] = useState('')
+  const [newKitabFromChapter, setNewKitabFromChapter] = useState('')
+  const [newKitabToChapter, setNewKitabToChapter] = useState('')
   const [newKitabTotalPages, setNewKitabTotalPages] = useState('25')
   const [newKitabCompletedPages, setNewKitabCompletedPages] = useState('0')
 
@@ -398,8 +451,13 @@ export function StudentAcademicHub({
     if (!isClassLeader) return
     setSavingSyllabusId(row.id)
     try {
+      const existingRange = extractSyllabusChapterRange(row)
       const draft = syllabusEdits[row.id]
-      const chapter = (draft?.chapter ?? row.subjectOrCategory ?? '').trim() || 'നിശ്ചയിച്ച അദ്ധ്യായം'
+      const fromChapter =
+        (draft?.fromChapter ?? existingRange.fromChapter).trim() || 'ഒന്നാം അദ്ധ്യായം'
+      const toChapter =
+        (draft?.toChapter ?? existingRange.toChapter).trim() || 'നിശ്ചയിച്ച അദ്ധ്യായം'
+      const formattedChapterRange = formatSyllabusChapterRange(fromChapter, toChapter)
       const totalPages = Math.max(0, Math.min(1000, Number(draft?.totalPages ?? row.totalMarks ?? 0)))
       const completedPages = Math.max(
         0,
@@ -414,7 +472,11 @@ export function StudentAcademicHub({
         ...row,
         className: normClass,
         month: selectedMonth,
-        subjectOrCategory: chapter,
+        subjectOrCategory: formattedChapterRange,
+        answers: {
+          fromChapter,
+          toChapter,
+        },
         totalMarks: totalPages,
         obtainedMarks: completedPages,
         remarks,
@@ -431,7 +493,7 @@ export function StudentAcademicHub({
       publishCampusNotification({
         type: 'notice',
         title: `ജാമിഅതുൽ ഹിന്ദ് സിലബസ് അപ്ഡേറ്റ് • Class ${normClass}`,
-        message: `${student.name} (Class Leader) updated "${row.title}" (${row.studentName}): Chapter "${chapter}" — ആകെ ${totalPages} പേജ്, എടുത്തത് ${completedPages} പേജ്, ബാക്കി ${remainingPages} പേജ്.`,
+        message: `${student.name} (Class Leader) updated "${row.title}" (${row.studentName}): "${fromChapter}" മുതൽ "${toChapter}" വരെ — ആകെ ${totalPages} പേജ്, എടുത്തത് ${completedPages} പേജ്, ബാക്കി ${remainingPages} പേജ്.`,
         targetClass: normClass,
         targetStaffOnly: true,
         actorId: student.id,
@@ -440,7 +502,7 @@ export function StudentAcademicHub({
       })
 
       setStatusBanner(
-        `✅ "${row.title}" ജാമിഅതുൽ ഹിന്ദ് സിലബസ് സേവ് ചെയ്ത് ${row.studentName}-നെ അറിയിച്ചു! (ആകെ: ${totalPages} പേജ് · എടുത്തത്: ${completedPages} · ബാക്കി: ${remainingPages} പേജ്)`,
+        `✅ "${row.title}" ജാമിഅതുൽ ഹിന്ദ് സിലബസ് (${fromChapter} മുതൽ ${toChapter} വരെ) സേവ് ചെയ്ത് ${row.studentName}-നെ അറിയിച്ചു! (ആകെ: ${totalPages} പേജ് · എടുത്തത്: ${completedPages} · ബാക്കി: ${remainingPages} പേജ്)`,
       )
     } finally {
       setSavingSyllabusId(null)
@@ -449,9 +511,18 @@ export function StudentAcademicHub({
 
   async function handleClassLeaderAddCustomKitab(e: React.FormEvent) {
     e.preventDefault()
-    if (!isClassLeader || !newKitabName.trim() || !newKitabChapter.trim()) return
+    if (
+      !isClassLeader ||
+      !newKitabName.trim() ||
+      !newKitabFromChapter.trim() ||
+      !newKitabToChapter.trim()
+    )
+      return
     const matchedUsthad =
       CLASS_USTHADS.find((u) => u.id === newKitabUsthadId) || CLASS_USTHADS[0]
+    const fromChapter = newKitabFromChapter.trim()
+    const toChapter = newKitabToChapter.trim()
+    const formattedRange = formatSyllabusChapterRange(fromChapter, toChapter)
     const totalPages = Math.max(1, Math.min(1000, Number(newKitabTotalPages) || 25))
     const completedPages = Math.max(0, Math.min(1000, Number(newKitabCompletedPages) || 0))
     const remainingPages = Math.max(0, totalPages - completedPages)
@@ -467,7 +538,11 @@ export function StudentAcademicHub({
       admissionNo: newKitabPeriodLabel.trim() || 'Extra Kitab',
       month: selectedMonth,
       title: newKitabName.trim(),
-      subjectOrCategory: newKitabChapter.trim(),
+      subjectOrCategory: formattedRange,
+      answers: {
+        fromChapter,
+        toChapter,
+      },
       description: `Jamiathul Hind Monthly Syllabus target for Class ${normClass}.`,
       remarks: `Added by Class Leader ${student.name}.`,
       status: completedPages >= totalPages ? 'verified' : 'active',
@@ -485,7 +560,7 @@ export function StudentAcademicHub({
     publishCampusNotification({
       type: 'notice',
       title: `പുതിയ കിതാബ് സിലബസ് • Class ${normClass}`,
-      message: `${student.name} (Class Leader) added "${customRecord.title}" for ${matchedUsthad.name}: അദ്ധ്യായം "${customRecord.subjectOrCategory}" (${totalPages} പേജ്, ബാക്കി ${remainingPages} പേജ്).`,
+      message: `${student.name} (Class Leader) added "${customRecord.title}" for ${matchedUsthad.name}: "${fromChapter}" മുതൽ "${toChapter}" വരെ (${totalPages} പേജ്, ബാക്കി ${remainingPages} പേജ്).`,
       targetClass: normClass,
       targetStaffOnly: true,
       actorId: student.id,
@@ -494,10 +569,11 @@ export function StudentAcademicHub({
     })
 
     setNewKitabName('')
-    setNewKitabChapter('')
+    setNewKitabFromChapter('')
+    setNewKitabToChapter('')
     setShowAddKitabForm(false)
     setStatusBanner(
-      `✅ പുതിയ കിതാബ് "${customRecord.title}" സിലബസ് ചേർത്തു, ${matchedUsthad.name}-ന് അറിയിപ്പ് അയച്ചു!`,
+      `✅ പുതിയ കിതാബ് "${customRecord.title}" (${fromChapter} മുതൽ ${toChapter} വരെ) ചേർത്തു, ${matchedUsthad.name}-ന് അറിയിപ്പ് അയച്ചു!`,
     )
   }
 
@@ -905,12 +981,12 @@ export function StudentAcademicHub({
                   ജാമിഅതുൽ ഹിന്ദ് മാസ സിലബസ് · Jamiathul Hind Monthly Syllabus Updation
                 </p>
                 <h4 className="mt-1 font-display text-lg font-bold text-foreground sm:text-xl">
-                  Class {normClass} — കിതാബുകളും അദ്ധ്യായങ്ങളും പേജ് കണക്കും
+                  Class {normClass} — കിതാബുകളും അദ്ധ്യായങ്ങളും (മുതൽ – വരെ) പേജ് കണക്കും
                 </h4>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {isClassLeader
-                    ? 'ക്ലാസ്സ് ലീഡർക്ക് ജാമിഅതുൽ ഹിന്ദ് നിശ്ചയിച്ച അദ്ധ്യായം (Chapter), എടുക്കേണ്ട പേജുകൾ, എടുത്ത പേജുകൾ എന്നിവ രേഖപ്പെടുത്തി ഉസ്താദുമാരെ അറിയിക്കാം.'
-                    : 'ജാമിഅതുൽ ഹിന്ദ് നിശ്ചയിച്ച പ്രകാരം ഓരോ വിഷയത്തിലും എടുക്കേണ്ട അദ്ധ്യായവും പേജ് കണക്കും താഴെ കാണാം.'}
+                    ? 'ക്ലാസ്സ് ലീഡർക്ക് ജാമിഅതുൽ ഹിന്ദ് നിശ്ചയിച്ച പ്രകാരം ഏത് അദ്ധ്യായം മുതൽ ഏത് അദ്ധ്യായം വരെ എടുക്കണം, എത്ര പേജാണ് എടുക്കേണ്ടത്, എത്ര പേജ് എടുത്തു എന്നിവ രേഖപ്പെടുത്തി ഉസ്താദുമാരെ അറിയിക്കാം.'
+                    : 'ജാമിഅതുൽ ഹിന്ദ് നിശ്ചയിച്ച പ്രകാരം ഓരോ കിതാബിലും ഏത് അദ്ധ്യായം മുതൽ ഏത് അദ്ധ്യായം വരെ എടുക്കണം എന്നും പേജ് കണക്കും താഴെ കാണാം.'}
                 </p>
               </div>
 
@@ -1018,15 +1094,26 @@ export function StudentAcademicHub({
                   </div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="space-y-1 sm:col-span-1">
-                    <Label className="text-xs">
-                      ജാമിഅതുൽ ഹിന്ദ് നിശ്ചയിച്ച അദ്ധ്യായം (Chapter Name) *
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-emerald-700 dark:text-lime">
+                      ഏത് അദ്ധ്യായം മുതൽ (From Chapter) *
                     </Label>
                     <Input
-                      value={newKitabChapter}
-                      onChange={(e) => setNewKitabChapter(e.target.value)}
-                      placeholder="അദ്ധ്യായം ഇവിടെ ടൈപ്പ് ചെയ്യുക..."
+                      value={newKitabFromChapter}
+                      onChange={(e) => setNewKitabFromChapter(e.target.value)}
+                      placeholder="തുടങ്ങേണ്ട അദ്ധ്യായം..."
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-emerald-700 dark:text-lime">
+                      ഏത് അദ്ധ്യായം വരെ (Up to Chapter) *
+                    </Label>
+                    <Input
+                      value={newKitabToChapter}
+                      onChange={(e) => setNewKitabToChapter(e.target.value)}
+                      placeholder="അവസാനിക്കേണ്ട അദ്ധ്യായം..."
                       required
                     />
                   </div>
@@ -1067,8 +1154,10 @@ export function StudentAcademicHub({
             {/* Kitab Syllabus Cards / Rows */}
             <div className="space-y-3.5">
               {classSyllabusRows.map((row) => {
+                const parsedRange = extractSyllabusChapterRange(row)
                 const draft = syllabusEdits[row.id]
-                const chapterVal = draft?.chapter ?? row.subjectOrCategory ?? ''
+                const fromChapterVal = draft?.fromChapter ?? parsedRange.fromChapter
+                const toChapterVal = draft?.toChapter ?? parsedRange.toChapter
                 const totalPagesVal = Number(draft?.totalPages ?? row.totalMarks ?? 0)
                 const completedPagesVal = Number(draft?.completedPages ?? row.obtainedMarks ?? 0)
                 const remainingPagesVal = Math.max(0, totalPagesVal - completedPagesVal)
@@ -1119,17 +1208,34 @@ export function StudentAcademicHub({
                       </div>
                     </div>
 
+                    {/* Jamiathul Hind Chapter Range Box (ഏത് അദ്ധ്യായം മുതൽ → ഏത് അദ്ധ്യായം വരെ) */}
+                    <div className="mt-3 grid gap-2.5 rounded-xl border border-emerald-600/20 bg-emerald-500/[0.04] p-3 sm:grid-cols-2 dark:border-lime/25 dark:bg-lime/[0.04]">
+                      <div>
+                        <span className="block text-[10px] font-bold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                          ഏത് അദ്ധ്യായം മുതൽ (From Chapter)
+                        </span>
+                        <p className="mt-0.5 text-xs font-semibold text-foreground">
+                          {fromChapterVal || 'രേഖപ്പെടുത്തിയിട്ടില്ല'}
+                        </p>
+                      </div>
+                      <div className="border-t border-border/60 pt-2 sm:border-t-0 sm:border-l sm:pl-3 sm:pt-0">
+                        <span className="block text-[10px] font-bold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                          ഏത് അദ്ധ്യായം വരെ (Up to Chapter)
+                        </span>
+                        <p className="mt-0.5 text-xs font-semibold text-foreground">
+                          {toChapterVal || 'രേഖപ്പെടുത്തിയിട്ടില്ല'}
+                        </p>
+                      </div>
+                    </div>
+
                     {/* Progress bar */}
                     <div className="mt-3">
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground tabular-nums">
                         <span>
-                          അദ്ധ്യായം (Prescribed Chapter):{' '}
-                          <strong className="text-foreground">
-                            {chapterVal || 'രേഖപ്പെടുത്തിയിട്ടില്ല'}
-                          </strong>
+                          ജാമിഅതുൽ ഹിന്ദ് സിലബസ് പുരോഗതി (Monthly Page Progress)
                         </span>
                         <span className="font-mono font-semibold text-emerald-700 dark:text-lime">
-                          {progressPct}% Completed
+                          {progressPct}% Completed ({completedPagesVal}/{totalPagesVal} Pages)
                         </span>
                       </div>
                       <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -1141,90 +1247,120 @@ export function StudentAcademicHub({
                     </div>
 
                     {isClassLeader ? (
-                      <div className="mt-4 grid gap-3 border-t border-border/60 pt-3.5 sm:grid-cols-12 sm:items-end">
-                        <div className="space-y-1 sm:col-span-5">
-                          <Label className="text-[11px] text-muted-foreground">
-                            ജാമിഅതുൽ ഹിന്ദ് അദ്ധ്യായം (Type Chapter Name)
-                          </Label>
-                          <Input
-                            value={chapterVal}
-                            onChange={(e) =>
-                              setSyllabusEdits((prev) => ({
-                                ...prev,
-                                [row.id]: {
-                                  chapter: e.target.value,
-                                  totalPages: totalPagesVal,
-                                  completedPages: completedPagesVal,
-                                  remarks: draft?.remarks ?? row.remarks ?? '',
-                                },
-                              }))
-                            }
-                            placeholder="അദ്ധ്യായം ഇവിടെ ടൈപ്പ് ചെയ്യുക..."
-                            className="h-9 text-xs"
-                          />
+                      <div className="mt-4 space-y-3 border-t border-border/60 pt-3.5">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold text-emerald-700 dark:text-lime">
+                              ഏത് അദ്ധ്യായം മുതൽ (From Chapter — തുടങ്ങേണ്ട അദ്ധ്യായം)
+                            </Label>
+                            <Input
+                              value={fromChapterVal}
+                              onChange={(e) =>
+                                setSyllabusEdits((prev) => ({
+                                  ...prev,
+                                  [row.id]: {
+                                    fromChapter: e.target.value,
+                                    toChapter: toChapterVal,
+                                    totalPages: totalPagesVal,
+                                    completedPages: completedPagesVal,
+                                    remarks: draft?.remarks ?? row.remarks ?? '',
+                                  },
+                                }))
+                              }
+                              placeholder="ഏത് അദ്ധ്യായം മുതൽ..."
+                              className="h-9 text-xs"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold text-emerald-700 dark:text-lime">
+                              ഏത് അദ്ധ്യായം വരെ (Up to Chapter — അവസാനിക്കേണ്ട അദ്ധ്യായം)
+                            </Label>
+                            <Input
+                              value={toChapterVal}
+                              onChange={(e) =>
+                                setSyllabusEdits((prev) => ({
+                                  ...prev,
+                                  [row.id]: {
+                                    fromChapter: fromChapterVal,
+                                    toChapter: e.target.value,
+                                    totalPages: totalPagesVal,
+                                    completedPages: completedPagesVal,
+                                    remarks: draft?.remarks ?? row.remarks ?? '',
+                                  },
+                                }))
+                              }
+                              placeholder="ഏത് അദ്ധ്യായം വരെ..."
+                              className="h-9 text-xs"
+                            />
+                          </div>
                         </div>
 
-                        <div className="space-y-1 sm:col-span-2">
-                          <Label className="text-[11px] text-muted-foreground">
-                            എടുക്കേണ്ട പേജ് (Target)
-                          </Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={1000}
-                            value={totalPagesVal}
-                            onChange={(e) =>
-                              setSyllabusEdits((prev) => ({
-                                ...prev,
-                                [row.id]: {
-                                  chapter: chapterVal,
-                                  totalPages: Math.max(0, Number(e.target.value) || 0),
-                                  completedPages: completedPagesVal,
-                                  remarks: draft?.remarks ?? row.remarks ?? '',
-                                },
-                              }))
-                            }
-                            className="h-9 font-mono text-xs font-bold tabular-nums"
-                          />
-                        </div>
+                        <div className="grid gap-3 sm:grid-cols-12 sm:items-end">
+                          <div className="space-y-1 sm:col-span-4">
+                            <Label className="text-[11px] text-muted-foreground">
+                              എത്ര പേജാണ് എടുക്കേണ്ടത് (Target Pages)
+                            </Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={1000}
+                              value={totalPagesVal}
+                              onChange={(e) =>
+                                setSyllabusEdits((prev) => ({
+                                  ...prev,
+                                  [row.id]: {
+                                    fromChapter: fromChapterVal,
+                                    toChapter: toChapterVal,
+                                    totalPages: Math.max(0, Number(e.target.value) || 0),
+                                    completedPages: completedPagesVal,
+                                    remarks: draft?.remarks ?? row.remarks ?? '',
+                                  },
+                                }))
+                              }
+                              className="h-9 font-mono text-xs font-bold tabular-nums"
+                            />
+                          </div>
 
-                        <div className="space-y-1 sm:col-span-2">
-                          <Label className="text-[11px] text-emerald-700 dark:text-lime">
-                            എടുത്ത പേജ് (Completed)
-                          </Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={1000}
-                            value={completedPagesVal}
-                            onChange={(e) =>
-                              setSyllabusEdits((prev) => ({
-                                ...prev,
-                                [row.id]: {
-                                  chapter: chapterVal,
-                                  totalPages: totalPagesVal,
-                                  completedPages: Math.max(0, Number(e.target.value) || 0),
-                                  remarks: draft?.remarks ?? row.remarks ?? '',
-                                },
-                              }))
-                            }
-                            className="h-9 font-mono text-xs font-bold tabular-nums"
-                          />
-                        </div>
+                          <div className="space-y-1 sm:col-span-4">
+                            <Label className="text-[11px] text-emerald-700 dark:text-lime">
+                              എത്ര പേജ് എടുത്തു (Completed Pages)
+                            </Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={1000}
+                              value={completedPagesVal}
+                              onChange={(e) =>
+                                setSyllabusEdits((prev) => ({
+                                  ...prev,
+                                  [row.id]: {
+                                    fromChapter: fromChapterVal,
+                                    toChapter: toChapterVal,
+                                    totalPages: totalPagesVal,
+                                    completedPages: Math.max(0, Number(e.target.value) || 0),
+                                    remarks: draft?.remarks ?? row.remarks ?? '',
+                                  },
+                                }))
+                              }
+                              className="h-9 font-mono text-xs font-bold tabular-nums"
+                            />
+                          </div>
 
-                        <div className="sm:col-span-3">
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={savingSyllabusId === row.id}
-                            onClick={() => handleClassLeaderSaveSyllabusRow(row)}
-                            className="h-9 w-full rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
-                          >
-                            <Send className="mr-1.5 size-3.5" aria-hidden="true" />
-                            {savingSyllabusId === row.id
-                              ? 'Saving...'
-                              : 'Save & Notify Usthad'}
-                          </Button>
+                          <div className="sm:col-span-4">
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={savingSyllabusId === row.id}
+                              onClick={() => handleClassLeaderSaveSyllabusRow(row)}
+                              className="h-9 w-full rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                            >
+                              <Send className="mr-1.5 size-3.5" aria-hidden="true" />
+                              {savingSyllabusId === row.id
+                                ? 'Saving...'
+                                : 'Save & Notify Usthad'}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -2626,7 +2762,7 @@ export function UsthadAcademicHub({
                       {actorName} — ജാമിഅതുൽ ഹിന്ദ് മാസ സിലബസ് & പേജ് കണക്ക് ({myTeachingSyllabusRows.length} Subjects)
                     </h4>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      നിങ്ങൾ വിവിധ ക്ലാസ്സുകളിൽ എടുക്കുന്ന കിതാബുകൾ, ക്ലാസ്സ് ലീഡർ രേഖപ്പെടുത്തിയ ജാമിഅതുൽ ഹിന്ദ് അദ്ധ്യായം, എടുക്കേണ്ട പേജ്, എടുത്ത പേജ്, ഇനി എടുക്കാനുള്ള പേജ് എന്നിവ ഇവിടെ കാണാം. എടുത്ത പേജുകളുടെ എണ്ണം അപ്ഡേറ്റ് ചെയ്യാം.
+                      നിങ്ങൾ വിവിധ ക്ലാസ്സുകളിൽ എടുക്കുന്ന കിതാബുകൾ, ക്ലാസ്സ് ലീഡർ രേഖപ്പെടുത്തിയ ജാമിഅതുൽ ഹിന്ദ് അദ്ധ്യായം (ഏത് മുതൽ ഏത് വരെ), എടുക്കേണ്ട പേജ്, എടുത്ത പേജ്, ഇനി എടുക്കാനുള്ള പേജ് എന്നിവ ഇവിടെ കാണാം. എടുത്ത പേജുകളുടെ എണ്ണം അപ്ഡേറ്റ് ചെയ്യാം.
                     </p>
                   </div>
 
@@ -2647,6 +2783,7 @@ export function UsthadAcademicHub({
 
                 <div className="grid gap-3.5 md:grid-cols-2">
                   {myTeachingSyllabusRows.map((row) => {
+                    const parsedRange = extractSyllabusChapterRange(row)
                     const draft = usthadSyllabusEdits[row.id]
                     const totalPagesVal = Number(draft?.totalPages ?? row.totalMarks ?? 0)
                     const completedPagesVal = Number(
@@ -2677,14 +2814,24 @@ export function UsthadAcademicHub({
                             {row.title}
                           </h5>
 
-                          <p className="mt-1 rounded-lg border border-border/70 bg-background/70 px-3 py-2 text-xs text-foreground">
-                            <span className="font-semibold text-muted-foreground">
-                              ജാമിഅതുൽ ഹിന്ദ് അദ്ധ്യായം:{' '}
-                            </span>
-                            <strong className="text-emerald-700 dark:text-lime">
-                              {row.subjectOrCategory || 'രേഖപ്പെടുത്തിയിട്ടില്ല'}
-                            </strong>
-                          </p>
+                          <div className="mt-2 grid gap-2 rounded-lg border border-border/80 bg-background/70 p-2.5 sm:grid-cols-2">
+                            <div>
+                              <span className="block text-[10px] font-bold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                                ഏത് അദ്ധ്യായം മുതൽ (From)
+                              </span>
+                              <p className="mt-0.5 text-xs font-semibold text-foreground">
+                                {parsedRange.fromChapter}
+                              </p>
+                            </div>
+                            <div className="border-t border-border/60 pt-1.5 sm:border-t-0 sm:border-l sm:pl-2.5 sm:pt-0">
+                              <span className="block text-[10px] font-bold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                                ഏത് അദ്ധ്യായം വരെ (Up To)
+                              </span>
+                              <p className="mt-0.5 text-xs font-semibold text-foreground">
+                                {parsedRange.toChapter}
+                              </p>
+                            </div>
+                          </div>
 
                           <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs tabular-nums">
                             <div className="rounded-lg border border-border bg-background/60 p-2">
@@ -2766,7 +2913,7 @@ export function UsthadAcademicHub({
                     Class {normClass} — Complete Jamiathul Hind Monthly Syllabus ({selectedMonth})
                   </h4>
                   <p className="text-xs text-muted-foreground">
-                    All subjects in Class {normClass} with prescribed chapter, target pages, completed pages, and remaining pages.
+                    All subjects in Class {normClass} with prescribed chapter range (ഏത് മുതൽ ഏത് വരെ), target pages, completed pages, and remaining pages.
                   </p>
                 </div>
               </div>
@@ -2777,7 +2924,7 @@ export function UsthadAcademicHub({
                     <tr>
                       <th className="px-3.5 py-3">Period & Kitab</th>
                       <th className="px-3.5 py-3">Teaching Usthad</th>
-                      <th className="px-3.5 py-3">അദ്ധ്യായം (Jamiathul Hind Chapter)</th>
+                      <th className="px-3.5 py-3">ഏത് അദ്ധ്യായം മുതൽ – ഏത് വരെ</th>
                       <th className="px-3.5 py-3">എടുക്കേണ്ടത്</th>
                       <th className="px-3.5 py-3">എടുത്ത പേജ്</th>
                       <th className="px-3.5 py-3">ഇനി ബാക്കി</th>
@@ -2786,6 +2933,7 @@ export function UsthadAcademicHub({
                   </thead>
                   <tbody className="divide-y divide-border tabular-nums">
                     {activeClassSyllabusRows.map((row) => {
+                      const parsedRange = extractSyllabusChapterRange(row)
                       const canEditThisSubject =
                         role === 'principal' ||
                         row.studentId === actorId ||
@@ -2809,7 +2957,20 @@ export function UsthadAcademicHub({
                             {row.studentName}
                           </td>
                           <td className="px-3.5 py-3 text-foreground">
-                            {row.subjectOrCategory || '-'}
+                            <div className="space-y-0.5 text-xs">
+                              <p>
+                                <span className="font-semibold text-emerald-700 dark:text-lime">
+                                  മുതൽ:
+                                </span>{' '}
+                                {parsedRange.fromChapter}
+                              </p>
+                              <p>
+                                <span className="font-semibold text-emerald-700 dark:text-lime">
+                                  വരെ:
+                                </span>{' '}
+                                {parsedRange.toChapter}
+                              </p>
+                            </div>
                           </td>
                           <td className="px-3.5 py-3 font-mono font-bold text-foreground">
                             {totalVal} പേജ്

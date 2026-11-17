@@ -95,7 +95,7 @@ export type CampusAcademicRecord = {
 }
 
 const STORAGE_KEY = 'ics_campus_academic_records_v1'
-const SEEDED_VERSION_KEY = 'ics_campus_academic_records_seeded_v3_syllabus'
+const SEEDED_VERSION_KEY = 'ics_campus_academic_records_seeded_v4_chapter_range'
 
 export const ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT = 600
 
@@ -338,12 +338,27 @@ function buildInitialSeededAcademicRecords(): CampusAcademicRecord[] {
 
     // 5. Seed Jamiathul Hind (ജാമിഅതുൽ ഹിന്ദ്) Monthly Syllabus & Kitab Page Tracker records for each timetable period
     const semTimetable = getClassSemesterTimetableByClassName(className)
-    const sampleChapters = [
-      'ബാബു ശുറൂത്തി സ്വലാത്ത് (Bab Shurut al-Salah — Ch. 3)',
-      'ബാബുൽ ഇഅ്റാബി വൽ ബിനാഅ് (Bab al-I’rab wa al-Bina — Ch. 2)',
-      'കിതാബുൽ ഇൽമ് വൽ അദബ് (Kitab al-Ilm — Hadith 15–35)',
-      'സൂറത്തു യാസീൻ തഫ്സീർ (Tafsir Clarifications — Part 2)',
-      'ഉസൂലുൽ ഫിഖ്ഹ് — അൽ അഹ്കാം (Al-Ahkam al-Taklifiyyah)',
+    const sampleChapterRanges = [
+      {
+        fromChapter: 'ബാബു ശുറൂത്തി സ്വലാത്ത് (Ch. 1: Shurut al-Salah)',
+        toChapter: 'ബാബു സ്വലാത്തുൽ ജമാഅത്ത് (Ch. 4: Salat al-Jama’ah)',
+      },
+      {
+        fromChapter: 'ബാബുൽ ഇഅ്റാബി വൽ ബിനാഅ് (Ch. 1: Al-I’rab wa al-Bina)',
+        toChapter: 'ബാബുൽ മഅ്രിഫത്തി വൻ നകിറ (Ch. 3: Al-Ma’rifah wa al-Nakirah)',
+      },
+      {
+        fromChapter: 'കിതാബുൽ ഇൽമ് — ഹദീസ് 1 (Kitab al-Ilm: Hadith 1)',
+        toChapter: 'ബാബു ഫള്ലുൽ ഇൽമ് — ഹദീസ് 35 (Hadith 35)',
+      },
+      {
+        fromChapter: 'സൂറത്തു യാസീൻ — ആയത്ത് 1 (Surah Yasin: Ayah 1)',
+        toChapter: 'സൂറത്തു യാസീൻ — ആയത്ത് 40 (Surah Yasin: Ayah 40)',
+      },
+      {
+        fromChapter: 'അൽ അഹ്കാമുള്ളാഹി (Ch. 1: Al-Ahkam al-Taklifiyyah)',
+        toChapter: 'അൽ ആം വൽ ഖാസ്വ് (Ch. 3: Al-Amm wa al-Khass)',
+      },
     ]
     const samplePageTargets = [
       { total: 30, completed: 22 },
@@ -358,6 +373,9 @@ function buildInitialSeededAcademicRecords(): CampusAcademicRecord[] {
       const periodLabel = periodMeta?.label || `Period ${pIdx + 1}`
       const assignedTeacher = findUsthadForTeacherName(slot.teacher)
       const pages = samplePageTargets[pIdx % samplePageTargets.length]
+      const chapterRange = sampleChapterRanges[pIdx % sampleChapterRanges.length]
+      const formattedChapterRange =
+        `${chapterRange.fromChapter} മുതൽ ${chapterRange.toChapter} വരെ`.slice(0, 120)
       const isComplete = pages.completed >= pages.total && pages.total > 0
       const cleanBatchSlug = className.replace(/\s+/g, '_').toLowerCase()
       records.push({
@@ -370,7 +388,11 @@ function buildInitialSeededAcademicRecords(): CampusAcademicRecord[] {
         admissionNo: periodLabel,
         month: '2026-11',
         title: slot.subject,
-        subjectOrCategory: sampleChapters[pIdx % sampleChapters.length],
+        subjectOrCategory: formattedChapterRange,
+        answers: {
+          fromChapter: chapterRange.fromChapter,
+          toChapter: chapterRange.toChapter,
+        },
         description: `Jamiathul Hind Monthly Syllabus target for Class ${className} (${slot.subject}).`,
         remarks: isComplete
           ? 'Monthly Jamiathul Hind target pages completed on schedule.'
@@ -390,7 +412,29 @@ function buildInitialSeededAcademicRecords(): CampusAcademicRecord[] {
   return records
 }
 
-function normalizeLegacyZadulKhairAmount(rec: CampusAcademicRecord): CampusAcademicRecord {
+function normalizeLegacyZadulKhairAmount(
+  rec: CampusAcademicRecord,
+  defaultSeed?: CampusAcademicRecord,
+): CampusAcademicRecord {
+  if (rec.recordKind === 'monthly_syllabus') {
+    const hasChapterRange =
+      rec.answers &&
+      typeof rec.answers.fromChapter === 'string' &&
+      rec.answers.fromChapter.trim().length > 0 &&
+      typeof rec.answers.toChapter === 'string' &&
+      rec.answers.toChapter.trim().length > 0
+    if (!hasChapterRange && defaultSeed?.answers?.fromChapter && defaultSeed?.answers?.toChapter) {
+      return {
+        ...rec,
+        subjectOrCategory: defaultSeed.subjectOrCategory,
+        answers: {
+          fromChapter: defaultSeed.answers.fromChapter,
+          toChapter: defaultSeed.answers.toChapter,
+        },
+      }
+    }
+    return rec
+  }
   if (rec.recordKind !== 'zadul_khair') return rec
   if (rec.fixedAmount === 500 || rec.fixedAmount === undefined) {
     const wasPaid500 = rec.status === 'paid' && (rec.paidAmount === 500 || rec.paidAmount === undefined)
@@ -418,7 +462,7 @@ export function loadCampusAcademicRecords(): CampusAcademicRecord[] {
             for (const d of defaults) byId.set(d.id, d)
             for (const p of prev) {
               if (p && typeof p.id === 'string') {
-                byId.set(p.id, normalizeLegacyZadulKhairAmount(p))
+                byId.set(p.id, normalizeLegacyZadulKhairAmount(p, byId.get(p.id)))
               }
             }
             const upgraded = Array.from(byId.values())
@@ -445,8 +489,8 @@ export function loadCampusAcademicRecords(): CampusAcademicRecord[] {
     }
     for (const p of parsed) {
       if (p && typeof p.id === 'string') {
-        const normalized = normalizeLegacyZadulKhairAmount(p)
-        const existing = byId.get(normalized.id)
+        const existing = byId.get(p.id)
+        const normalized = normalizeLegacyZadulKhairAmount(p, existing)
         if (!existing || (normalized.updatedAtMs || 0) >= (existing.updatedAtMs || 0)) {
           byId.set(normalized.id, normalized)
         }
