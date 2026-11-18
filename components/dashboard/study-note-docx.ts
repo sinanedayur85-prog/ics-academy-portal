@@ -24,7 +24,20 @@ export interface StudyNoteDocxData {
 
 function isArabicText(text: string): boolean {
   if (!text) return false
-  return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text)
+  if (/[\u0D00-\u0D7F]{2,}/.test(text)) return false
+  const stripped = text.replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+  const outsideParens = stripped
+    .replace(/\([^)]*\)|\[[^\]]*\]|"[^"]*"|“[^”]*”|«[^»]*»/g, ' ')
+    .trim()
+  const target =
+    outsideParens.replace(/[^A-Za-z\u00C0-\u024F\u0D00-\u0D7F\u0600-\u06FF]/g, '').length > 0
+      ? outsideParens
+      : stripped
+  const arabicChars = (
+    target.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []
+  ).length
+  const ltrChars = (target.match(/[A-Za-z\u00C0-\u024F\u0D00-\u0D7F]/g) || []).length
+  return arabicChars > 0 && arabicChars > ltrChars
 }
 
 function isUrduText(text: string): boolean {

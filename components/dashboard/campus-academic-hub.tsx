@@ -75,8 +75,14 @@ function formatTodayDateDisplay(): string {
 }
 
 const ARABIC_SCRIPT_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/
+const ARABIC_DIACRITICS_RE = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g
 const URDU_SPECIFIC_RE = /[ٹڈڑںےگچپژک]/
 const MALAYALAM_SCRIPT_RE = /[\u0D00-\u0D7F]/
+const EASTERN_ARABIC_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'] as const
+
+function toEasternArabicNumerals(input: string | number): string {
+  return String(input).replace(/[0-9]/g, (d) => EASTERN_ARABIC_DIGITS[Number(d)] ?? d)
+}
 
 function getMultilingualTextProps(
   text?: string,
@@ -88,8 +94,38 @@ function getMultilingualTextProps(
   fontClass: string
   alignClass: string
 } {
-  const sample = text && text.trim() ? text : fallbackText || ''
-  if (ARABIC_SCRIPT_RE.test(sample)) {
+  const sample = (text && text.trim() ? text : fallbackText || '').trim()
+  if (!sample) {
+    return {
+      dir: 'ltr',
+      lang: 'en',
+      isRtl: false,
+      fontClass: 'font-poppins',
+      alignClass: 'text-left',
+    }
+  }
+
+  const stripped = sample.replace(ARABIC_DIACRITICS_RE, '')
+  // Strip parenthetical/bracketed/quoted segments first so a single Arabic term in brackets
+  // like "Raf' (رفع)" or "Dammah (ضمة)" does not flip an English/Malayalam sentence to RTL.
+  const outsideParens = stripped
+    .replace(/\([^)]*\)|\[[^\]]*\]|"[^"]*"|“[^”]*”|«[^»]*»/g, ' ')
+    .trim()
+
+  const countScripts = (str: string) => {
+    const ar = (
+      str.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []
+    ).length
+    const ml = (str.match(/[\u0D00-\u0D7F]/g) || []).length
+    const lat = (str.match(/[A-Za-z\u00C0-\u024F]/g) || []).length
+    return { ar, ml, lat, ltr: ml + lat }
+  }
+
+  const mainCounts = countScripts(outsideParens)
+  const activeCounts =
+    mainCounts.ar + mainCounts.ltr > 0 ? mainCounts : countScripts(stripped)
+
+  if (activeCounts.ar > 0 && activeCounts.ar > activeCounts.ltr && activeCounts.ml < 2) {
     const isUr = URDU_SPECIFIC_RE.test(sample)
     return {
       dir: 'rtl',
@@ -101,7 +137,8 @@ function getMultilingualTextProps(
       alignClass: 'text-right',
     }
   }
-  if (MALAYALAM_SCRIPT_RE.test(sample)) {
+
+  if (activeCounts.ml > 0 || MALAYALAM_SCRIPT_RE.test(sample)) {
     return {
       dir: 'ltr',
       lang: 'ml',
@@ -110,6 +147,7 @@ function getMultilingualTextProps(
       alignClass: 'text-left',
     }
   }
+
   return {
     dir: 'ltr',
     lang: 'en',
@@ -117,6 +155,52 @@ function getMultilingualTextProps(
     fontClass: 'font-poppins',
     alignClass: 'text-left',
   }
+}
+
+function renderMultilingualInline(text?: string, isParentRtl = false): React.ReactNode {
+  if (!text) return text
+  const normalizedText = text.replace(/ദാ?അ്\s*വാ?/g, 'ദഅ്\u200cവ')
+  if (!ARABIC_SCRIPT_RE.test(normalizedText) && !MALAYALAM_SCRIPT_RE.test(normalizedText)) {
+    return normalizedText
+  }
+
+  if (isParentRtl) {
+    const isUr = URDU_SPECIFIC_RE.test(normalizedText)
+    return isUr ? normalizedText : toEasternArabicNumerals(normalizedText)
+  }
+
+  const scriptRunRegex =
+    /([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+(?:[\s،؛؟«»ـ\-/:,.0-9\u0660-\u0669\u06F0-\u06F9]+[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+)*[،؛؟.!0-9\u0660-\u0669]*|[\u0D00-\u0D7F\u200C\u200D]+(?:\s+[\u0D00-\u0D7F\u200C\u200D]+)*)/g
+  const parts = normalizedText.split(scriptRunRegex)
+  if (parts.length <= 1) return normalizedText
+
+  return parts.map((part, idx) => {
+    if (!part) return null
+    if (ARABIC_SCRIPT_RE.test(part)) {
+      const isUr = URDU_SPECIFIC_RE.test(part)
+      const displayPart = isUr ? part : toEasternArabicNumerals(part)
+      return (
+        <bdi
+          key={`ar-${idx}`}
+          dir="rtl"
+          className={cn(
+            isUr ? 'font-urdu' : 'font-arabic',
+            'inline-block px-0.5 text-[1.08em] leading-normal font-normal',
+          )}
+        >
+          {displayPart}
+        </bdi>
+      )
+    }
+    if (MALAYALAM_SCRIPT_RE.test(part)) {
+      return (
+        <span key={`ml-${idx}`} className="font-malayalam">
+          {part}
+        </span>
+      )
+    }
+    return <span key={`tx-${idx}`}>{part}</span>
+  })
 }
 
 type StudentHubTab = 'tests' | 'syllabus' | 'holiday' | 'zadul_khair' | 'discipline'
@@ -1485,7 +1569,10 @@ export function StudentAcademicHub({
                                       .fontClass
                                   }
                                 >
-                                  {currentTest.subjectOrCategory}
+                                  {renderMultilingualInline(
+                                    currentTest.subjectOrCategory,
+                                    getMultilingualTextProps(currentTest.subjectOrCategory).isRtl,
+                                  )}
                                 </span>{' '}
                                 · {currentTest.dateString} · Conducted by {currentTest.actorName}
                               </p>
@@ -1498,7 +1585,7 @@ export function StudentAcademicHub({
                                   titleLang.alignClass,
                                 )}
                               >
-                                {currentTest.title}
+                                {renderMultilingualInline(currentTest.title, titleLang.isRtl)}
                               </h4>
                               {currentTest.description && (
                                 <p
@@ -1510,7 +1597,10 @@ export function StudentAcademicHub({
                                     descLang.alignClass,
                                   )}
                                 >
-                                  {currentTest.description}
+                                  {renderMultilingualInline(
+                                    currentTest.description,
+                                    descLang.isRtl,
+                                  )}
                                 </p>
                               )}
                             </div>
@@ -1557,7 +1647,10 @@ export function StudentAcademicHub({
                                   remarksLang.alignClass,
                                 )}
                               >
-                                {currentSubmission.remarks}
+                                {renderMultilingualInline(
+                                  currentSubmission.remarks,
+                                  remarksLang.isRtl,
+                                )}
                               </p>
                             </div>
                           )}
@@ -1606,7 +1699,7 @@ export function StudentAcademicHub({
                                       >
                                         Q{qIndex + 1}.
                                       </span>
-                                      {q.prompt}
+                                      {renderMultilingualInline(q.prompt, promptLang.isRtl)}
                                     </p>
                                     <span className="shrink-0 font-mono text-xs font-semibold text-muted-foreground tabular-nums">
                                       {typeof awardedMarks === 'number'
@@ -1661,7 +1754,7 @@ export function StudentAcademicHub({
                                               >
                                                 {String.fromCharCode(65 + optIdx)}.
                                               </strong>
-                                              {optText}
+                                              {renderMultilingualInline(optText, optLang.isRtl)}
                                             </span>
                                             {isSelected && (
                                               <CheckCircle2
@@ -1716,7 +1809,10 @@ export function StudentAcademicHub({
                                             )}
                                           >
                                             <strong className="text-foreground">Model Key:</strong>{' '}
-                                            {q.expectedAnswer}
+                                            {renderMultilingualInline(
+                                              q.expectedAnswer,
+                                              keyLang.isRtl,
+                                            )}
                                           </p>
                                         )}
                                     </div>
@@ -3562,7 +3658,7 @@ export function UsthadAcademicHub({
                                       <span dir="ltr" className="font-mono text-xs">
                                         Q{qIdx + 1} ({q.type.toUpperCase()} · Max {q.marks}M):{' '}
                                       </span>
-                                      {q.prompt}
+                                      {renderMultilingualInline(q.prompt, qLang.isRtl)}
                                     </p>
                                     <p
                                       dir={ansLang.dir}
@@ -3576,7 +3672,7 @@ export function UsthadAcademicHub({
                                       <strong dir="ltr" className="font-poppins text-foreground">
                                         Student Answer:{' '}
                                       </strong>
-                                      {formattedAns}
+                                      {renderMultilingualInline(formattedAns, ansLang.isRtl)}
                                     </p>
                                   </div>
 
