@@ -4343,12 +4343,12 @@ export function CampusMessenger({
       {/* WHATSAPP-STYLE PHOTO PREVIEW & HD / STANDARD QUALITY SELECTOR MODAL */}
       {pendingAttachment && pendingAttachment.mediaType === 'image' && (
         <div
-          className="fixed inset-0 z-[78] flex flex-col justify-between bg-[#0b1014]/95 text-white backdrop-blur-xs"
+          className="fixed inset-0 z-[78] flex flex-col justify-between bg-[#0b1014] text-white pt-[max(var(--safe-top),2.75rem)] pb-[max(env(safe-area-inset-bottom,0px),0.75rem)] sm:pt-3"
           onClick={() => setShowPhotoQualitySheet(false)}
         >
-          {/* Top Bar: Close Button + WhatsApp HD Quality Button */}
+          {/* Top Bar: Placed cleanly below phone status bar (clock/battery) */}
           <div
-            className="flex items-center justify-between px-4 py-3.5 sm:px-6"
+            className="z-20 flex shrink-0 items-center justify-between border-b border-white/10 bg-[#11171d] px-4 py-3 shadow-md sm:px-6"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -4358,35 +4358,64 @@ export function CampusMessenger({
                 setShowPhotoQualitySheet(false)
               }}
               aria-label="Cancel photo upload"
-              className="flex size-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+              className="flex size-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition-colors hover:bg-white/20"
             >
               <X className="size-5" aria-hidden="true" />
             </button>
 
-            <div className="flex items-center gap-2.5">
-              {/* WhatsApp HD Toggle Button */}
+            <div className="flex items-center gap-2">
+              {/* Direct Standard / HD Segmented Selector + Sheet Trigger */}
+              <div className="flex items-center rounded-full border border-white/15 bg-[#1b2229] p-1 shadow-inner">
+                <button
+                  type="button"
+                  onClick={() => handleSelectPhotoQuality('standard')}
+                  className={cn(
+                    'flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-bold transition-all',
+                    pendingAttachment.imageQuality !== 'hd'
+                      ? 'bg-[#25d366] text-[#0a0b0e] shadow-xs'
+                      : 'text-zinc-300 hover:text-white',
+                  )}
+                >
+                  <span>Standard</span>
+                  {pendingAttachment.imageQuality !== 'hd' && (
+                    <Check className="size-3.5 stroke-[3]" aria-hidden="true" />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectPhotoQuality('hd')}
+                  className={cn(
+                    'flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-bold transition-all',
+                    pendingAttachment.imageQuality === 'hd'
+                      ? 'bg-[#25d366] text-[#0a0b0e] shadow-xs'
+                      : 'text-zinc-300 hover:text-white',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'rounded border px-1 py-0.2 font-poppins text-[9px] font-extrabold leading-tight',
+                      pendingAttachment.imageQuality === 'hd'
+                        ? 'border-[#0a0b0e] text-[#0a0b0e]'
+                        : 'border-current text-current',
+                    )}
+                  >
+                    HD
+                  </span>
+                  <span>HD Quality</span>
+                  {pendingAttachment.imageQuality === 'hd' && (
+                    <Check className="size-3.5 stroke-[3]" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={() => setShowPhotoQualitySheet((prev) => !prev)}
-                aria-label="Select photo quality (Standard or HD)"
-                className={cn(
-                  'relative flex h-10 items-center gap-1.5 rounded-full border px-3.5 text-xs font-bold tracking-wider transition-all',
-                  pendingAttachment.imageQuality === 'hd'
-                    ? 'border-[#25d366] bg-[#25d366]/20 text-white shadow-sm'
-                    : 'border-white/30 bg-white/10 text-white/90 hover:bg-white/20',
-                )}
+                aria-label="Open photo quality details"
+                className="hidden h-9 items-center rounded-full border border-white/20 bg-white/10 px-3 text-[11px] font-semibold text-zinc-200 transition-colors hover:bg-white/20 sm:inline-flex"
               >
-                <span className="rounded border border-current px-1 py-0.2 font-poppins text-[10px] font-extrabold leading-tight">
-                  HD
-                </span>
-                <span className="text-xs font-semibold">
-                  {pendingAttachment.imageQuality === 'hd' ? 'HD Quality' : 'Standard'}
-                </span>
-                {pendingAttachment.imageQuality === 'hd' && (
-                  <span className="flex size-4 items-center justify-center rounded-full bg-[#25d366] text-[#0a0b0e]">
-                    <Check className="size-2.5 stroke-[3]" aria-hidden="true" />
-                  </span>
-                )}
+                Details
               </button>
             </div>
           </div>
@@ -4394,7 +4423,7 @@ export function CampusMessenger({
           {/* Center Photo Preview Area + Toast + WhatsApp Photo Quality Bottom Sheet */}
           <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-2">
             {photoQualityToast && (
-              <div className="pointer-events-none absolute top-3 z-20 rounded-full border border-white/15 bg-black/80 px-4 py-1.5 text-xs font-semibold text-white shadow-lg">
+              <div className="pointer-events-none absolute top-3 z-20 rounded-full border border-white/15 bg-black/85 px-4 py-1.5 text-xs font-semibold text-white shadow-lg">
                 {photoQualityToast}
               </div>
             )}
@@ -4403,11 +4432,11 @@ export function CampusMessenger({
               src={pendingAttachment.mediaUrl}
               alt={pendingAttachment.mediaName}
               referrerPolicy="no-referrer"
-              className="max-h-[62vh] max-w-full rounded-2xl object-contain shadow-2xl"
+              className="max-h-[58vh] max-w-full rounded-2xl object-contain shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             />
 
-            <p className="mt-2.5 text-[11px] text-white/70 tabular-nums">
+            <p className="mt-2.5 text-[11px] text-white/75 tabular-nums">
               {pendingAttachment.imageQuality === 'hd' ? 'HD quality' : 'Standard quality'} •{' '}
               {pendingAttachment.imageDimensions || '1280 × 960'} •{' '}
               {pendingAttachment.mediaSizeLabel.split('•')[0].trim()}
@@ -4508,7 +4537,7 @@ export function CampusMessenger({
           <form
             onSubmit={handleFormSubmit}
             onClick={(e) => e.stopPropagation()}
-            className="mx-auto flex w-full max-w-2xl flex-col gap-2.5 px-4 pb-5 pt-2"
+            className="mx-auto flex w-full max-w-2xl flex-col gap-2.5 px-4 pb-3 pt-2"
           >
             <div className="flex items-center gap-2">
               <input
@@ -4548,14 +4577,14 @@ export function CampusMessenger({
       {/* PHOTO LIGHTBOX MODAL */}
       {lightboxImage && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4"
+          className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/90 px-4 pt-[max(var(--safe-top),2.75rem)] pb-[max(env(safe-area-inset-bottom,0px),1rem)]"
           onClick={() => setLightboxImage(null)}
         >
           <div
-            className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-2xl border border-[#262a33] bg-[#121418] p-2"
+            className="relative flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-[#262a33] bg-[#121418] p-2 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-3 py-2 text-xs text-white">
+            <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2.5 text-xs text-white">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="truncate font-semibold">{lightboxImage.name}</span>
                 {lightboxImage.quality === 'hd' && (
@@ -4569,7 +4598,7 @@ export function CampusMessenger({
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2">
                 {lightboxImage.messageId && (
                   <button
                     type="button"
@@ -4580,7 +4609,7 @@ export function CampusMessenger({
                         setDeleteModalMessage(found)
                       }
                     }}
-                    className="inline-flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-500/20 px-2.5 py-1 text-[11px] font-bold text-red-300 hover:bg-red-500/30"
+                    className="inline-flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-500/20 px-2.5 py-1.5 text-[11px] font-bold text-red-300 hover:bg-red-500/30"
                   >
                     <Trash2 className="size-3.5" aria-hidden="true" />
                     <span>Delete</span>
@@ -4589,7 +4618,7 @@ export function CampusMessenger({
                 <a
                   href={lightboxImage.url}
                   download={lightboxImage.name}
-                  className="inline-flex items-center gap-1 rounded-lg border border-[#343946] bg-[#222630] px-2.5 py-1 text-[11px] font-bold text-zinc-100"
+                  className="inline-flex items-center gap-1 rounded-lg border border-[#343946] bg-[#222630] px-2.5 py-1.5 text-[11px] font-bold text-zinc-100"
                 >
                   <Download className="size-3.5" aria-hidden="true" />
                   <span>Download</span>
@@ -4597,18 +4626,21 @@ export function CampusMessenger({
                 <button
                   type="button"
                   onClick={() => setLightboxImage(null)}
-                  className="rounded-lg p-1 text-white/80 hover:bg-white/10"
+                  aria-label="Close photo viewer"
+                  className="flex size-8 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white hover:bg-white/20"
                 >
                   <X className="size-4" aria-hidden="true" />
                 </button>
               </div>
             </div>
-            <img
-              src={lightboxImage.url}
-              alt={lightboxImage.name}
-              referrerPolicy="no-referrer"
-              className="max-h-[78vh] w-auto rounded-xl object-contain"
-            />
+            <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-1">
+              <img
+                src={lightboxImage.url}
+                alt={lightboxImage.name}
+                referrerPolicy="no-referrer"
+                className="max-h-[72vh] w-auto rounded-xl object-contain"
+              />
+            </div>
           </div>
         </div>
       )}

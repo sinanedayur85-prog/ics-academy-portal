@@ -1050,14 +1050,41 @@ type TimeSelectGroupProps = {
   label: string
   value: Time12Value
   onChange: (next: Time12Value) => void
+  isManual?: boolean
+  onResetToLive?: () => void
 }
 
-function TimeSelectGroup({ idPrefix, label, value, onChange }: TimeSelectGroupProps) {
+function TimeSelectGroup({
+  idPrefix,
+  label,
+  value,
+  onChange,
+  isManual,
+  onResetToLive,
+}: TimeSelectGroupProps) {
   return (
     <div className="flex flex-col gap-2" role="group" aria-labelledby={`${idPrefix}-label`}>
-      <Label id={`${idPrefix}-label`} htmlFor={`${idPrefix}-hour`}>
-        {label}
-      </Label>
+      <div className="flex items-center justify-between gap-2">
+        <Label id={`${idPrefix}-label`} htmlFor={`${idPrefix}-hour`}>
+          {label}
+        </Label>
+        {onResetToLive && (
+          <button
+            type="button"
+            onClick={onResetToLive}
+            className={cn(
+              'inline-flex items-center gap-1 text-[11px] font-semibold transition-colors',
+              isManual
+                ? 'text-lime hover:underline'
+                : 'text-muted-foreground/80 hover:text-foreground',
+            )}
+            title="Sync with current phone time"
+          >
+            <Clock className="size-3" aria-hidden="true" />
+            <span>{isManual ? 'Use Current Time' : 'Live Phone Time'}</span>
+          </button>
+        )}
+      </div>
       <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
         <div className="relative">
           <label htmlFor={`${idPrefix}-hour`} className="sr-only">
@@ -1134,16 +1161,9 @@ function LeaveApplicationForm({
   latestApplicationEntry: SavedLeaveEntry | null
   onRecord: (entry: Omit<SavedLeaveEntry, 'id' | 'uid' | 'createdAtMs' | 'syncedToCloud'>) => Promise<void>
 }) {
-  const [departureDate, setDepartureDate] = useState<DateValue>({
-    day: '01',
-    month: 'Jan',
-    year: '2026',
-  })
-  const [departureTime, setDepartureTime] = useState<Time12Value>({
-    hour: '09',
-    minute: '00',
-    period: 'AM',
-  })
+  const [departureDate, setDepartureDate] = useState<DateValue>(() => getCurrentDateTime().date)
+  const [departureTime, setDepartureTime] = useState<Time12Value>(() => getCurrentDateTime().time)
+  const [isManualDateTime, setIsManualDateTime] = useState(false)
   const [reason, setReason] = useState('')
   const [details, setDetails] = useState('')
   const [submitted, setSubmitted] = useState(false)
@@ -1151,13 +1171,42 @@ function LeaveApplicationForm({
   const words = countWords(details)
   const overLimit = showDetails && words > MAX_WORDS
 
-  function fillCurrentDateTime() {
+  function syncToPhoneDateTime() {
+    const { date, time } = getCurrentDateTime()
+    setDepartureDate((prev) =>
+      prev.day === date.day && prev.month === date.month && prev.year === date.year ? prev : date,
+    )
+    setDepartureTime((prev) =>
+      prev.hour === time.hour && prev.minute === time.minute && prev.period === time.period
+        ? prev
+        : time,
+    )
+  }
+
+  function resetToLiveDateTime() {
+    setIsManualDateTime(false)
     const { date, time } = getCurrentDateTime()
     setDepartureDate(date)
     setDepartureTime(time)
   }
 
-  useEffect(fillCurrentDateTime, [])
+  useEffect(() => {
+    if (isManualDateTime) return
+    syncToPhoneDateTime()
+    const timer = window.setInterval(syncToPhoneDateTime, 1000)
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        syncToPhoneDateTime()
+      }
+    }
+    window.addEventListener('focus', handleVisibilityOrFocus)
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', handleVisibilityOrFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+    }
+  }, [isManualDateTime])
 
   const selectedDateString = `${departureDate.day} ${departureDate.month} ${departureDate.year}`
   const selectedDayStartMs = parseDateOnlyToDayStartMs(selectedDateString, Date.now())
@@ -1195,7 +1244,7 @@ function LeaveApplicationForm({
     setSubmitted(true)
     setReason('')
     setDetails('')
-    fillCurrentDateTime()
+    resetToLiveDateTime()
   }
 
   return (
@@ -1229,13 +1278,21 @@ function LeaveApplicationForm({
           idPrefix="departure-date"
           label="Departure date"
           value={departureDate}
-          onChange={setDepartureDate}
+          onChange={(nextDate) => {
+            setIsManualDateTime(true)
+            setDepartureDate(nextDate)
+          }}
         />
         <TimeSelectGroup
           idPrefix="departure-time"
           label="Departure time"
           value={departureTime}
-          onChange={setDepartureTime}
+          isManual={isManualDateTime}
+          onResetToLive={resetToLiveDateTime}
+          onChange={(nextTime) => {
+            setIsManualDateTime(true)
+            setDepartureTime(nextTime)
+          }}
         />
       </div>
 
@@ -1308,25 +1365,47 @@ function ReturnRegistryForm({
   activeLeaveEntry: SavedLeaveEntry | null
   onRecord: (entry: Omit<SavedLeaveEntry, 'id' | 'uid' | 'createdAtMs' | 'syncedToCloud'>) => Promise<void>
 }) {
-  const [returnDate, setReturnDate] = useState<DateValue>({
-    day: '01',
-    month: 'Jan',
-    year: '2026',
-  })
-  const [returnTime, setReturnTime] = useState<Time12Value>({
-    hour: '05',
-    minute: '00',
-    period: 'PM',
-  })
+  const [returnDate, setReturnDate] = useState<DateValue>(() => getCurrentDateTime().date)
+  const [returnTime, setReturnTime] = useState<Time12Value>(() => getCurrentDateTime().time)
+  const [isManualDateTime, setIsManualDateTime] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
-  function fillCurrentDateTime() {
+  function syncToPhoneDateTime() {
+    const { date, time } = getCurrentDateTime()
+    setReturnDate((prev) =>
+      prev.day === date.day && prev.month === date.month && prev.year === date.year ? prev : date,
+    )
+    setReturnTime((prev) =>
+      prev.hour === time.hour && prev.minute === time.minute && prev.period === time.period
+        ? prev
+        : time,
+    )
+  }
+
+  function resetToLiveDateTime() {
+    setIsManualDateTime(false)
     const { date, time } = getCurrentDateTime()
     setReturnDate(date)
     setReturnTime(time)
   }
 
-  useEffect(fillCurrentDateTime, [])
+  useEffect(() => {
+    if (isManualDateTime) return
+    syncToPhoneDateTime()
+    const timer = window.setInterval(syncToPhoneDateTime, 1000)
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        syncToPhoneDateTime()
+      }
+    }
+    window.addEventListener('focus', handleVisibilityOrFocus)
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', handleVisibilityOrFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+    }
+  }, [isManualDateTime])
 
   const selectedReturnDateString = `${returnDate.day} ${returnDate.month} ${returnDate.year}`
   const selectedReturnTimeString = `${returnTime.hour}:${returnTime.minute} ${returnTime.period}`
@@ -1371,7 +1450,7 @@ function ReturnRegistryForm({
       status: 'recorded',
     })
     setSubmitted(true)
-    fillCurrentDateTime()
+    resetToLiveDateTime()
   }
 
   return (
@@ -1427,13 +1506,21 @@ function ReturnRegistryForm({
           idPrefix="return-date"
           label="Return date"
           value={returnDate}
-          onChange={setReturnDate}
+          onChange={(nextDate) => {
+            setIsManualDateTime(true)
+            setReturnDate(nextDate)
+          }}
         />
         <TimeSelectGroup
           idPrefix="return-time"
           label="Return time"
           value={returnTime}
-          onChange={setReturnTime}
+          isManual={isManualDateTime}
+          onResetToLive={resetToLiveDateTime}
+          onChange={(nextTime) => {
+            setIsManualDateTime(true)
+            setReturnTime(nextTime)
+          }}
         />
       </div>
 
