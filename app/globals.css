@@ -9,10 +9,10 @@
   src:
     local('KFGQPC Uthman Taha Naskh'),
     local('UthmanTN1'),
+    url('/fonts/UthmanTN1-Regular.woff2') format('woff2'),
+    url('/fonts/UthmanTN1-Regular.ttf') format('truetype'),
     url('https://cdn.jsdelivr.net/gh/mustafa0x/qpc-fonts@master/various-woff2/UthmanTN1%20Ver10.woff2')
-      format('woff2'),
-    url('https://cdn.jsdelivr.net/gh/mustafa0x/qpc-fonts@master/various-woff/UthmanTN1%20Ver10.woff')
-      format('woff');
+      format('woff2');
   font-weight: 100 500;
   font-style: normal;
   font-display: swap;
@@ -23,10 +23,10 @@
   src:
     local('KFGQPC Uthman Taha Naskh Bold'),
     local('UthmanTN1B'),
+    url('/fonts/UthmanTN1-Bold.woff2') format('woff2'),
+    url('/fonts/UthmanTN1-Bold.ttf') format('truetype'),
     url('https://cdn.jsdelivr.net/gh/mustafa0x/qpc-fonts@master/various-woff2/UthmanTN1B%20Ver10.woff2')
-      format('woff2'),
-    url('https://cdn.jsdelivr.net/gh/mustafa0x/qpc-fonts@master/various-woff/UthmanTN1B%20Ver10.woff')
-      format('woff');
+      format('woff2');
   font-weight: 600 900;
   font-style: normal;
   font-display: swap;

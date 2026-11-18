@@ -45,6 +45,7 @@ type CachedPdfAssets = {
   regularB64: string
   semiBoldB64: string
   boldB64: string
+  elMessiriBoldB64: string
   logoDataUrl: string | null
 }
 
@@ -65,17 +66,19 @@ async function loadPdfAssets(): Promise<CachedPdfAssets> {
   if (cachedPdfAssetsPromise) return cachedPdfAssetsPromise
 
   cachedPdfAssetsPromise = (async () => {
-    const [regRes, semiRes, boldRes, logoRes] = await Promise.all([
+    const [regRes, semiRes, boldRes, elMessiriRes, logoRes] = await Promise.all([
       fetch('/fonts/Poppins-Regular.ttf'),
       fetch('/fonts/Poppins-SemiBold.ttf'),
       fetch('/fonts/Poppins-Bold.ttf'),
+      fetch('/fonts/ElMessiri-Bold.ttf'),
       fetch('/images/ics-mark-transparent.png').catch(() => null),
     ])
 
-    const [regBuf, semiBuf, boldBuf] = await Promise.all([
+    const [regBuf, semiBuf, boldBuf, elMessiriBuf] = await Promise.all([
       regRes.arrayBuffer(),
       semiRes.arrayBuffer(),
       boldRes.arrayBuffer(),
+      elMessiriRes.arrayBuffer(),
     ])
 
     let logoDataUrl: string | null = null
@@ -88,6 +91,7 @@ async function loadPdfAssets(): Promise<CachedPdfAssets> {
       regularB64: arrayBufferToBase64(regBuf),
       semiBoldB64: arrayBufferToBase64(semiBuf),
       boldB64: arrayBufferToBase64(boldBuf),
+      elMessiriBoldB64: arrayBufferToBase64(elMessiriBuf),
       logoDataUrl,
     }
   })()
@@ -319,13 +323,15 @@ export function ParentReportModal({
       compress: true,
     })
 
-      // Register embedded Poppins TrueType fonts for 100% vector text at any zoom level
+      // Register embedded Poppins & El Messiri TrueType fonts for 100% vector text at any zoom level
       pdf.addFileToVFS('Poppins-Regular.ttf', assets.regularB64)
       pdf.addFont('Poppins-Regular.ttf', 'Poppins', 'normal')
       pdf.addFileToVFS('Poppins-SemiBold.ttf', assets.semiBoldB64)
       pdf.addFont('Poppins-SemiBold.ttf', 'Poppins', 'semibold')
       pdf.addFileToVFS('Poppins-Bold.ttf', assets.boldB64)
       pdf.addFont('Poppins-Bold.ttf', 'Poppins', 'bold')
+      pdf.addFileToVFS('ElMessiri-Bold.ttf', assets.elMessiriBoldB64)
+      pdf.addFont('ElMessiri-Bold.ttf', 'ElMessiri', 'bold')
 
       const setFont = (weight: 'normal' | 'semibold' | 'bold', sizePt: number) => {
         pdf.setFont('Poppins', weight)
@@ -344,11 +350,18 @@ export function ParentReportModal({
         pdf.setLineWidth(0.25)
         pdf.line(13, 279, 197, 279)
 
+        pdf.setFont('ElMessiri', 'bold')
+        pdf.setFontSize(7.8)
+        pdf.setTextColor(71, 85, 105)
+        const footerBrand = 'ICS ACADEMY MANHAPPATTA'
+        pdf.text(footerBrand, 13, 283.5)
+        const footerBrandW = pdf.getTextWidth(footerBrand)
+
         setFont('normal', 7.5)
         pdf.setTextColor(100, 116, 139)
         pdf.text(
-          `ICS Academy Manhappatta  |  ${student.name} (${student.admissionNo})`,
-          13,
+          `  |  ${student.name} (${student.admissionNo})`,
+          13 + footerBrandW,
           283.5,
         )
 
@@ -388,10 +401,15 @@ export function ParentReportModal({
       // White Logo Badge (16x16mm square with exact 381:512 object-contain logo)
       drawLogoBadge(16.5, 16, 16, 2, 1.8)
 
-      // Header Texts
-      setFont('bold', 7.5)
+      // Header Texts (ICS ACADEMY MANHAPPATTA in El Messiri Bold)
+      pdf.setFont('ElMessiri', 'bold')
+      pdf.setFontSize(8.2)
       pdf.setTextColor(163, 230, 53) // #a3e635
-      pdf.text("ICS ACADEMY MANHAPPATTA  •  DA'WA COLLEGE", 35.5, 19.2)
+      const p1Brand = 'ICS ACADEMY MANHAPPATTA'
+      pdf.text(p1Brand, 35.5, 19.2)
+      const p1BrandW = pdf.getTextWidth(p1Brand)
+      setFont('bold', 7.5)
+      pdf.text("  •  DA'WA COLLEGE", 35.5 + p1BrandW, 19.2)
 
       setFont('bold', 12.5)
       pdf.setTextColor(255, 255, 255)
@@ -727,11 +745,16 @@ export function ParentReportModal({
         // White Logo Badge (12x12mm square with exact 381:512 object-contain logo)
         drawLogoBadge(16, 15.5, 12, 1.8, 1.4)
 
-        setFont('bold', 7)
+        pdf.setFont('ElMessiri', 'bold')
+        pdf.setFontSize(7.8)
         pdf.setTextColor(163, 230, 53)
+        const p2Brand = 'ICS ACADEMY MANHAPPATTA'
+        pdf.text(p2Brand, 31, 19.5)
+        const p2BrandW = pdf.getTextWidth(p2Brand)
+        setFont('bold', 7)
         pdf.text(
-          'ICS ACADEMY MANHAPPATTA  •  OFFICIAL ATTENDANCE & LEAVE REPORT',
-          31,
+          '  •  OFFICIAL ATTENDANCE & LEAVE REPORT',
+          31 + p2BrandW,
           19.5,
         )
 
@@ -1087,8 +1110,8 @@ export function ParentReportModal({
                     />
                   </div>
                   <div>
-                    <p className="text-[9.5px] font-bold tracking-[0.15em] text-[#a3e635] uppercase">
-                      ICS Academy Manhappatta • Da&apos;wa College
+                    <p className="font-display text-[10px] font-bold tracking-[0.15em] text-[#a3e635] uppercase">
+                      ICS ACADEMY MANHAPPATTA • DA&apos;WA COLLEGE
                     </p>
                     <h3 className="mt-0.5 text-[15px] font-bold tracking-tight text-white leading-snug">
                       Official Student Attendance & Leave Report
@@ -1305,7 +1328,7 @@ export function ParentReportModal({
               {/* Page 1 Footer */}
               <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-2 text-[9.5px] text-slate-500">
                 <span>
-                  ICS Academy Manhappatta • {student.name} ({student.admissionNo})
+                  <strong className="font-display font-bold text-slate-700">ICS ACADEMY MANHAPPATTA</strong> • {student.name} ({student.admissionNo})
                 </span>
                 <span className="font-semibold text-slate-700">
                   Page 1 of {totalPages}
@@ -1340,8 +1363,8 @@ export function ParentReportModal({
                           />
                         </div>
                         <div>
-                          <p className="text-[9px] font-bold tracking-[0.15em] text-[#a3e635] uppercase">
-                            ICS Academy Manhappatta • Official Attendance & Leave Report
+                          <p className="font-display text-[9.5px] font-bold tracking-[0.15em] text-[#a3e635] uppercase">
+                            ICS ACADEMY MANHAPPATTA • OFFICIAL ATTENDANCE & LEAVE REPORT
                           </p>
                           <p className="text-[12px] font-bold text-white">
                             {student.name} ({student.admissionNo}) • {student.className}

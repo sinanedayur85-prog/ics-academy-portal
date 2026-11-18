@@ -884,15 +884,30 @@ function normalizeEnglishChatText(text: string, userSaidSalam = false): string {
   return out
 }
 
+const EASTERN_ARABIC_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'] as const
+
+function toArabicNumerals(input: string | number): string {
+  return String(input).replace(/[0-9]/g, (d) => EASTERN_ARABIC_DIGITS[Number(d)] ?? d)
+}
+
 function renderScriptRuns(
   text: string,
   keyPrefix: string,
   preferUrduFont = false,
 ): React.ReactNode {
   const scriptRegex =
-    /([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+(?:[\s،؛؟«»ـ\-/:,.0-9\u0660-\u0669\u06F0-\u06F9]+[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+)*[،؛؟.!]*|[\u0D00-\u0D7F\u200C\u200D]+(?:\s+[\u0D00-\u0D7F\u200C\u200D]+)*)/g
+    /([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+(?:[\s،؛؟«»ـ\-/:,.0-9\u0660-\u0669\u06F0-\u06F9]+[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+)*[،؛؟.!0-9\u0660-\u0669]*|[\u0D00-\u0D7F\u200C\u200D]+(?:\s+[\u0D00-\u0D7F\u200C\u200D]+)*)/g
   const parts = text.split(scriptRegex)
-  if (parts.length <= 1) return text
+  if (parts.length <= 1) {
+    if (
+      !preferUrduFont &&
+      /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text) &&
+      !/[\u0D00-\u0D7F]/.test(text)
+    ) {
+      return toArabicNumerals(text)
+    }
+    return text
+  }
 
   return parts.map((part, idx) => {
     if (!part) return null
@@ -905,13 +920,14 @@ function renderScriptRuns(
     }
     if (/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(part)) {
       const useUrdu = preferUrduFont || isUrduText(part)
+      const displayPart = useUrdu ? part : toArabicNumerals(part)
       return (
         <bdi
           key={`${keyPrefix}-ar-${idx}`}
           dir="rtl"
           className={cn(useUrdu ? 'font-urdu' : 'font-arabic', 'unicode-bidi-isolate')}
         >
-          {part}
+          {displayPart}
         </bdi>
       )
     }
@@ -1080,9 +1096,10 @@ function FormattedChatText({
         const headingMatch = /^(#{1,4})\s+(.+)$/.exec(line.trim())
         if (headingMatch) {
           const level = headingMatch[1].length
-          const content = headingMatch[2]
-          const isAr = isArabicLine(content)
-          const isUr = isAr && (messageIsUrdu || isUrduLine(content))
+          const rawContent = headingMatch[2]
+          const isAr = isArabicLine(rawContent)
+          const isUr = isAr && (messageIsUrdu || isUrduLine(rawContent))
+          const content = isAr && !isUr ? toArabicNumerals(rawContent) : rawContent
           return (
             <div
               key={key}
@@ -1104,6 +1121,7 @@ function FormattedChatText({
         if (quoteMatch) {
           const isAr = isArabicLine(quoteMatch[1])
           const isUr = isAr && (messageIsUrdu || isUrduLine(quoteMatch[1]))
+          const quoteContent = isAr && !isUr ? toArabicNumerals(quoteMatch[1]) : quoteMatch[1]
           return (
             <blockquote
               key={key}
@@ -1115,7 +1133,7 @@ function FormattedChatText({
                   : 'rounded-r-lg border-l-2 border-lime/70 bg-lime/10 pl-3 pr-2 text-left font-poppins',
               )}
             >
-              {renderInlineMarkdown(quoteMatch[1], key, isUser, isUr)}
+              {renderInlineMarkdown(quoteContent, key, isUser, isUr)}
             </blockquote>
           )
         }
@@ -1124,6 +1142,7 @@ function FormattedChatText({
         if (bulletMatch) {
           const isAr = isArabicLine(bulletMatch[3])
           const isUr = isAr && (messageIsUrdu || isUrduLine(bulletMatch[3]))
+          const bulletContent = isAr && !isUr ? toArabicNumerals(bulletMatch[3]) : bulletMatch[3]
           return (
             <div
               key={key}
@@ -1141,16 +1160,18 @@ function FormattedChatText({
                 aria-hidden="true"
               />
               <div className={cn('min-w-0 flex-1', isAr ? (isUr ? 'font-urdu' : 'font-arabic') : 'font-poppins')}>
-                {renderInlineMarkdown(bulletMatch[3], key, isUser, isUr)}
+                {renderInlineMarkdown(bulletContent, key, isUser, isUr)}
               </div>
             </div>
           )
         }
 
-        const numberedMatch = /^(\s*)(\d+[.)])\s+(.+)$/.exec(line)
+        const numberedMatch = /^(\s*)([0-9\u0660-\u0669\u06F0-\u06F9]+[.)])\s+(.+)$/.exec(line)
         if (numberedMatch) {
-          const isAr = isArabicLine(numberedMatch[3])
+          const isAr = isArabicLine(numberedMatch[3]) || messageIsArabic
           const isUr = isAr && (messageIsUrdu || isUrduLine(numberedMatch[3]))
+          const numLabel = isAr && !isUr ? toArabicNumerals(numberedMatch[2]) : numberedMatch[2]
+          const itemContent = isAr && !isUr ? toArabicNumerals(numberedMatch[3]) : numberedMatch[3]
           return (
             <div
               key={key}
@@ -1162,14 +1183,19 @@ function FormattedChatText({
             >
               <span
                 className={cn(
-                  'shrink-0 font-poppins text-xs font-bold mt-0.5',
+                  'shrink-0 font-bold',
+                  isAr
+                    ? isUr
+                      ? 'font-urdu text-sm'
+                      : 'font-arabic text-base leading-relaxed'
+                    : 'font-poppins text-xs mt-0.5',
                   isUser ? 'text-emerald-800 dark:text-zinc-300' : 'text-lime',
                 )}
               >
-                {numberedMatch[2]}
+                {numLabel}
               </span>
               <div className={cn('min-w-0 flex-1', isAr ? (isUr ? 'font-urdu' : 'font-arabic') : 'font-poppins')}>
-                {renderInlineMarkdown(numberedMatch[3], key, isUser, isUr)}
+                {renderInlineMarkdown(itemContent, key, isUser, isUr)}
               </div>
             </div>
           )
@@ -1177,6 +1203,7 @@ function FormattedChatText({
 
         const isAr = isArabicLine(line)
         const isUr = isAr && (messageIsUrdu || isUrduLine(line))
+        const paraContent = isAr && !isUr ? toArabicNumerals(line) : line
         return (
           <div
             key={key}
@@ -1186,7 +1213,7 @@ function FormattedChatText({
               isAr ? `text-right ${isUr ? 'font-urdu' : 'font-arabic'}` : 'text-left font-poppins',
             )}
           >
-            {renderInlineMarkdown(line, key, isUser, isUr)}
+            {renderInlineMarkdown(paraContent, key, isUser, isUr)}
           </div>
         )
       })}
@@ -2899,8 +2926,15 @@ export function GeminiChatbot({
                       />
                       <span>{persona.title}</span>
                       {msgCount > 0 ? (
-                        <span className="rounded-full bg-lime/20 px-1.5 py-0.2 font-poppins text-[9.5px] font-bold text-lime">
-                          {msgCount}
+                        <span
+                          className={cn(
+                            'rounded-full bg-lime/20 px-1.5 py-0.2 font-bold text-lime',
+                            language === 'ar'
+                              ? 'font-arabic text-xs leading-none'
+                              : 'font-poppins text-[9.5px]',
+                          )}
+                        >
+                          {language === 'ar' ? toArabicNumerals(msgCount) : msgCount}
                         </span>
                       ) : null}
                     </button>

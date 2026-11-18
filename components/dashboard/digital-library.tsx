@@ -40,6 +40,13 @@ import {
 } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import { ACADEMY_CLASSES, type Student } from '@/components/dashboard/data'
+import {
+  getCachedVectorPdfAssets,
+  loadVectorPdfAssets,
+  registerOfficialVectorPdfFonts,
+  shapeArabicLineForUthmanVector,
+  splitVectorArabicTextToLines,
+} from '@/components/dashboard/study-note-pdf'
 import { ThemeSelect } from '@/components/ui/theme-select'
 import { downloadBlobOnDevice } from '@/lib/mobile-pdf'
 import {
@@ -505,6 +512,19 @@ function wrapAsciiLines(text: string, maxChars = 76): string[] {
 export function buildKitabPdfBlob(kitab: DigitalKitabItem): Blob {
   try {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+    const vectorAssets = getCachedVectorPdfAssets()
+    if (vectorAssets) {
+      registerOfficialVectorPdfFonts(doc, vectorAssets)
+    }
+    const hasVectorFonts = Boolean(vectorAssets)
+    const setBodyFont = (style: 'normal' | 'semibold' | 'bold') => {
+      if (hasVectorFonts) {
+        doc.setFont('Poppins', style)
+      } else {
+        doc.setFont('helvetica', style === 'normal' ? 'normal' : 'bold')
+      }
+    }
+
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
     const margin = 44
@@ -521,21 +541,39 @@ export function buildKitabPdfBlob(kitab: DigitalKitabItem): Blob {
 
     // Top Header Banner
     doc.setFillColor(12, 59, 46)
-    doc.rect(24, 24, pageWidth - 48, 76, 'F')
+    doc.rect(24, 24, pageWidth - 48, 84, 'F')
 
     doc.setTextColor(182, 240, 116)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(10)
-    doc.text('ICS ACADEMY MANHAPPATTA • DAWA COLLEGE DIGITAL LIBRARY', margin, 50)
+    if (hasVectorFonts) {
+      doc.setFont('ElMessiri', 'bold')
+    } else {
+      doc.setFont('helvetica', 'bold')
+    }
+    doc.setFontSize(10.5)
+    const brandTitle = 'ICS ACADEMY MANHAPPATTA'
+    doc.text(brandTitle, margin, 48)
+    const brandTitleW = doc.getTextWidth(brandTitle)
+    setBodyFont('bold')
+    doc.setFontSize(9.5)
+    doc.text("  •  DA'WA COLLEGE DIGITAL LIBRARY", margin + brandTitleW, 48)
 
     doc.setTextColor(255, 255, 255)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(16)
+    setBodyFont('bold')
+    doc.setFontSize(15)
     const safeTitle = kitab.title.replace(/[^\x20-\x7E]/g, ' ').trim() || 'Academic Kitab Edition'
     const titleLines = doc.splitTextToSize(safeTitle, contentWidth) as string[]
-    doc.text(titleLines.slice(0, 2), margin, 72)
+    doc.text(titleLines.slice(0, 1), margin, 68)
 
-    let y = 124
+    if (hasVectorFonts && kitab.arabicTitle) {
+      doc.setFont('UthmanTN1', 'bold')
+      doc.setFontSize(14)
+      doc.setTextColor(226, 232, 240)
+      doc.text(shapeArabicLineForUthmanVector(kitab.arabicTitle), pageWidth - margin, 92, {
+        align: 'right',
+      })
+    }
+
+    let y = 130
 
     // Metadata Box
     doc.setFillColor(244, 248, 246)
@@ -544,12 +582,12 @@ export function buildKitabPdfBlob(kitab: DigitalKitabItem): Blob {
     doc.roundedRect(margin, y, contentWidth, 74, 6, 6, 'FD')
 
     doc.setTextColor(20, 40, 32)
-    doc.setFont('helvetica', 'bold')
+    setBodyFont('bold')
     doc.setFontSize(10)
     const safeAuthor = kitab.author.replace(/[^\x20-\x7E]/g, ' ').trim() || 'ICS Academy Scholar'
     doc.text(`Author / Scholar: ${safeAuthor}`, margin + 14, y + 22)
 
-    doc.setFont('helvetica', 'normal')
+    setBodyFont('normal')
     doc.setFontSize(9.5)
     doc.setTextColor(60, 80, 72)
     doc.text(
@@ -566,7 +604,7 @@ export function buildKitabPdfBlob(kitab: DigitalKitabItem): Blob {
     y += 98
 
     // Syllabus Overview Section
-    doc.setFont('helvetica', 'bold')
+    setBodyFont('bold')
     doc.setFontSize(11)
     doc.setTextColor(12, 59, 46)
     doc.text('SYLLABUS OVERVIEW & KITAB SUMMARY', margin, y)
@@ -576,7 +614,7 @@ export function buildKitabPdfBlob(kitab: DigitalKitabItem): Blob {
     doc.line(margin, y, pageWidth - margin, y)
     y += 18
 
-    doc.setFont('helvetica', 'normal')
+    setBodyFont('normal')
     doc.setFontSize(10.5)
     doc.setTextColor(30, 41, 59)
     const safeSummary =
@@ -584,24 +622,50 @@ export function buildKitabPdfBlob(kitab: DigitalKitabItem): Blob {
       'Reference syllabus volume indexed in the ICS Academy Manhappatta Digital Library.'
     const summaryLines = doc.splitTextToSize(safeSummary, contentWidth) as string[]
     doc.text(summaryLines, margin, y)
-    y += summaryLines.length * 15 + 20
+    y += summaryLines.length * 15 + 18
 
     if (kitab.excerpt) {
-      doc.setFont('helvetica', 'bold')
+      setBodyFont('bold')
       doc.setFontSize(11)
       doc.setTextColor(12, 59, 46)
       const safeChapter = kitab.excerpt.chapterTitle.replace(/[^\x20-\x7E]/g, '-').trim()
       const chapterLines = doc.splitTextToSize(`SELECTED CHAPTER: ${safeChapter}`, contentWidth) as string[]
       doc.text(chapterLines, margin, y)
-      y += chapterLines.length * 15 + 8
+      y += chapterLines.length * 15 + 10
 
-      doc.setFont('helvetica', 'bold')
+      if (hasVectorFonts && kitab.excerpt.arabicMatn) {
+        setBodyFont('bold')
+        doc.setFontSize(9.5)
+        doc.setTextColor(71, 85, 105)
+        doc.text('ARABIC MATN (KFGQPC UTHMAN TAHA NASKH VECTOR):', margin, y)
+        y += 18
+
+        const arabicLines = splitVectorArabicTextToLines(
+          doc,
+          kitab.excerpt.arabicMatn,
+          contentWidth,
+          14.5,
+          'normal',
+        )
+        doc.setFont('UthmanTN1', 'normal')
+        doc.setFontSize(14.5)
+        doc.setTextColor(15, 23, 42)
+        for (const aLine of arabicLines) {
+          doc.text(shapeArabicLineForUthmanVector(aLine), pageWidth - margin, y, {
+            align: 'right',
+          })
+          y += 22
+        }
+        y += 6
+      }
+
+      setBodyFont('bold')
       doc.setFontSize(10)
       doc.setTextColor(71, 85, 105)
       doc.text('TRANSLITERATED MATN (IBARAT READING):', margin, y)
       y += 15
 
-      doc.setFont('helvetica', 'italic')
+      setBodyFont('normal')
       doc.setFontSize(10)
       doc.setTextColor(15, 23, 42)
       const matnLines = doc.splitTextToSize(
@@ -611,13 +675,13 @@ export function buildKitabPdfBlob(kitab: DigitalKitabItem): Blob {
       doc.text(matnLines, margin, y)
       y += matnLines.length * 14 + 18
 
-      doc.setFont('helvetica', 'bold')
+      setBodyFont('bold')
       doc.setFontSize(10)
       doc.setTextColor(71, 85, 105)
       doc.text('SCHOLARLY COMMENTARY & SHARH:', margin, y)
       y += 15
 
-      doc.setFont('helvetica', 'normal')
+      setBodyFont('normal')
       doc.setFontSize(10)
       doc.setTextColor(30, 41, 59)
       const commLines = doc.splitTextToSize(
@@ -628,14 +692,29 @@ export function buildKitabPdfBlob(kitab: DigitalKitabItem): Blob {
     }
 
     // Footer
-    doc.setFont('helvetica', 'normal')
+    if (hasVectorFonts) {
+      doc.setFont('ElMessiri', 'bold')
+      doc.setFontSize(9)
+      doc.setTextColor(71, 85, 105)
+      const fBrand = 'ICS ACADEMY MANHAPPATTA'
+      doc.text(fBrand, margin, pageHeight - 38)
+      const fBrandW = doc.getTextWidth(fBrand)
+      setBodyFont('normal')
+      doc.setFontSize(8.5)
+      doc.setTextColor(100, 116, 139)
+      doc.text('  •  Digital Library Repository  •  Verified Academic Edition', margin + fBrandW, pageHeight - 38)
+    } else {
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8.5)
+      doc.setTextColor(100, 116, 139)
+      doc.text(
+        'ICS Academy Manhappatta • Digital Library Repository • Verified Academic Edition',
+        margin,
+        pageHeight - 38,
+      )
+    }
+    setBodyFont('semibold')
     doc.setFontSize(8.5)
-    doc.setTextColor(100, 116, 139)
-    doc.text(
-      'ICS Academy Manhappatta • Digital Library Repository • Verified Academic Edition',
-      margin,
-      pageHeight - 38,
-    )
     doc.text('Page 1 of 1', pageWidth - margin - 48, pageHeight - 38)
 
     return doc.output('blob')
@@ -738,6 +817,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
       }
     }
 
+    void loadVectorPdfAssets()
     syncFromStorage()
     window.addEventListener('ics-digital-library-updated', syncFromStorage)
     window.addEventListener('storage', syncFromStorage)
@@ -1001,6 +1081,10 @@ export function DigitalLibrary({ student }: { student: Student }) {
     const safeFilename =
       kitab.storagePath.split('/').pop() ||
       `${kitab.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`
+
+    if (!getCachedVectorPdfAssets()) {
+      await loadVectorPdfAssets().catch(() => null)
+    }
 
     const cachedUploadedBlob =
       memoryPdfBlobCache.get(kitab.id) ?? (await loadKitabPdfBlobLocally(kitab.id))

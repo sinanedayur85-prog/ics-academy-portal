@@ -941,15 +941,21 @@ export async function compressImageFileToDataUrl(
 async function loadOfficialPdfFontsAndLogo(pdf: {
   addFileToVFS: (name: string, data: string) => void
   addFont: (postScriptName: string, id: string, fontStyle: string) => void
-}): Promise<{ fontFamily: 'Poppins' | 'helvetica'; logoDataUrl: string | null }> {
+}): Promise<{
+  fontFamily: 'Poppins' | 'helvetica'
+  hasElMessiri: boolean
+  logoDataUrl: string | null
+}> {
   let fontFamily: 'Poppins' | 'helvetica' = 'helvetica'
+  let hasElMessiri = false
   let logoDataUrl: string | null = null
 
   try {
-    const [regRes, semiRes, boldRes] = await Promise.all([
+    const [regRes, semiRes, boldRes, elMessiriRes] = await Promise.all([
       fetch('/fonts/Poppins-Regular.ttf'),
       fetch('/fonts/Poppins-SemiBold.ttf'),
       fetch('/fonts/Poppins-Bold.ttf'),
+      fetch('/fonts/ElMessiri-Bold.ttf').catch(() => null),
     ])
     if (regRes.ok && semiRes.ok && boldRes.ok) {
       const [regBuf, semiBuf, boldBuf] = await Promise.all([
@@ -965,6 +971,12 @@ async function loadOfficialPdfFontsAndLogo(pdf: {
       pdf.addFont('Poppins-Bold.ttf', 'Poppins', 'bold')
       fontFamily = 'Poppins'
     }
+    if (elMessiriRes && elMessiriRes.ok) {
+      const elMessiriBuf = await elMessiriRes.arrayBuffer()
+      pdf.addFileToVFS('ElMessiri-Bold.ttf', arrayBufferToBase64(elMessiriBuf))
+      pdf.addFont('ElMessiri-Bold.ttf', 'ElMessiri', 'bold')
+      hasElMessiri = true
+    }
   } catch {
     fontFamily = 'helvetica'
   }
@@ -979,7 +991,7 @@ async function loadOfficialPdfFontsAndLogo(pdf: {
     logoDataUrl = null
   }
 
-  return { fontFamily, logoDataUrl }
+  return { fontFamily, hasElMessiri, logoDataUrl }
 }
 
 /**
@@ -1001,12 +1013,19 @@ export async function exportStudentZadulKhairReceiptPdf(params: {
     compress: true,
   })
 
-  const { fontFamily, logoDataUrl } = await loadOfficialPdfFontsAndLogo(pdf)
+  const { fontFamily, hasElMessiri, logoDataUrl } = await loadOfficialPdfFontsAndLogo(pdf)
   const setFont = (style: 'normal' | 'semibold' | 'bold') => {
     if (fontFamily === 'Poppins') {
       pdf.setFont('Poppins', style)
     } else {
       pdf.setFont('helvetica', style === 'normal' ? 'normal' : 'bold')
+    }
+  }
+  const setBrandFont = () => {
+    if (hasElMessiri) {
+      pdf.setFont('ElMessiri', 'bold')
+    } else {
+      setFont('bold')
     }
   }
 
@@ -1036,10 +1055,10 @@ export async function exportStudentZadulKhairReceiptPdf(params: {
   pdf.setTextColor(163, 230, 53) // #a3e635 lime
   pdf.text('ZADUL KHAIR MONTHLY HOUSEHOLD CONTRIBUTION RECEIPT', textStartX, y + 7.2)
 
-  setFont('bold')
+  setBrandFont()
   pdf.setFontSize(13.5)
   pdf.setTextColor(255, 255, 255)
-  pdf.text('ICS Academy Manhappatta', textStartX, y + 13.8)
+  pdf.text('ICS ACADEMY MANHAPPATTA', textStartX, y + 13.8)
 
   setFont('semibold')
   pdf.setFontSize(8.2)
@@ -1313,11 +1332,11 @@ export async function exportStudentZadulKhairReceiptPdf(params: {
     align: 'right',
   })
 
-  setFont('normal')
-  pdf.setFontSize(6.8)
-  pdf.setTextColor(100, 116, 139)
+  setBrandFont()
+  pdf.setFontSize(7.2)
+  pdf.setTextColor(71, 85, 105)
   pdf.text(
-    'Generated via Official ICS Academy Manhappatta Digital Portal • Valid Computerized Zadul Khair Receipt',
+    'ICS ACADEMY MANHAPPATTA • OFFICIAL DIGITAL PORTAL • VALID ZADUL KHAIR RECEIPT',
     pageWidth / 2,
     footerY + 13,
     { align: 'center' },
@@ -1362,12 +1381,19 @@ export async function exportClassZadulKhairReportPdf(params: {
     compress: true,
   })
 
-  const { fontFamily, logoDataUrl } = await loadOfficialPdfFontsAndLogo(pdf)
+  const { fontFamily, hasElMessiri, logoDataUrl } = await loadOfficialPdfFontsAndLogo(pdf)
   const setFont = (style: 'normal' | 'semibold' | 'bold') => {
     if (fontFamily === 'Poppins') {
       pdf.setFont('Poppins', style)
     } else {
       pdf.setFont('helvetica', style === 'normal' ? 'normal' : 'bold')
+    }
+  }
+  const setBrandFont = () => {
+    if (hasElMessiri) {
+      pdf.setFont('ElMessiri', 'bold')
+    } else {
+      setFont('bold')
     }
   }
 
@@ -1400,10 +1426,10 @@ export async function exportClassZadulKhairReportPdf(params: {
   pdf.setTextColor(163, 230, 53)
   pdf.text('ZADUL KHAIR CLASS MONTHLY COLLECTION STATEMENT', textStartX, y + 7)
 
-  setFont('bold')
+  setBrandFont()
   pdf.setFontSize(13.5)
   pdf.setTextColor(255, 255, 255)
-  pdf.text('ICS Academy Manhappatta', textStartX, y + 13.5)
+  pdf.text('ICS ACADEMY MANHAPPATTA', textStartX, y + 13.5)
 
   setFont('semibold')
   pdf.setFontSize(8.2)
@@ -1530,11 +1556,11 @@ export async function exportClassZadulKhairReportPdf(params: {
 
   // Footer
   const footerY = Math.min(282, y + 8)
-  setFont('semibold')
-  pdf.setFontSize(7.2)
+  setBrandFont()
+  pdf.setFontSize(7.5)
   pdf.setTextColor(71, 85, 105)
   pdf.text(
-    `Official Class Statement • ICS Academy Manhappatta • Generated on ${new Date().toLocaleDateString('en-IN')}`,
+    `ICS ACADEMY MANHAPPATTA • OFFICIAL CLASS STATEMENT • ${new Date().toLocaleDateString('en-IN')}`,
     pageWidth / 2,
     footerY,
     { align: 'center' },

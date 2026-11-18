@@ -32,8 +32,14 @@ function isUrduText(text: string): boolean {
   return /[\u0679\u067E\u0686\u0688\u0691\u0698\u06A9\u06AF\u06BA\u06BE\u06C1\u06C2\u06C3\u06CC\u06D2\u06D4]/.test(text)
 }
 
+const EASTERN_ARABIC_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'] as const
+
+function toArabicNumerals(input: string | number): string {
+  return String(input).replace(/[0-9]/g, (d) => EASTERN_ARABIC_DIGITS[Number(d)] ?? d)
+}
+
 function getRtlFont(text: string): string {
-  return isUrduText(text) ? 'Noto Nastaliq Urdu' : 'Traditional Arabic'
+  return isUrduText(text) ? 'Noto Nastaliq Urdu' : 'KFGQPC Uthman Taha Naskh'
 }
 
 function parseFormattedLines(rawText: string): Paragraph[] {
@@ -55,11 +61,16 @@ function parseFormattedLines(rawText: string): Paragraph[] {
     }
 
     const isArabic = isArabicText(line)
-    const rtlFont = docHasUrdu || isUrduText(line) ? 'Noto Nastaliq Urdu' : 'Traditional Arabic'
+    const rtlFont =
+      docHasUrdu || isUrduText(line) ? 'Noto Nastaliq Urdu' : 'KFGQPC Uthman Taha Naskh'
 
     // Heading 1 (# Heading or ### Heading)
     if (line.startsWith('#')) {
       const headingText = line.replace(/^#+\s*/, '')
+      const formattedHeading =
+        isArabic && !docHasUrdu && !isUrduText(headingText)
+          ? toArabicNumerals(headingText)
+          : headingText
       paragraphs.push(
         new Paragraph({
           heading: HeadingLevel.HEADING_2,
@@ -68,7 +79,7 @@ function parseFormattedLines(rawText: string): Paragraph[] {
           bidirectional: isArabic,
           children: [
             new TextRun({
-              text: headingText,
+              text: formattedHeading,
               bold: true,
               size: 28, // 14pt
               color: '1E3A8A', // Deep primary blue
@@ -81,10 +92,11 @@ function parseFormattedLines(rawText: string): Paragraph[] {
       continue
     }
 
-    // Numbered list item: e.g. "1. ..." or "1) ..."
-    const numberedMatch = line.match(/^(\d+[\.\)])\s*(.*)$/)
+    // Numbered list item: e.g. "1. ..." or "1) ..." or "١. ..."
+    const numberedMatch = line.match(/^([0-9\u0660-\u0669\u06F0-\u06F9]+[\.\)])\s*(.*)$/)
     if (numberedMatch) {
-      const numPrefix = numberedMatch[1]
+      const rawPrefix = numberedMatch[1]
+      const numPrefix = isArabic ? toArabicNumerals(rawPrefix) : rawPrefix
       const body = numberedMatch[2]
       paragraphs.push(
         new Paragraph({
@@ -97,7 +109,7 @@ function parseFormattedLines(rawText: string): Paragraph[] {
                 new TextRun({
                   text: ` ${numPrefix}`,
                   bold: true,
-                  size: 22,
+                  size: 24,
                   color: '047857',
                   font: rtlFont,
                   rightToLeft: true,
@@ -168,10 +180,16 @@ function parseFormattedLines(rawText: string): Paragraph[] {
   return paragraphs
 }
 
-function parseInlineBold(text: string, isArabic: boolean, rtlFont = 'Traditional Arabic'): TextRun[] {
+function parseInlineBold(
+  text: string,
+  isArabic: boolean,
+  rtlFont = 'KFGQPC Uthman Taha Naskh',
+): TextRun[] {
   const runs: TextRun[] = []
+  const formattedText =
+    isArabic && !isUrduText(text) ? toArabicNumerals(text) : text
   // Matches **bold** patterns
-  const parts = text.split(/(\*\*[^*]+\*\*)/g)
+  const parts = formattedText.split(/(\*\*[^*]+\*\*)/g)
 
   for (const part of parts) {
     if (!part) continue
@@ -181,7 +199,7 @@ function parseInlineBold(text: string, isArabic: boolean, rtlFont = 'Traditional
         new TextRun({
           text: inner,
           bold: true,
-          size: 22, // 11pt
+          size: isArabic ? 26 : 22,
           color: '0F172A',
           font: isArabic ? getRtlFont(inner) || rtlFont : 'Noto Sans Malayalam',
           rightToLeft: isArabic,
@@ -191,7 +209,7 @@ function parseInlineBold(text: string, isArabic: boolean, rtlFont = 'Traditional
       runs.push(
         new TextRun({
           text: part,
-          size: 22, // 11pt
+          size: isArabic ? 26 : 22,
           color: '334155',
           font: isArabic ? getRtlFont(part) || rtlFont : 'Noto Sans Malayalam',
           rightToLeft: isArabic,
@@ -254,11 +272,18 @@ export async function exportStudyNoteDirectDocx(data: StudyNoteDocxData): Promis
                 },
                 children: [
                   new TextRun({
-                    text: 'ICS ACADEMY MANHAPPATTA · STUDY RESOURCE',
+                    text: 'ICS ACADEMY MANHAPPATTA',
+                    size: 16,
+                    color: '065F46',
+                    bold: true,
+                    font: 'El Messiri',
+                  }),
+                  new TextRun({
+                    text: ' · STUDY RESOURCE',
                     size: 16,
                     color: '64748B',
                     bold: true,
-                    font: 'Arial',
+                    font: 'Poppins',
                   }),
                 ],
               }),
@@ -280,10 +305,17 @@ export async function exportStudyNoteDirectDocx(data: StudyNoteDocxData): Promis
                 },
                 children: [
                   new TextRun({
-                    text: 'ICS Academy Manhappatta · Unified Digital Campus  |  Page ',
+                    text: 'ICS ACADEMY MANHAPPATTA',
+                    size: 16,
+                    bold: true,
+                    color: '065F46',
+                    font: 'El Messiri',
+                  }),
+                  new TextRun({
+                    text: ' · Unified Digital Campus  |  Page ',
                     size: 16,
                     color: '64748B',
-                    font: 'Arial',
+                    font: 'Poppins',
                   }),
                   new TextRun({
                     children: [PageNumber.CURRENT],
@@ -318,7 +350,7 @@ export async function exportStudyNoteDirectDocx(data: StudyNoteDocxData): Promis
                 bold: true,
                 size: 32, // 16pt
                 color: '065F46', // Emerald 800
-                font: 'Arial',
+                font: 'El Messiri',
               }),
             ],
           }),
@@ -331,7 +363,7 @@ export async function exportStudyNoteDirectDocx(data: StudyNoteDocxData): Promis
                 bold: true,
                 size: 20,
                 color: '047857',
-                font: 'Arial',
+                font: 'Poppins',
               }),
             ],
           }),
@@ -404,11 +436,15 @@ export async function exportStudyNoteDirectDocx(data: StudyNoteDocxData): Promis
             bidirectional: isArabicText(data.prompt),
             children: [
               new TextRun({
-                text: data.prompt,
+                text: isArabicText(data.prompt) && !isUrduText(data.prompt)
+                  ? toArabicNumerals(data.prompt)
+                  : data.prompt,
                 bold: true,
-                size: 24, // 12pt
+                size: isArabicText(data.prompt) ? 28 : 24,
                 color: '0F172A',
-                font: isArabicText(data.prompt) ? 'Traditional Arabic' : 'Noto Sans Malayalam',
+                font: isArabicText(data.prompt)
+                  ? getRtlFont(data.prompt)
+                  : 'Noto Sans Malayalam',
                 rightToLeft: isArabicText(data.prompt),
               }),
             ],
