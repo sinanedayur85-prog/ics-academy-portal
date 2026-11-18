@@ -1532,7 +1532,6 @@ export function PrincipalDashboard() {
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
             <AppUpdateButton />
-            <CampusNotificationBell />
             <ThemeToggle className="text-foreground/85 hover:text-foreground dark:text-white/90 dark:hover:text-white" />
             <PrincipalSwitcher principal={principal} />
           </div>

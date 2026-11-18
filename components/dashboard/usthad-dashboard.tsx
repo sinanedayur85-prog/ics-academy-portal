@@ -965,7 +965,6 @@ export function UsthadDashboard() {
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
             <AppUpdateButton />
-            <CampusNotificationBell classNameFilter={usthad.className} />
             <ThemeToggle className="text-foreground/85 hover:text-foreground dark:text-white/90 dark:hover:text-white" />
             <UsthadSwitcher usthad={usthad} />
           </div>

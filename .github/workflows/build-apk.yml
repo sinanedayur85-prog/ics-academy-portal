@@ -326,8 +326,10 @@ jobs:
 
           public class MainActivity extends BridgeActivity {
               private static final String CHANNEL_ID = "ics_academy_updates";
+              private static final int GROUPED_NOTIFICATION_ID = 1001;
               private static final int REQ_VOICE_RECOGNITION = 2002;
               private int lastStatusBarHeightDp = 28;
+              private final ArrayList<String> groupedNotificationLines = new ArrayList<>();
 
               @Override
               public void onCreate(Bundle savedInstanceState) {
@@ -335,6 +337,7 @@ jobs:
 
                   createNotificationChannel();
                   requestAppPermissionsIfNeeded();
+                  clearGroupedSystemNotifications();
 
                   Window window = getWindow();
                   window.getDecorView().setBackgroundColor(Color.parseColor("#0A0B0E"));
@@ -477,6 +480,25 @@ jobs:
                   webView.post(() -> webView.evaluateJavascript(js, null));
               }
 
+              @Override
+              protected void onNewIntent(Intent intent) {
+                  super.onNewIntent(intent);
+                  clearGroupedSystemNotifications();
+              }
+
+              private void clearGroupedSystemNotifications() {
+                  synchronized (groupedNotificationLines) {
+                      groupedNotificationLines.clear();
+                  }
+                  try {
+                      NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                      if (manager != null) {
+                          manager.cancel(GROUPED_NOTIFICATION_ID);
+                      }
+                  } catch (Exception ignored) {
+                  }
+              }
+
               public class ICSNativeBridge {
                   @JavascriptInterface
                   public int getStatusBarHeightDp() {
@@ -523,9 +545,29 @@ jobs:
                   }
 
                   @JavascriptInterface
+                  public void clearNotifications() {
+                      runOnUiThread(() -> clearGroupedSystemNotifications());
+                  }
+
+                  @JavascriptInterface
                   public void showNotification(final String title, final String message) {
                       runOnUiThread(() -> {
                           try {
+                              String safeTitle = (title != null && !title.trim().isEmpty()) ? title.trim() : "ICS Academy";
+                              String safeMessage = (message != null) ? message.trim() : "";
+                              String combinedLine = safeMessage.isEmpty() ? safeTitle : (safeTitle + ": " + safeMessage);
+
+                              int totalCount;
+                              ArrayList<String> snapshotLines;
+                              synchronized (groupedNotificationLines) {
+                                  groupedNotificationLines.add(combinedLine);
+                                  while (groupedNotificationLines.size() > 10) {
+                                      groupedNotificationLines.remove(0);
+                                  }
+                                  totalCount = groupedNotificationLines.size();
+                                  snapshotLines = new ArrayList<>(groupedNotificationLines);
+                              }
+
                               Intent intent = new Intent(MainActivity.this, MainActivity.class);
                               intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
                               int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
@@ -533,18 +575,36 @@ jobs:
                                   : PendingIntent.FLAG_UPDATE_CURRENT;
                               PendingIntent pendingIntent = PendingIntent.getActivity(MainActivity.this, 0, intent, flags);
 
+                              String headerTitle = totalCount == 1
+                                  ? safeTitle
+                                  : ("ICS Academy • " + totalCount + " New Messages");
+                              String contentPreview = totalCount == 1
+                                  ? safeMessage
+                                  : combinedLine;
+
+                              NotificationCompat.InboxStyle inboxStyle = new NotificationCompat.InboxStyle()
+                                  .setBigContentTitle(headerTitle);
+                              for (String line : snapshotLines) {
+                                  inboxStyle.addLine(line);
+                              }
+                              if (totalCount > 1) {
+                                  inboxStyle.setSummaryText(totalCount + " updates");
+                              }
+
                               NotificationCompat.Builder builder = new NotificationCompat.Builder(MainActivity.this, CHANNEL_ID)
                                   .setSmallIcon(getApplicationInfo().icon)
-                                  .setContentTitle(title != null ? title : "ICS Academy")
-                                  .setContentText(message != null ? message : "")
-                                  .setStyle(new NotificationCompat.BigTextStyle().bigText(message != null ? message : ""))
+                                  .setContentTitle(headerTitle)
+                                  .setContentText(contentPreview)
+                                  .setStyle(inboxStyle)
+                                  .setNumber(totalCount)
+                                  .setOnlyAlertOnce(true)
                                   .setPriority(NotificationCompat.PRIORITY_HIGH)
                                   .setAutoCancel(true)
                                   .setContentIntent(pendingIntent);
 
                               NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                               if (manager != null) {
-                                  manager.notify((int) (System.currentTimeMillis() & 0xfffffff), builder.build());
+                                  manager.notify(GROUPED_NOTIFICATION_ID, builder.build());
                               }
                           } catch (Exception ignored) {
                           }

@@ -221,10 +221,6 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
           </div>
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
             <AppUpdateButton />
-            <CampusNotificationBell
-              studentId={student.id}
-              classNameFilter={student.className}
-            />
             <ThemeToggle className="text-foreground/85 hover:text-foreground dark:text-white/90 dark:hover:text-white" />
             <StudentSwitcher student={student} />
           </div>

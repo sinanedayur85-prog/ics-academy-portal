@@ -12,6 +12,7 @@ export interface ICSNativeBridgeInterface {
   downloadAndInstallApk?: (apkUrl: string) => void;
   clearWebCacheAndReload?: () => void;
   showNotification?: (title: string, message: string) => void;
+  clearNotifications?: () => void;
 }
 
 declare global {
@@ -61,170 +62,173 @@ export function isInstalledApp(): boolean {
   return false;
 }
 
-let sharedNotificationAudioCtx: AudioContext | null = null
+const GROUPED_NOTIFICATION_TAG = 'ics-academy-grouped-updates';
+const GROUPED_QUEUE_STORAGE_KEY = 'ics_grouped_phone_notifs_v1';
 
-function getOrCreateAudioContext(): AudioContext | null {
-  if (typeof window === 'undefined') return null
+interface QueuedPhoneNotificationItem {
+  title: string;
+  message: string;
+  href: string;
+  timestamp: number;
+}
+
+function loadQueuedPhoneNotifications(): QueuedPhoneNotificationItem[] {
+  if (typeof window === 'undefined') return [];
   try {
-    const AudioCtx =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (!AudioCtx) return null
-    if (!sharedNotificationAudioCtx || sharedNotificationAudioCtx.state === 'closed') {
-      sharedNotificationAudioCtx = new AudioCtx()
-    }
-    return sharedNotificationAudioCtx
+    const raw = window.sessionStorage.getItem(GROUPED_QUEUE_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as QueuedPhoneNotificationItem[];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return null
+    return [];
   }
 }
 
-export function unlockNotificationAudio(): void {
-  const ctx = getOrCreateAudioContext()
-  if (!ctx) return
+function saveQueuedPhoneNotifications(items: QueuedPhoneNotificationItem[]): void {
+  if (typeof window === 'undefined') return;
   try {
-    if (ctx.state === 'suspended') {
-      void ctx.resume().catch(() => {})
-    }
-    // Silent warm-up pulse so iOS WebKit & Android Chrome unlock AudioContext immediately
-    const buffer = ctx.createBuffer(1, 1, 22050)
-    const source = ctx.createBufferSource()
-    source.buffer = buffer
-    source.connect(ctx.destination)
-    source.start(0)
+    window.sessionStorage.setItem(
+      GROUPED_QUEUE_STORAGE_KEY,
+      JSON.stringify(items.slice(-12))
+    );
   } catch {
-    // Ignore unlock errors
+    // Ignore storage quota errors
   }
+}
+
+/**
+ * Clears the grouped phone notification list when the user opens Messenger or taps the notification,
+ * so the next future batch of messages starts fresh and plays the phone's default notification sound once.
+ */
+export function clearGroupedPhoneNotifications(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(GROUPED_QUEUE_STORAGE_KEY);
+  } catch {
+    // Ignore
+  }
+
+  try {
+    window.ICSNativeBridge?.clearNotifications?.();
+  } catch {
+    // Ignore
+  }
+
+  try {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready
+        .then((reg) => reg.getNotifications({ tag: GROUPED_NOTIFICATION_TAG }))
+        .then((list) => {
+          for (const n of list) {
+            n.close();
+          }
+        })
+        .catch(() => {});
+    }
+  } catch {
+    // Ignore
+  }
+}
+
+/**
+ * Kept as a silent no-op so existing callers compile cleanly.
+ * Custom in-app audio chimes are disabled per user preference; only the phone's
+ * standard system notification sound is used on the first notification in a group.
+ */
+export function unlockNotificationAudio(): void {
+  // No custom in-app sound
 }
 
 export function playWhatsAppStyleNotificationTone(): void {
-  if (typeof window === 'undefined') return
-  try {
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate([180, 80, 180])
-    }
-  } catch {
-    // Ignore vibrate restrictions
-  }
-
-  try {
-    const ctx = getOrCreateAudioContext()
-    if (!ctx) return
-    if (ctx.state === 'suspended') {
-      void ctx.resume().catch(() => {})
-    }
-    const now = ctx.currentTime
-
-    // Note 1 (pleasant WhatsApp-style marimba/chime pop)
-    const osc1 = ctx.createOscillator()
-    const gain1 = ctx.createGain()
-    osc1.type = 'sine'
-    osc1.frequency.setValueAtTime(587.33, now) // D5
-    osc1.frequency.exponentialRampToValueAtTime(880, now + 0.09) // A5
-    gain1.gain.setValueAtTime(0.001, now)
-    gain1.gain.exponentialRampToValueAtTime(0.22, now + 0.015)
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.18)
-    osc1.connect(gain1)
-    gain1.connect(ctx.destination)
-    osc1.start(now)
-    osc1.stop(now + 0.19)
-
-    // Note 2 (higher harmonic confirmation note)
-    const osc2 = ctx.createOscillator()
-    const gain2 = ctx.createGain()
-    osc2.type = 'sine'
-    osc2.frequency.setValueAtTime(1174.66, now + 0.11) // D6
-    gain2.gain.setValueAtTime(0.001, now + 0.11)
-    gain2.gain.exponentialRampToValueAtTime(0.18, now + 0.13)
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.36)
-    osc2.connect(gain2)
-    gain2.connect(ctx.destination)
-    osc2.start(now + 0.11)
-    osc2.stop(now + 0.37)
-  } catch {
-    // AudioContext may be blocked before user interaction
-  }
+  // No custom in-app sound
 }
 
+/**
+ * Delivers notifications exclusively to the phone's system notification bar as a SINGLE grouped list.
+ * - First notification in a batch: uses the phone's default system notification tone (`silent: false`, `onlyAlertOnce: true`).
+ * - Subsequent notifications while unread items exist in the list: updates the same single notification card
+ *   in-place with a consolidated multi-line list silently (`silent: true`, `renotify: false`).
+ */
 export function triggerSystemNotification(
   title: string,
   message: string,
   href = '#notices',
 ): void {
-  if (typeof window === 'undefined') return
+  if (typeof window === 'undefined') return;
 
-  // 1. Native Android APK status-bar heads-up notification (uses phone's default system notification channel & sound)
+  const cleanTitle = (title || 'ICS Academy').trim();
+  const cleanMessage = (message || '').trim();
+  if (!cleanMessage && !cleanTitle) return;
+
+  const queue = loadQueuedPhoneNotifications();
+  const isFirstInGroup = queue.length === 0;
+  const nextQueue = [
+    ...queue,
+    {
+      title: cleanTitle,
+      message: cleanMessage,
+      href,
+      timestamp: Date.now(),
+    },
+  ].slice(-10);
+  saveQueuedPhoneNotifications(nextQueue);
+
+  // 1. Native Android APK status-bar notification (uses single fixed ID + InboxStyle + setOnlyAlertOnce(true))
   if (window.ICSNativeBridge?.showNotification) {
     try {
-      window.ICSNativeBridge.showNotification(title, message)
-      return
+      window.ICSNativeBridge.showNotification(cleanTitle, cleanMessage);
+      return;
     } catch {
       // Fallback below
     }
   }
 
-  const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''
-  const isIOS =
-    /iPhone|iPad|iPod/i.test(ua) ||
-    (typeof navigator !== 'undefined' &&
-      navigator.platform === 'MacIntel' &&
-      navigator.maxTouchPoints > 1)
-  const isForeground =
-    typeof document !== 'undefined' && document.visibilityState === 'visible'
-
-  // 2. Web Notification API / Service Worker notification (Android Chrome, iOS Home Screen PWA, Tablet, Desktop)
-  // Uses silent: false so the OS plays the user's configured default phone notification sound
+  // 2. Web Notification API / Service Worker notification (Android Chrome, iOS Home Screen PWA, Mobile Browser)
   if ('Notification' in window && Notification.permission === 'granted') {
-    const tag = `ics-notif-${Date.now()}`
-    // In foreground browsers & iOS PWAs, play audible chime alongside OS notification banner
-    if (isForeground) {
-      playWhatsAppStyleNotificationTone()
-    }
+    const groupedTitle =
+      nextQueue.length === 1
+        ? cleanTitle
+        : `ICS Academy • ${nextQueue.length} New Updates`;
+
+    const groupedBody =
+      nextQueue.length === 1
+        ? cleanMessage
+        : nextQueue
+            .map((item) => `• ${item.title}: ${item.message}`)
+            .join('\n');
+
+    const latestHref = nextQueue[nextQueue.length - 1]?.href || href;
+
+    const notifOptions: NotificationOptions & { renotify?: boolean } = {
+      body: groupedBody,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: GROUPED_NOTIFICATION_TAG,
+      renotify: isFirstInGroup,
+      silent: !isFirstInGroup,
+      data: { href: latestHref },
+    };
+
     try {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready
           .then((reg) => {
-            reg.showNotification(title, {
-              body: message,
-              icon: '/icons/icon-192.png',
-              badge: '/icons/icon-192.png',
-              tag,
-              silent: false,
-              data: { href },
-            })
+            reg.showNotification(groupedTitle, notifOptions);
           })
           .catch(() => {
             try {
-              new Notification(title, {
-                body: message,
-                icon: '/icons/icon-192.png',
-                tag,
-                silent: false,
-                data: { href },
-              })
+              new Notification(groupedTitle, notifOptions);
             } catch {
-              if (!isForeground || !isIOS) playWhatsAppStyleNotificationTone()
+              // Ignore if blocked
             }
-          })
+          });
       } else {
-        new Notification(title, {
-          body: message,
-          icon: '/icons/icon-192.png',
-          tag,
-          silent: false,
-          data: { href },
-        })
+        new Notification(groupedTitle, notifOptions);
       }
-      return
     } catch {
-      // Fallback if Notification constructor is blocked (e.g. mobile browser)
-      if (!isForeground) playWhatsAppStyleNotificationTone()
-      return
+      // Ignore if blocked
     }
   }
-
-  // 3. Fallback when OS Notification permission is not yet granted (e.g. iOS Safari or first-time browser session)
-  playWhatsAppStyleNotificationTone()
 }
 
 export function blobToBase64(blob: Blob): Promise<string> {

@@ -1,5 +1,5 @@
 // ICS Academy Service Worker for Instant Black Launch & Offline Support
-const CACHE_NAME = 'ics-academy-pwa-v25';
+const CACHE_NAME = 'ics-academy-pwa-v26';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -136,9 +136,10 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
+        client.postMessage({ type: 'ICS_CLEAR_GROUPED_NOTIFICATIONS', href: targetHref });
         if ('focus' in client) {
           client.focus();
-          if ('navigate' in client && targetHref.startsWith('#')) {
+          if (targetHref.startsWith('#')) {
             client.postMessage({ type: 'ICS_NAVIGATE_HASH', href: targetHref });
           }
           return;

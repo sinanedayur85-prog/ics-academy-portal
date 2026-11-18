@@ -61,7 +61,7 @@ import {
   type Student,
 } from '@/components/dashboard/data'
 import { buildKitabPdfBlob, CURATED_KITABS } from '@/components/dashboard/digital-library'
-import { unlockNotificationAudio } from '@/lib/mobile-pdf'
+import { clearGroupedPhoneNotifications, unlockNotificationAudio } from '@/lib/mobile-pdf'
 import { db, handleFirestoreError, OperationType } from '@/src/lib/firebase'
 import { cn } from '@/lib/utils'
 
@@ -1575,6 +1575,7 @@ export function CampusMessenger({
       document.body.dataset.icsActiveChatPeer = activeRoom.peerId || ''
       document.body.dataset.icsActiveChatType = activeRoom.type || ''
       document.body.dataset.icsActiveChatBatch = activeRoom.batchName || ''
+      clearGroupedPhoneNotifications()
     } else {
       document.body.dataset.icsActiveChatVisible = 'false'
       document.body.dataset.icsActiveChatPeer = ''
