@@ -112,7 +112,7 @@ const PERSONAS: {
       "Multi-turn scholarly dialogue on Fathul Mueen, Mahalli, Tafsir Jalalayn, Alfiyyah, and Shafi'i Fiqh.",
     welcomeMessage: {
       en: "السَّلَامُ عَلَيْكُمْ!\nI am the Kitab & Fiqh Mentor for ICS Academy Da'wa College. Ask any question regarding Fathul Mueen, Mahalli, Alfiyyah, Tafsir, Nahw, and Sarf.",
-      ml: 'السَّلَامُ عَلَيْكُمْ!\nഐ.സി.എസ് അക്കാദമി ദാഅ്വാ കോളേജിന്റെ കിതാബ് & ഫിഖ്ഹ് മെന്ററാണ് ഞാൻ. ഫത്ഹുൽ മുഈൻ, മഹല്ലി, അൽഫിയ്യ, തഫ്സീർ ജലാലൈൻ, നഹ്‌വ്, സർഫ് എന്നിവയെക്കുറിച്ചുള്ള ഏത് സംശയങ്ങളും ചോദിക്കാം.',
+      ml: 'السَّلَامُ عَلَيْكُمْ!\nഐ.സി.എസ് അക്കാദമി ദഅ്‌വ കോളേജിന്റെ കിതാബ് & ഫിഖ്ഹ് മെന്ററാണ് ഞാൻ. ഫത്ഹുൽ മുഈൻ, മഹല്ലി, അൽഫിയ്യ, തഫ്സീർ ജലാലൈൻ, നഹ്‌വ്, സർഫ് എന്നിവയെക്കുറിച്ചുള്ള ഏത് സംശയങ്ങളും ചോദിക്കാം.',
       ar: 'السَّلَامُ عَلَيْكُمْ! أنا المرشد العلمي لكتب الشريعة والفقه بكلية الدعوة في أكاديمية ICS. يمكنك طرح أي سؤال حول فتح المعين، والمحلي، وألفية ابن مالك، وتفسير الجلالين، وقواعد النحو والصرف.',
       ur: 'السَّلَامُ عَلَيْكُمْ! میں آئی سی ایس اکیڈمی دعوۃ کالج کا کتاب اور فقہ مینٹر ہوں۔ آپ فتح المعین، محلی، الفیہ ابن مالک، تفسیر جلالین، نحو اور صرف سے متعلق کوئی بھی علمی سوال پوچھ سکتے ہیں۔',
       es: "السَّلَامُ عَلَيْكُمْ!\nSoy el Mentor de Kitab y Fiqh del Da'wa College de ICS Academy. Puedes hacer cualquier consulta sobre Fathul Mueen, Mahalli, Alfiyyah, Tafsir, Nahw y Sarf.",
@@ -382,7 +382,7 @@ const PERSONAS: {
         {
           label: 'അറബി സംഭാഷണം (മുഹാദസ)',
           prompt:
-            'ദാഅ്വാ കോളേജ് ലൈബ്രറിയിൽ അധ്യാപകനും വിദ്യാർത്ഥിയും തമ്മിലുള്ള ഒരു ചെറിയ അറബി സംഭാഷണം മലയാളം അർത്ഥം സഹിതം തുടങ്ങാമോ?',
+            'ദഅ്‌വ കോളേജ് ലൈബ്രറിയിൽ അധ്യാപകനും വിദ്യാർത്ഥിയും തമ്മിലുള്ള ഒരു ചെറിയ അറബി സംഭാഷണം മലയാളം അർത്ഥം സഹിതം തുടങ്ങാമോ?',
         },
         {
           label: 'അറബിക് സർഫ് & ഇശ്തിഖാഖ്',
@@ -475,7 +475,7 @@ const PERSONAS: {
       'Speech preparation, Friday Khutbah structuring, Kitab reading recommendations, and campus routines.',
     welcomeMessage: {
       en: "As-salāmu ʿalaykum! I am here to assist you with Da'wa speeches, Literary Association (Sahitya Samajam) essays, and digital library recommendations.",
-      ml: 'السَّلَامُ عَلَيْكُمْ! ദാഅ്വാ പ്രസംഗങ്ങൾ, സാഹിത്യ സമാജം ഉപന്യാസങ്ങൾ, ഡിജിറ്റൽ ലൈബ്രറി കിതാബുകൾ എന്നിവയിൽ സഹായിക്കാൻ ഞാൻ സദാ സന്നദ്ധനാണ്.',
+      ml: 'السَّلَامُ عَلَيْكُمْ! ദഅ്‌വ പ്രസംഗങ്ങൾ, സാഹിത്യ സമാജം ഉപന്യാസങ്ങൾ, ഡിജിറ്റൽ ലൈബ്രറി കിതാബുകൾ എന്നിവയിൽ സഹായിക്കാൻ ഞാൻ സദാ സന്നദ്ധനാണ്.',
       ar: 'السَّلَامُ عَلَيْكُمْ! أنا هنا لمساعدتك في إعداد الخطب الدعوية، ومقالات النادي الأدبي، وتوصيات كتب المكتبة الرقمية.',
       ur: 'السَّلَامُ عَلَيْكُمْ! میں دعوتی تقاریر، بزمِ ادب کے مضامین اور ڈیجیٹل لائبریری کی کتابوں کے انتخاب میں آپ کی رہنمائی کے لیے حاضر ہوں۔',
       es: 'السَّلَامُ عَلَيْكُمْ! Estoy aquí para ayudarte con discursos de Da\'wa, ensayos de la asociación literaria y recomendaciones de Kitabs de la biblioteca.',
@@ -503,7 +503,7 @@ const PERSONAS: {
         {
           label: 'വായിച്ചിരിക്കേണ്ട പ്രധാന കിതാബുകൾ',
           prompt:
-            'ഒരു ദാഅ്വാ വിദ്യാർത്ഥി നിർബന്ധമായും വായിച്ചിരിക്കേണ്ട 5 ക്ലാസിക്കൽ കിതാബുകളും അവയുടെ പ്രത്യേകതകളും നിർദ്ദേശിക്കുക.',
+            'ഒരു ദഅ്‌വ വിദ്യാർത്ഥി നിർബന്ധമായും വായിച്ചിരിക്കേണ്ട 5 ക്ലാസിക്കൽ കിതാബുകളും അവയുടെ പ്രത്യേകതകളും നിർദ്ദേശിക്കുക.',
         },
       ],
       ar: [
@@ -877,6 +877,9 @@ function normalizeEnglishChatText(text: string, userSaidSalam = false): string {
       return `${cleanSalam}\n${capitalizedRest}`
     },
   )
+
+  // 5. Ensure Malayalam 'ദഅ്‌വ' uses Zero-Width Non-Joiner (\u200c) without space or conjunct ligature
+  out = out.replace(/ദാ?അ്\s*വാ?/g, 'ദഅ്\u200cവ')
 
   return out
 }

@@ -285,10 +285,10 @@ function renderComplexScriptBlockToPng(params: {
   const weightNum =
     params.fontWeight === 'bold' ? 700 : params.fontWeight === 'semibold' ? 600 : 400
   const fontFamily = isUr
-    ? "'Noto Nastaliq Urdu', 'Tajawal', sans-serif"
+    ? "'Noto Nastaliq Urdu', 'KFGQPC Uthman Taha Naskh', serif"
     : isAr && !isMl
-      ? "'Tajawal', 'Poppins', sans-serif"
-      : "'Noto Serif Malayalam', 'Poppins', 'Tajawal', sans-serif"
+      ? "'KFGQPC Uthman Taha Naskh', 'Poppins', serif"
+      : "'Noto Serif Malayalam', 'Poppins', 'KFGQPC Uthman Taha Naskh', sans-serif"
 
   const measureCanvas = document.createElement('canvas')
   const mCtx = measureCanvas.getContext('2d')
@@ -389,8 +389,8 @@ export function renderPrintScriptRuns(text: string, keyPrefix: string): React.Re
           dir="rtl"
           style={{
             fontFamily: partIsUrdu
-              ? "'Noto Nastaliq Urdu', 'Tajawal', serif"
-              : "'Tajawal', 'Noto Sans Arabic', sans-serif",
+              ? "'Noto Nastaliq Urdu', 'KFGQPC Uthman Taha Naskh', serif"
+              : "'KFGQPC Uthman Taha Naskh', 'Noto Sans Arabic', serif",
             fontWeight: 600,
             margin: '0 2px',
           }}

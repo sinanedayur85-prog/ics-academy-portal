@@ -4,13 +4,41 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@font-face {
+  font-family: 'KFGQPC Uthman Taha Naskh';
+  src:
+    local('KFGQPC Uthman Taha Naskh'),
+    local('UthmanTN1'),
+    url('https://cdn.jsdelivr.net/gh/mustafa0x/qpc-fonts@master/various-woff2/UthmanTN1%20Ver10.woff2')
+      format('woff2'),
+    url('https://cdn.jsdelivr.net/gh/mustafa0x/qpc-fonts@master/various-woff/UthmanTN1%20Ver10.woff')
+      format('woff');
+  font-weight: 100 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'KFGQPC Uthman Taha Naskh';
+  src:
+    local('KFGQPC Uthman Taha Naskh Bold'),
+    local('UthmanTN1B'),
+    url('https://cdn.jsdelivr.net/gh/mustafa0x/qpc-fonts@master/various-woff2/UthmanTN1B%20Ver10.woff2')
+      format('woff2'),
+    url('https://cdn.jsdelivr.net/gh/mustafa0x/qpc-fonts@master/various-woff/UthmanTN1B%20Ver10.woff')
+      format('woff');
+  font-weight: 600 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme inline {
-  --font-sans: 'Poppins', var(--font-poppins), 'Tajawal', 'Noto Nastaliq Urdu', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'Poppins', var(--font-poppins), 'Tajawal', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-el-messiri), 'Tajawal', 'Noto Serif Malayalam', ui-serif, Georgia, serif;
-  --font-malayalam: 'Noto Serif Malayalam', 'Tajawal', var(--font-poppins), 'Poppins', serif;
-  --font-arabic: 'Tajawal', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', sans-serif;
-  --font-urdu: 'Noto Nastaliq Urdu', 'Tajawal', serif;
+  --font-sans: 'Poppins', var(--font-poppins), 'KFGQPC Uthman Taha Naskh', 'Noto Nastaliq Urdu', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Poppins', var(--font-poppins), 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-el-messiri), 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', ui-serif, Georgia, serif;
+  --font-malayalam: 'Noto Serif Malayalam', 'KFGQPC Uthman Taha Naskh', var(--font-poppins), 'Poppins', serif;
+  --font-arabic: 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', serif;
+  --font-urdu: 'Noto Nastaliq Urdu', 'KFGQPC Uthman Taha Naskh', serif;
   --color-lime: var(--lime);
   --color-cyan: var(--cyan);
   --color-ring: var(--ring);
@@ -74,14 +102,14 @@
   --card-foreground: #f3f4f6;
   --popover: #121418;
   --popover-foreground: #f3f4f6;
-  --primary: #8cc63f;
-  --primary-foreground: #0a0b0e;
-  --secondary: #00aeef;
-  --secondary-foreground: #0a0b0e;
   --muted: #1a1d24;
   --muted-foreground: #9ca3af;
   --accent: #1a1d24;
   --accent-foreground: #f3f4f6;
+  --primary: #8cc63f;
+  --primary-foreground: #0a0b0e;
+  --secondary: #00aeef;
+  --secondary-foreground: #0a0b0e;
   --destructive: #f06a5f;
   --border: #262a33;
   --input: #262a33;
@@ -113,19 +141,20 @@ code,
 kbd,
 samp,
 pre {
-  font-family: 'Poppins', var(--font-poppins), ui-sans-serif, system-ui, sans-serif !important;
+  font-family: 'Poppins', var(--font-poppins), 'KFGQPC Uthman Taha Naskh', ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .font-malayalam {
-  font-family: 'Noto Serif Malayalam', 'Tajawal', var(--font-poppins), 'Poppins', serif;
+  font-family: 'Noto Serif Malayalam', 'KFGQPC Uthman Taha Naskh', var(--font-poppins), 'Poppins', serif;
 }
 
 .font-arabic {
-  font-family: 'Tajawal', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', sans-serif;
+  font-family: 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', serif;
+  line-height: 1.95;
 }
 
 .font-urdu {
-  font-family: 'Noto Nastaliq Urdu', 'Tajawal', serif;
+  font-family: 'Noto Nastaliq Urdu', 'KFGQPC Uthman Taha Naskh', serif;
   line-height: 2.15;
 }
 
@@ -145,13 +174,13 @@ pre {
   }
   [dir='rtl'],
   :lang(ar) {
-    font-family: 'Tajawal', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', sans-serif;
+    font-family: 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', serif;
   }
   :lang(ur) {
-    font-family: 'Noto Nastaliq Urdu', 'Tajawal', serif;
+    font-family: 'Noto Nastaliq Urdu', 'KFGQPC Uthman Taha Naskh', serif;
   }
   :lang(ml) {
-    font-family: 'Noto Serif Malayalam', 'Tajawal', var(--font-poppins), 'Poppins', serif;
+    font-family: 'Noto Serif Malayalam', 'KFGQPC Uthman Taha Naskh', var(--font-poppins), 'Poppins', serif;
   }
 }
 

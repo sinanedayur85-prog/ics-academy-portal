@@ -969,7 +969,7 @@ export function ParentReportModal({
     printColorAdjust: 'exact' as const,
     WebkitFontSmoothing: 'antialiased' as const,
     fontFamily:
-      "'Poppins', 'Tajawal', 'Noto Serif Malayalam', system-ui, -apple-system, sans-serif",
+      "'Poppins', 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', system-ui, -apple-system, sans-serif",
   }
 
   const modalContent = (

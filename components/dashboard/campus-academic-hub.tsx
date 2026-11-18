@@ -74,6 +74,51 @@ function formatTodayDateDisplay(): string {
   })
 }
 
+const ARABIC_SCRIPT_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/
+const URDU_SPECIFIC_RE = /[ٹڈڑںےگچپژک]/
+const MALAYALAM_SCRIPT_RE = /[\u0D00-\u0D7F]/
+
+function getMultilingualTextProps(
+  text?: string,
+  fallbackText?: string,
+): {
+  dir: 'rtl' | 'ltr'
+  lang: 'ar' | 'ur' | 'ml' | 'en'
+  isRtl: boolean
+  fontClass: string
+  alignClass: string
+} {
+  const sample = text && text.trim() ? text : fallbackText || ''
+  if (ARABIC_SCRIPT_RE.test(sample)) {
+    const isUr = URDU_SPECIFIC_RE.test(sample)
+    return {
+      dir: 'rtl',
+      lang: isUr ? 'ur' : 'ar',
+      isRtl: true,
+      fontClass: isUr
+        ? 'font-urdu text-base leading-loose'
+        : 'font-arabic text-base leading-relaxed',
+      alignClass: 'text-right',
+    }
+  }
+  if (MALAYALAM_SCRIPT_RE.test(sample)) {
+    return {
+      dir: 'ltr',
+      lang: 'ml',
+      isRtl: false,
+      fontClass: 'font-malayalam leading-relaxed',
+      alignClass: 'text-left',
+    }
+  }
+  return {
+    dir: 'ltr',
+    lang: 'en',
+    isRtl: false,
+    fontClass: 'font-poppins',
+    alignClass: 'text-left',
+  }
+}
+
 type StudentHubTab = 'tests' | 'syllabus' | 'holiday' | 'zadul_khair' | 'discipline'
 type UsthadHubTab = 'syllabus' | 'tests' | 'holiday' | 'discipline' | 'zadul_khair'
 
@@ -1419,156 +1464,270 @@ export function StudentAcademicHub({
 
                 {currentTest && (
                   <div className="rounded-2xl border border-border bg-background/60 p-4 sm:p-6">
-                    <div className="flex flex-col justify-between gap-3 border-b border-border pb-4 sm:flex-row sm:items-center">
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground tabular-nums">
-                          {currentTest.subjectOrCategory} · {currentTest.dateString} · Conducted by{' '}
-                          {currentTest.actorName}
-                        </p>
-                        <h4 className="mt-1 font-display text-lg font-bold text-foreground sm:text-xl">
-                          {currentTest.title}
-                        </h4>
-                        {currentTest.description && (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {currentTest.description}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="shrink-0 text-left sm:text-right">
-                        <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                          Maximum Marks
-                        </p>
-                        <p className="font-display text-2xl font-bold text-foreground tabular-nums">
-                          {currentSubmission ? (
-                            <>
-                              <span className="text-emerald-700 dark:text-lime">
-                                {currentSubmission.obtainedMarks ?? 0}
-                              </span>
-                              <span className="text-muted-foreground">
-                                /{currentTest.totalMarks || 20}
-                              </span>
-                            </>
-                          ) : (
-                            <span>{currentTest.totalMarks || 20} Marks</span>
-                          )}
-                        </p>
-                        <p className="text-xs font-medium text-muted-foreground">
-                          {currentSubmission?.status === 'graded'
-                            ? 'Graded & Verified by Usthad'
-                            : currentSubmission
-                              ? 'Submitted · Awaiting Objective Grading'
-                              : 'Not Submitted Yet'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {currentSubmission?.remarks && (
-                      <div className="mt-4 rounded-xl border border-lime/40 bg-lime/10 p-3.5 text-xs">
-                        <p className="font-bold text-foreground">Usthad Evaluation Remarks:</p>
-                        <p className="mt-1 text-muted-foreground">{currentSubmission.remarks}</p>
-                      </div>
-                    )}
-
-                    {/* Questions List */}
-                    <div className="mt-5 space-y-5">
-                      {(currentTest.questions || []).map((q, qIndex) => {
-                        const studentAns = draftAnswers[q.id] ?? ''
-                        const awardedMarks = currentSubmission?.questionMarks?.[q.id]
-
-                        return (
-                          <div
-                            key={q.id}
-                            className="rounded-xl border border-border bg-card/70 p-4"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <p className="text-sm font-semibold text-foreground">
-                                <span className="mr-2 font-mono text-xs font-bold text-emerald-700 tabular-nums dark:text-lime">
-                                  Q{qIndex + 1}.
-                                </span>
-                                {q.prompt}
+                    {(() => {
+                      const titleLang = getMultilingualTextProps(currentTest.title)
+                      const descLang = getMultilingualTextProps(
+                        currentTest.description,
+                        currentTest.title,
+                      )
+                      const remarksLang = getMultilingualTextProps(currentSubmission?.remarks)
+                      return (
+                        <>
+                          <div className="flex flex-col justify-between gap-3 border-b border-border pb-4 sm:flex-row sm:items-center">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-medium text-muted-foreground tabular-nums">
+                                <span
+                                  dir={
+                                    getMultilingualTextProps(currentTest.subjectOrCategory).dir
+                                  }
+                                  className={
+                                    getMultilingualTextProps(currentTest.subjectOrCategory)
+                                      .fontClass
+                                  }
+                                >
+                                  {currentTest.subjectOrCategory}
+                                </span>{' '}
+                                · {currentTest.dateString} · Conducted by {currentTest.actorName}
                               </p>
-                              <span className="shrink-0 font-mono text-xs font-semibold text-muted-foreground tabular-nums">
-                                {typeof awardedMarks === 'number'
-                                  ? `${awardedMarks}/${q.marks} Marks`
-                                  : `${q.marks} Marks`}
-                              </span>
+                              <h4
+                                dir={titleLang.dir}
+                                lang={titleLang.lang}
+                                className={cn(
+                                  'mt-1 text-lg font-bold text-foreground sm:text-xl',
+                                  titleLang.isRtl ? titleLang.fontClass : 'font-display',
+                                  titleLang.alignClass,
+                                )}
+                              >
+                                {currentTest.title}
+                              </h4>
+                              {currentTest.description && (
+                                <p
+                                  dir={descLang.dir}
+                                  lang={descLang.lang}
+                                  className={cn(
+                                    'mt-1 text-xs text-muted-foreground',
+                                    descLang.fontClass,
+                                    descLang.alignClass,
+                                  )}
+                                >
+                                  {currentTest.description}
+                                </p>
+                              )}
                             </div>
 
-                            {q.type === 'mcq' && Array.isArray(q.options) ? (
-                              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                                {q.options.map((optText, optIdx) => {
-                                  const isSelected = studentAns === String(optIdx)
-                                  const showCorrect =
-                                    currentSubmission?.status === 'graded' &&
-                                    q.correctOptionIndex === optIdx
-                                  return (
-                                    <button
-                                      key={`${q.id}_opt_${optIdx}`}
-                                      type="button"
-                                      onClick={() =>
-                                        setDraftAnswers((prev) => ({
-                                          ...prev,
-                                          [q.id]: String(optIdx),
-                                        }))
-                                      }
+                            <div className="shrink-0 text-left sm:text-right">
+                              <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                Maximum Marks
+                              </p>
+                              <p className="font-display text-2xl font-bold text-foreground tabular-nums">
+                                {currentSubmission ? (
+                                  <>
+                                    <span className="text-emerald-700 dark:text-lime">
+                                      {currentSubmission.obtainedMarks ?? 0}
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                      /{currentTest.totalMarks || 20}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span>{currentTest.totalMarks || 20} Marks</span>
+                                )}
+                              </p>
+                              <p className="text-xs font-medium text-muted-foreground">
+                                {currentSubmission?.status === 'graded'
+                                  ? 'Graded & Verified by Usthad'
+                                  : currentSubmission
+                                    ? 'Submitted · Awaiting Objective Grading'
+                                    : 'Not Submitted Yet'}
+                              </p>
+                            </div>
+                          </div>
+
+                          {currentSubmission?.remarks && (
+                            <div className="mt-4 rounded-xl border border-lime/40 bg-lime/10 p-3.5 text-xs">
+                              <p className="font-bold text-foreground">
+                                Usthad Evaluation Remarks:
+                              </p>
+                              <p
+                                dir={remarksLang.dir}
+                                lang={remarksLang.lang}
+                                className={cn(
+                                  'mt-1 text-muted-foreground',
+                                  remarksLang.fontClass,
+                                  remarksLang.alignClass,
+                                )}
+                              >
+                                {currentSubmission.remarks}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Questions List */}
+                          <div className="mt-5 space-y-5">
+                            {(currentTest.questions || []).map((q, qIndex) => {
+                              const studentAns = draftAnswers[q.id] ?? ''
+                              const awardedMarks = currentSubmission?.questionMarks?.[q.id]
+                              const promptLang = getMultilingualTextProps(
+                                q.prompt,
+                                currentTest.title,
+                              )
+                              const ansLang = getMultilingualTextProps(studentAns, q.prompt)
+                              const keyLang = getMultilingualTextProps(
+                                q.expectedAnswer,
+                                q.prompt,
+                              )
+
+                              return (
+                                <div
+                                  key={q.id}
+                                  className="rounded-xl border border-border bg-card/70 p-4"
+                                >
+                                  <div
+                                    className={cn(
+                                      'flex items-start justify-between gap-3',
+                                      promptLang.isRtl && 'flex-row-reverse',
+                                    )}
+                                  >
+                                    <p
+                                      dir={promptLang.dir}
+                                      lang={promptLang.lang}
                                       className={cn(
-                                        'flex items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-left text-xs transition-all',
-                                        isSelected
-                                          ? 'border-lime bg-lime/15 font-semibold text-foreground'
-                                          : 'border-border bg-background/60 text-muted-foreground hover:text-foreground',
-                                        showCorrect && 'ring-1 ring-emerald-500/60',
+                                        'min-w-0 flex-1 text-sm font-semibold text-foreground',
+                                        promptLang.fontClass,
+                                        promptLang.alignClass,
                                       )}
                                     >
-                                      <span>
-                                        <strong className="mr-2 font-mono">
-                                          {String.fromCharCode(65 + optIdx)}.
-                                        </strong>
-                                        {optText}
+                                      <span
+                                        dir="ltr"
+                                        className={cn(
+                                          'inline-block font-mono text-xs font-bold text-emerald-700 tabular-nums dark:text-lime',
+                                          promptLang.isRtl ? 'ml-2' : 'mr-2',
+                                        )}
+                                      >
+                                        Q{qIndex + 1}.
                                       </span>
-                                      {isSelected && (
-                                        <CheckCircle2
-                                          className="size-4 shrink-0 text-emerald-700 dark:text-lime"
-                                          aria-hidden="true"
-                                        />
-                                      )}
-                                    </button>
-                                  )
-                                })}
-                              </div>
-                            ) : (
-                              <div className="mt-3 space-y-2">
-                                <Label
-                                  htmlFor={`ans_${q.id}`}
-                                  className="text-xs text-muted-foreground"
-                                >
-                                  Type Your Answer (Objective / Short-Answer):
-                                </Label>
-                                <textarea
-                                  id={`ans_${q.id}`}
-                                  rows={3}
-                                  value={studentAns}
-                                  onChange={(e) =>
-                                    setDraftAnswers((prev) => ({
-                                      ...prev,
-                                      [q.id]: e.target.value,
-                                    }))
-                                  }
-                                  placeholder="Type your clear answer here..."
-                                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground outline-none focus:border-lime"
-                                />
-                                {currentSubmission?.status === 'graded' && q.expectedAnswer && (
-                                  <p className="text-[11px] text-muted-foreground">
-                                    <strong className="text-foreground">Model Key:</strong>{' '}
-                                    {q.expectedAnswer}
-                                  </p>
-                                )}
-                              </div>
-                            )}
+                                      {q.prompt}
+                                    </p>
+                                    <span className="shrink-0 font-mono text-xs font-semibold text-muted-foreground tabular-nums">
+                                      {typeof awardedMarks === 'number'
+                                        ? `${awardedMarks}/${q.marks} Marks`
+                                        : `${q.marks} Marks`}
+                                    </span>
+                                  </div>
+
+                                  {q.type === 'mcq' && Array.isArray(q.options) ? (
+                                    <div
+                                      dir={promptLang.dir}
+                                      className="mt-3 grid gap-2 sm:grid-cols-2"
+                                    >
+                                      {q.options.map((optText, optIdx) => {
+                                        const isSelected = studentAns === String(optIdx)
+                                        const showCorrect =
+                                          currentSubmission?.status === 'graded' &&
+                                          q.correctOptionIndex === optIdx
+                                        const optLang = getMultilingualTextProps(
+                                          optText,
+                                          q.prompt,
+                                        )
+                                        return (
+                                          <button
+                                            key={`${q.id}_opt_${optIdx}`}
+                                            type="button"
+                                            dir={optLang.dir}
+                                            lang={optLang.lang}
+                                            onClick={() =>
+                                              setDraftAnswers((prev) => ({
+                                                ...prev,
+                                                [q.id]: String(optIdx),
+                                              }))
+                                            }
+                                            className={cn(
+                                              'flex items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-xs transition-all',
+                                              optLang.alignClass,
+                                              optLang.fontClass,
+                                              isSelected
+                                                ? 'border-lime bg-lime/15 font-semibold text-foreground'
+                                                : 'border-border bg-background/60 text-muted-foreground hover:text-foreground',
+                                              showCorrect && 'ring-1 ring-emerald-500/60',
+                                            )}
+                                          >
+                                            <span className="min-w-0 flex-1">
+                                              <strong
+                                                dir="ltr"
+                                                className={cn(
+                                                  'inline-block font-mono',
+                                                  optLang.isRtl ? 'ml-2' : 'mr-2',
+                                                )}
+                                              >
+                                                {String.fromCharCode(65 + optIdx)}.
+                                              </strong>
+                                              {optText}
+                                            </span>
+                                            {isSelected && (
+                                              <CheckCircle2
+                                                className="size-4 shrink-0 text-emerald-700 dark:text-lime"
+                                                aria-hidden="true"
+                                              />
+                                            )}
+                                          </button>
+                                        )
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <div className="mt-3 space-y-2">
+                                      <Label
+                                        htmlFor={`ans_${q.id}`}
+                                        className="text-xs text-muted-foreground"
+                                      >
+                                        Type Your Answer (Arabic, Urdu, Malayalam, English, Español, Deutsch):
+                                      </Label>
+                                      <textarea
+                                        id={`ans_${q.id}`}
+                                        rows={3}
+                                        dir={ansLang.dir}
+                                        lang={ansLang.lang}
+                                        value={studentAns}
+                                        onChange={(e) =>
+                                          setDraftAnswers((prev) => ({
+                                            ...prev,
+                                            [q.id]: e.target.value,
+                                          }))
+                                        }
+                                        placeholder={
+                                          promptLang.isRtl
+                                            ? 'اكتب إجابتك هنا...'
+                                            : 'Type your clear answer here...'
+                                        }
+                                        className={cn(
+                                          'w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground outline-none focus:border-lime',
+                                          ansLang.fontClass,
+                                          ansLang.alignClass,
+                                        )}
+                                      />
+                                      {currentSubmission?.status === 'graded' &&
+                                        q.expectedAnswer && (
+                                          <p
+                                            dir={keyLang.dir}
+                                            lang={keyLang.lang}
+                                            className={cn(
+                                              'text-[11px] text-muted-foreground',
+                                              keyLang.fontClass,
+                                              keyLang.alignClass,
+                                            )}
+                                          >
+                                            <strong className="text-foreground">Model Key:</strong>{' '}
+                                            {q.expectedAnswer}
+                                          </p>
+                                        )}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
                           </div>
-                        )
-                      })}
-                    </div>
+                        </>
+                      )
+                    })()}
 
                     <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
                       <p className="text-xs text-muted-foreground">
@@ -3067,138 +3226,192 @@ export function UsthadAcademicHub({
                   <div className="space-y-1.5">
                     <Label className="text-xs">Test Title</Label>
                     <Input
+                      dir={getMultilingualTextProps(newTestTitle).dir}
+                      lang={getMultilingualTextProps(newTestTitle).lang}
                       value={newTestTitle}
                       onChange={(e) => setNewTestTitle(e.target.value)}
-                      placeholder="e.g., November Monthly Test — II"
+                      placeholder="e.g., الاختبار الشهري / November Monthly Test"
                       required
+                      className={cn(
+                        getMultilingualTextProps(newTestTitle).fontClass,
+                        getMultilingualTextProps(newTestTitle).alignClass,
+                      )}
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Subject / Kitab Name</Label>
                     <Input
+                      dir={getMultilingualTextProps(newTestSubject, newTestTitle).dir}
+                      lang={getMultilingualTextProps(newTestSubject, newTestTitle).lang}
                       value={newTestSubject}
                       onChange={(e) => setNewTestSubject(e.target.value)}
-                      placeholder="e.g., Fath al-Mu'in / Alfiyyah"
+                      placeholder="e.g., فتح المعين / Fath al-Mu'in"
                       required
+                      className={cn(
+                        getMultilingualTextProps(newTestSubject, newTestTitle).fontClass,
+                        getMultilingualTextProps(newTestSubject, newTestTitle).alignClass,
+                      )}
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Instructions</Label>
                     <Input
+                      dir={getMultilingualTextProps(newTestDescription, newTestTitle).dir}
+                      lang={getMultilingualTextProps(newTestDescription, newTestTitle).lang}
                       value={newTestDescription}
                       onChange={(e) => setNewTestDescription(e.target.value)}
                       placeholder="Short instructions for students..."
+                      className={cn(
+                        getMultilingualTextProps(newTestDescription, newTestTitle).fontClass,
+                        getMultilingualTextProps(newTestDescription, newTestTitle).alignClass,
+                      )}
                     />
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  {newTestQuestions.map((q, idx) => (
-                    <div
-                      key={q.id}
-                      className="space-y-3 rounded-xl border border-border bg-card/70 p-4"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-mono text-xs font-bold text-emerald-700 dark:text-lime">
-                          Question #{idx + 1} ({q.type === 'mcq' ? 'Multiple Choice' : 'Objective / Typed'})
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <Label className="text-xs">Marks:</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={100}
-                            value={q.marks}
-                            onChange={(e) => {
-                              const val = Number(e.target.value) || 5
-                              setNewTestQuestions((prev) =>
-                                prev.map((item, i) => (i === idx ? { ...item, marks: val } : item)),
-                              )
-                            }}
-                            className="h-8 w-20 text-xs tabular-nums"
-                          />
-                          {newTestQuestions.length > 1 && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              onClick={() =>
-                                setNewTestQuestions((prev) => prev.filter((_, i) => i !== idx))
-                              }
-                              className="h-8 text-xs text-red-500"
-                            >
-                              <Trash2 className="size-3.5" aria-hidden="true" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-
-                      <Input
-                        value={q.prompt}
-                        onChange={(e) => {
-                          const val = e.target.value
-                          setNewTestQuestions((prev) =>
-                            prev.map((item, i) => (i === idx ? { ...item, prompt: val } : item)),
-                          )
-                        }}
-                        placeholder="Type the question text here..."
-                        required
-                      />
-
-                      {q.type === 'mcq' && Array.isArray(q.options) ? (
-                        <div className="grid gap-2.5 sm:grid-cols-2">
-                          {q.options.map((opt, optIdx) => (
-                            <div key={optIdx} className="flex items-center gap-2">
-                              <input
-                                type="radio"
-                                name={`correct_${q.id}`}
-                                checked={(q.correctOptionIndex ?? 0) === optIdx}
-                                onChange={() =>
-                                  setNewTestQuestions((prev) =>
-                                    prev.map((item, i) =>
-                                      i === idx ? { ...item, correctOptionIndex: optIdx } : item,
-                                    ),
-                                  )
+                  {newTestQuestions.map((q, idx) => {
+                    const qPromptLang = getMultilingualTextProps(q.prompt, newTestTitle)
+                    const qExpectedLang = getMultilingualTextProps(
+                      q.expectedAnswer,
+                      q.prompt || newTestTitle,
+                    )
+                    return (
+                      <div
+                        key={q.id}
+                        className="space-y-3 rounded-xl border border-border bg-card/70 p-4"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-mono text-xs font-bold text-emerald-700 dark:text-lime">
+                            Question #{idx + 1} (
+                            {q.type === 'mcq' ? 'Multiple Choice' : 'Objective / Typed'})
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs">Marks:</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={100}
+                              value={q.marks}
+                              onChange={(e) => {
+                                const val = Number(e.target.value) || 5
+                                setNewTestQuestions((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, marks: val } : item)),
+                                )
+                              }}
+                              className="h-8 w-20 text-xs tabular-nums"
+                            />
+                            {newTestQuestions.length > 1 && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  setNewTestQuestions((prev) => prev.filter((_, i) => i !== idx))
                                 }
-                                title="Mark as correct option"
-                              />
-                              <Input
-                                value={opt}
-                                onChange={(e) => {
-                                  const val = e.target.value
-                                  setNewTestQuestions((prev) =>
-                                    prev.map((item, i) => {
-                                      if (i !== idx) return item
-                                      const nextOpts = [...(item.options || ['', '', '', ''])]
-                                      nextOpts[optIdx] = val
-                                      return { ...item, options: nextOpts }
-                                    }),
-                                  )
-                                }}
-                                placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
-                                required
-                                className="h-8 text-xs"
-                              />
-                            </div>
-                          ))}
+                                className="h-8 text-xs text-red-500"
+                              >
+                                <Trash2 className="size-3.5" aria-hidden="true" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      ) : (
+
                         <Input
-                          value={q.expectedAnswer || ''}
+                          dir={qPromptLang.dir}
+                          lang={qPromptLang.lang}
+                          value={q.prompt}
                           onChange={(e) => {
                             const val = e.target.value
                             setNewTestQuestions((prev) =>
-                              prev.map((item, i) =>
-                                i === idx ? { ...item, expectedAnswer: val } : item,
-                              ),
+                              prev.map((item, i) => (i === idx ? { ...item, prompt: val } : item)),
                             )
                           }}
-                          placeholder="Optional model answer / key for reference during grading..."
-                          className="text-xs"
+                          placeholder="اكتب السؤال هنا / Type the question text here..."
+                          required
+                          className={cn(qPromptLang.fontClass, qPromptLang.alignClass)}
                         />
-                      )}
-                    </div>
-                  ))}
+
+                        {q.type === 'mcq' && Array.isArray(q.options) ? (
+                          <div
+                            dir={qPromptLang.dir}
+                            className="grid gap-2.5 sm:grid-cols-2"
+                          >
+                            {q.options.map((opt, optIdx) => {
+                              const optLang = getMultilingualTextProps(
+                                opt,
+                                q.prompt || newTestTitle,
+                              )
+                              return (
+                                <div
+                                  key={optIdx}
+                                  dir={optLang.dir}
+                                  className="flex items-center gap-2"
+                                >
+                                  <input
+                                    type="radio"
+                                    name={`correct_${q.id}`}
+                                    checked={(q.correctOptionIndex ?? 0) === optIdx}
+                                    onChange={() =>
+                                      setNewTestQuestions((prev) =>
+                                        prev.map((item, i) =>
+                                          i === idx ? { ...item, correctOptionIndex: optIdx } : item,
+                                        ),
+                                      )
+                                    }
+                                    title="Mark as correct option"
+                                  />
+                                  <Input
+                                    dir={optLang.dir}
+                                    lang={optLang.lang}
+                                    value={opt}
+                                    onChange={(e) => {
+                                      const val = e.target.value
+                                      setNewTestQuestions((prev) =>
+                                        prev.map((item, i) => {
+                                          if (i !== idx) return item
+                                          const nextOpts = [...(item.options || ['', '', '', ''])]
+                                          nextOpts[optIdx] = val
+                                          return { ...item, options: nextOpts }
+                                        }),
+                                      )
+                                    }}
+                                    placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
+                                    required
+                                    className={cn(
+                                      'h-9 text-xs',
+                                      optLang.fontClass,
+                                      optLang.alignClass,
+                                    )}
+                                  />
+                                </div>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <Input
+                            dir={qExpectedLang.dir}
+                            lang={qExpectedLang.lang}
+                            value={q.expectedAnswer || ''}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              setNewTestQuestions((prev) =>
+                                prev.map((item, i) =>
+                                  i === idx ? { ...item, expectedAnswer: val } : item,
+                                ),
+                              )
+                            }}
+                            placeholder="Optional model answer / key for reference during grading..."
+                            className={cn(
+                              'text-xs',
+                              qExpectedLang.fontClass,
+                              qExpectedLang.alignClass,
+                            )}
+                          />
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -3239,11 +3452,19 @@ export function UsthadAcademicHub({
             {activeGradingTest && (
               <div className="space-y-4 rounded-2xl border border-border bg-background/60 p-4 sm:p-5">
                 <div className="flex flex-col justify-between gap-3 border-b border-border pb-4 sm:flex-row sm:items-center">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold text-muted-foreground uppercase">
                       Evaluate Student Submissions
                     </p>
-                    <h5 className="font-display text-lg font-bold text-foreground">
+                    <h5
+                      dir={getMultilingualTextProps(activeGradingTest.title).dir}
+                      className={cn(
+                        'text-lg font-bold text-foreground',
+                        getMultilingualTextProps(activeGradingTest.title).isRtl
+                          ? getMultilingualTextProps(activeGradingTest.title).fontClass
+                          : 'font-display',
+                      )}
+                    >
                       {activeGradingTest.title} · {activeGradingTest.subjectOrCategory} (
                       {activeGradingTest.totalMarks} Marks)
                     </h5>
@@ -3275,6 +3496,11 @@ export function UsthadAcademicHub({
                       const liveSum = questions.reduce(
                         (acc, q) => acc + Number(draftQMarks[q.id] ?? 0),
                         0,
+                      )
+                      const remarksVal = gradingRemarksDraft[sub.id] ?? sub.remarks ?? ''
+                      const remarksLang = getMultilingualTextProps(
+                        remarksVal,
+                        activeGradingTest.title,
                       )
 
                       return (
@@ -3312,19 +3538,44 @@ export function UsthadAcademicHub({
                                     : 'No option selected'
                                   : rawAns || 'No answer typed'
                               const currentMark = Number(draftQMarks[q.id] ?? 0)
+                              const qLang = getMultilingualTextProps(
+                                q.prompt,
+                                activeGradingTest.title,
+                              )
+                              const ansLang = getMultilingualTextProps(formattedAns, q.prompt)
 
                               return (
                                 <div
                                   key={q.id}
                                   className="flex flex-col justify-between gap-2 rounded-lg border border-border/60 bg-background/60 p-3 text-xs sm:flex-row sm:items-center"
                                 >
-                                  <div className="space-y-1">
-                                    <p className="font-semibold text-foreground">
-                                      Q{qIdx + 1} ({q.type.toUpperCase()} · Max {q.marks}M):{' '}
+                                  <div className="min-w-0 flex-1 space-y-1">
+                                    <p
+                                      dir={qLang.dir}
+                                      lang={qLang.lang}
+                                      className={cn(
+                                        'font-semibold text-foreground',
+                                        qLang.fontClass,
+                                        qLang.alignClass,
+                                      )}
+                                    >
+                                      <span dir="ltr" className="font-mono text-xs">
+                                        Q{qIdx + 1} ({q.type.toUpperCase()} · Max {q.marks}M):{' '}
+                                      </span>
                                       {q.prompt}
                                     </p>
-                                    <p className="text-muted-foreground">
-                                      <strong className="text-foreground">Student Answer:</strong>{' '}
+                                    <p
+                                      dir={ansLang.dir}
+                                      lang={ansLang.lang}
+                                      className={cn(
+                                        'text-muted-foreground',
+                                        ansLang.fontClass,
+                                        ansLang.alignClass,
+                                      )}
+                                    >
+                                      <strong dir="ltr" className="font-poppins text-foreground">
+                                        Student Answer:{' '}
+                                      </strong>
                                       {formattedAns}
                                     </p>
                                   </div>
@@ -3358,7 +3609,9 @@ export function UsthadAcademicHub({
 
                           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
                             <Input
-                              value={gradingRemarksDraft[sub.id] ?? sub.remarks ?? ''}
+                              dir={remarksLang.dir}
+                              lang={remarksLang.lang}
+                              value={remarksVal}
                               onChange={(e) =>
                                 setGradingRemarksDraft((prev) => ({
                                   ...prev,
@@ -3366,7 +3619,11 @@ export function UsthadAcademicHub({
                                 }))
                               }
                               placeholder="Add Usthad evaluation remarks for this student..."
-                              className="h-9 flex-1 text-xs"
+                              className={cn(
+                                'h-9 flex-1 text-xs',
+                                remarksLang.fontClass,
+                                remarksLang.alignClass,
+                              )}
                             />
                             <Button
                               type="button"
