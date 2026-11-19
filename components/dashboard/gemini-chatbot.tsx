@@ -233,7 +233,7 @@ const PERSONAS: {
       'Interactive revision, exam-ready notes, and Socratic tutoring across Humanities, History, English, and Islamic Studies.',
     welcomeMessage: {
       en: 'Welcome! I am your multi-turn academic tutor for exam preparations and degree coursework in Humanities, History, English, and Islamic Studies. Which subject would you like to revise today?',
-      ml: 'സ്വാഗതം! ഹ്യുമാനിറ്റീസ്, ഇസ്‌ലാമിക് ഹിസ്റ്ററി, ഇംഗ്ലീഷ്, പരീക്ഷാ റിവിഷൻ എന്നിവയ്ക്കായുള്ള നിങ്ങളുടെ അക്കാദമിക് ട്യൂട്ടറാണ് ഞാൻ. ഇന്ന് ഏത് വിഷയമാണ് റിവൈസ് ചെയ്യേണ്ടത്?',
+      ml: 'സ്വാഗതം! ഹ്യുമാനിറ്റീസ്, ഇസ്‌ലാമിക് ഹിസ്റ്ററി, ഇംഗ്ലീഷ്, പരീക്ഷാ റിവിഷൻ എന്നിവയ്ക്കായുള്ള താങ്കളുടെ അക്കാദമിക് ട്യൂട്ടറാണ് ഞാൻ. ഇന്ന് ഏത് വിഷയമാണ് താങ്കൾക്ക് റിവൈസ് ചെയ്യേണ്ടത്?',
       ar: 'أهلاً بك! أنا مرشدك الأكاديمي للاستعداد للاختبارات ومناهج الإنسانيات، والتاريخ الإسلامي، واللغة الإنجليزية. أي مادة تود مراجعتها اليوم؟',
       ur: 'خوش آمدید! میں ہیومینٹیز، اسلامی تاریخ، انگریزی اور امتحانی تیاری کے لیے آپ کا اکیڈمک ٹیوٹر ہوں۔ آج آپ کون سا مضمون دہرانا چاہیں گے؟',
       es: '¡Bienvenido! Soy tu tutor académico para la preparación de exámenes y asignaturas de Humanidades, Historia Islámica e Inglés. ¿Qué tema te gustaría repasar hoy?',
@@ -475,7 +475,7 @@ const PERSONAS: {
       'Speech preparation, Friday Khutbah structuring, Kitab reading recommendations, and campus routines.',
     welcomeMessage: {
       en: "As-salāmu ʿalaykum! I am here to assist you with Da'wa speeches, Literary Association (Sahitya Samajam) essays, and digital library recommendations.",
-      ml: 'السَّلَامُ عَلَيْكُمْ! ദഅ്‌വ പ്രസംഗങ്ങൾ, സാഹിത്യ സമാജം ഉപന്യാസങ്ങൾ, ഡിജിറ്റൽ ലൈബ്രറി കിതാബുകൾ എന്നിവയിൽ സഹായിക്കാൻ ഞാൻ സദാ സന്നദ്ധനാണ്.',
+      ml: 'السَّلَامُ عَلَيْكُمْ! ദഅ്‌വ പ്രസംഗങ്ങൾ, സാഹിത്യ സമാജം ഉപന്യാസങ്ങൾ, ഡിജിറ്റൽ ലൈബ്രറി കിതാബുകൾ എന്നിവയിൽ താങ്കളെ സഹായിക്കാൻ ഞാൻ സദാ സന്നദ്ധനാണ്.',
       ar: 'السَّلَامُ عَلَيْكُمْ! أنا هنا لمساعدتك في إعداد الخطب الدعوية، ومقالات النادي الأدبي، وتوصيات كتب المكتبة الرقمية.',
       ur: 'السَّلَامُ عَلَيْكُمْ! میں دعوتی تقاریر، بزمِ ادب کے مضامین اور ڈیجیٹل لائبریری کی کتابوں کے انتخاب میں آپ کی رہنمائی کے لیے حاضر ہوں۔',
       es: 'السَّلَامُ عَلَيْكُمْ! Estoy aquí para ayudarte con discursos de Da\'wa, ensayos de la asociación literaria y recomendaciones de Kitabs de la biblioteca.',
@@ -880,6 +880,29 @@ function normalizeEnglishChatText(text: string, userSaidSalam = false): string {
 
   // 5. Ensure Malayalam 'ദഅ്‌വ' uses Zero-Width Non-Joiner (\u200c) without space or conjunct ligature
   out = out.replace(/ദാ?അ്\s*വാ?/g, 'ദഅ്\u200cവ')
+
+  // 6. Respectfully address Muta'allim students as 'താങ്കൾ' instead of 'നീ' or 'നിങ്ങൾ' in Malayalam
+  if (/[\u0D00-\u0D7F]/.test(out)) {
+    const pre = '(^|[\\s,.;:!?()[\\]"\'“”‘’—–-])'
+    const post = '(?=$|[\\s,.;:!?()[\\]"\'“”‘’—–-])'
+    out = out
+      .replace(new RegExp(`${pre}നിന്റെ${post}`, 'g'), '$1താങ്കളുടെ')
+      .replace(new RegExp(`${pre}നിനക്ക്${post}`, 'g'), '$1താങ്കൾക്ക്')
+      .replace(new RegExp(`${pre}നിനക്കു${post}`, 'g'), '$1താങ്കൾക്ക്')
+      .replace(new RegExp(`${pre}നിന്നോട്${post}`, 'g'), '$1താങ്കളോട്')
+      .replace(new RegExp(`${pre}നിന്നോടു${post}`, 'g'), '$1താങ്കളോട്')
+      .replace(new RegExp(`${pre}നിന്നെ${post}`, 'g'), '$1താങ്കളെ')
+      .replace(new RegExp(`${pre}നിന്നിൽ${post}`, 'g'), '$1താങ്കളിൽ')
+      .replace(new RegExp(`${pre}നിങ്ങളുടെ${post}`, 'g'), '$1താങ്കളുടെ')
+      .replace(new RegExp(`${pre}നിങ്ങൾക്ക്${post}`, 'g'), '$1താങ്കൾക്ക്')
+      .replace(new RegExp(`${pre}നിങ്ങൾക്കു${post}`, 'g'), '$1താങ്കൾക്ക്')
+      .replace(new RegExp(`${pre}നിങ്ങളോട്${post}`, 'g'), '$1താങ്കളോട്')
+      .replace(new RegExp(`${pre}നിങ്ങളോടു${post}`, 'g'), '$1താങ്കളോട്')
+      .replace(new RegExp(`${pre}നിങ്ങളെ${post}`, 'g'), '$1താങ്കളെ')
+      .replace(new RegExp(`${pre}നിങ്ങളിൽ${post}`, 'g'), '$1താങ്കളിൽ')
+      .replace(new RegExp(`${pre}നിങ്ങൾ${post}`, 'g'), '$1താങ്കൾ')
+      .replace(new RegExp(`${pre}നീ${post}`, 'g'), '$1താങ്കൾ')
+  }
 
   return out
 }

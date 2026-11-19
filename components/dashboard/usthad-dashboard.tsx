@@ -233,6 +233,9 @@ export function UsthadDashboard() {
   const [mobileTab, setMobileTab] = useState<
     'roster' | 'attendance' | 'leave' | 'chat' | 'notices' | 'library'
   >('roster')
+  const [mobileRosterSubTab, setMobileRosterSubTab] = useState<'students' | 'academic-hub'>(
+    'students',
+  )
   const [mobileLibrarySubTab, setMobileLibrarySubTab] = useState<'kitabs' | 'portal'>('kitabs')
 
   useEffect(() => {
@@ -245,8 +248,13 @@ export function UsthadDashboard() {
       if (typeof window === 'undefined') return
       const hash = window.location.hash.replace('#', '')
       if (!hash) return
-      if (hash === 'class-roster') setMobileTab('roster')
-      else if (hash === 'usthad-attendance' || hash === 'class-attendance')
+      if (hash === 'class-roster') {
+        setMobileTab('roster')
+        setMobileRosterSubTab('students')
+      } else if (hash === 'academic-hub') {
+        setMobileTab('roster')
+        setMobileRosterSubTab('academic-hub')
+      } else if (hash === 'usthad-attendance' || hash === 'class-attendance')
         setMobileTab('attendance')
       else if (hash === 'usthad-leave') setMobileTab('leave')
       else if (hash === 'campus-chat') setMobileTab('chat')
@@ -1143,8 +1151,46 @@ export function UsthadDashboard() {
           </div>
         </div>
 
+        {/* Mobile Sub-Switcher on Students Tab: Class Roster vs Syllabus, Tests & Zadul Khair */}
+        {mobileTab === 'roster' ? (
+          <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-border bg-card/85 p-1.5 shadow-xs lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileRosterSubTab('students')}
+              className={cn(
+                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all',
+                mobileRosterSubTab === 'students'
+                  ? 'bg-lime text-primary-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Users className="size-4" aria-hidden="true" />
+              <span>Class Students ({classStudents.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileRosterSubTab('academic-hub')}
+              className={cn(
+                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all',
+                mobileRosterSubTab === 'academic-hub'
+                  ? 'bg-lime text-primary-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Trophy className="size-4" aria-hidden="true" />
+              <span>Tests, Syllabus & Hub</span>
+            </button>
+          </div>
+        ) : null}
+
         {/* 1. CLASS STUDENT ROSTER & INDIVIDUAL DETAILS */}
-        <div className={cn(mobileTab === 'roster' ? 'block' : 'hidden lg:block')}>
+        <div
+          className={cn(
+            mobileTab === 'roster' && mobileRosterSubTab === 'students'
+              ? 'block'
+              : 'hidden lg:block',
+          )}
+        >
           <Panel
             id="class-roster"
             eyebrow={usthad.fullClassLabel}
@@ -2809,7 +2855,9 @@ export function UsthadDashboard() {
         {/* MONTHLY TESTS, STAR OF THE MONTH, JAMIATHUL HIND SYLLABUS, HOLIDAY & SSF DA'WA LOGS, PRIVATE CONDUCT & ZADUL KHAIR PDF HUB */}
         <div
           className={cn(
-            mobileTab === 'roster' || mobileTab === 'notices' ? 'block' : 'hidden lg:block',
+            mobileTab === 'roster' && mobileRosterSubTab === 'academic-hub'
+              ? 'block'
+              : 'hidden lg:block',
           )}
         >
           <UsthadAcademicHub

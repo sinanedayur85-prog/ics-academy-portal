@@ -156,13 +156,37 @@ function isResponseValidForLanguage(text: string, _language: OutputLanguage): bo
   return Boolean(text && text.trim().length > 0)
 }
 
+function enforceRespectfulMalayalamPronouns(text: string): string {
+  if (!text || !/[\u0D00-\u0D7F]/.test(text)) return text
+  const pre = '(^|[\\s,.;:!?()[\\]"\'“”‘’—–-])'
+  const post = '(?=$|[\\s,.;:!?()[\\]"\'“”‘’—–-])'
+  return text
+    .replace(new RegExp(`${pre}നിന്റെ${post}`, 'g'), '$1താങ്കളുടെ')
+    .replace(new RegExp(`${pre}നിനക്ക്${post}`, 'g'), '$1താങ്കൾക്ക്')
+    .replace(new RegExp(`${pre}നിനക്കു${post}`, 'g'), '$1താങ്കൾക്ക്')
+    .replace(new RegExp(`${pre}നിന്നോട്${post}`, 'g'), '$1താങ്കളോട്')
+    .replace(new RegExp(`${pre}നിന്നോടു${post}`, 'g'), '$1താങ്കളോട്')
+    .replace(new RegExp(`${pre}നിന്നെ${post}`, 'g'), '$1താങ്കളെ')
+    .replace(new RegExp(`${pre}നിന്നിൽ${post}`, 'g'), '$1താങ്കളിൽ')
+    .replace(new RegExp(`${pre}നിങ്ങളുടെ${post}`, 'g'), '$1താങ്കളുടെ')
+    .replace(new RegExp(`${pre}നിങ്ങൾക്ക്${post}`, 'g'), '$1താങ്കൾക്ക്')
+    .replace(new RegExp(`${pre}നിങ്ങൾക്കു${post}`, 'g'), '$1താങ്കൾക്ക്')
+    .replace(new RegExp(`${pre}നിങ്ങളോട്${post}`, 'g'), '$1താങ്കളോട്')
+    .replace(new RegExp(`${pre}നിങ്ങളോടു${post}`, 'g'), '$1താങ്കളോട്')
+    .replace(new RegExp(`${pre}നിങ്ങളെ${post}`, 'g'), '$1താങ്കളെ')
+    .replace(new RegExp(`${pre}നിങ്ങളിൽ${post}`, 'g'), '$1താങ്കളിൽ')
+    .replace(new RegExp(`${pre}നിങ്ങൾ${post}`, 'g'), '$1താങ്കൾ')
+    .replace(new RegExp(`${pre}നീ${post}`, 'g'), '$1താങ്കൾ')
+}
+
 function redactPrivateIdsFromBotReply(text: string): string {
   if (!text) return text
-  return text
+  const redacted = text
     .replace(/\bICS2K\d{2}[A-Z0-9]*\b/gi, '[Private Admission ID]')
     .replace(/\bICS-\d{4}-\d+\b/gi, '[Private Admission ID]')
     .replace(/\b(?:ACL|CL)-\d{1,3}(?:-[A-Z0-9]+)?\b/gi, '[Private Leader ID]')
     .replace(/\b(?:UST|ADM)-\d{1,4}\b/gi, '[Private Staff ID]')
+  return enforceRespectfulMalayalamPronouns(redacted)
 }
 
 function didStudentSaySalam(text: string): boolean {
@@ -202,7 +226,7 @@ function getTurnLanguageEnforcement(
     case 'ur':
       return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule} Write your explanation in URDU (اردو) language. Refer to the institution in Urdu as "آئی سی ایس اکیڈمی" (ICS Academy). Keep quoted Quranic Ayahs, Hadith, Islamic greetings (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), and Kitab Ibarats in Arabic script, and explain everything else in Urdu (اردو).]`
     case 'ml':
-      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule} Write your explanation, translation, salutation, headings, and follow-up questions in natural, scholarly MALAYALAM (മലയാളം) script! Keep Islamic greetings (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), quoted Quran/Hadith/Kitab Ibarats, and Arabic Fiqh/Nahw terms inside brackets in Arabic script. Refer to the institution in Malayalam as "ഐ.സി.എസ് അക്കാദമി".]`
+      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule} Write your explanation, translation, salutation, headings, and follow-up questions in natural, scholarly MALAYALAM (മലയാളം) script! RESPECTFUL ADDRESS RULE FOR MUTA'ALLIMS: Always address the student respectfully as "താങ്കൾ" (Thankal), "താങ്കളുടെ" (your), "താങ്കൾക്ക്" (to you), "താങ്കളോട്" (with you) — NEVER use "നീ", "നിന്റെ", "നിനക്ക്", "നിന്നോട്", "നിന്നെ", or "നിങ്ങൾ"! Keep Islamic greetings (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), quoted Quran/Hadith/Kitab Ibarats, and Arabic Fiqh/Nahw terms inside brackets in Arabic script. Refer to the institution in Malayalam as "ഐ.സി.എസ് അക്കാദമി".]`
     case 'ar':
       return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule} Respond in clear Classical/Modern Standard Arabic (العربية الفصحى). Refer to the institution as "أكاديمية ICS".]`
     case 'es':
@@ -255,7 +279,8 @@ Create an inspiring, well-researched speech or essay outline in ${languageLabel}
   const languageSpecificFormatting =
     language === 'ml'
       ? `- Whenever using Islamic greetings, ALWAYS write them in Arabic script (السَّلَامُ عَلَيْكُمْ or وَعَلَيْكُمُ السَّلَامُ) on a separate line and NEVER transliterate them in Malayalam script ("അസ്സലാമു അലൈക്കും").
-- When referring to the institution in Malayalam, say "ഐ.സി.എസ് അക്കാദമി" or "ഐ.സി.എസ് അക്കാദമിയുടെ" (never add "മഞ്ഞപ്പറ്റയുടെ").`
+- When referring to the institution in Malayalam, say "ഐ.സി.എസ് അക്കാദമി" or "ഐ.സി.എസ് അക്കാദമിയുടെ" (never add "മഞ്ഞപ്പറ്റയുടെ").
+- STRICT RESPECTFUL ADDRESS RULE FOR MUTA'ALLIMS (CRITICAL): Students of sacred knowledge (Muta'allims / മുതഅല്ലിമുകൾ) must ALWAYS be addressed with high respect using "താങ്കൾ" (Thankal), "താങ്കളുടെ" (your), "താങ്കൾക്ക്" (to you), "താങ്കളോട്" (with you), and "താങ്കളെ". NEVER address the student using "നീ", "നിന്റെ", "നിനക്ക്", "നിന്നോട്", "നിന്നെ", or "നിങ്ങൾ"!`
       : language === 'en'
         ? `- Write all explanations in English, and enrich your English explanation by placing important Arabic technical terms, Fiqh rulings, grammatical (Nahw/Sarf) terms, and Kitab titles in vocalized Arabic script inside brackets (...) alongside the English words — e.g., Tayammum (التَّيَمُّم), Niyyah (النِّيَّة), Fard (فَرْض), Shart (شَرْط), Mubtada' (مُبْتَدَأ), Khabar (خَبَر), Fathul Mueen (فَتْحُ الْمُعِينِ).
 - NEVER include any Malayalam script or Malayalam words (always write "ICS Academy" in English, never "ഐ.സി.എസ് അക്കാദമി").
@@ -288,7 +313,8 @@ function buildChatbotSystemInstruction(
     language === 'ml'
       ? `Respond primarily in natural, scholarly Malayalam (മലയാളം), including accurate vocalized Arabic script for Quranic verses, Hadith, Islamic greetings, and Kitab terms.
 - CRITICAL MALAYALAM RULE: Never write "അസ്സലാമു അലൈക്കും" or "വഅലൈക്കുമുസ്സലാം" in Malayalam letters. Always write Islamic greetings in Arabic script: "السَّلَامُ عَلَيْكُمْ" or "وَعَلَيْكُمُ السَّلَامُ" on their own line.
-- CRITICAL MALAYALAM RULE: In Malayalam, refer to the academy simply as "ഐ.സി.എസ് അക്കാദമി" or "ഐ.സി.എസ് അക്കാദമിയുടെ" (do not say "ഐ.സി.എസ് അക്കാദമി മഞ്ഞപ്പറ്റയുടെ").`
+- CRITICAL MALAYALAM RULE: In Malayalam, refer to the academy simply as "ഐ.സി.എസ് അക്കാദമി" or "ഐ.സി.എസ് അക്കാദമിയുടെ" (do not say "ഐ.സി.എസ് അക്കാദമി മഞ്ഞപ്പറ്റയുടെ").
+- STRICT RESPECTFUL ADDRESS RULE FOR MUTA'ALLIMS (CRITICAL): Students of sacred knowledge (Muta'allims / മുതഅല്ലിമുകൾ) must ALWAYS be addressed with high respect using "താങ്കൾ" (Thankal), "താങ്കളുടെ" (your), "താങ്കൾക്ക്" (to you), "താങ്കളോട്" (with you), and "താങ്കളെ". NEVER address the student using "നീ", "നിന്റെ", "നിനക്ക്", "നിന്നോട്", "നിന്നെ", or "നിങ്ങൾ"!`
       : language === 'ar'
         ? `Respond 100% in clear Classical/Modern Standard Arabic (العربية الفصحى) with helpful vocalization (Tashkeel). Never mix Malayalam script or words. Refer to the academy as "أكاديمية ICS".`
         : language === 'ur'

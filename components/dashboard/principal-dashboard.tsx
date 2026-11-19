@@ -4556,7 +4556,7 @@ export function PrincipalDashboard() {
         )}
 
         {/* MONTHLY TESTS, STAR OF THE MONTH, HOLIDAY & SSF DA'WA LOGS, PRIVATE CONDUCT & ZADUL KHAIR PDF HUB (PRINCIPAL VIEW) */}
-        {(activeTab === 'monitor' || activeTab === 'people' || activeTab === 'notices') && (
+        {activeTab === 'monitor' && (
           <UsthadAcademicHub
             actorId={`principal-${principal.usthadId || 'principal'}`}
             actorName={principal.name}
