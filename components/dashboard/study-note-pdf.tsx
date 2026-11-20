@@ -603,6 +603,12 @@ function hasArabicOrUrduScript(text: string): boolean {
   return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text)
 }
 
+interface InlineRun {
+  text: string
+  bold: boolean
+  italic: boolean
+}
+
 function stripMarkdownTokens(text: string): string {
   return text
     .replace(/\*\*\*([\s\S]+?)\*\*\*/g, '$1')
@@ -612,116 +618,443 @@ function stripMarkdownTokens(text: string): string {
     .replace(/\*([^\s*](?:[\s\S]*?[^\s*])?)\*/g, '$1')
     .replace(/_([^\s_](?:[\s\S]*?[^\s_])?)_/g, '$1')
     .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*/g, '')
     .trim()
 }
 
-function sanitizeVectorLatinText(text: string): string {
-  return stripMarkdownTokens(text)
+/**
+ * Parses inline markdown (**bold**, __bold__, ***bold italic***, *italic*, `code`)
+ * into styled runs while preserving exact punctuation and attaching trailing colons
+ * onto bold labels so RTL Arabic/Urdu labels never visually separate from their colon.
+ */
+function parseInlineMarkdownRuns(
+  rawText: string,
+  baseBold = false,
+  baseItalic = false,
+  isRtl = false,
+): InlineRun[] {
+  const runs: InlineRun[] = []
+  const tokenRegex =
+    /(\*\*\*[\s\S]+?\*\*\*|___[\s\S]+?___|\*\*[\s\S]+?\*\*|__[\s\S]+?__|`[^`]+`|\*[^\s*](?:[\s\S]*?[^\s*])?\*|_[^\s_](?:[\s\S]*?[^\s_])?_)/g
+
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  const pushRun = (text: string, bold: boolean, italic: boolean) => {
+    const cleaned = text.replace(/\*\*/g, '')
+    if (!cleaned) return
+    const prev = runs[runs.length - 1]
+    if (prev && prev.bold === bold && prev.italic === italic) {
+      prev.text += cleaned
+    } else {
+      runs.push({ text: cleaned, bold, italic })
+    }
+  }
+
+  while ((match = tokenRegex.exec(rawText)) !== null) {
+    if (match.index > lastIndex) {
+      pushRun(rawText.slice(lastIndex, match.index), baseBold, baseItalic)
+    }
+    const token = match[0]
+    if (
+      (token.startsWith('***') && token.endsWith('***')) ||
+      (token.startsWith('___') && token.endsWith('___'))
+    ) {
+      pushRun(token.slice(3, -3), true, true)
+    } else if (
+      (token.startsWith('**') && token.endsWith('**')) ||
+      (token.startsWith('__') && token.endsWith('__'))
+    ) {
+      pushRun(token.slice(2, -2), true, baseItalic)
+    } else if (token.startsWith('`') && token.endsWith('`')) {
+      pushRun(token.slice(1, -1), true, baseItalic)
+    } else if (
+      (token.startsWith('*') && token.endsWith('*')) ||
+      (token.startsWith('_') && token.endsWith('_'))
+    ) {
+      pushRun(token.slice(1, -1), baseBold, true)
+    } else {
+      pushRun(token, baseBold, baseItalic)
+    }
+    lastIndex = match.index + token.length
+  }
+
+  if (lastIndex < rawText.length) {
+    pushRun(rawText.slice(lastIndex), baseBold, baseItalic)
+  }
+
+  // Bind leading colon/punctuation immediately after a bold label onto the bold run
+  // (e.g. `**قصد التراب**: أي...` -> bold `قصد التراب:` + normal ` أي...`)
+  if (isRtl && runs.length > 1) {
+    for (let i = 0; i < runs.length - 1; i++) {
+      const cur = runs[i]
+      const next = runs[i + 1]
+      if (cur.bold && !next.bold) {
+        const leadingPunct = /^([:：؛،\-–—])(.*)$/s.exec(next.text)
+        if (leadingPunct) {
+          cur.text += leadingPunct[1]
+          next.text = leadingPunct[2]
+        }
+      }
+    }
+  }
+
+  return runs.filter((r) => r.text.length > 0)
+}
+
+function sanitizeVectorLatinFragment(text: string): string {
+  return text
     .replace(/[•‧∙]/g, '-')
     .replace(/[—–]/g, '-')
     .replace(/[“”]/g, '"')
     .replace(/[‘’]/g, "'")
     .replace(/[^\x20-\x7E\u00A0-\u00FF]/g, ' ')
+}
+
+function sanitizeVectorLatinText(text: string): string {
+  return sanitizeVectorLatinFragment(stripMarkdownTokens(text))
     .replace(/\s+/g, ' ')
     .trim()
 }
 
+interface RichWrappedLine {
+  segments: InlineRun[]
+}
+
+const PX_PER_MM = 3.7795275591
+
+function buildCanvasFontString(
+  fontSizePx: number,
+  bold: boolean,
+  italic: boolean,
+  fontFamily: string,
+  baseSemibold = false,
+): string {
+  const weight = bold ? 700 : baseSemibold ? 600 : 400
+  const style = italic ? 'italic ' : ''
+  return `${style}${weight} ${fontSizePx}px ${fontFamily}`
+}
+
 /**
- * Renders Malayalam (or mixed Malayalam+Arabic) lines using the browser's HarfBuzz
- * shaper at 5x resolution with KFGQPC Uthman Taha Naskh preloaded.
- * Note: Pure Arabic/Urdu lines do NOT use this—they are rendered as 100% TrueType
- * Vector glyphs directly via `UthmanTN1` in `jsPDF`!
+ * Word-wraps rich-text markdown runs using the browser's native HarfBuzz/CoreText
+ * canvas metrics so Arabic, Urdu, Malayalam, and mixed-script text NEVER breaks,
+ * NEVER disconnects cursive letters, NEVER overflows margins, and preserves exact
+ * inline **bold** and *italic* formatting.
  */
-function renderMalayalamBlockToPng(params: {
-  text: string
+function layoutRichCanvasLines(params: {
+  rawText: string
   widthMm: number
   fontSizePt: number
-  fontWeight: 'normal' | 'semibold' | 'bold'
-  colorHex: string
-  alignRight?: boolean
-}): { dataUrl: string; heightMm: number } | null {
+  baseWeight: 'normal' | 'semibold' | 'bold'
+  isRtl: boolean
+  isArabic: boolean
+  isUrdu: boolean
+  hasMalayalam: boolean
+}): {
+  lines: RichWrappedLine[]
+  widthPx: number
+  fontSizePx: number
+  lineHeightPx: number
+  fontFamily: string
+  padX: number
+} | null {
   if (typeof document === 'undefined') return null
-  const cleanText = stripMarkdownTokens(params.text).replace(/ദാ?അ്\s*വാ?/g, 'ദഅ്\u200cവ')
-  if (!cleanText) return null
 
-  const pxPerMm = 3.7795275591
-  const scale = 5
-  const widthPx = Math.floor(params.widthMm * pxPerMm)
+  let prepared = params.rawText.trim()
+  if (!prepared) return null
+
+  if (params.hasMalayalam) {
+    prepared = prepared.replace(/ദാ?അ്\s*വാ?/g, 'ദഅ്\u200cവ')
+  }
+  if (params.isArabic && !params.isUrdu && !params.hasMalayalam) {
+    prepared = toArabicNumerals(prepared)
+  }
+
+  const baseBold = params.baseWeight === 'bold'
+  const baseSemibold = params.baseWeight === 'semibold'
+  const runs = parseInlineMarkdownRuns(prepared, baseBold, false, params.isRtl)
+  if (runs.length === 0) return null
+
+  const widthPx = Math.max(40, Math.floor(params.widthMm * PX_PER_MM))
+  const padX = 3
+  const usableWidthPx = widthPx - padX * 2
   const fontSizePx = Math.round(params.fontSizePt * 1.3333)
-  const lineHeightPx = Math.round(fontSizePx * 1.72)
-  const weightNum =
-    params.fontWeight === 'bold' ? 700 : params.fontWeight === 'semibold' ? 600 : 400
-  const fontFamily =
-    "'Noto Serif Malayalam', 'KFGQPC Uthman Taha Naskh', 'Poppins', sans-serif"
+  const lineHeightMultiplier = params.isUrdu ? 2.1 : params.isArabic && !params.hasMalayalam ? 1.85 : 1.72
+  const lineHeightPx = Math.round(fontSizePx * lineHeightMultiplier)
+
+  const fontFamily = params.isUrdu
+    ? "'Noto Nastaliq Urdu', 'KFGQPC Uthman Taha Naskh', serif"
+    : params.isArabic && !params.hasMalayalam
+      ? "'KFGQPC Uthman Taha Naskh', 'Tajawal', 'Noto Sans Arabic', serif"
+      : "'Noto Serif Malayalam', 'KFGQPC Uthman Taha Naskh', 'Poppins', sans-serif"
 
   const measureCanvas = document.createElement('canvas')
   const mCtx = measureCanvas.getContext('2d')
   if (!mCtx) return null
-  mCtx.font = `${weightNum} ${fontSizePx}px ${fontFamily}`
 
-  const words = cleanText.split(/\s+/)
-  const wrappedLines: string[] = []
-  let currentLine = ''
-
-  for (const word of words) {
-    if (!word) continue
-    const testLine = currentLine ? `${currentLine} ${word}` : word
-    const metrics = mCtx.measureText(testLine)
-    if (metrics.width > widthPx - 4 && currentLine) {
-      wrappedLines.push(currentLine)
-      if (mCtx.measureText(word).width > widthPx - 4) {
-        let charChunk = ''
-        for (const ch of Array.from(word)) {
-          if (mCtx.measureText(charChunk + ch).width > widthPx - 8 && charChunk) {
-            wrappedLines.push(charChunk)
-            charChunk = ch
-          } else {
-            charChunk += ch
-          }
-        }
-        currentLine = charChunk
-      } else {
-        currentLine = word
-      }
-    } else {
-      currentLine = testLine
+  // Break runs into word + space tokens while preserving each token's bold/italic style
+  const tokens: Array<{ text: string; bold: boolean; italic: boolean; isSpace: boolean }> = []
+  for (const run of runs) {
+    const pieces = run.text.match(/(\s+|\S+)/g) || []
+    for (const piece of pieces) {
+      const isSpace = /^\s+$/.test(piece)
+      tokens.push({
+        text: isSpace ? ' ' : piece,
+        bold: run.bold,
+        italic: run.italic,
+        isSpace,
+      })
     }
   }
-  if (currentLine) {
-    wrappedLines.push(currentLine)
+
+  const measureSegments = (segs: InlineRun[]): number => {
+    let total = 0
+    for (const seg of segs) {
+      mCtx.font = buildCanvasFontString(
+        fontSizePx,
+        seg.bold,
+        seg.italic,
+        fontFamily,
+        baseSemibold,
+      )
+      total += mCtx.measureText(seg.text).width
+    }
+    return total
+  }
+
+  const mergeTokensToSegments = (
+    lineTokens: Array<{ text: string; bold: boolean; italic: boolean; isSpace: boolean }>,
+  ): InlineRun[] => {
+    // Trim leading/trailing spaces on each wrapped line
+    let start = 0
+    let end = lineTokens.length
+    while (start < end && lineTokens[start].isSpace) start++
+    while (end > start && lineTokens[end - 1].isSpace) end--
+
+    const merged: InlineRun[] = []
+    for (let i = start; i < end; i++) {
+      const tok = lineTokens[i]
+      const prev = merged[merged.length - 1]
+      if (prev && prev.bold === tok.bold && prev.italic === tok.italic) {
+        prev.text += tok.text
+      } else {
+        merged.push({ text: tok.text, bold: tok.bold, italic: tok.italic })
+      }
+    }
+    return merged
+  }
+
+  const wrappedLines: RichWrappedLine[] = []
+  let currentLineTokens: Array<{ text: string; bold: boolean; italic: boolean; isSpace: boolean }> =
+    []
+
+  for (const tok of tokens) {
+    if (tok.isSpace && currentLineTokens.length === 0) {
+      continue
+    }
+
+    const candidateTokens = [...currentLineTokens, tok]
+    const candidateSegs = mergeTokensToSegments(candidateTokens)
+    const candidateWidth = measureSegments(candidateSegs)
+
+    if (candidateWidth > usableWidthPx && currentLineTokens.length > 0 && !tok.isSpace) {
+      const finalized = mergeTokensToSegments(currentLineTokens)
+      if (finalized.length > 0) {
+        wrappedLines.push({ segments: finalized })
+      }
+      currentLineTokens = [tok]
+
+      // Handle an exceptionally long unbroken token (e.g. URL or long compound word)
+      const singleSegs = mergeTokensToSegments(currentLineTokens)
+      if (measureSegments(singleSegs) > usableWidthPx) {
+        const chars = Array.from(tok.text)
+        let chunk = ''
+        currentLineTokens = []
+        for (const ch of chars) {
+          const testChunk = chunk + ch
+          if (
+            measureSegments([{ text: testChunk, bold: tok.bold, italic: tok.italic }]) >
+              usableWidthPx &&
+            chunk
+          ) {
+            wrappedLines.push({
+              segments: [{ text: chunk, bold: tok.bold, italic: tok.italic }],
+            })
+            chunk = ch
+          } else {
+            chunk = testChunk
+          }
+        }
+        if (chunk) {
+          currentLineTokens = [{ text: chunk, bold: tok.bold, italic: tok.italic, isSpace: false }]
+        }
+      }
+    } else {
+      currentLineTokens = candidateTokens
+    }
+  }
+
+  const lastSegs = mergeTokensToSegments(currentLineTokens)
+  if (lastSegs.length > 0) {
+    wrappedLines.push({ segments: lastSegs })
   }
 
   if (wrappedLines.length === 0) return null
 
-  const padTopPx = Math.ceil(fontSizePx * 0.25)
-  const padBottomPx = Math.ceil(fontSizePx * 0.35)
-  const totalHeightPx = wrappedLines.length * lineHeightPx + padTopPx + padBottomPx
+  return {
+    lines: wrappedLines,
+    widthPx,
+    fontSizePx,
+    lineHeightPx,
+    fontFamily,
+    padX,
+  }
+}
+
+/**
+ * Renders a slice of wrapped RichWrappedLines onto a high-DPI (3.5x = 336 DPI) transparent PNG.
+ * Uses native browser HarfBuzz/CoreText OpenType shaping for 100% connected cursive Arabic/Urdu
+ * & crisp Malayalam/mixed script, with true inline bold & italic rendering.
+ */
+function renderRichCanvasSliceToPng(params: {
+  slice: RichWrappedLine[]
+  widthPx: number
+  fontSizePx: number
+  lineHeightPx: number
+  fontFamily: string
+  padX: number
+  baseWeight: 'normal' | 'semibold' | 'bold'
+  colorHex: string
+  boldColorHex: string
+  isRtl: boolean
+  emphasizeArabicBold: boolean
+}): { dataUrl: string; heightMm: number } | null {
+  if (typeof document === 'undefined' || params.slice.length === 0) return null
+
+  const scale = 3.5
+  const padTopPx = Math.ceil(params.fontSizePx * 0.22)
+  const padBottomPx = Math.ceil(params.fontSizePx * 0.3)
+  const totalHeightPx = params.slice.length * params.lineHeightPx + padTopPx + padBottomPx
 
   const canvas = document.createElement('canvas')
-  canvas.width = widthPx * scale
-  canvas.height = totalHeightPx * scale
+  canvas.width = Math.ceil(params.widthPx * scale)
+  canvas.height = Math.ceil(totalHeightPx * scale)
   const ctx = canvas.getContext('2d')
   if (!ctx) return null
 
   ctx.scale(scale, scale)
-  ctx.clearRect(0, 0, widthPx, totalHeightPx)
-  ctx.font = `${weightNum} ${fontSizePx}px ${fontFamily}`
-  ctx.fillStyle = params.colorHex
+  ctx.clearRect(0, 0, params.widthPx, totalHeightPx)
   ctx.textBaseline = 'top'
+  ctx.direction = params.isRtl ? 'rtl' : 'ltr'
+  ctx.textAlign = params.isRtl ? 'right' : 'left'
+  ctx.lineJoin = 'round'
 
-  const useRtl = Boolean(params.alignRight)
-  ctx.direction = useRtl ? 'rtl' : 'ltr'
-  ctx.textAlign = useRtl ? 'right' : 'left'
-  const drawX = useRtl ? widthPx - 2 : 2
+  const baseSemibold = params.baseWeight === 'semibold'
 
-  wrappedLines.forEach((ln, idx) => {
-    const drawY = padTopPx + idx * lineHeightPx
-    ctx.fillText(ln, drawX, drawY)
+  params.slice.forEach((lineObj, lineIdx) => {
+    const drawY = padTopPx + lineIdx * params.lineHeightPx
+
+    if (lineObj.segments.length === 1) {
+      const seg = lineObj.segments[0]
+      ctx.font = buildCanvasFontString(
+        params.fontSizePx,
+        seg.bold,
+        seg.italic,
+        params.fontFamily,
+        baseSemibold,
+      )
+      const fillHex = seg.bold ? params.boldColorHex : params.colorHex
+      ctx.fillStyle = fillHex
+      const drawX = params.isRtl ? params.widthPx - params.padX : params.padX
+      if (seg.bold && params.emphasizeArabicBold) {
+        ctx.strokeStyle = fillHex
+        ctx.lineWidth = 0.32
+        ctx.strokeText(seg.text, drawX, drawY)
+      }
+      ctx.fillText(seg.text, drawX, drawY)
+      return
+    }
+
+    let cursorX = params.isRtl ? params.widthPx - params.padX : params.padX
+
+    for (const seg of lineObj.segments) {
+      ctx.font = buildCanvasFontString(
+        params.fontSizePx,
+        seg.bold,
+        seg.italic,
+        params.fontFamily,
+        baseSemibold,
+      )
+      const fillHex = seg.bold ? params.boldColorHex : params.colorHex
+      ctx.fillStyle = fillHex
+
+      if (seg.bold && params.emphasizeArabicBold) {
+        ctx.strokeStyle = fillHex
+        ctx.lineWidth = 0.32
+        ctx.strokeText(seg.text, cursorX, drawY)
+      }
+      ctx.fillText(seg.text, cursorX, drawY)
+
+      const segWidth = ctx.measureText(seg.text).width
+      if (params.isRtl) {
+        cursorX -= segWidth
+      } else {
+        cursorX += segWidth
+      }
+    }
   })
 
   return {
     dataUrl: canvas.toDataURL('image/png'),
-    heightMm: totalHeightPx / pxPerMm,
+    heightMm: totalHeightPx / PX_PER_MM,
+  }
+}
+
+/**
+ * Renders a small single-line RTL numeral/badge (e.g. "١.", "٢.") using HarfBuzz/CoreText
+ * so Arabic Eastern numerals align cleanly on the right margin with zero clipping.
+ */
+function renderRtlMarkerToPng(params: {
+  text: string
+  widthMm: number
+  fontSizePt: number
+  colorHex: string
+  isUrdu: boolean
+}): { dataUrl: string; heightMm: number } | null {
+  if (typeof document === 'undefined' || !params.text.trim()) return null
+  const scale = 3.5
+  const widthPx = Math.max(20, Math.floor(params.widthMm * PX_PER_MM))
+  const fontSizePx = Math.round(params.fontSizePt * 1.3333)
+  const lineHeightPx = Math.round(fontSizePx * (params.isUrdu ? 2.1 : 1.85))
+  const padTopPx = Math.ceil(fontSizePx * 0.22)
+  const padBottomPx = Math.ceil(fontSizePx * 0.3)
+  const totalHeightPx = lineHeightPx + padTopPx + padBottomPx
+
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.ceil(widthPx * scale)
+  canvas.height = Math.ceil(totalHeightPx * scale)
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+
+  const fontFamily = params.isUrdu
+    ? "'Noto Nastaliq Urdu', 'KFGQPC Uthman Taha Naskh', serif"
+    : "'KFGQPC Uthman Taha Naskh', 'Tajawal', 'Noto Sans Arabic', serif"
+
+  ctx.scale(scale, scale)
+  ctx.clearRect(0, 0, widthPx, totalHeightPx)
+  ctx.font = `700 ${fontSizePx}px ${fontFamily}`
+  ctx.fillStyle = params.colorHex
+  ctx.strokeStyle = params.colorHex
+  ctx.lineWidth = 0.3
+  ctx.textBaseline = 'top'
+  ctx.direction = 'rtl'
+  ctx.textAlign = 'right'
+  ctx.strokeText(params.text, widthPx - 1, padTopPx)
+  ctx.fillText(params.text, widthPx - 1, padTopPx)
+
+  return {
+    dataUrl: canvas.toDataURL('image/png'),
+    heightMm: totalHeightPx / PX_PER_MM,
   }
 }
 
@@ -780,11 +1113,13 @@ export function StudyNotePrintTemplate({
 }
 
 /**
- * Generates a 100% Vector ICS Academy Official Study Note PDF with:
+ * Generates an ICS Academy Official Study Note PDF with:
  * - Embedded ElMessiri-Bold.ttf for "ICS ACADEMY MANHAPPATTA" in headers & footers
- * - Embedded UthmanTN1-Regular.ttf & UthmanTN1-Bold.ttf for 100% true vector
- *   KFGQPC Uthman Taha Naskh Arabic & Eastern Arabic numerals (٠-٩)
- * - Embedded Poppins-Regular/SemiBold/Bold.ttf for English/Latin text
+ * - Embedded Poppins-Regular/SemiBold/Bold.ttf with TRUE inline **bold** support for English/Spanish/German
+ * - High-DPI (336 DPI) HarfBuzz/CoreText Rich-Text engine for Arabic (KFGQPC Uthman Taha Naskh),
+ *   Urdu (Noto Nastaliq Urdu), Malayalam (Noto Serif Malayalam), and mixed-script text with 100%
+ *   connected cursive Arabic letters, full Harakat, true inline **bold** & *italic*, Markdown tables,
+ *   and seamless unlimited multi-page pagination.
  */
 export async function exportStudyNoteDirectPdf({
   element,
@@ -801,19 +1136,26 @@ export async function exportStudyNoteDirectPdf({
 }): Promise<void> {
   void element
 
+  const assets = await loadVectorPdfAssets()
+
   if (
     typeof document !== 'undefined' &&
     document.fonts &&
     typeof document.fonts.ready !== 'undefined'
   ) {
     try {
-      await document.fonts.ready
+      await Promise.allSettled([
+        document.fonts.ready,
+        document.fonts.load('400 16px "KFGQPC Uthman Taha Naskh"'),
+        document.fonts.load('700 16px "KFGQPC Uthman Taha Naskh"'),
+        document.fonts.load('400 16px "Noto Serif Malayalam"'),
+        document.fonts.load('700 16px "Noto Serif Malayalam"'),
+      ])
     } catch {
       // Proceed even if web font promise rejects
     }
   }
 
-  const assets = await loadVectorPdfAssets()
   const pdf = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -830,11 +1172,6 @@ export async function exportStudyNoteDirectPdf({
 
   const setElMessiriFont = (sizePt: number) => {
     pdf.setFont('ElMessiri', 'bold')
-    pdf.setFontSize(sizePt)
-  }
-
-  const setUthmanFont = (weight: 'normal' | 'bold', sizePt: number) => {
-    pdf.setFont('UthmanTN1', weight)
     pdf.setFontSize(sizePt)
   }
 
@@ -905,7 +1242,7 @@ export async function exportStudyNoteDirectPdf({
     pdf.addImage(assets.logoDataUrl, 'PNG', imgX, imgY, drawW, drawH)
   }
 
-  // ==================== VECTOR PAGE 1 HEADER & STUDENT SUMMARY ====================
+  // ==================== PAGE 1 HEADER & STUDENT SUMMARY ====================
   drawOuterSheetCard()
 
   // 1. Official ICS Academy Dark Teal Header Banner (#081E21)
@@ -915,9 +1252,9 @@ export async function exportStudyNoteDirectPdf({
   // White Logo Badge (16x16mm square with exact 381:512 object-contain logo)
   drawLogoBadge(16.5, 16, 16, 2, 1.8)
 
-  // Header Brand Title in El Messiri Bold (matches app header/footer font)
+  // Header Brand Title in El Messiri Bold
   setElMessiriFont(8.4)
-  pdf.setTextColor(163, 230, 53) // #a3e635
+  pdf.setTextColor(163, 230, 53)
   pdf.text("ICS ACADEMY MANHAPPATTA  •  DA'WA COLLEGE", 35.5, 19.2)
 
   setFont('bold', 12.2)
@@ -1046,44 +1383,40 @@ export async function exportStudyNoteDirectPdf({
       })
 
       cursorY = qBoxTop + boxH + 6.5
-    } else if (promptHasAr && !promptHasMl) {
-      // 100% TRUE VECTOR KFGQPC Uthman Taha Naskh Question Box
-      const isUr = isUrduText(promptText)
-      const vectorLines = splitVectorArabicTextToLines(
-        pdf,
-        promptText,
-        innerWidthMm,
-        11.2,
-        'bold',
-        !isUr,
-      ).slice(0, 5)
-      const lineH = 5.8
-      const boxH = Math.max(13, vectorLines.length * lineH + 6.5)
-
-      pdf.setFillColor(240, 253, 244)
-      pdf.setDrawColor(187, 247, 208)
-      pdf.setLineWidth(0.25)
-      pdf.roundedRect(13, qBoxTop, 184, boxH, 2, 2, 'FD')
-
-      setUthmanFont('bold', 11.2)
-      pdf.setTextColor(6, 78, 59)
-      vectorLines.forEach((vLine, idx) => {
-        pdf.text(vLine, 193.5, qBoxTop + 6.2 + idx * lineH, { align: 'right' })
-      })
-
-      cursorY = qBoxTop + boxH + 6.5
     } else {
-      const renderedPrompt = renderMalayalamBlockToPng({
-        text: promptText,
+      const promptIsUr = isUrduText(promptText)
+      const promptIsAr = isArabicText(promptText) || (promptHasAr && !promptHasMl)
+      const layout = layoutRichCanvasLines({
+        rawText: promptText,
         widthMm: innerWidthMm,
-        fontSizePt: 9.5,
-        fontWeight: 'semibold',
-        colorHex: '#064e3b',
-        alignRight: isArabicText(promptText),
+        fontSizePt: promptIsAr && !promptHasMl ? 11.2 : 9.6,
+        baseWeight: 'bold',
+        isRtl: promptIsAr,
+        isArabic: promptHasAr,
+        isUrdu: promptIsUr,
+        hasMalayalam: promptHasMl,
       })
 
-      const imgH = renderedPrompt ? Math.min(renderedPrompt.heightMm, 32) : 10
-      const boxH = imgH + 6
+      const limitedSlice = layout ? layout.lines.slice(0, 5) : []
+      const renderedPrompt =
+        layout && limitedSlice.length > 0
+          ? renderRichCanvasSliceToPng({
+              slice: limitedSlice,
+              widthPx: layout.widthPx,
+              fontSizePx: layout.fontSizePx,
+              lineHeightPx: layout.lineHeightPx,
+              fontFamily: layout.fontFamily,
+              padX: layout.padX,
+              baseWeight: 'bold',
+              colorHex: '#064e3b',
+              boldColorHex: '#064e3b',
+              isRtl: promptIsAr,
+              emphasizeArabicBold: promptHasAr && !promptHasMl,
+            })
+          : null
+
+      const imgH = renderedPrompt ? Math.min(renderedPrompt.heightMm, 36) : 10
+      const boxH = Math.max(13, imgH + 5.5)
 
       pdf.setFillColor(240, 253, 244)
       pdf.setDrawColor(187, 247, 208)
@@ -1091,7 +1424,7 @@ export async function exportStudyNoteDirectPdf({
       pdf.roundedRect(13, qBoxTop, 184, boxH, 2, 2, 'FD')
 
       if (renderedPrompt) {
-        pdf.addImage(renderedPrompt.dataUrl, 'PNG', 16.5, qBoxTop + 3, innerWidthMm, imgH)
+        pdf.addImage(renderedPrompt.dataUrl, 'PNG', 16.5, qBoxTop + 2.8, innerWidthMm, imgH)
       }
 
       cursorY = qBoxTop + boxH + 6.5
@@ -1177,6 +1510,191 @@ export async function exportStudyNoteDirectPdf({
     }
   }
 
+  /**
+   * Draws pure Latin text (English/Spanish/German) in crisp vector Poppins with TRUE inline
+   * **bold** formatting and clean line-by-line pagination across unlimited pages.
+   */
+  const drawVectorRichLatinPaginated = (params: {
+    rawText: string
+    xMm: number
+    widthMm: number
+    fontSizePt: number
+    lineHeightMm: number
+    baseWeight: 'normal' | 'semibold' | 'bold'
+    normalColor: [number, number, number]
+    boldColor: [number, number, number]
+    onFirstLine?: (firstLineY: number) => void
+  }) => {
+    const runs = parseInlineMarkdownRuns(
+      params.rawText,
+      params.baseWeight === 'bold',
+      false,
+      false,
+    )
+    if (runs.length === 0) return
+
+    const tokens: Array<{ text: string; bold: boolean; isSpace: boolean }> = []
+    for (const run of runs) {
+      const safeStr = sanitizeVectorLatinFragment(run.text)
+      const pieces = safeStr.match(/(\s+|\S+)/g) || []
+      for (const piece of pieces) {
+        const isSpace = /^\s+$/.test(piece)
+        tokens.push({
+          text: isSpace ? ' ' : piece,
+          bold: run.bold,
+          isSpace,
+        })
+      }
+    }
+
+    const measureTokenWidth = (text: string, bold: boolean): number => {
+      const weight = bold ? 'bold' : params.baseWeight
+      setFont(weight, params.fontSizePt)
+      return pdf.getTextWidth(text)
+    }
+
+    const mergeLineTokens = (
+      lineToks: Array<{ text: string; bold: boolean; isSpace: boolean }>,
+    ): Array<{ text: string; bold: boolean }> => {
+      let start = 0
+      let end = lineToks.length
+      while (start < end && lineToks[start].isSpace) start++
+      while (end > start && lineToks[end - 1].isSpace) end--
+      const merged: Array<{ text: string; bold: boolean }> = []
+      for (let idx = start; idx < end; idx++) {
+        const t = lineToks[idx]
+        const prev = merged[merged.length - 1]
+        if (prev && prev.bold === t.bold) {
+          prev.text += t.text
+        } else {
+          merged.push({ text: t.text, bold: t.bold })
+        }
+      }
+      return merged
+    }
+
+    const wrapped: Array<Array<{ text: string; bold: boolean }>> = []
+    let curTokens: Array<{ text: string; bold: boolean; isSpace: boolean }> = []
+    let curWidth = 0
+
+    for (const tok of tokens) {
+      if (tok.isSpace && curTokens.length === 0) continue
+      const w = measureTokenWidth(tok.text, tok.bold)
+      if (curWidth + w > params.widthMm && curTokens.length > 0 && !tok.isSpace) {
+        const merged = mergeLineTokens(curTokens)
+        if (merged.length > 0) wrapped.push(merged)
+        curTokens = [tok]
+        curWidth = w
+      } else {
+        curTokens.push(tok)
+        curWidth += w
+      }
+    }
+    const lastMerged = mergeLineTokens(curTokens)
+    if (lastMerged.length > 0) wrapped.push(lastMerged)
+
+    wrapped.forEach((lineSegs, lineIdx) => {
+      ensureSpace(params.lineHeightMm + 0.5)
+      if (lineIdx === 0 && params.onFirstLine) {
+        params.onFirstLine(cursorY)
+      }
+      let drawX = params.xMm
+      const baselineY = cursorY + params.lineHeightMm * 0.78
+      for (const seg of lineSegs) {
+        const weight = seg.bold ? 'bold' : params.baseWeight
+        setFont(weight, params.fontSizePt)
+        const [r, g, b] = seg.bold ? params.boldColor : params.normalColor
+        pdf.setTextColor(r, g, b)
+        pdf.text(seg.text, drawX, baselineY)
+        drawX += pdf.getTextWidth(seg.text)
+      }
+      cursorY += params.lineHeightMm
+    })
+  }
+
+  /**
+   * Draws Arabic, Urdu, Malayalam, or mixed-script blocks using High-DPI HarfBuzz/CoreText
+   * canvas slices paginated seamlessly across unlimited pages — ZERO broken Arabic letters,
+   * ZERO overflowing margins, and TRUE inline **bold** & *italic*.
+   */
+  const drawRichCanvasPaginated = (params: {
+    rawText: string
+    xMm: number
+    widthMm: number
+    fontSizePt: number
+    baseWeight: 'normal' | 'semibold' | 'bold'
+    colorHex: string
+    boldColorHex: string
+    isRtl: boolean
+    isArabic: boolean
+    isUrdu: boolean
+    hasMalayalam: boolean
+    onFirstSlice?: (firstSliceY: number) => void
+  }) => {
+    const layout = layoutRichCanvasLines({
+      rawText: params.rawText,
+      widthMm: params.widthMm,
+      fontSizePt: params.fontSizePt,
+      baseWeight: params.baseWeight,
+      isRtl: params.isRtl,
+      isArabic: params.isArabic,
+      isUrdu: params.isUrdu,
+      hasMalayalam: params.hasMalayalam,
+    })
+    if (!layout) return
+
+    const lineHeightMm = layout.lineHeightPx / PX_PER_MM
+    const padMm = (Math.ceil(layout.fontSizePx * 0.22) + Math.ceil(layout.fontSizePx * 0.3)) / PX_PER_MM
+    let lineIdx = 0
+    let isFirst = true
+
+    while (lineIdx < layout.lines.length) {
+      let availableMm = PAGE_BOTTOM_LIMIT - cursorY
+      if (availableMm < lineHeightMm + padMm + 0.8) {
+        closeCurrentStudyCardAndStartNewPage()
+        availableMm = PAGE_BOTTOM_LIMIT - cursorY
+      }
+
+      const maxLinesFit = Math.max(1, Math.floor((availableMm - padMm) / lineHeightMm))
+      const slice = layout.lines.slice(lineIdx, lineIdx + maxLinesFit)
+
+      const rendered = renderRichCanvasSliceToPng({
+        slice,
+        widthPx: layout.widthPx,
+        fontSizePx: layout.fontSizePx,
+        lineHeightPx: layout.lineHeightPx,
+        fontFamily: layout.fontFamily,
+        padX: layout.padX,
+        baseWeight: params.baseWeight,
+        colorHex: params.colorHex,
+        boldColorHex: params.boldColorHex,
+        isRtl: params.isRtl,
+        emphasizeArabicBold: params.isArabic && !params.hasMalayalam,
+      })
+
+      if (rendered) {
+        if (isFirst && params.onFirstSlice) {
+          params.onFirstSlice(cursorY)
+        }
+        pdf.addImage(
+          rendered.dataUrl,
+          'PNG',
+          params.xMm,
+          cursorY,
+          params.widthMm,
+          rendered.heightMm,
+        )
+        cursorY += rendered.heightMm
+      }
+
+      isFirst = false
+      lineIdx += slice.length
+      if (lineIdx < layout.lines.length) {
+        closeCurrentStudyCardAndStartNewPage()
+      }
+    }
+  }
+
   const responseIsOverallArabic = isArabicText(safeNote.response || '')
   const responseIsOverallUrdu = isUrduText(safeNote.response || '')
   const rawLines = (safeNote.response || '').split('\n')
@@ -1191,7 +1709,7 @@ export async function exportStudyNoteDirectPdf({
     }
 
     // Horizontal Rule
-    if (/^---+$|^\*\*\*+$/.test(trimmed)) {
+    if (/^---+$|^\*\*\*+$|^___+$/.test(trimmed)) {
       ensureSpace(5)
       pdf.setDrawColor(226, 232, 240)
       pdf.setLineWidth(0.2)
@@ -1200,96 +1718,193 @@ export async function exportStudyNoteDirectPdf({
       continue
     }
 
+    // Markdown Table Block (| col1 | col2 | ...)
+    if (trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.includes('|')) {
+      const tableRows: string[][] = []
+      while (i < rawLines.length) {
+        const tLine = rawLines[i].trim()
+        if (!tLine.startsWith('|') || !tLine.endsWith('|')) {
+          i--
+          break
+        }
+        // Skip alignment separator rows (e.g. | --- | :---: |)
+        if (!/^\|[\s:|\-]+\|$/.test(tLine)) {
+          const cells = tLine
+            .slice(1, -1)
+            .split('|')
+            .map((c) => c.trim())
+          if (cells.length > 0) tableRows.push(cells)
+        }
+        i++
+      }
+
+      if (tableRows.length > 0) {
+        const colCount = Math.max(...tableRows.map((r) => r.length))
+        const colW = INNER_WIDTH_MM / Math.max(1, colCount)
+        const tableIsRtl =
+          responseIsOverallArabic ||
+          responseIsOverallUrdu ||
+          isArabicText(tableRows.map((r) => r.join(' ')).join(' '))
+
+        tableRows.forEach((row, rIdx) => {
+          const isHeaderRow = rIdx === 0
+          const orderedCells = tableIsRtl ? [...row].reverse() : row
+          const cellRenderData: Array<{
+            dataUrl?: string
+            latinLines?: string[]
+            heightMm: number
+            isRich: boolean
+          }> = []
+          let maxRowH = 7
+
+          for (let c = 0; c < colCount; c++) {
+            const cellRaw = orderedCells[c] ?? ''
+            const cellHasMl = hasMalayalamScript(cellRaw)
+            const cellHasAr = hasArabicOrUrduScript(cellRaw)
+            const cellInnerW = Math.max(12, colW - 3)
+
+            if (!cellHasMl && !cellHasAr) {
+              const cleanCell = sanitizeVectorLatinText(cellRaw)
+              setFont(isHeaderRow ? 'bold' : 'normal', 8)
+              const wrapped = pdf.splitTextToSize(cleanCell, cellInnerW) as string[]
+              const h = Math.max(6.5, wrapped.length * 4 + 2.5)
+              maxRowH = Math.max(maxRowH, h)
+              cellRenderData.push({ latinLines: wrapped, heightMm: h, isRich: false })
+            } else {
+              const cIsUr = responseIsOverallUrdu || isUrduLine(cellRaw)
+              const cIsAr = isArabicLine(cellRaw) || (cellHasAr && !cellHasMl)
+              const layout = layoutRichCanvasLines({
+                rawText: cellRaw,
+                widthMm: cellInnerW,
+                fontSizePt: cIsAr && !cellHasMl ? 10 : 8.5,
+                baseWeight: isHeaderRow ? 'bold' : 'normal',
+                isRtl: cIsAr,
+                isArabic: cellHasAr,
+                isUrdu: cIsUr,
+                hasMalayalam: cellHasMl,
+              })
+              const rendered = layout
+                ? renderRichCanvasSliceToPng({
+                    slice: layout.lines,
+                    widthPx: layout.widthPx,
+                    fontSizePx: layout.fontSizePx,
+                    lineHeightPx: layout.lineHeightPx,
+                    fontFamily: layout.fontFamily,
+                    padX: layout.padX,
+                    baseWeight: isHeaderRow ? 'bold' : 'normal',
+                    colorHex: isHeaderRow ? '#064e3b' : '#1e293b',
+                    boldColorHex: '#0f172a',
+                    isRtl: cIsAr,
+                    emphasizeArabicBold: cellHasAr && !cellHasMl,
+                  })
+                : null
+              const h = rendered ? rendered.heightMm + 2.4 : 6.5
+              maxRowH = Math.max(maxRowH, h)
+              cellRenderData.push({
+                dataUrl: rendered?.dataUrl,
+                heightMm: rendered?.heightMm ?? 5,
+                isRich: true,
+              })
+            }
+          }
+
+          ensureSpace(maxRowH + 1)
+          pdf.setFillColor(
+            isHeaderRow ? 236 : rIdx % 2 === 0 ? 255 : 248,
+            isHeaderRow ? 253 : rIdx % 2 === 0 ? 255 : 250,
+            isHeaderRow ? 245 : rIdx % 2 === 0 ? 255 : 252,
+          )
+          pdf.setDrawColor(226, 232, 240)
+          pdf.setLineWidth(0.2)
+          pdf.rect(INNER_LEFT_X, cursorY, INNER_WIDTH_MM, maxRowH, 'FD')
+
+          for (let c = 0; c < colCount; c++) {
+            const cellX = INNER_LEFT_X + c * colW
+            if (c > 0) {
+              pdf.line(cellX, cursorY, cellX, cursorY + maxRowH)
+            }
+            const cData = cellRenderData[c]
+            if (!cData) continue
+            if (cData.isRich && cData.dataUrl) {
+              pdf.addImage(
+                cData.dataUrl,
+                'PNG',
+                cellX + 1.5,
+                cursorY + 1.2,
+                Math.max(12, colW - 3),
+                cData.heightMm,
+              )
+            } else if (cData.latinLines) {
+              setFont(isHeaderRow ? 'bold' : 'normal', 8)
+              pdf.setTextColor(isHeaderRow ? 6 : 30, isHeaderRow ? 78 : 41, isHeaderRow ? 59 : 59)
+              cData.latinLines.forEach((ln, lnIdx) => {
+                pdf.text(ln, cellX + 1.5, cursorY + 4.3 + lnIdx * 4)
+              })
+            }
+          }
+          cursorY += maxRowH
+        })
+        cursorY += 2.5
+      }
+      continue
+    }
+
     // Markdown Heading (#, ##, ###, ####)
     const headingMatch = /^(#{1,4})\s+(.+)$/.exec(trimmed)
     if (headingMatch) {
       const level = headingMatch[1].length
       const content = headingMatch[2].trim()
-      const fontSizePt = level <= 2 ? 10.5 : 9.5
       const hasMl = hasMalayalamScript(content)
       const hasAr = hasArabicOrUrduScript(content)
 
       if (!hasMl && !hasAr) {
-        const cleanHeading = sanitizeVectorLatinText(content)
-        setFont('bold', fontSizePt)
-        const wrapped = pdf.splitTextToSize(cleanHeading, INNER_WIDTH_MM) as string[]
-        const lineH = level <= 2 ? 4.8 : 4.4
-        const blockH = wrapped.length * lineH + 3.5
-
-        ensureSpace(blockH)
-        cursorY += 1.5
-        setFont('bold', fontSizePt)
-        pdf.setTextColor(6, 78, 59)
-        wrapped.forEach((ln, idx) => {
-          pdf.text(ln, INNER_LEFT_X, cursorY + 3.5 + idx * lineH)
+        const fontSizePt = level <= 2 ? 10.5 : 9.5
+        const lineH = level <= 2 ? 4.9 : 4.5
+        ensureSpace(lineH * 2 + 4)
+        cursorY += 1.6
+        drawVectorRichLatinPaginated({
+          rawText: content,
+          xMm: INNER_LEFT_X,
+          widthMm: INNER_WIDTH_MM,
+          fontSizePt,
+          lineHeightMm: lineH,
+          baseWeight: 'bold',
+          normalColor: [6, 78, 59],
+          boldColor: [6, 78, 59],
         })
-        cursorY += wrapped.length * lineH + 1.5
-
+        cursorY += 1.2
         if (level <= 2) {
           pdf.setDrawColor(209, 250, 229)
           pdf.setLineWidth(0.25)
           pdf.line(INNER_LEFT_X, cursorY, INNER_RIGHT_X, cursorY)
-          cursorY += 2
-        }
-      } else if (hasAr && !hasMl) {
-        // 100% Vector KFGQPC Uthman Taha Naskh Heading
-        const isUr = responseIsOverallUrdu || isUrduLine(content)
-        const arPt = level <= 2 ? 12.2 : 11.2
-        const vectorLines = splitVectorArabicTextToLines(
-          pdf,
-          content,
-          INNER_WIDTH_MM,
-          arPt,
-          'bold',
-          !isUr,
-        )
-        const lineH = level <= 2 ? 6.2 : 5.6
-
-        cursorY += 1.5
-        setUthmanFont('bold', arPt)
-        pdf.setTextColor(6, 78, 59)
-        for (const vLine of vectorLines) {
-          ensureSpace(lineH + 1)
-          setUthmanFont('bold', arPt)
-          pdf.setTextColor(6, 78, 59)
-          pdf.text(vLine, INNER_RIGHT_X, cursorY + 4.5, { align: 'right' })
-          cursorY += lineH
-        }
-        cursorY += 1
-
-        if (level <= 2) {
-          pdf.setDrawColor(209, 250, 229)
-          pdf.setLineWidth(0.25)
-          pdf.line(INNER_LEFT_X, cursorY, INNER_RIGHT_X, cursorY)
-          cursorY += 2
+          cursorY += 2.2
         }
       } else {
-        const rendered = renderMalayalamBlockToPng({
-          text: content,
+        const isUr = responseIsOverallUrdu || isUrduLine(content)
+        const isAr = isArabicLine(content) || (hasAr && !hasMl)
+        const fontPt = isAr && !hasMl ? (level <= 2 ? 12.6 : 11.4) : level <= 2 ? 10.8 : 9.8
+
+        ensureSpace(12)
+        cursorY += 1.5
+        drawRichCanvasPaginated({
+          rawText: content,
+          xMm: INNER_LEFT_X,
           widthMm: INNER_WIDTH_MM,
-          fontSizePt: fontSizePt + 0.5,
-          fontWeight: 'bold',
+          fontSizePt: fontPt,
+          baseWeight: 'bold',
           colorHex: '#064e3b',
-          alignRight: isArabicLine(content),
+          boldColorHex: '#064e3b',
+          isRtl: isAr,
+          isArabic: hasAr,
+          isUrdu: isUr,
+          hasMalayalam: hasMl,
         })
-        if (rendered) {
-          ensureSpace(rendered.heightMm + 4)
-          cursorY += 1
-          pdf.addImage(
-            rendered.dataUrl,
-            'PNG',
-            INNER_LEFT_X,
-            cursorY,
-            INNER_WIDTH_MM,
-            rendered.heightMm,
-          )
-          cursorY += rendered.heightMm + 1.5
-          if (level <= 2) {
-            pdf.setDrawColor(209, 250, 229)
-            pdf.setLineWidth(0.25)
-            pdf.line(INNER_LEFT_X, cursorY, INNER_RIGHT_X, cursorY)
-            cursorY += 2
-          }
+        cursorY += 1.0
+        if (level <= 2) {
+          pdf.setDrawColor(209, 250, 229)
+          pdf.setLineWidth(0.25)
+          pdf.line(INNER_LEFT_X, cursorY, INNER_RIGHT_X, cursorY)
+          cursorY += 2.2
         }
       }
       continue
@@ -1300,168 +1915,156 @@ export async function exportStudyNoteDirectPdf({
     if (quoteMatch) {
       const content = quoteMatch[1].trim()
       const quoteInnerW = INNER_WIDTH_MM - 8
-      const isAr = isArabicLine(content)
+      const isAr = isArabicLine(content) || (hasArabicOrUrduScript(content) && !hasMalayalamScript(content))
       const hasMl = hasMalayalamScript(content)
       const hasAr = hasArabicOrUrduScript(content)
 
       if (!hasMl && !hasAr) {
         const cleanQuote = sanitizeVectorLatinText(content)
         setFont('normal', 8.6)
-        const wrapped = pdf.splitTextToSize(cleanQuote, quoteInnerW) as string[]
-        const lineH = 4.3
-        const boxH = wrapped.length * lineH + 4.5
-
-        ensureSpace(boxH + 2)
-        pdf.setFillColor(236, 253, 245)
-        pdf.roundedRect(INNER_LEFT_X, cursorY, INNER_WIDTH_MM, boxH, 1.5, 1.5, 'F')
-        pdf.setFillColor(5, 150, 105)
-        pdf.rect(INNER_LEFT_X, cursorY, 1.2, boxH, 'F')
-
-        setFont('normal', 8.6)
-        pdf.setTextColor(30, 41, 59)
-        wrapped.forEach((ln, idx) => {
-          pdf.text(ln, INNER_LEFT_X + 4.5, cursorY + 4.2 + idx * lineH)
-        })
-        cursorY += boxH + 2.2
-      } else if (hasAr && !hasMl) {
-        // 100% Vector KFGQPC Uthman Taha Naskh Blockquote
-        const isUr = responseIsOverallUrdu || isUrduLine(content)
-        const arPt = 11.2
-        const vectorLines = splitVectorArabicTextToLines(
-          pdf,
-          content,
-          quoteInnerW,
-          arPt,
-          'bold',
-          !isUr,
-        )
-        const lineH = 5.8
-        const boxH = vectorLines.length * lineH + 4.8
-
-        ensureSpace(boxH + 2)
-        pdf.setFillColor(236, 253, 245)
-        pdf.roundedRect(INNER_LEFT_X, cursorY, INNER_WIDTH_MM, boxH, 1.5, 1.5, 'F')
-        pdf.setFillColor(5, 150, 105)
-        pdf.rect(INNER_RIGHT_X - 1.2, cursorY, 1.2, boxH, 'F')
-
-        setUthmanFont('bold', arPt)
-        pdf.setTextColor(6, 78, 59)
-        vectorLines.forEach((vLine, idx) => {
-          pdf.text(vLine, INNER_RIGHT_X - 4, cursorY + 5.2 + idx * lineH, { align: 'right' })
-        })
-        cursorY += boxH + 2.2
-      } else {
-        const rendered = renderMalayalamBlockToPng({
-          text: content,
+        const estLines = (pdf.splitTextToSize(cleanQuote, quoteInnerW) as string[]).length
+        const lineH = 4.4
+        const estH = estLines * lineH + 4.5
+        ensureSpace(Math.min(estH + 2, 40))
+        const boxStartY = cursorY
+        cursorY += 2.2
+        drawVectorRichLatinPaginated({
+          rawText: content,
+          xMm: INNER_LEFT_X + 4.5,
           widthMm: quoteInnerW,
-          fontSizePt: 9.2,
-          fontWeight: 'semibold',
-          colorHex: '#064e3b',
-          alignRight: isAr,
+          fontSizePt: 8.6,
+          lineHeightMm: lineH,
+          baseWeight: 'normal',
+          normalColor: [30, 41, 59],
+          boldColor: [6, 78, 59],
         })
-        if (rendered) {
-          const boxH = rendered.heightMm + 4
-          ensureSpace(boxH + 2)
-          pdf.setFillColor(236, 253, 245)
-          pdf.roundedRect(INNER_LEFT_X, cursorY, INNER_WIDTH_MM, boxH, 1.5, 1.5, 'F')
-          pdf.setFillColor(5, 150, 105)
-          pdf.rect(isAr ? INNER_RIGHT_X - 1.2 : INNER_LEFT_X, cursorY, 1.2, boxH, 'F')
-          pdf.addImage(
-            rendered.dataUrl,
-            'PNG',
-            INNER_LEFT_X + 4,
-            cursorY + 2,
-            quoteInnerW,
-            rendered.heightMm,
-          )
-          cursorY += boxH + 2.2
+        const boxH = Math.max(8, cursorY - boxStartY + 2)
+        // Draw subtle left accent bar cleanly without obscuring text
+        pdf.setFillColor(5, 150, 105)
+        pdf.rect(INNER_LEFT_X, boxStartY, 1.2, boxH, 'F')
+        pdf.setDrawColor(167, 243, 208)
+        pdf.setLineWidth(0.2)
+        pdf.roundedRect(INNER_LEFT_X, boxStartY, INNER_WIDTH_MM, boxH, 1.5, 1.5, 'S')
+        cursorY = boxStartY + boxH + 2.2
+      } else {
+        const isUr = responseIsOverallUrdu || isUrduLine(content)
+        const fontPt = isAr && !hasMl ? 11.4 : 9.4
+        const layout = layoutRichCanvasLines({
+          rawText: content,
+          widthMm: quoteInnerW,
+          fontSizePt: fontPt,
+          baseWeight: 'semibold',
+          isRtl: isAr,
+          isArabic: hasAr,
+          isUrdu: isUr,
+          hasMalayalam: hasMl,
+        })
+        if (layout) {
+          const lineHeightMm = layout.lineHeightPx / PX_PER_MM
+          const padMm =
+            (Math.ceil(layout.fontSizePx * 0.22) + Math.ceil(layout.fontSizePx * 0.3)) / PX_PER_MM
+          let idxLine = 0
+          while (idxLine < layout.lines.length) {
+            let avail = PAGE_BOTTOM_LIMIT - cursorY - 4
+            if (avail < lineHeightMm + padMm + 2) {
+              closeCurrentStudyCardAndStartNewPage()
+              avail = PAGE_BOTTOM_LIMIT - cursorY - 4
+            }
+            const fitCount = Math.max(1, Math.floor((avail - padMm) / lineHeightMm))
+            const slice = layout.lines.slice(idxLine, idxLine + fitCount)
+            const rendered = renderRichCanvasSliceToPng({
+              slice,
+              widthPx: layout.widthPx,
+              fontSizePx: layout.fontSizePx,
+              lineHeightPx: layout.lineHeightPx,
+              fontFamily: layout.fontFamily,
+              padX: layout.padX,
+              baseWeight: 'semibold',
+              colorHex: '#064e3b',
+              boldColorHex: '#064e3b',
+              isRtl: isAr,
+              emphasizeArabicBold: hasAr && !hasMl,
+            })
+            if (rendered) {
+              const boxH = rendered.heightMm + 3.8
+              pdf.setFillColor(236, 253, 245)
+              pdf.roundedRect(INNER_LEFT_X, cursorY, INNER_WIDTH_MM, boxH, 1.5, 1.5, 'F')
+              pdf.setFillColor(5, 150, 105)
+              pdf.rect(isAr ? INNER_RIGHT_X - 1.2 : INNER_LEFT_X, cursorY, 1.2, boxH, 'F')
+              pdf.addImage(
+                rendered.dataUrl,
+                'PNG',
+                INNER_LEFT_X + 4,
+                cursorY + 1.9,
+                quoteInnerW,
+                rendered.heightMm,
+              )
+              cursorY += boxH + 2.2
+            }
+            idxLine += slice.length
+            if (idxLine < layout.lines.length) {
+              closeCurrentStudyCardAndStartNewPage()
+            }
+          }
         }
       }
       continue
     }
 
-    // Bullet List Item (*, -, •)
+    // Bullet List Item (*, -, •) including nested sub-bullets
     const bulletMatch = /^(\s*)([*\-•])\s+(.+)$/.exec(line)
     if (bulletMatch) {
+      const leadingSpaces = bulletMatch[1].length
+      const nestOffsetMm = Math.min(8, Math.floor(leadingSpaces / 2) * 3.5)
       const content = bulletMatch[3].trim()
-      const isAr = isArabicLine(content)
       const hasMl = hasMalayalamScript(content)
       const hasAr = hasArabicOrUrduScript(content)
-      const bulletIndentMm = 5
+      const isAr = isArabicLine(content) || (hasAr && !hasMl)
+      const bulletIndentMm = 5 + nestOffsetMm
       const bulletTextWidthMm = INNER_WIDTH_MM - bulletIndentMm
 
       if (!hasMl && !hasAr) {
-        const cleanItem = sanitizeVectorLatinText(content)
-        const boldPrefixMatch = /^\*\*([^*]+)\*\*:?\s*(.*)$/.exec(content)
-        setFont('normal', 8.8)
-        const wrapped = pdf.splitTextToSize(cleanItem, bulletTextWidthMm) as string[]
-        const lineH = 4.4
-        const blockH = wrapped.length * lineH + 1.2
-
-        ensureSpace(blockH)
-        pdf.setFillColor(4, 120, 87)
-        pdf.circle(INNER_LEFT_X + 1.5, cursorY + 2.5, 0.75, 'F')
-
-        setFont(boldPrefixMatch && wrapped.length === 1 ? 'semibold' : 'normal', 8.8)
-        pdf.setTextColor(30, 41, 59)
-        wrapped.forEach((ln, idx) => {
-          pdf.text(ln, INNER_LEFT_X + bulletIndentMm, cursorY + 3.6 + idx * lineH)
-        })
-        cursorY += blockH
-      } else if (hasAr && !hasMl) {
-        // 100% Vector KFGQPC Uthman Taha Naskh Bullet Item
-        const isUr = responseIsOverallUrdu || isUrduLine(content)
-        const arPt = 11.2
-        const vectorLines = splitVectorArabicTextToLines(
-          pdf,
-          content,
-          bulletTextWidthMm,
-          arPt,
-          'normal',
-          !isUr,
-        )
-        const lineH = 5.8
-
-        ensureSpace(lineH + 1.5)
-        pdf.setFillColor(4, 120, 87)
-        pdf.circle(INNER_RIGHT_X - 1.5, cursorY + 3.2, 0.75, 'F')
-
-        for (const vLine of vectorLines) {
-          ensureSpace(lineH + 0.5)
-          setUthmanFont('normal', arPt)
-          pdf.setTextColor(30, 41, 59)
-          pdf.text(vLine, INNER_RIGHT_X - bulletIndentMm, cursorY + 4.4, { align: 'right' })
-          cursorY += lineH
-        }
-        cursorY += 0.8
-      } else {
-        const rendered = renderMalayalamBlockToPng({
-          text: content,
+        drawVectorRichLatinPaginated({
+          rawText: content,
+          xMm: INNER_LEFT_X + bulletIndentMm,
           widthMm: bulletTextWidthMm,
-          fontSizePt: 9.2,
-          fontWeight: 'normal',
-          colorHex: '#1e293b',
-          alignRight: isAr,
+          fontSizePt: 8.8,
+          lineHeightMm: 4.5,
+          baseWeight: 'normal',
+          normalColor: [30, 41, 59],
+          boldColor: [15, 23, 42],
+          onFirstLine: (firstY) => {
+            pdf.setFillColor(4, 120, 87)
+            pdf.circle(INNER_LEFT_X + nestOffsetMm + 1.6, firstY + 2.5, 0.75, 'F')
+          },
         })
-        if (rendered) {
-          ensureSpace(rendered.heightMm + 1.5)
-          pdf.setFillColor(4, 120, 87)
-          pdf.circle(
-            isAr ? INNER_RIGHT_X - 1.5 : INNER_LEFT_X + 1.5,
-            cursorY + 3.2,
-            0.75,
-            'F',
-          )
-          pdf.addImage(
-            rendered.dataUrl,
-            'PNG',
-            isAr ? INNER_LEFT_X : INNER_LEFT_X + bulletIndentMm,
-            cursorY,
-            bulletTextWidthMm,
-            rendered.heightMm,
-          )
-          cursorY += rendered.heightMm + 1.2
-        }
+        cursorY += 1.0
+      } else {
+        const isUr = responseIsOverallUrdu || isUrduLine(content)
+        const fontPt = isAr && !hasMl ? 11.2 : 9.3
+        drawRichCanvasPaginated({
+          rawText: content,
+          xMm: isAr ? INNER_LEFT_X : INNER_LEFT_X + bulletIndentMm,
+          widthMm: bulletTextWidthMm,
+          fontSizePt: fontPt,
+          baseWeight: 'normal',
+          colorHex: '#1e293b',
+          boldColorHex: '#0f172a',
+          isRtl: isAr,
+          isArabic: hasAr,
+          isUrdu: isUr,
+          hasMalayalam: hasMl,
+          onFirstSlice: (firstY) => {
+            pdf.setFillColor(4, 120, 87)
+            pdf.circle(
+              isAr ? INNER_RIGHT_X - nestOffsetMm - 1.6 : INNER_LEFT_X + nestOffsetMm + 1.6,
+              firstY + (isAr && !hasMl ? 3.8 : 3.2),
+              0.75,
+              'F',
+            )
+          },
+        })
+        cursorY += 1.0
       }
       continue
     }
@@ -1469,164 +2072,118 @@ export async function exportStudyNoteDirectPdf({
     // Numbered List Item (1., 2., ١., ٢., etc.)
     const numberedMatch = /^(\s*)([0-9\u0660-\u0669\u06F0-\u06F9]+[.)])\s+(.+)$/.exec(line)
     if (numberedMatch) {
+      const leadingSpaces = numberedMatch[1].length
+      const nestOffsetMm = Math.min(8, Math.floor(leadingSpaces / 2) * 3.5)
       const rawNumLabel = numberedMatch[2]
       const content = numberedMatch[3].trim()
-      const isAr = isArabicLine(content) || responseIsOverallArabic
-      const isUr = isAr && (responseIsOverallUrdu || isUrduLine(content))
       const hasMl = hasMalayalamScript(content)
       const hasAr = hasArabicOrUrduScript(content)
-      const numIndentMm = 7.5
+      const isAr = isArabicLine(content) || (hasAr && !hasMl) || (responseIsOverallArabic && !hasMl)
+      const isUr = isAr && (responseIsOverallUrdu || isUrduLine(content))
+      const numIndentMm = 8.5 + nestOffsetMm
       const numTextWidthMm = INNER_WIDTH_MM - numIndentMm
 
       if (!hasMl && !hasAr) {
-        const cleanItem = sanitizeVectorLatinText(content)
-        setFont('normal', 8.8)
-        const wrapped = pdf.splitTextToSize(cleanItem, numTextWidthMm) as string[]
-        const lineH = 4.4
-        const blockH = wrapped.length * lineH + 1.4
-
-        ensureSpace(blockH)
-        setFont('bold', 8.8)
-        pdf.setTextColor(4, 120, 87)
-        pdf.text(rawNumLabel, INNER_LEFT_X, cursorY + 3.6)
-
-        setFont('normal', 8.8)
-        pdf.setTextColor(30, 41, 59)
-        wrapped.forEach((ln, idx) => {
-          pdf.text(ln, INNER_LEFT_X + numIndentMm, cursorY + 3.6 + idx * lineH)
-        })
-        cursorY += blockH
-      } else if (hasAr && !hasMl) {
-        // 100% Vector KFGQPC Uthman Taha Naskh Numbered List Item with Eastern Arabic Numerals (١., ٢., ٣.)
-        const arPt = 11.2
-        const vectorLines = splitVectorArabicTextToLines(
-          pdf,
-          content,
-          numTextWidthMm,
-          arPt,
-          'normal',
-          !isUr,
-        )
-        const lineH = 5.8
-
-        ensureSpace(lineH + 1.5)
-        // Format number in Arabic numerals (e.g. "1." -> ".١" in visual RTL so the dot is to the left of the Arabic numeral)
-        const digitsOnly = rawNumLabel.replace(/[^0-9\u0660-\u0669\u06F0-\u06F9]/g, '')
-        const arabicDigits = isUr ? digitsOnly : toArabicNumerals(digitsOnly)
-        const visualNumLabel = `.${arabicDigits}`
-
-        setUthmanFont('bold', 11.5)
-        pdf.setTextColor(4, 120, 87)
-        pdf.text(visualNumLabel, INNER_RIGHT_X, cursorY + 4.4, { align: 'right' })
-
-        for (const vLine of vectorLines) {
-          ensureSpace(lineH + 0.5)
-          setUthmanFont('normal', arPt)
-          pdf.setTextColor(30, 41, 59)
-          pdf.text(vLine, INNER_RIGHT_X - numIndentMm, cursorY + 4.4, { align: 'right' })
-          cursorY += lineH
-        }
-        cursorY += 1.0
-      } else {
-        const rendered = renderMalayalamBlockToPng({
-          text: content,
+        drawVectorRichLatinPaginated({
+          rawText: content,
+          xMm: INNER_LEFT_X + numIndentMm,
           widthMm: numTextWidthMm,
-          fontSizePt: 9.2,
-          fontWeight: 'normal',
-          colorHex: '#1e293b',
-          alignRight: isAr,
+          fontSizePt: 8.8,
+          lineHeightMm: 4.5,
+          baseWeight: 'normal',
+          normalColor: [30, 41, 59],
+          boldColor: [15, 23, 42],
+          onFirstLine: (firstY) => {
+            setFont('bold', 8.8)
+            pdf.setTextColor(4, 120, 87)
+            pdf.text(rawNumLabel, INNER_LEFT_X + nestOffsetMm, firstY + 3.5)
+          },
         })
-        if (rendered) {
-          ensureSpace(rendered.heightMm + 1.5)
-          setFont('bold', 8.8)
-          pdf.setTextColor(4, 120, 87)
-          pdf.text(
-            rawNumLabel,
-            isAr ? INNER_RIGHT_X : INNER_LEFT_X,
-            cursorY + 4.2,
-            isAr ? { align: 'right' } : undefined,
-          )
-          pdf.addImage(
-            rendered.dataUrl,
-            'PNG',
-            isAr ? INNER_LEFT_X : INNER_LEFT_X + numIndentMm,
-            cursorY,
-            numTextWidthMm,
-            rendered.heightMm,
-          )
-          cursorY += rendered.heightMm + 1.4
-        }
+        cursorY += 1.2
+      } else {
+        const fontPt = isAr && !hasMl ? 11.2 : 9.3
+        const digitsOnly = rawNumLabel.replace(/[^0-9\u0660-\u0669\u06F0-\u06F9]/g, '')
+        const formattedMarker =
+          isAr && !hasMl && !isUr ? `${toArabicNumerals(digitsOnly)}.` : rawNumLabel
+        const rtlMarkerPng =
+          isAr
+            ? renderRtlMarkerToPng({
+                text: formattedMarker,
+                widthMm: 8,
+                fontSizePt: fontPt,
+                colorHex: '#047857',
+                isUrdu: isUr,
+              })
+            : null
+
+        drawRichCanvasPaginated({
+          rawText: content,
+          xMm: isAr ? INNER_LEFT_X : INNER_LEFT_X + numIndentMm,
+          widthMm: numTextWidthMm,
+          fontSizePt: fontPt,
+          baseWeight: 'normal',
+          colorHex: '#1e293b',
+          boldColorHex: '#0f172a',
+          isRtl: isAr,
+          isArabic: hasAr,
+          isUrdu: isUr,
+          hasMalayalam: hasMl,
+          onFirstSlice: (firstY) => {
+            if (isAr && rtlMarkerPng) {
+              pdf.addImage(
+                rtlMarkerPng.dataUrl,
+                'PNG',
+                INNER_RIGHT_X - nestOffsetMm - 8,
+                firstY,
+                8,
+                rtlMarkerPng.heightMm,
+              )
+            } else {
+              setFont('bold', 8.8)
+              pdf.setTextColor(4, 120, 87)
+              pdf.text(rawNumLabel, INNER_LEFT_X + nestOffsetMm, firstY + 4.0)
+            }
+          },
+        })
+        cursorY += 1.2
       }
       continue
     }
 
     // Standard Paragraph
-    const isAr = isArabicLine(trimmed)
     const hasMl = hasMalayalamScript(trimmed)
     const hasAr = hasArabicOrUrduScript(trimmed)
+    const isAr = isArabicLine(trimmed) || (hasAr && !hasMl)
 
     if (!hasMl && !hasAr) {
-      const cleanPara = sanitizeVectorLatinText(trimmed)
-      const isFullyBold = /^\*\*[^*]+\*\*$/.test(trimmed)
-      setFont(isFullyBold ? 'semibold' : 'normal', 8.8)
-      const wrapped = pdf.splitTextToSize(cleanPara, INNER_WIDTH_MM) as string[]
-      const lineH = 4.4
-      const blockH = wrapped.length * lineH + 1.5
-
-      ensureSpace(blockH)
-      setFont(isFullyBold ? 'semibold' : 'normal', 8.8)
-      pdf.setTextColor(30, 41, 59)
-      wrapped.forEach((ln, idx) => {
-        pdf.text(ln, INNER_LEFT_X, cursorY + 3.6 + idx * lineH)
-      })
-      cursorY += blockH
-    } else if (hasAr && !hasMl) {
-      // 100% Vector KFGQPC Uthman Taha Naskh Paragraph
-      const isUr = responseIsOverallUrdu || isUrduLine(trimmed)
-      const isFullyBold = /^\*\*[^*]+\*\*$/.test(trimmed)
-      const arPt = 11.2
-      const arWeight: 'normal' | 'bold' = isFullyBold ? 'bold' : 'normal'
-      const vectorLines = splitVectorArabicTextToLines(
-        pdf,
-        trimmed,
-        INNER_WIDTH_MM,
-        arPt,
-        arWeight,
-        !isUr,
-      )
-      const lineH = 5.8
-
-      for (const vLine of vectorLines) {
-        ensureSpace(lineH + 0.5)
-        setUthmanFont(arWeight, arPt)
-        pdf.setTextColor(30, 41, 59)
-        pdf.text(vLine, INNER_RIGHT_X, cursorY + 4.4, { align: 'right' })
-        cursorY += lineH
-      }
-      cursorY += 1.0
-    } else {
-      const rendered = renderMalayalamBlockToPng({
-        text: trimmed,
+      drawVectorRichLatinPaginated({
+        rawText: trimmed,
+        xMm: INNER_LEFT_X,
         widthMm: INNER_WIDTH_MM,
-        fontSizePt: 9.4,
-        fontWeight: 'normal',
-        colorHex: '#1e293b',
-        alignRight: isAr,
+        fontSizePt: 8.8,
+        lineHeightMm: 4.5,
+        baseWeight: 'normal',
+        normalColor: [30, 41, 59],
+        boldColor: [15, 23, 42],
       })
-      if (rendered) {
-        const maxSingleBlockMm = PAGE_BOTTOM_LIMIT - 48
-        const drawH = Math.min(rendered.heightMm, maxSingleBlockMm)
-        ensureSpace(drawH + 1.5)
-        pdf.addImage(
-          rendered.dataUrl,
-          'PNG',
-          INNER_LEFT_X,
-          cursorY,
-          INNER_WIDTH_MM,
-          drawH,
-        )
-        cursorY += drawH + 1.5
-      }
+      cursorY += 1.4
+    } else {
+      const isUr = responseIsOverallUrdu || isUrduLine(trimmed)
+      const fontPt = isAr && !hasMl ? 11.2 : 9.4
+      drawRichCanvasPaginated({
+        rawText: trimmed,
+        xMm: INNER_LEFT_X,
+        widthMm: INNER_WIDTH_MM,
+        fontSizePt: fontPt,
+        baseWeight: 'normal',
+        colorHex: '#1e293b',
+        boldColorHex: '#0f172a',
+        isRtl: isAr,
+        isArabic: hasAr,
+        isUrdu: isUr,
+        hasMalayalam: hasMl,
+      })
+      cursorY += 1.4
     }
   }
 

@@ -1853,7 +1853,7 @@ export function GeminiChatbot({
       }))
 
       const data = await fetchAiChatReply({
-        message: textToSend.slice(0, 2000),
+        message: textToSend.slice(0, 4000),
         history: previousHistory,
         role,
         language: effectiveLanguage,
@@ -2509,9 +2509,10 @@ export function GeminiChatbot({
       }
     }
 
-    const cleanPrompt = promptText.trim().slice(0, 2000)
-    const cleanResponse = modelMsg.text.trim().slice(0, 15000)
-    if (!cleanPrompt || !cleanResponse) return
+    const cleanPrompt = promptText.trim().slice(0, 3000)
+    const fullResponse = modelMsg.text.trim().slice(0, 120000)
+    const firestoreResponse = fullResponse.slice(0, 50000)
+    if (!cleanPrompt || !fullResponse) return
 
     const defaultDocTitle = `ICS Academy Study Note — ${cleanPrompt.slice(0, 48)}`
     setDocTitleInput(defaultDocTitle)
@@ -2519,7 +2520,7 @@ export function GeminiChatbot({
     setActiveExportNote({
       msgId: modelMsg.id,
       prompt: cleanPrompt,
-      response: cleanResponse,
+      response: fullResponse,
       personaTitle: currentPersona.title,
     })
 
@@ -2544,7 +2545,7 @@ export function GeminiChatbot({
         mode: mappedMode,
         language,
         prompt: cleanPrompt,
-        response: cleanResponse,
+        response: firestoreResponse,
         createdAt: serverTimestamp(),
       })
     } catch (error) {

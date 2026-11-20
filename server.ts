@@ -208,11 +208,60 @@ function getSalamTurnDirective(isFirstTurn: boolean, userSaidSalam: boolean): st
   return `SALAM RULE: The student did NOT say Salam in this follow-up message. Do NOT say "وَعَلَيْكُمُ السَّلَامُ" or repeat "السَّلَامُ عَلَيْكُمْ" — answer the student's follow-up question directly.`
 }
 
+interface LongFormRequestInfo {
+  isLongForm: boolean
+  requestedPages: number | null
+}
+
+function detectLongFormRequest(text: string): LongFormRequestInfo {
+  if (!text) return { isLongForm: false, requestedPages: null }
+  const normalized = text
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+
+  // Match explicit page counts across English, Malayalam, Arabic, Urdu, Spanish, German
+  const pageNumMatch =
+    /(\d{1,2})\s*(?:pages?|pgs?|പേജ്|പേജുകൾ|പേജുള്ള|പേജിന്റെ|പേജിൽ|صفحة|صفحات|صفحے|صفحات|páginas?|seiten?)/i.exec(
+      normalized,
+    ) ||
+    /(?:pages?|പേജ്|പേജുകൾ|صفحة|صفحات)\s*[:\-]?\s*(\d{1,2})/i.exec(normalized)
+
+  if (pageNumMatch) {
+    const num = Number(pageNumMatch[1])
+    if (Number.isFinite(num) && num >= 2) {
+      return { isLongForm: true, requestedPages: Math.min(num, 30) }
+    }
+  }
+
+  // Match qualitative multi-page / expansive / detailed study document requests
+  const expansiveRegex =
+    /(?:ഒരുപാട്\s*പേജ്|ധാരാളം\s*പേജ്|കൂടുതൽ\s*പേജ്|പല\s*പേജ്|വിശാലമായി|വിശാലമായ|വിശദമായി|വിശദമായ|ദീർഘമായി|ദീർഘമായ|സമ്പൂർണ്ണ|മുഴുവനായി|പ്രബന്ധം|ഉപന്യാസം|റിസർച്ച്|വലിയ\s*നോട്ട്|many\s+pages|multiple\s+pages|several\s+pages|long\s+(?:essay|note|notes|article|paper|speech|explanation)|in\s+full\s+detail|in\s+depth|in-depth|comprehensive|exhaustive|extensive|full\s+study\s+notes?|research\s+paper|complete\s+guide|elaborate\s+thoroughly|صفحات\s*كثيرة|عدة\s*صفحات|مفصل|موسع|شامل|مطول|بحث\s*(?:كامل|مفصل|طويل)|مقال\s*طويل|کئی\s*صفحات|تفصیل\s*سے|مفصل|مکمل\s*مضمون|en\s+detalle|extenso|ausführlich|umfangreich)/i
+
+  if (expansiveRegex.test(normalized)) {
+    return { isLongForm: true, requestedPages: null }
+  }
+
+  return { isLongForm: false, requestedPages: null }
+}
+
+function buildLongFormTurnDirective(info: LongFormRequestInfo): string {
+  if (!info.isLongForm) return ''
+  const targetDesc = info.requestedPages
+    ? `The student specifically asked for approximately ${info.requestedPages} pages (~${Math.min(
+        info.requestedPages * 550,
+        9000,
+      )}+ rich scholarly words across multiple well-developed sections).`
+    : 'The student asked for an extensive, multi-page, deeply comprehensive scholarly study document (aim for 2,000–4,500+ rich words spanning multiple A4 pages).'
+
+  return ` MULTI-PAGE COMPREHENSIVE DEPTH MODE (CRITICAL): ${targetDesc} DO NOT summarize, DO NOT abbreviate, and DO NOT cut short! Write an exhaustive, publication-grade scholarly document structured with clear Markdown headings (## and ###), rich multi-paragraph prose in every section, bold key terms (**...**), authentic Quranic/Hadith/Kitab Arabic quotations in blockquotes (> ...), detailed linguistic/Fiqh/historical/academic analysis, juristic or scholarly comparisons, structured numbered/bulleted breakdowns, practical examples, and a conclusion with review questions so that when exported to PDF/DOCX it forms a genuinely multi-page reference note.`
+}
+
 function getTurnLanguageEnforcement(
   language: OutputLanguage,
   isFirstTurn = true,
   userSaidSalam = false,
   isExplicitLanguage = false,
+  longFormInfo: LongFormRequestInfo = { isLongForm: false, requestedPages: null },
 ): string {
   const salamRule = getSalamTurnDirective(isFirstTurn, userSaidSalam)
   const modePrefix = isExplicitLanguage
@@ -222,20 +271,22 @@ function getTurnLanguageEnforcement(
   const followUpRule =
     'FOLLOW-UP & CONVERSATION RULE: Answer the exact message the student sent! If the student says "ഹായ്" / "Hi" / "Hello" / "Salam", greet them warmly and briefly in 2-3 sentences and ask what topic or Kitab they want to study. If your previous message ended with a follow-up question or quiz question and the student is now answering that question, DO NOT treat their answer as a new question — evaluate their answer directly (e.g., "മാശാ അല്ലാഹ്! താങ്കളുടെ ഉത്തരം വളരെ കൃത്യമാണ്..." / "Masha\'Allah, your answer is correct!"), explain why, and continue naturally.'
 
+  const longFormRule = buildLongFormTurnDirective(longFormInfo)
+
   switch (language) {
     case 'ur':
-      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule} Write your explanation in URDU (اردو) language. Refer to the institution in Urdu as "آئی سی ایس اکیڈمی" (ICS Academy). Keep quoted Quranic Ayahs, Hadith, Islamic greetings (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), and Kitab Ibarats in Arabic script, and explain everything else in Urdu (اردو).]`
+      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule}${longFormRule} Write your explanation in URDU (اردو) language. Refer to the institution in Urdu as "آئی سی ایس اکیڈمی" (ICS Academy). Keep quoted Quranic Ayahs, Hadith, Islamic greetings (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), and Kitab Ibarats in Arabic script, and explain everything else in Urdu (اردو).]`
     case 'ml':
-      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule} Write your explanation, translation, salutation, headings, and follow-up questions in natural, scholarly MALAYALAM (മലയാളം) script! RESPECTFUL ADDRESS RULE FOR MUTA'ALLIMS: Always address the student respectfully as "താങ്കൾ" (Thankal), "താങ്കളുടെ" (your), "താങ്കൾക്ക്" (to you), "താങ്കളോട്" (with you) — NEVER use "നീ", "നിന്റെ", "നിനക്ക്", "നിന്നോട്", "നിന്നെ", or "നിങ്ങൾ"! Keep Islamic greetings (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), quoted Quran/Hadith/Kitab Ibarats, and Arabic Fiqh/Nahw terms inside brackets in Arabic script. Refer to the institution in Malayalam as "ഐ.സി.എസ് അക്കാദമി".]`
+      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule}${longFormRule} Write your explanation, translation, salutation, headings, and follow-up questions in natural, scholarly MALAYALAM (മലയാളം) script! RESPECTFUL ADDRESS RULE FOR MUTA'ALLIMS: Always address the student respectfully as "താങ്കൾ" (Thankal), "താങ്കളുടെ" (your), "താങ്കൾക്ക്" (to you), "താങ്കളോട്" (with you) — NEVER use "നീ", "നിന്റെ", "നിനക്ക്", "നിന്നോട്", "നിന്നെ", or "നിങ്ങൾ"! Keep Islamic greetings (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ), quoted Quran/Hadith/Kitab Ibarats, and Arabic Fiqh/Nahw terms inside brackets in Arabic script. Refer to the institution in Malayalam as "ഐ.സി.എസ് അക്കാദമി".]`
     case 'ar':
-      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule} Respond in clear Classical/Modern Standard Arabic (العربية الفصحى). Refer to the institution as "أكاديمية ICS".]`
+      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule}${longFormRule} Respond in clear Classical/Modern Standard Arabic (العربية الفصحى). Refer to the institution as "أكاديمية ICS".]`
     case 'es':
-      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule} Respond in Spanish (Español). Refer to the institution as "ICS Academy".]`
+      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule}${longFormRule} Respond in Spanish (Español). Refer to the institution as "ICS Academy".]`
     case 'de':
-      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule} Respond in German (Deutsch). Refer to the institution as "ICS Academy".]`
+      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule}${longFormRule} Respond in German (Deutsch). Refer to the institution as "ICS Academy".]`
     case 'en':
     default:
-      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule} Respond in clear academic English (and if the student explicitly asked to translate into Malayalam or another language, include that requested translation clearly!). Present key Arabic terms with their vocalized Arabic script inside brackets (...) beside the English term. Always write the Salam itself in Arabic script (السَّلَامُ عَلَيْكُمْ or وَعَلَيْكُمُ السَّلَامُ) on its own line.]`
+      return `\n\n[LANGUAGE & CONVERSATION INSTRUCTION — ${modePrefix}${salamRule} ${followUpRule}${longFormRule} Respond in clear academic English (and if the student explicitly asked to translate into Malayalam or another language, include that requested translation clearly!). Present key Arabic terms with their vocalized Arabic script inside brackets (...) beside the English term. Always write the Salam itself in Arabic script (السَّلَامُ عَلَيْكُمْ or وَعَلَيْكُمُ السَّلَامُ) on its own line.]`
   }
 }
 
@@ -371,7 +422,8 @@ Language Instruction:
 
 Conversation Guidelines:
 - Maintain continuity with previous messages in the thread, but ALWAYS obey the current Language Instruction above even if earlier messages in the conversation history were in a different language.
-- Keep answers clear, well-structured with bullet points or numbered steps when appropriate, and supportive.`
+- Keep answers clear, well-structured with Markdown headings (##, ###), bold key terms (**...**), blockquotes (> ...) for Kitab/Quran/Hadith quotes, and bullet/numbered points.
+- EXPANSIVE MULTI-PAGE DOCUMENT CAPABILITY (CRITICAL): Whenever a student requests multiple pages, a detailed treatise, a long essay/speech, or extensive study notes (e.g., "5 pages", "10 pages", "ഒരുപാട് പേജുകൾ", "വിശാലമായി എഴുതൂ", "بحث مطول من عدة صفحات"), NEVER condense or stop after a short summary! Write deeply and thoroughly across full chapters, subsections, classical evidences, scholarly commentary, examples, and review questions proportionate to the number of pages requested (roughly 500–650 words per A4 page).`
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
@@ -413,8 +465,10 @@ async function generateWithFallback(
   contents: string,
   systemInstruction: string,
   language: OutputLanguage = 'ml',
+  isLongForm = false,
 ): Promise<string> {
   const models = [
+    'gemini-4-hydrogen',
     'gemini-3.8-flash',
     'gemini-3.1-flash-lite',
     'gemini-3-flash-preview',
@@ -428,18 +482,25 @@ async function generateWithFallback(
   for (const modelName of models) {
     try {
       const ai = getAiClient()
+      const useLowThinking =
+        modelName === 'gemini-4-hydrogen' || modelName === 'gemini-3.8-flash'
+      const timeoutMs = isLongForm
+        ? 110000
+        : modelName.includes('lite')
+          ? 28000
+          : 42000
       const response = await withTimeout(
         ai.models.generateContent({
           model: modelName,
           contents,
           config: {
             systemInstruction,
-            ...(modelName === 'gemini-3.8-flash'
+            ...(useLowThinking
               ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
               : {}),
           },
         }),
-        modelName.includes('lite') ? 20000 : 30000,
+        timeoutMs,
         modelName,
       )
       if (response.text) {
@@ -471,10 +532,14 @@ async function sendMultiTurnChatWithFallback(
   isExplicitLanguage = false,
   attachments: ClientChatAttachment[] = [],
 ): Promise<{ reply: string; modelUsed: string }> {
+  const longFormInfo = detectLongFormRequest(message)
+
+  // For multi-page / expansive study document requests, prioritize full-capacity Flash models first
   const modelOrder =
-    preferredTier === 'flash-lite'
+    preferredTier === 'flash-lite' && !longFormInfo.isLongForm
       ? ([
           'gemini-3.1-flash-lite',
+          'gemini-4-hydrogen',
           'gemini-3.1-flash-lite-preview',
           'gemini-3.8-flash',
           'gemini-3-flash-preview',
@@ -483,22 +548,23 @@ async function sendMultiTurnChatWithFallback(
           'gemini-flash-lite-latest',
         ] as const)
       : ([
+          'gemini-4-hydrogen',
           'gemini-3.8-flash',
           'gemini-3-flash-preview',
+          'gemini-2.5-flash',
           'gemini-3.1-flash-lite',
           'gemini-3.1-flash-lite-preview',
-          'gemini-2.5-flash',
           'gemini-2.5-flash-lite',
           'gemini-flash-lite-latest',
         ] as const)
 
-  // Preserve full multi-turn conversation history so follow-up answers to Usthad questions always have context
+  // Preserve rich multi-turn conversation history so follow-up answers and "continue next pages" work seamlessly
   const sanitizedHistory = history
     .filter((turn) => Boolean(turn && typeof turn.text === 'string' && turn.text.trim()))
     .slice(-16)
     .map((turn) => ({
       role: turn.role === 'model' ? ('model' as const) : ('user' as const),
-      parts: [{ text: turn.text.trim().slice(0, 4000) }],
+      parts: [{ text: turn.text.trim().slice(0, 12000) }],
     }))
 
   const validAttachments = Array.isArray(attachments)
@@ -521,7 +587,13 @@ async function sendMultiTurnChatWithFallback(
 
   const isFirstTurn = sanitizedHistory.length === 0
   const userSaidSalam = didStudentSaySalam(message)
-  const enforcedMessage = `${message}${getTurnLanguageEnforcement(language, isFirstTurn, userSaidSalam, isExplicitLanguage)}`
+  const enforcedMessage = `${message}${getTurnLanguageEnforcement(
+    language,
+    isFirstTurn,
+    userSaidSalam,
+    isExplicitLanguage,
+    longFormInfo,
+  )}`
 
   let lastError: unknown = null
 
@@ -529,6 +601,15 @@ async function sendMultiTurnChatWithFallback(
     try {
       const ai = getAiClient()
       let responseText: string | undefined
+      const useLowThinking =
+        modelName === 'gemini-4-hydrogen' || modelName === 'gemini-3.8-flash'
+      const requestTimeoutMs = longFormInfo.isLongForm
+        ? 115000
+        : validAttachments.length > 0
+          ? 45000
+          : modelName.includes('lite')
+            ? 28000
+            : 45000
 
       if (validAttachments.length > 0) {
         const multimodalContents = [
@@ -544,12 +625,12 @@ async function sendMultiTurnChatWithFallback(
             contents: multimodalContents,
             config: {
               systemInstruction,
-              ...(modelName === 'gemini-3.8-flash'
+              ...(useLowThinking
                 ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
                 : {}),
             },
           }),
-          35000,
+          requestTimeoutMs,
           modelName,
         )
         responseText = response.text
@@ -559,7 +640,7 @@ async function sendMultiTurnChatWithFallback(
           history: sanitizedHistory,
           config: {
             systemInstruction,
-            ...(modelName === 'gemini-3.8-flash'
+            ...(useLowThinking
               ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
               : {}),
           },
@@ -567,7 +648,7 @@ async function sendMultiTurnChatWithFallback(
 
         const response = await withTimeout(
           chat.sendMessage({ message: enforcedMessage }),
-          modelName.includes('lite') ? 20000 : 30000,
+          requestTimeoutMs,
           modelName,
         )
         responseText = response.text
@@ -655,10 +736,18 @@ async function startServer() {
         ? requestedLanguage
         : detectInputLanguage(trimmedPrompt, requestedLanguage)
 
+      const longFormInfo = detectLongFormRequest(trimmedPrompt)
       const text = await generateWithFallback(
-        `${trimmedPrompt}${getTurnLanguageEnforcement(validLanguage, true, didStudentSaySalam(trimmedPrompt), isExplicitLanguage)}`,
+        `${trimmedPrompt}${getTurnLanguageEnforcement(
+          validLanguage,
+          true,
+          didStudentSaySalam(trimmedPrompt),
+          isExplicitLanguage,
+          longFormInfo,
+        )}`,
         buildSystemInstruction(validMode, validLanguage, studentName),
         validLanguage,
+        longFormInfo.isLongForm,
       )
 
       res.json({
@@ -709,7 +798,7 @@ async function startServer() {
           ? 'ഈ ചിത്രത്തിലെ കിതാബ് ഭാഗം / പഠന വിഷയം വായിച്ച് മലയാളത്തിലേക്ക് വിവർത്തനം ചെയ്യുകയും പ്രധാന ആശയങ്ങൾ വിശദീകരിക്കുകയും ചെയ്യുക.'
           : 'Please examine this educational image/document, transcribe the key text, translate it clearly, and explain its scholarly meaning and key takeaways.'
 
-      const cleanMessage = (rawMessage || defaultAttachmentPrompt).slice(0, 3000)
+      const cleanMessage = (rawMessage || defaultAttachmentPrompt).slice(0, 4500)
       const validRole: ChatRole = ['usthad', 'academic', 'language', 'campus'].includes(role)
         ? role
         : 'usthad'

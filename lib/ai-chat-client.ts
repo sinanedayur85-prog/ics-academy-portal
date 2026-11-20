@@ -47,6 +47,13 @@ function getCandidateApiUrls(apiPath: string): string[] {
   return urls
 }
 
+function isLongFormPrompt(text: string): boolean {
+  if (!text) return false
+  return /(\d{1,2}\s*(?:pages?|pgs?|പേജ്|പേജുകൾ|പേജുള്ള|صفحة|صفحات|صفحے|páginas?|seiten?)|ഒരുപാട്\s*പേജ്|ധാരാളം\s*പേജ്|കൂടുതൽ\s*പേജ്|വിശാലമായി|വിശാലമായ|വിശദമായി|വിശദമായ|ദീർഘമായി|സമ്പൂർണ്ണ|പ്രബന്ധം|ഉപന്യാസം|many\s+pages|multiple\s+pages|long\s+(?:essay|note|notes|article|paper)|in\s+full\s+detail|in\s+depth|comprehensive|exhaustive|extensive|صفحات\s*كثيرة|عدة\s*صفحات|مفصل|موسع|شامل|مطول|کئی\s*صفحات|تفصیل\s*سے)/i.test(
+    text,
+  )
+}
+
 export async function fetchAiChatReply(payload: {
   message: string
   history: ClientChatTurn[]
@@ -60,11 +67,13 @@ export async function fetchAiChatReply(payload: {
 }): Promise<{ reply: string; modelUsed: string }> {
   const urls = getCandidateApiUrls('/api/ai/chat')
   const hasAttachments = Array.isArray(payload.attachments) && payload.attachments.length > 0
+  const isLongForm = isLongFormPrompt(payload.message)
+  const requestTimeoutMs = isLongForm ? 125000 : hasAttachments ? 55000 : 45000
   let lastErrorMsg = ''
 
   for (const url of urls) {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), hasAttachments ? 40000 : 30000)
+    const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs)
 
     try {
       const res = await fetch(url, {
@@ -89,7 +98,7 @@ export async function fetchAiChatReply(payload: {
               data.modelUsed ||
               (payload.modelTier === 'flash-lite'
                 ? 'gemini-3.1-flash-lite'
-                : 'gemini-3.8-flash'),
+                : 'gemini-4-hydrogen'),
           }
         }
         if (data?.error) {
@@ -118,11 +127,12 @@ export async function fetchAiStudyAssistantReply(payload: {
   studentName?: string
 }): Promise<{ response: string }> {
   const urls = getCandidateApiUrls('/api/ai/study-assistant')
+  const requestTimeoutMs = isLongFormPrompt(payload.prompt) ? 125000 : 45000
   let lastErrorMsg = ''
 
   for (const url of urls) {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000)
+    const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs)
 
     try {
       const res = await fetch(url, {

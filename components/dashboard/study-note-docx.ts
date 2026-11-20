@@ -118,15 +118,15 @@ function parseFormattedLines(rawText: string): Paragraph[] {
           bidirectional: isArabic,
           children: isArabic
             ? [
-                ...parseInlineBold(body, true, rtlFont),
                 new TextRun({
-                  text: ` ${numPrefix}`,
+                  text: `${numPrefix} `,
                   bold: true,
                   size: 24,
                   color: '047857',
                   font: rtlFont,
                   rightToLeft: true,
                 }),
+                ...parseInlineBold(body, true, rtlFont),
               ]
             : [
                 new TextRun({
@@ -144,7 +144,7 @@ function parseFormattedLines(rawText: string): Paragraph[] {
     }
 
     // Bullet points: e.g. "- ..." or "* ..."
-    if (line.startsWith('- ') || line.startsWith('* ')) {
+    if (line.startsWith('- ') || line.startsWith('* ') || line.startsWith('• ')) {
       const bulletBody = line.slice(2).trim()
       if (isArabic) {
         paragraphs.push(
@@ -153,15 +153,15 @@ function parseFormattedLines(rawText: string): Paragraph[] {
             alignment: AlignmentType.RIGHT,
             bidirectional: true,
             children: [
-              ...parseInlineBold(bulletBody, true, rtlFont),
               new TextRun({
-                text: ' •',
+                text: '• ',
                 bold: true,
-                size: 22,
+                size: 24,
                 color: '047857',
                 font: rtlFont,
                 rightToLeft: true,
               }),
+              ...parseInlineBold(bulletBody, true, rtlFont),
             ],
           }),
         )
@@ -201,12 +201,29 @@ function parseInlineBold(
   const runs: TextRun[] = []
   const formattedText =
     isArabic && !isUrduText(text) ? toArabicNumerals(text) : text
-  // Matches **bold** patterns
-  const parts = formattedText.split(/(\*\*[^*]+\*\*)/g)
+  const parts = formattedText.split(
+    /(\*\*\*[^*]+\*\*\*|\*\*[^*]+\*\*|__[^_]+__|\*[^\s*](?:[^*]*?[^\s*])?\*|`[^`]+`)/g,
+  )
 
   for (const part of parts) {
     if (!part) continue
-    if (part.startsWith('**') && part.endsWith('**')) {
+    if (part.startsWith('***') && part.endsWith('***')) {
+      const inner = part.slice(3, -3)
+      runs.push(
+        new TextRun({
+          text: inner,
+          bold: true,
+          italics: true,
+          size: isArabic ? 26 : 22,
+          color: '0F172A',
+          font: isArabic ? getRtlFont(inner) || rtlFont : 'Noto Sans Malayalam',
+          rightToLeft: isArabic,
+        }),
+      )
+    } else if (
+      (part.startsWith('**') && part.endsWith('**')) ||
+      (part.startsWith('__') && part.endsWith('__'))
+    ) {
       const inner = part.slice(2, -2)
       runs.push(
         new TextRun({
@@ -218,13 +235,39 @@ function parseInlineBold(
           rightToLeft: isArabic,
         }),
       )
-    } else {
+    } else if (part.startsWith('`') && part.endsWith('`')) {
+      const inner = part.slice(1, -1)
       runs.push(
         new TextRun({
-          text: part,
+          text: inner,
+          bold: true,
+          size: isArabic ? 24 : 21,
+          color: '065F46',
+          font: isArabic ? getRtlFont(inner) || rtlFont : 'Noto Sans Malayalam',
+          rightToLeft: isArabic,
+        }),
+      )
+    } else if (part.startsWith('*') && part.endsWith('*')) {
+      const inner = part.slice(1, -1)
+      runs.push(
+        new TextRun({
+          text: inner,
+          italics: true,
+          size: isArabic ? 26 : 22,
+          color: '1E293B',
+          font: isArabic ? getRtlFont(inner) || rtlFont : 'Noto Sans Malayalam',
+          rightToLeft: isArabic,
+        }),
+      )
+    } else {
+      const cleanPlain = part.replace(/\*\*/g, '')
+      if (!cleanPlain) continue
+      runs.push(
+        new TextRun({
+          text: cleanPlain,
           size: isArabic ? 26 : 22,
           color: '334155',
-          font: isArabic ? getRtlFont(part) || rtlFont : 'Noto Sans Malayalam',
+          font: isArabic ? getRtlFont(cleanPlain) || rtlFont : 'Noto Sans Malayalam',
           rightToLeft: isArabic,
         }),
       )

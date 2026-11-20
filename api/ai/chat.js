@@ -146,9 +146,34 @@ CRITICAL CONVERSATIONAL & FOLLOW-UP INTELLIGENCE (ACT LIKE REAL GOOGLE GEMINI):
    - Translate it clearly into the requested language(s) (including Malayalam and English when requested) and explain the word-by-word meanings, Nahw/Sarf grammar, or Fiqh/academic rulings.
 5. Institutional Scope: Dedicate responses to educational, academic, linguistic, Islamic scholarly, and ICS Academy matters.
 6. STRICT STUDENT & STAFF PRIVACY RULE (CRITICAL — APPLIES TO BOTH USTHADS AND STUDENTS): In this Chatbot, neither Usthads nor Students nor anyone is permitted to view anything about other students or staff members except their NAME (and class). Never disclose, guess, or generate any person's Admission ID (ICS2K...), Password, Batch number (e.g. Batch 14, Batch 07), Class Leader ID (CL-... / ACL-...), Staff ID (UST-... / ADM-...), attendance record, leave status, or personal data. If anyone asks for another person's Admission ID, password, batch number, attendance, leave details, or private information, politely refuse and state that for institutional privacy, only names are visible in the Chatbot.
+7. EXPANSIVE MULTI-PAGE DOCUMENT CAPABILITY (CRITICAL): Whenever a student requests multiple pages, a detailed essay/treatise, or extensive study notes (e.g. "5 pages", "10 pages", "ഒരുപാട് പേജുകൾ", "വിശാലമായി എഴുതൂ", "بحث مطول من عدة صفحات"), NEVER condense or stop early! Write deeply and exhaustively across full chapters (##, ###), bold key terms (**...**), blockquotes (> ...) for Quran/Hadith/Kitab quotes, scholarly comparisons, examples, and review questions proportionate to the requested page count (~500-650 words per A4 page).
 
 Language Rule:
 ${langRule}`
+}
+
+function detectLongFormRequest(text) {
+  if (!text) return { isLongForm: false, requestedPages: null }
+  const normalized = String(text)
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+
+  const pageNumMatch =
+    /(\d{1,2})\s*(?:pages?|pgs?|പേജ്|പേജുകൾ|പേജുള്ള|പേജിന്റെ|പേജിൽ|صفحة|صفحات|صفحے|páginas?|seiten?)/i.exec(
+      normalized,
+    ) || /(?:pages?|പേജ്|പേജുകൾ|صفحة|صفحات)\s*[:\-]?\s*(\d{1,2})/i.exec(normalized)
+
+  if (pageNumMatch) {
+    const num = Number(pageNumMatch[1])
+    if (Number.isFinite(num) && num >= 2) {
+      return { isLongForm: true, requestedPages: Math.min(num, 30) }
+    }
+  }
+
+  const expansiveRegex =
+    /(?:ഒരുപാട്\s*പേജ്|ധാരാളം\s*പേജ്|കൂടുതൽ\s*പേജ്|പല\s*പേജ്|വിശാലമായി|വിശാലമായ|വിശദമായി|വിശദമായ|ദീർഘമായി|ദീർഘമായ|സമ്പൂർണ്ണ|മുഴുവനായി|പ്രബന്ധം|ഉപന്യാസം|റിസർച്ച്|വലിയ\s*നോട്ട്|many\s+pages|multiple\s+pages|several\s+pages|long\s+(?:essay|note|notes|article|paper|speech|explanation)|in\s+full\s+detail|in\s+depth|in-depth|comprehensive|exhaustive|extensive|full\s+study\s+notes?|research\s+paper|complete\s+guide|elaborate\s+thoroughly|صفحات\s*كثيرة|عدة\s*صفحات|مفصل|موسع|شامل|مطول|بحث\s*(?:كامل|مفصل|طويل)|مقال\s*طويل|کئی\s*صفحات|تفصیل\s*سے|مفصل|مکمل\s*مضمون|en\s+detalle|extenso|ausführlich|umfangreich)/i
+
+  return { isLongForm: expansiveRegex.test(normalized), requestedPages: null }
 }
 
 function redactPrivateIds(text) {
@@ -275,7 +300,7 @@ export default async function handler(req, res) {
       .slice(-16)
       .map((t) => ({
         role: t.role === 'model' ? 'model' : 'user',
-        parts: [{ text: t.text.trim().slice(0, 4000) }],
+        parts: [{ text: t.text.trim().slice(0, 12000) }],
       }))
 
     const inlineParts = validAttachments.slice(0, 3).map((att) => ({
@@ -287,11 +312,22 @@ export default async function handler(req, res) {
 
     const userSaidSalam = didStudentSaySalam(finalPrompt)
     const isFirstTurn = sanitizedHistory.length === 0
+    const longFormInfo = detectLongFormRequest(finalPrompt)
     const salamHint = userSaidSalam
       ? '\n[The student greeted with Salam; start your reply with "وَعَلَيْكُمُ السَّلَامُ وَرَحْمَةُ اللَّهِ وَبَرَكَاتُهُ" on its own line.]'
       : isFirstTurn
         ? '\n[First message in thread; start your reply with "السَّلَامُ عَلَيْكُمْ وَرَحْمَةُ اللَّهِ وَبَرَكَاتُهُ" on its own line.]'
         : ''
+    const longFormHint = longFormInfo.isLongForm
+      ? `\n[MULTI-PAGE COMPREHENSIVE DEPTH MODE: ${
+          longFormInfo.requestedPages
+            ? `Write approximately ${longFormInfo.requestedPages} full A4 pages (~${Math.min(
+                longFormInfo.requestedPages * 550,
+                9000,
+              )}+ words).`
+            : 'Write an extensive, multi-page scholarly document (2,000-4,500+ words).'
+        } Do NOT summarize or cut short. Use structured headings (##, ###), bold key terms (**...**), Arabic Kitab/Quran/Hadith quotes in blockquotes (> ...), deep analysis, examples, and review questions.]`
+      : ''
 
     const langNameMap = {
       ml: 'Malayalam (മലയാളം script)',
@@ -302,23 +338,25 @@ export default async function handler(req, res) {
       de: 'German (Deutsch)',
     }
 
-    const promptWithDirective = `${finalPrompt}${salamHint}\n[Respond in ${langNameMap[validLanguage] || 'Malayalam'}. If the student is answering a previous question from you, evaluate their answer directly.]`
+    const promptWithDirective = `${finalPrompt}${salamHint}${longFormHint}\n[Respond in ${langNameMap[validLanguage] || 'Malayalam'}. If the student is answering a previous question from you, evaluate their answer directly.]`
 
     const models =
-      modelTier === 'flash-lite'
+      modelTier === 'flash-lite' && !longFormInfo.isLongForm
         ? [
+            'gemini-3.1-flash-lite',
+            'gemini-4-hydrogen',
             'gemini-2.5-flash',
             'gemini-2.5-flash-lite',
             'gemini-3.1-flash-lite-preview',
             'gemini-3-flash-preview',
-            'gemini-2.0-flash',
           ]
         : [
+            'gemini-4-hydrogen',
             'gemini-2.5-flash',
             'gemini-3-flash-preview',
+            'gemini-3.1-flash-lite',
             'gemini-3.1-flash-lite-preview',
             'gemini-2.5-flash-lite',
-            'gemini-2.0-flash',
           ]
 
     const contents = [
