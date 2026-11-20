@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Ban, CalendarDays, CheckCircle2, Lock, UserCog } from 'lucide-react'
+import { Ban, CalendarDays, CheckCircle2, Coffee, Lock, UserCog } from 'lucide-react'
 import {
-  CURRENT_SEMESTER,
+  getActiveSemester,
   getClassSemesterTimetable,
+  isNonTeachingTimetableSlot,
   loadPeriodAttendanceSubmissions,
   type PeriodAttendanceSubmission,
   type Student,
@@ -41,9 +42,9 @@ export function Timetable({ student }: { student: Student }) {
     }
   }, [])
 
+  const activeSemester = getActiveSemester()
   const classSchedule = getClassSemesterTimetable(student)
-  const slots =
-    CURRENT_SEMESTER === 1 ? classSchedule.semester1 : classSchedule.semester2
+  const slots = activeSemester === 1 ? classSchedule.semester1 : classSchedule.semester2
 
   return (
     <Panel
@@ -53,38 +54,48 @@ export function Timetable({ student }: { student: Student }) {
       icon={CalendarDays}
       action={
         <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-lime/15 dark:text-lime">
-          Semester {CURRENT_SEMESTER}
+          Semester {activeSemester}
         </span>
       }
     >
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
         {classSchedule.periods.map((period, periodIndex) => {
           const slot = slots[periodIndex]
           if (!slot) return null
+          const isNonTeaching = isNonTeachingTimetableSlot(slot)
+          const isRefreshment =
+            slot.subject.toLowerCase().includes('refreshment') ||
+            slot.subject.toLowerCase().includes('break')
           const periodNum = periodIndex + 1
           const subKey = `${todayDate}__${student.className}__${periodNum}`
-          const sub = submissions[subKey]
+          const sub = !isNonTeaching ? submissions[subKey] : undefined
           const isNotHeld = sub?.sessionStatus === 'not-held'
           const isSubstituted = sub?.sessionStatus === 'substituted'
           const studentRecord = !isNotHeld ? sub?.records?.[student.id] : undefined
 
           return (
             <div
-              key={period.label}
+              key={`${period.label}_${periodNum}`}
               className={cn(
                 'flex flex-col justify-between rounded-xl border p-3.5 transition-colors duration-200',
-                isNotHeld
-                  ? 'border-red-500/40 bg-red-500/[0.05]'
-                  : isSubstituted
-                    ? 'border-cyan/40 bg-cyan/[0.05]'
-                    : 'border-border bg-background/50 hover:border-lime/40 hover:bg-lime/5',
+                isNonTeaching
+                  ? 'border-border/60 bg-muted/25'
+                  : isNotHeld
+                    ? 'border-red-500/40 bg-red-500/[0.05]'
+                    : isSubstituted
+                      ? 'border-cyan/40 bg-cyan/[0.05]'
+                      : 'border-border bg-background/50 hover:border-lime/40 hover:bg-lime/5',
               )}
             >
               <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2">
                 <span
                   className={cn(
                     'text-xs font-semibold uppercase tracking-wider',
-                    isNotHeld ? 'text-red-500 dark:text-red-400' : 'text-lime',
+                    isNonTeaching
+                      ? 'text-muted-foreground'
+                      : isNotHeld
+                        ? 'text-red-500 dark:text-red-400'
+                        : 'text-lime',
                   )}
                 >
                   {period.label}
@@ -95,16 +106,30 @@ export function Timetable({ student }: { student: Student }) {
               </div>
 
               <div className="mt-2.5 flex flex-col gap-1.5">
-                <p className="text-sm font-semibold leading-snug text-foreground">
+                <p
+                  className={cn(
+                    'text-sm font-semibold leading-snug',
+                    isNonTeaching ? 'text-muted-foreground' : 'text-foreground',
+                  )}
+                >
                   {slot.subject}
                 </p>
                 <p className="text-xs font-normal text-muted-foreground">
-                  {isSubstituted && sub?.substituteUsthad
-                    ? `Sub: ${sub.substituteUsthad.usthadName}`
-                    : slot.teacher}
+                  {isNonTeaching
+                    ? isRefreshment
+                      ? 'Break Interval'
+                      : 'Free Period'
+                    : isSubstituted && sub?.substituteUsthad
+                      ? `Sub: ${sub.substituteUsthad.usthadName}`
+                      : slot.teacher}
                 </p>
 
-                {isNotHeld ? (
+                {isNonTeaching ? (
+                  <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/50 px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                    <Coffee className="size-3 shrink-0" aria-hidden="true" />
+                    {isRefreshment ? 'Refreshment Break' : 'No Class Scheduled'}
+                  </div>
+                ) : isNotHeld ? (
                   <div className="mt-1.5 flex flex-col gap-1 rounded-lg border border-red-500/30 bg-red-500/10 p-2">
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 dark:text-red-400">
                       <Ban className="size-3 shrink-0" aria-hidden="true" />

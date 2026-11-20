@@ -48,10 +48,13 @@ import {
 import {
   CLASS_USTHADS,
   MONTHS_META,
+  OFFICIAL_CLASS_USTHADS,
   doesUsthadMatchTeacherName,
   findUsthadForTeacherName,
+  getActiveSemester,
   getClassSemesterTimetableByClassName,
   getUsthadScheduledPeriodsAcrossClasses,
+  isNonTeachingTimetableSlot,
   normalizeClassName,
   publishCampusNotification,
   students,
@@ -395,8 +398,11 @@ export function buildClassSyllabusRows(
     byId.set(rec.id, rec)
   }
 
-  // Ensure every timetable period has a syllabus tracker row for this month
-  semTimetable.semester1.forEach((slot, pIdx) => {
+  // Ensure every teaching timetable period has a syllabus tracker row for this month
+  const activeSlots =
+    getActiveSemester() === 1 ? semTimetable.semester1 : semTimetable.semester2
+  activeSlots.forEach((slot, pIdx) => {
+    if (isNonTeachingTimetableSlot(slot)) return
     const periodNumber = pIdx + 1
     const periodLabel = semTimetable.periods[pIdx]?.label || `Period ${periodNumber}`
     const deterministicId = `syl_${monthId}_${cleanBatchSlug}_p${periodNumber}`
@@ -463,7 +469,7 @@ export function buildUsthadTeachingSyllabusRows(
   monthId: string,
   allRecords: CampusAcademicRecord[],
 ): CampusAcademicRecord[] {
-  const scheduledSlots = getUsthadScheduledPeriodsAcrossClasses(usthad, 1)
+  const scheduledSlots = getUsthadScheduledPeriodsAcrossClasses(usthad, getActiveSemester())
   const resultMap = new Map<string, CampusAcademicRecord>()
 
   for (const slot of scheduledSlots) {
@@ -525,7 +531,9 @@ export function StudentAcademicHub({
   const [showAddKitabForm, setShowAddKitabForm] = useState(false)
   const [newKitabName, setNewKitabName] = useState('')
   const [newKitabPeriodLabel, setNewKitabPeriodLabel] = useState('Extra Kitab')
-  const [newKitabUsthadId, setNewKitabUsthadId] = useState<string>(CLASS_USTHADS[0]?.id || 'usthad-09')
+  const [newKitabUsthadId, setNewKitabUsthadId] = useState<string>(
+    OFFICIAL_CLASS_USTHADS[0]?.id || 'usthad-09',
+  )
   const [newKitabFromChapter, setNewKitabFromChapter] = useState('')
   const [newKitabToChapter, setNewKitabToChapter] = useState('')
   const [newKitabTotalPages, setNewKitabTotalPages] = useState('25')
@@ -648,7 +656,9 @@ export function StudentAcademicHub({
     )
       return
     const matchedUsthad =
-      CLASS_USTHADS.find((u) => u.id === newKitabUsthadId) || CLASS_USTHADS[0]
+      OFFICIAL_CLASS_USTHADS.find((u) => u.id === newKitabUsthadId) ||
+      CLASS_USTHADS.find((u) => u.id === newKitabUsthadId) ||
+      OFFICIAL_CLASS_USTHADS[0]
     const fromChapter = newKitabFromChapter.trim()
     const toChapter = newKitabToChapter.trim()
     const formattedRange = formatSyllabusChapterRange(fromChapter, toChapter)
@@ -1206,7 +1216,7 @@ export function StudentAcademicHub({
                       onChange={(e) => setNewKitabUsthadId(e.target.value)}
                       aria-label="Select Teaching Usthad"
                     >
-                      {CLASS_USTHADS.map((u) => (
+                      {OFFICIAL_CLASS_USTHADS.map((u) => (
                         <option key={u.id} value={u.id}>
                           {u.name} ({u.staffId})
                         </option>
@@ -2281,7 +2291,10 @@ export function UsthadAcademicHub({
 
   const resolvedUsthad = useMemo<ClassUsthad | undefined>(() => {
     if (usthad) return usthad
-    return CLASS_USTHADS.find((u) => u.id === actorId || u.name === actorName)
+    return (
+      OFFICIAL_CLASS_USTHADS.find((u) => u.id === actorId || u.name === actorName) ??
+      CLASS_USTHADS.find((u) => u.id === actorId || u.name === actorName)
+    )
   }, [usthad, actorId, actorName])
 
   const normClass = normalizeClassName(activeClassName || 'BS 3')

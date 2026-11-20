@@ -7,6 +7,7 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  Coffee,
   FileText,
   History,
   Lock,
@@ -16,24 +17,24 @@ import {
   ShieldAlert,
   Trash2,
   UserCheck,
-  UserCog,
   UserMinus,
   UserX,
   Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ThemeSelect } from '@/components/ui/theme-select'
 import {
   ABSENT_REASONS,
   ATTENDANCE_LEAVE_REASONS,
   CLASS_USTHADS,
-  CURRENT_SEMESTER,
   NOT_HELD_REASONS,
+  OFFICIAL_CLASS_USTHADS,
   deletePeriodAttendanceSubmission,
   doesUsthadMatchTeacherName,
+  getActiveSemester,
   getClassLeadersForClass,
   getClassSemesterTimetable,
+  isNonTeachingTimetableSlot,
   loadPeriodAttendanceSubmissions,
   savePeriodAttendanceSubmissions,
   students,
@@ -171,12 +172,13 @@ export function ClassLeaderAttendanceCard({
     [leader.className, configVersion],
   )
 
+  const activeSemester = getActiveSemester()
   const timetable = useMemo(
     () => getClassSemesterTimetable(leader),
     [leader, configVersion],
   )
   const semesterSubjects =
-    CURRENT_SEMESTER === 1 ? timetable.semester1 : timetable.semester2
+    activeSemester === 1 ? timetable.semester1 : timetable.semester2
 
   const periods = useMemo(
     () =>
@@ -191,6 +193,7 @@ export function ClassLeaderAttendanceCard({
           time: period.time,
           subject: slot.subject,
           teacher: slot.teacher,
+          isNonTeaching: isNonTeachingTimetableSlot(slot),
         }
       }),
     [timetable.periods, semesterSubjects],
@@ -200,11 +203,15 @@ export function ClassLeaderAttendanceCard({
   useEffect(() => {
     if (!restrictedUsthad) return
     const currentSlot = periods.find((p) => p.index === selectedPeriodIndex)
-    if (currentSlot && doesUsthadMatchTeacherName(restrictedUsthad, currentSlot.teacher)) {
+    if (
+      currentSlot &&
+      !currentSlot.isNonTeaching &&
+      doesUsthadMatchTeacherName(restrictedUsthad, currentSlot.teacher)
+    ) {
       return
     }
-    const firstOwned = periods.find((p) =>
-      doesUsthadMatchTeacherName(restrictedUsthad, p.teacher),
+    const firstOwned = periods.find(
+      (p) => !p.isNonTeaching && doesUsthadMatchTeacherName(restrictedUsthad, p.teacher),
     )
     if (firstOwned) {
       setInternalPeriodIndex(firstOwned.index)
@@ -215,10 +222,17 @@ export function ClassLeaderAttendanceCard({
   const activePeriod =
     periods.find((p) => p.index === selectedPeriodIndex) ?? periods[0]
 
+  const isActivePeriodNonTeaching = Boolean(activePeriod?.isNonTeaching)
+  const teachingPeriodsCount = useMemo(
+    () => periods.filter((p) => !p.isNonTeaching).length,
+    [periods],
+  )
+
   const isPeriodLockedForUsthad = useMemo(() => {
+    if (isActivePeriodNonTeaching) return true
     if (!restrictedUsthad) return false
     return !doesUsthadMatchTeacherName(restrictedUsthad, activePeriod.teacher)
-  }, [restrictedUsthad, activePeriod.teacher])
+  }, [isActivePeriodNonTeaching, restrictedUsthad, activePeriod.teacher])
 
   const currentSubmissionKey = `${selectedDate}__${leader.className}__${activePeriod.index}`
   const existingSubmission = submissions[currentSubmissionKey]
@@ -289,7 +303,9 @@ export function ClassLeaderAttendanceCard({
 
   const selectedSubstituteUsthad = useMemo(
     () =>
-      CLASS_USTHADS.find((u) => u.id === draftSubstituteUsthadId) ?? CLASS_USTHADS[0],
+      OFFICIAL_CLASS_USTHADS.find((u) => u.id === draftSubstituteUsthadId) ??
+      CLASS_USTHADS.find((u) => u.id === draftSubstituteUsthadId) ??
+      CLASS_USTHADS[0],
     [draftSubstituteUsthadId],
   )
 
@@ -388,6 +404,7 @@ export function ClassLeaderAttendanceCard({
     let notHeld = 0
     let substituted = 0
     for (const p of periods) {
+      if (p.isNonTeaching) continue
       const sub = submissions[`${selectedDate}__${leader.className}__${p.index}`]
       if (!sub) continue
       if (sub.sessionStatus === 'not-held') notHeld += 1
@@ -635,7 +652,7 @@ export function ClassLeaderAttendanceCard({
           )}
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-700 dark:border-lime/40 dark:bg-lime/15 dark:text-lime tabular-nums">
             <UserCheck className="size-3.5" aria-hidden="true" />
-            {periodStatusCountsForDate.totalSubmitted}/{periods.length} Periods
+            {periodStatusCountsForDate.totalSubmitted}/{teachingPeriodsCount} Periods
           </span>
         </div>
       }
@@ -685,7 +702,7 @@ export function ClassLeaderAttendanceCard({
         <div className="flex flex-col gap-2.5">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-              Select Period (Semester {CURRENT_SEMESTER} Schedule)
+              Select Period (Semester {activeSemester} Schedule)
             </p>
             <p className="text-xs text-muted-foreground tabular-nums">
               {activePeriod.time}
@@ -699,13 +716,16 @@ export function ClassLeaderAttendanceCard({
           >
             {periods.map((period) => {
               const periodKey = `${selectedDate}__${leader.className}__${period.index}`
-              const sub = submissions[periodKey]
+              const sub = !period.isNonTeaching ? submissions[periodKey] : undefined
               const isSubmitted = Boolean(sub)
               const sessionState = sub?.sessionStatus ?? (isSubmitted ? 'conducted' : 'pending')
               const isSelected = period.index === activePeriod.index
               const isOwnedByRestrictedUsthad = restrictedUsthad
-                ? doesUsthadMatchTeacherName(restrictedUsthad, period.teacher)
+                ? !period.isNonTeaching && doesUsthadMatchTeacherName(restrictedUsthad, period.teacher)
                 : true
+              const isBreakSlot =
+                period.subject.toLowerCase().includes('refreshment') ||
+                period.subject.toLowerCase().includes('break')
 
               return (
                 <button
@@ -716,31 +736,42 @@ export function ClassLeaderAttendanceCard({
                   onClick={() => setSelectedPeriodIndex(period.index)}
                   className={cn(
                     'flex flex-col justify-between gap-2 rounded-2xl border p-3.5 text-left transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    isSelected
-                      ? sessionState === 'not-held'
-                        ? 'border-red-500 bg-red-500/10 shadow-[0_0_0_1px_rgba(239,68,68,0.6)]'
-                        : 'border-lime bg-lime/10 shadow-[0_0_0_1px_var(--lime)]'
-                      : sessionState === 'not-held'
-                        ? 'border-red-500/40 bg-red-500/[0.04] hover:border-red-500/70'
-                        : !isOwnedByRestrictedUsthad
-                          ? 'border-border/70 bg-muted/25 opacity-80 hover:opacity-100'
-                          : 'border-border bg-background/60 hover:border-foreground/30 hover:bg-background',
+                    period.isNonTeaching
+                      ? isSelected
+                        ? 'border-foreground/40 bg-muted/60 shadow-2xs'
+                        : 'border-border/60 bg-muted/25 text-muted-foreground hover:bg-muted/40'
+                      : isSelected
+                        ? sessionState === 'not-held'
+                          ? 'border-red-500 bg-red-500/10 shadow-[0_0_0_1px_rgba(239,68,68,0.6)]'
+                          : 'border-lime bg-lime/10 shadow-[0_0_0_1px_var(--lime)]'
+                        : sessionState === 'not-held'
+                          ? 'border-red-500/40 bg-red-500/[0.04] hover:border-red-500/70'
+                          : !isOwnedByRestrictedUsthad
+                            ? 'border-border/70 bg-muted/25 opacity-80 hover:opacity-100'
+                            : 'border-border bg-background/60 hover:border-foreground/30 hover:bg-background',
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span
                       className={cn(
                         'text-xs font-bold tracking-wider uppercase',
-                        isSelected
-                          ? sessionState === 'not-held'
-                            ? 'text-red-500 dark:text-red-400'
-                            : 'text-emerald-700 dark:text-lime'
-                          : 'text-foreground',
+                        period.isNonTeaching
+                          ? 'text-muted-foreground'
+                          : isSelected
+                            ? sessionState === 'not-held'
+                              ? 'text-red-500 dark:text-red-400'
+                              : 'text-emerald-700 dark:text-lime'
+                            : 'text-foreground',
                       )}
                     >
                       {period.label}
                     </span>
-                    {sessionState === 'not-held' ? (
+                    {period.isNonTeaching ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+                        <Coffee className="size-3" aria-hidden="true" />
+                        {isBreakSlot ? 'Break' : 'Free'}
+                      </span>
+                    ) : sessionState === 'not-held' ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 dark:text-red-400">
                         <Ban className="size-3.5" aria-hidden="true" />
                         Not Held
@@ -763,7 +794,11 @@ export function ClassLeaderAttendanceCard({
                       {period.subject}
                     </p>
                     <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                      {period.teacher}
+                      {period.isNonTeaching
+                        ? isBreakSlot
+                          ? 'Refreshment Interval'
+                          : 'No Class Scheduled'
+                        : period.teacher}
                     </p>
                   </div>
 
@@ -771,7 +806,7 @@ export function ClassLeaderAttendanceCard({
                     <p className="text-[11px] font-medium text-muted-foreground tabular-nums">
                       {period.time}
                     </p>
-                    {restrictedUsthad && (
+                    {restrictedUsthad && !period.isNonTeaching && (
                       <span
                         className={cn(
                           'inline-flex items-center gap-1 text-[10px] font-bold',
@@ -797,6 +832,43 @@ export function ClassLeaderAttendanceCard({
           </div>
         </div>
 
+        {/* Break / Free Period Informational View (No Attendance Required) */}
+        {isActivePeriodNonTeaching ? (
+          <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-muted/30 p-5 sm:flex-row sm:items-center">
+            <div className="flex items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
+                <Coffee className="size-5" aria-hidden="true" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-foreground">
+                  {activePeriod.label} ({activePeriod.subject}) • {activePeriod.time}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  ഇത് ഒരു ഇടവേള / ഫ്രീ പിരീഡാണ് ({activePeriod.subject}). ഈ സമയത്ത് വിദ്യാർത്ഥികളുടെ ഹാജർ രേഖപ്പെടുത്തേണ്ടതില്ല.
+                </p>
+              </div>
+            </div>
+            {(() => {
+              const nextTeaching = restrictedUsthad
+                ? periods.find(
+                    (p) => !p.isNonTeaching && doesUsthadMatchTeacherName(restrictedUsthad, p.teacher),
+                  )
+                : periods.find((p) => !p.isNonTeaching)
+              if (!nextTeaching) return null
+              return (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setSelectedPeriodIndex(nextTeaching.index)}
+                  className="shrink-0 rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                >
+                  {restrictedUsthad ? 'എൻ്റെ പിരീഡിലേക്ക് പോകുക' : `${nextTeaching.label}-ലേക്ക് പോകുക`}
+                </Button>
+              )
+            })()}
+          </div>
+        ) : (
+          <>
         {/* Strict Period Ownership Lock Notice when viewing another Usthad's period */}
         {isPeriodLockedForUsthad && restrictedUsthad && (
           <div className="flex flex-col justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 sm:flex-row sm:items-center">
@@ -815,13 +887,13 @@ export function ClassLeaderAttendanceCard({
                 </p>
               </div>
             </div>
-            {periods.some((p) => doesUsthadMatchTeacherName(restrictedUsthad, p.teacher)) && (
+            {periods.some((p) => !p.isNonTeaching && doesUsthadMatchTeacherName(restrictedUsthad, p.teacher)) && (
               <Button
                 type="button"
                 size="sm"
                 onClick={() => {
-                  const myFirst = periods.find((p) =>
-                    doesUsthadMatchTeacherName(restrictedUsthad, p.teacher),
+                  const myFirst = periods.find(
+                    (p) => !p.isNonTeaching && doesUsthadMatchTeacherName(restrictedUsthad, p.teacher),
                   )
                   if (myFirst) setSelectedPeriodIndex(myFirst.index)
                 }}
@@ -1478,6 +1550,8 @@ export function ClassLeaderAttendanceCard({
             </Button>
           </div>
         </div>
+          </>
+        )}
       </div>
 
       <ParentReportModal

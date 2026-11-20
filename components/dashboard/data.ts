@@ -1015,117 +1015,165 @@ const CLASS_SEMESTER_SCHEDULES: Record<string, ClassSemesterTimetable> = {
   },
   'BS 1': {
     periods: [
-      { label: 'Period 1', time: '06:45 – 07:50' },
-      { label: 'Period 2', time: '08:30 – 09:30' },
-      { label: 'Period 3', time: '09:45 – 10:45' },
-      { label: 'Period 4', time: '11:00 – 12:00' },
-      { label: 'Period 5', time: '14:00 – 15:15' },
+      { label: 'Period 1', time: '6:30 AM – 7:15 AM' },
+      { label: 'Period 2', time: '7:15 AM – 8:00 AM' },
+      { label: 'Period 3', time: '8:00 AM – 8:45 AM' },
+      { label: 'Period 4', time: '9:15 AM – 10:00 AM' },
+      { label: 'Period 5', time: '10:00 AM – 10:45 AM' },
+      { label: 'Period 6', time: '11:00 AM – 11:45 AM' },
+      { label: 'Period 7', time: '11:45 AM – 12:30 PM' },
     ],
     semester1: [
-      { subject: 'Mahalli (Kitab al-Taharah & Salah)', teacher: 'Usthad Muhammed Musthafa Saqafi' },
-      { subject: 'Tafsir al-Jalalayn (Juz 1–10)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
-      { subject: 'Mishkat al-Masabih (Vol 1)', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'BA Arabic / Islamic History', teacher: 'Usthad Midhlaj Ahsani' },
-      { subject: 'Academic English & Research', teacher: 'Usthad Favaz Saqafi' },
+      { subject: 'Mishkathul Maswabeeh', teacher: 'Usthad Musthafa Saqafi' },
+      { subject: "Insha'u", teacher: 'Usthad Yasir Ahsani' },
+      { subject: 'Fathhul Mueen', teacher: 'Usthad Hafiz Fazl Naeemi' },
+      { subject: 'Alfiya Ibn Malik', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'No One', teacher: 'No One' },
+      { subject: 'Jouharathu Thouheed', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Refreshment', teacher: 'Refreshment' },
     ],
     semester2: [
-      { subject: 'Mahalli (Kitab al-Zakah & Sawm)', teacher: 'Usthad Muhammed Musthafa Saqafi' },
-      { subject: 'Tafsir al-Jalalayn (Juz 11–20)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
-      { subject: 'Usul al-Fiqh (Lub al-Usul)', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'BA Core Humanities', teacher: 'Usthad Midhlaj Ahsani' },
-      { subject: 'Classical Balaghah', teacher: 'Usthad Favaz Saqafi' },
+      { subject: 'Mishkathul Maswabeeh', teacher: 'Usthad Musthafa Saqafi' },
+      { subject: "Insha'u", teacher: 'Usthad Yasir Ahsani' },
+      { subject: 'Fathhul Mueen', teacher: 'Usthad Hafiz Fazl Naeemi' },
+      { subject: 'Alfiya Ibn Malik', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'No One', teacher: 'No One' },
+      { subject: 'Jouharathu Thouheed', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Refreshment', teacher: 'Refreshment' },
     ],
   },
   'BS 2': {
     periods: [
-      { label: 'Period 1', time: '06:45 – 07:50' },
-      { label: 'Period 2', time: '08:30 – 09:30' },
-      { label: 'Period 3', time: '09:45 – 10:45' },
-      { label: 'Period 4', time: '11:00 – 12:00' },
-      { label: 'Period 5', time: '14:00 – 15:15' },
+      { label: 'Period 1', time: '6:30 AM – 7:15 AM' },
+      { label: 'Period 2', time: '7:15 AM – 8:00 AM' },
+      { label: 'Period 3', time: '8:00 AM – 8:45 AM' },
+      { label: 'Period 4', time: '9:15 AM – 10:00 AM' },
+      { label: 'Period 5', time: '10:00 AM – 10:45 AM' },
+      { label: 'Period 6', time: '11:00 AM – 11:45 AM' },
+      { label: 'Period 7', time: '11:45 AM – 12:30 PM' },
+      { label: 'Period 8', time: '1:15 PM – 2:00 PM' },
     ],
     semester1: [
-      { subject: 'Mahalli (Kitab al-Buyu’)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
-      { subject: 'Mishkat al-Masabih (Vol 2)', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'Aqeedah (Sharh al-Aqaid)', teacher: 'Usthad Muhammed Musthafa Saqafi' },
-      { subject: 'BA Sociology & History', teacher: 'Usthad Midhlaj Ahsani' },
-      { subject: 'Classical Arabic Prose', teacher: 'Usthad Favaz Saqafi' },
+      { subject: "Jam'ul Javamiu", teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Mishkathul Maswabeeh', teacher: 'Usthad Abdu Razaq Saqafi' },
+      { subject: 'Fathhul Mueen', teacher: 'Usthad Yasir Ahsani' },
+      { subject: 'Thafseerul Jalalain', teacher: 'Usthad Yasir Ahsani' },
+      { subject: 'Mukhthasarul Maani', teacher: 'Usthad Musthafa Saqafi' },
+      { subject: 'Alfiya Ibn Malik', teacher: 'Usthad Abdu Razaq Saqafi' },
+      { subject: 'Thuhfathul Ikhvan', teacher: 'Usthad Abdul Haseeb Saqafi' },
+      { subject: 'Sharahu Thahdeeb', teacher: 'Usthad Hafiz Fazl Naeemi' },
     ],
     semester2: [
-      { subject: 'Mahalli (Kitab al-Fara’id)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
-      { subject: 'Tafsir al-Jalalayn (Juz 21–30)', teacher: 'Usthad Muhammed Musthafa Saqafi' },
-      { subject: 'Ilm al-Mantiq & Hikmah', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'BA Degree Paper II', teacher: 'Usthad Midhlaj Ahsani' },
-      { subject: 'Comparative Da’wa Studies', teacher: 'Usthad Favaz Saqafi' },
+      { subject: "Jam'ul Javamiu", teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Mishkathul Maswabeeh', teacher: 'Usthad Abdu Razaq Saqafi' },
+      { subject: 'Fathhul Mueen', teacher: 'Usthad Yasir Ahsani' },
+      { subject: 'Thafseerul Jalalain', teacher: 'Usthad Yasir Ahsani' },
+      { subject: 'Mukhthasarul Maani', teacher: 'Usthad Musthafa Saqafi' },
+      { subject: 'Alfiya Ibn Malik', teacher: 'Usthad Abdu Razaq Saqafi' },
+      { subject: 'Thuhfathul Ikhvan', teacher: 'Usthad Abdul Haseeb Saqafi' },
+      { subject: 'Sharahu Thahdeeb', teacher: 'Usthad Hafiz Fazl Naeemi' },
     ],
   },
   'BS 3': {
     periods: [
-      { label: 'Period 1', time: '06:45 – 07:50' },
-      { label: 'Period 2', time: '08:30 – 09:30' },
-      { label: 'Period 3', time: '09:45 – 10:45' },
-      { label: 'Period 4', time: '11:00 – 12:00' },
-      { label: 'Period 5', time: '14:00 – 15:15' },
+      { label: 'Period 1', time: '6:30 AM – 7:15 AM' },
+      { label: 'Period 2', time: '7:15 AM – 8:00 AM' },
+      { label: 'Period 3', time: '8:00 AM – 8:45 AM' },
+      { label: 'Period 4', time: '9:15 AM – 10:00 AM' },
+      { label: 'Period 5', time: '10:00 AM – 10:45 AM' },
+      { label: 'Period 6', time: '11:00 AM – 11:45 AM' },
+      { label: 'Period 7', time: '11:45 AM – 12:30 PM' },
+      { label: 'Period 8', time: '1:15 PM – 2:00 PM' },
     ],
     semester1: [
-      { subject: 'Fiqh (Mahalli — Nikah & Talaq)', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'Tafsir al-Baydawi & Ulum', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
-      { subject: 'Jam’ al-Jawami’ (Usul al-Fiqh)', teacher: 'Usthad Muhammed Musthafa Saqafi' },
-      { subject: 'Arabic Literature & Criticism', teacher: 'Usthad Favaz Saqafi' },
-      { subject: 'BA Final Year Seminar', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: "Jam'ul Javamiu", teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Mishkathul Maswabeeh', teacher: 'Usthad Abdu Razaq Saqafi' },
+      { subject: 'Al Mahalli', teacher: 'Usthad Musthafa Saqafi' },
+      { subject: 'Thafseerul Jalalain', teacher: 'Usthad Hafiz Fazl Naeemi' },
+      { subject: 'Mukhthasarul Maani', teacher: 'Usthad Musthafa Saqafi' },
+      { subject: 'Fathhul Mueen', teacher: 'Usthad Yasir Ahsani' },
+      { subject: 'Thuhfathul Ikhvan', teacher: 'Usthad Abdul Haseeb Saqafi' },
+      { subject: 'Refreshment', teacher: 'Refreshment' },
     ],
     semester2: [
-      { subject: 'Fiqh (Mahalli — Jinayat & Qada)', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'Sunan al-Tirmidhi (Selected)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
-      { subject: 'Jam’ al-Jawami’ (Qiyas & Ijtihad)', teacher: 'Usthad Muhammed Musthafa Saqafi' },
-      { subject: 'Islamic Historiography', teacher: 'Usthad Favaz Saqafi' },
-      { subject: 'BA Dissertation & Viva', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: "Jam'ul Javamiu", teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Mishkathul Maswabeeh', teacher: 'Usthad Abdu Razaq Saqafi' },
+      { subject: 'Al Mahalli', teacher: 'Usthad Musthafa Saqafi' },
+      { subject: 'Thafseerul Jalalain', teacher: 'Usthad Hafiz Fazl Naeemi' },
+      { subject: 'Mukhthasarul Maani', teacher: 'Usthad Musthafa Saqafi' },
+      { subject: 'Fathhul Mueen', teacher: 'Usthad Yasir Ahsani' },
+      { subject: 'Thuhfathul Ikhvan', teacher: 'Usthad Abdul Haseeb Saqafi' },
+      { subject: 'Refreshment', teacher: 'Refreshment' },
     ],
   },
   'BS 4': {
     periods: [
-      { label: 'Period 1', time: '06:30 – 07:45' },
-      { label: 'Period 2', time: '08:30 – 09:35' },
-      { label: 'Period 3', time: '09:50 – 10:50' },
-      { label: 'Period 4', time: '11:05 – 12:05' },
-      { label: 'Period 5', time: '14:00 – 15:15' },
+      { label: 'Period 1', time: '6:30 AM – 7:15 AM' },
+      { label: 'Period 2', time: '7:15 AM – 8:00 AM' },
+      { label: 'Period 3', time: '8:00 AM – 8:45 AM' },
+      { label: 'Period 4', time: '9:15 AM – 10:00 AM' },
+      { label: 'Period 5', time: '10:00 AM – 10:45 AM' },
+      { label: 'Period 6', time: '11:00 AM – 11:45 AM' },
+      { label: 'Period 7', time: '11:45 AM – 12:30 PM' },
+      { label: 'Period 8', time: '3:15 PM – 4:00 PM' },
     ],
     semester1: [
-      { subject: 'Tuhfat al-Muhtaj (Valiya Dars)', teacher: 'SHAIKHUNA HAMZA USTHAD' },
-      { subject: 'Sahih Muslim (Kitab al-Iman)', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'Tafsir al-Nasafi / Baydawi', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
-      { subject: 'Maqasid al-Shari’ah', teacher: 'Usthad Muhammed Musthafa Saqafi' },
-      { subject: 'Postgraduate Research Methods', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Al Bahs', teacher: 'Usthad Abdul Haseeb Saqafi' },
+      { subject: 'Mishkathul Maswabeeh', teacher: 'Usthad Musthafa Saqafi' },
+      { subject: 'Al Mahalli', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Thafseerul Jalalain', teacher: 'Usthad Hafiz Fazl Naeemi' },
+      { subject: 'Al Khilafathul Amaviyyah', teacher: 'Usthad Abdu Razaq Saqafi' },
+      { subject: "Jam'ul Javamiu", teacher: 'Usthad Shaikhuna' },
+      { subject: 'Refreshment', teacher: 'Refreshment' },
+      { subject: 'Minhajusswageer', teacher: 'Usthad Yasir Ahsani' },
     ],
     semester2: [
-      { subject: 'Tuhfat al-Muhtaj (Mu’amalat — Valiya Dars)', teacher: 'SHAIKHUNA HAMZA USTHAD' },
-      { subject: 'Sunan Abi Dawud (Ahkam)', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'Tasawwuf (Ihya’ Ulum al-Din)', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
-      { subject: 'Contemporary Fiqh Academy Papers', teacher: 'Usthad Muhammed Musthafa Saqafi' },
-      { subject: 'Translation & Publication Lab', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Al Bahs', teacher: 'Usthad Abdul Haseeb Saqafi' },
+      { subject: 'Mishkathul Maswabeeh', teacher: 'Usthad Musthafa Saqafi' },
+      { subject: 'Al Mahalli', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Thafseerul Jalalain', teacher: 'Usthad Hafiz Fazl Naeemi' },
+      { subject: 'Al Khilafathul Amaviyyah', teacher: 'Usthad Abdu Razaq Saqafi' },
+      { subject: "Jam'ul Javamiu", teacher: 'Usthad Shaikhuna' },
+      { subject: 'Refreshment', teacher: 'Refreshment' },
+      { subject: 'Minhajusswageer', teacher: 'Usthad Yasir Ahsani' },
     ],
   },
   'BS 5': {
     periods: [
-      { label: 'Period 1', time: '06:30 – 07:45' },
-      { label: 'Period 2', time: '08:30 – 09:35' },
-      { label: 'Period 3', time: '09:50 – 10:50' },
-      { label: 'Period 4', time: '11:05 – 12:05' },
-      { label: 'Period 5', time: '14:00 – 15:15' },
+      { label: 'Period 1', time: '6:30 AM – 7:15 AM' },
+      { label: 'Period 2', time: '7:15 AM – 8:00 AM' },
+      { label: 'Period 3', time: '8:00 AM – 8:45 AM' },
+      { label: 'Period 4', time: '9:15 AM – 10:00 AM' },
+      { label: 'Period 5', time: '10:00 AM – 10:45 AM' },
+      { label: 'Period 6', time: '11:00 AM – 11:45 AM' },
+      { label: 'Period 7', time: '11:45 AM – 12:30 PM' },
+      { label: 'Period 8', time: '1:30 PM – 2:15 PM' },
+      { label: 'Period 9', time: '2:30 PM – 3:15 PM' },
+      { label: 'Period 10', time: '3:15 PM – 4:00 PM' },
     ],
     semester1: [
-      { subject: 'Sahih al-Bukhari (Valiya Dars Part 1)', teacher: 'SHAIKHUNA HAMZA USTHAD' },
-      { subject: 'Tuhfat al-Muhtaj & Fatawa', teacher: 'SHAIKHUNA HAMZA USTHAD' },
-      { subject: 'Jami’ al-Tirmidhi & Ilal', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'Comparative Religion & Da’wa', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
-      { subject: 'Senior Thesis & Ifta’ Practicum', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Al Bukhari', teacher: 'Usthad Shaikhuna' },
+      { subject: 'No One', teacher: 'No One' },
+      { subject: "Jam'ul Javamiu", teacher: 'Usthad Abdu Razaq Saqafi' },
+      { subject: 'Sharahul Aqaid', teacher: 'Usthad Shaikhuna' },
+      { subject: 'Mulla Hasan', teacher: 'Usthad Hafiz Fazl Naeemi' },
+      { subject: 'Refreshment', teacher: 'Refreshment' },
+      { subject: 'Al Mahalli', teacher: 'Usthad Musthafa Saqafi' },
+      { subject: 'Al Mahalli', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Thafseerul Baillavi', teacher: 'Usthad Shaikhuna' },
+      { subject: "Jam'ul Javamiu", teacher: 'Usthad Musthafa Saqafi' },
     ],
     semester2: [
-      { subject: 'Sahih al-Bukhari (Valiya Dars Part 2)', teacher: 'SHAIKHUNA HAMZA USTHAD' },
-      { subject: 'Qawa’id Fiqhiyyah (Al-Ashbah)', teacher: 'SHAIKHUNA HAMZA USTHAD' },
-      { subject: 'Muwatta’ Imam Malik & Sunan', teacher: 'Usthad Muhammed Yasir Ahsani' },
-      { subject: 'Global Da’wa Leadership', teacher: 'Usthad Hafiz Fazlul Abid Naeemi' },
-      { subject: 'Final Thesis Defense & Fatwa Lab', teacher: 'Usthad Muhammed Musthafa Saqafi' },
+      { subject: 'Al Bukhari', teacher: 'Usthad Shaikhuna' },
+      { subject: 'No One', teacher: 'No One' },
+      { subject: "Jam'ul Javamiu", teacher: 'Usthad Abdu Razaq Saqafi' },
+      { subject: 'Sharahul Aqaid', teacher: 'Usthad Shaikhuna' },
+      { subject: 'Mulla Hasan', teacher: 'Usthad Hafiz Fazl Naeemi' },
+      { subject: 'Refreshment', teacher: 'Refreshment' },
+      { subject: 'Al Mahalli', teacher: 'Usthad Musthafa Saqafi' },
+      { subject: 'Al Mahalli', teacher: 'Usthad Midhlaj Ahsani' },
+      { subject: 'Thafseerul Baillavi', teacher: 'Usthad Shaikhuna' },
+      { subject: "Jam'ul Javamiu", teacher: 'Usthad Musthafa Saqafi' },
     ],
   },
 }
@@ -1222,7 +1270,7 @@ export type ClassUsthad = {
 }
 
 /**
- * The 9 Official Teaching & Class Usthads of ICS Academy Manhappatta
+ * The 10 Official Teaching & Class Usthads of ICS Academy Manhappatta
  * (Excludes SHAIKHUNA HAMZA USTHAD and Manager Usthad Muhammed Naeem Saqafi,
  * as neither of them are Class Usthads or have Login IDs).
  */
@@ -1355,6 +1403,20 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     batchCode: '09',
     specialization: 'Fath al-Mu’in & Hadith Studies',
   },
+  {
+    id: 'usthad-15',
+    staffId: 'UST-15',
+    name: 'Usthad Abdul Haseeb Saqafi',
+    shortName: 'Usthad Abdul Haseeb Saqafi',
+    designation: 'Teaching Usthad',
+    institutionalRole: 'Class Usthad',
+    teachingBatches: ['BS 4', 'BS 3', 'BS 2'],
+    className: 'BS 4',
+    fullClassLabel: 'Class BS 4, BS 3 & BS 2',
+    batch: 'BS Degree',
+    batchCode: '15',
+    specialization: 'Al Bahs & Thuhfathul Ikhvan',
+  },
 ]
 
 /**
@@ -1425,13 +1487,50 @@ export type UsthadScheduledPeriodSlot = {
   teacher: string
 }
 
+export function isNonTeachingTimetableSlot(
+  slot?: { subject?: string; teacher?: string } | null,
+): boolean {
+  if (!slot) return false
+  const subj = String(slot.subject || '').trim().toLowerCase()
+  const teach = String(slot.teacher || '').trim().toLowerCase()
+  const nonTeachingKeywords = ['refreshment', 'no one', 'break', 'free period']
+  return nonTeachingKeywords.some(
+    (kw) => subj === kw || teach === kw || subj.startsWith(`${kw} `) || teach.startsWith(`${kw} `),
+  )
+}
+
+export function parseTimetableStartMinutes(timeRange: string): number {
+  const startPart = String(timeRange || '').split(/[–—-]|to/i)[0]?.trim() || ''
+  const match = startPart.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?/i)
+  if (!match) return 9999
+  let hour = Number.parseInt(match[1], 10)
+  const minute = Number.parseInt(match[2], 10) || 0
+  const mer = (match[3] || '').toLowerCase()
+  if (mer === 'pm' && hour < 12) hour += 12
+  else if (mer === 'am' && hour === 12) hour = 0
+  return hour * 60 + minute
+}
+
 function normalizeUsthadNameToken(raw: string): string {
   return String(raw || '')
     .toLowerCase()
-    .replace(/\b(usthad|ustad|muhammed|mohammed|hafiz|shaikhuna|manhappatta)\b/g, ' ')
+    .replace(/\b(usthad|ustad|muhammed|mohammed|hafiz|shaikhuna|shakhuna|manhappatta)\b/g, ' ')
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+function extractPersonalUsthadTokens(raw: string): string[] {
+  return String(raw || '')
+    .toLowerCase()
+    .replace(
+      /\b(usthad|ustad|muhammed|mohammed|hafiz|shaikhuna|shakhuna|manhappatta|abdu|abdul|saqafi|ahsani|naeemi|hudawi|faizy)\b/g,
+      ' ',
+    )
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w.length >= 3)
 }
 
 export function doesUsthadMatchTeacherName(
@@ -1439,17 +1538,37 @@ export function doesUsthadMatchTeacherName(
   teacherName: string,
 ): boolean {
   if (!usthad || !teacherName) return false
+  const rawLower = String(teacherName).trim().toLowerCase()
+  if (
+    !rawLower ||
+    rawLower === 'no one' ||
+    rawLower === 'refreshment' ||
+    rawLower === 'break' ||
+    rawLower === '—' ||
+    rawLower.includes('shaikhuna') ||
+    rawLower.includes('shakhuna')
+  ) {
+    return false
+  }
+
   const tNorm = normalizeUsthadNameToken(teacherName)
   const uNorm = normalizeUsthadNameToken(usthad.name || usthad.shortName)
   if (!tNorm || !uNorm) return false
   if (tNorm === uNorm) return true
   if (tNorm.includes(uNorm) || uNorm.includes(tNorm)) return true
 
-  const tTokens = tNorm.split(' ').filter((w) => w.length >= 3)
-  const uTokens = uNorm.split(' ').filter((w) => w.length >= 3)
+  const tTokens = extractPersonalUsthadTokens(teacherName)
+  const uTokens = extractPersonalUsthadTokens(usthad.name || usthad.shortName)
   if (tTokens.length === 0 || uTokens.length === 0) return false
-  // Match distinct personal name token (first token after stripping Usthad/Muhammed/Hafiz)
-  return tTokens[0] === uTokens[0]
+
+  return tTokens.some((tTok) =>
+    uTokens.some(
+      (uTok) =>
+        tTok === uTok ||
+        (Math.min(tTok.length, uTok.length) >= 4 &&
+          (tTok.startsWith(uTok) || uTok.startsWith(tTok))),
+    ),
+  )
 }
 
 export function findUsthadForTeacherName(teacherName: string): ClassUsthad | undefined {
@@ -1469,7 +1588,7 @@ export function getUsthadScheduledPeriodsAcrossClasses(
     const slots = semester === 1 ? schedule.semester1 : schedule.semester2
     schedule.periods.forEach((p, idx) => {
       const slot = slots[idx]
-      if (!slot) return
+      if (!slot || isNonTeachingTimetableSlot(slot)) return
       if (doesUsthadMatchTeacherName(usthad, slot.teacher)) {
         result.push({
           className,
@@ -1482,7 +1601,11 @@ export function getUsthadScheduledPeriodsAcrossClasses(
       }
     })
   }
-  return result
+  return result.sort((a, b) => {
+    const diff = parseTimetableStartMinutes(a.time) - parseTimetableStartMinutes(b.time)
+    if (diff !== 0) return diff
+    return a.className.localeCompare(b.className)
+  })
 }
 
 export function getUsthadTeachingClasses(
@@ -3042,6 +3165,7 @@ export type AcademyAdminConfig = {
   classLeaderAssignments?: Record<string, string>
   /** Maps className -> ClassSemesterTimetable */
   timetableOverrides?: Record<string, ClassSemesterTimetable>
+  bsTimetableVersion?: number
 }
 
 export const ACADEMY_ADMIN_CONFIG_STORAGE_KEY = 'ics_academy_admin_config_v1'
@@ -3318,8 +3442,11 @@ export function applyAcademyAdminConfig(config: AcademyAdminConfig): void {
 
   // 5. Rebuild CLASS_SEMESTER_SCHEDULES in-place
   const ttOverrides = config.timetableOverrides ?? {}
+  const isLegacyBsVersion = (config.bsTimetableVersion ?? 0) < 2
+  const bsDegreeClasses = new Set(['BS 1', 'BS 2', 'BS 3', 'BS 4', 'BS 5'])
   for (const clsName of Object.keys(BASE_TIMETABLES_SNAPSHOT)) {
-    const customTt = ttOverrides[clsName]
+    const customTt =
+      isLegacyBsVersion && bsDegreeClasses.has(clsName) ? undefined : ttOverrides[clsName]
     if (
       customTt &&
       Array.isArray(customTt.periods) &&
@@ -3635,6 +3762,7 @@ export function saveClassTimetableByPrincipal(
     {
       ...current,
       ...(activeSemester ? { activeSemester } : {}),
+      bsTimetableVersion: 2,
       timetableOverrides: nextTimetables,
     },
     {

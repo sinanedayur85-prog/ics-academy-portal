@@ -74,7 +74,6 @@ import {
   BS_DEGREE_CLASS_NAMES,
   CLASS_LEADERS,
   CLASS_USTHADS,
-  CURRENT_SEMESTER,
   HIGH_SCHOOL_CLASS_NAMES,
   MONTHS_META,
   NOT_HELD_REASONS,
@@ -93,6 +92,7 @@ import {
   getEffectiveStudentAttendance,
   getNextSuggestedAdmissionNo,
   getNoticeTargetClasses,
+  isNonTeachingTimetableSlot,
   leaveReasons,
   loadAcademyAdminConfig,
   loadAttendanceOverrides,
@@ -529,6 +529,7 @@ export function PrincipalDashboard() {
 
   // Build 11-Class Matrix for `selectedDate`
   const classMatrixRows = useMemo(() => {
+    const activeSemester = getActiveSemester()
     return CLASS_USTHADS.map((usthad) => {
       const batchStudents = enrichedCampusStudents.filter(
         (item) => item.student.className === usthad.className,
@@ -536,7 +537,7 @@ export function PrincipalDashboard() {
       const repStudent = batchStudents[0]?.student ?? students[0]
       const timetable = getClassSemesterTimetable(repStudent)
       const semesterSlots =
-        CURRENT_SEMESTER === 1 ? timetable.semester1 : timetable.semester2
+        activeSemester === 1 ? timetable.semester1 : timetable.semester2
       const leaders = getClassLeadersForClass(usthad.className)
 
       const avgAttendance =
@@ -557,11 +558,15 @@ export function PrincipalDashboard() {
           subject: 'General Study',
           teacher: usthad.shortName,
         }
+        const isNonTeaching = isNonTeachingTimetableSlot(slot)
         const subKey = `${selectedDate}__${usthad.className}__${periodIndex}`
-        const sub = periodSubmissions[subKey]
-        const state: 'conducted' | 'not-held' | 'substituted' | 'pending' = sub
-          ? (sub.sessionStatus ?? 'conducted')
-          : 'pending'
+        const sub = !isNonTeaching ? periodSubmissions[subKey] : undefined
+        const state: 'conducted' | 'not-held' | 'substituted' | 'pending' | 'break' =
+          isNonTeaching
+            ? 'break'
+            : sub
+              ? (sub.sessionStatus ?? 'conducted')
+              : 'pending'
 
         return {
           periodIndex,
@@ -569,6 +574,7 @@ export function PrincipalDashboard() {
           time: p.time,
           subject: slot.subject,
           regularTeacher: slot.teacher,
+          isNonTeaching,
           submission: sub,
           state,
         }
@@ -577,6 +583,7 @@ export function PrincipalDashboard() {
       const conductedCount = periodCells.filter((c) => c.state === 'conducted').length
       const notHeldCount = periodCells.filter((c) => c.state === 'not-held').length
       const substitutedCount = periodCells.filter((c) => c.state === 'substituted').length
+      const teachingPeriodsCount = periodCells.filter((c) => !c.isNonTeaching).length
 
       return {
         usthad,
@@ -588,12 +595,13 @@ export function PrincipalDashboard() {
         onLeaveCount,
         avgAttendance,
         periodCells,
+        teachingPeriodsCount,
         conductedCount,
         notHeldCount,
         substitutedCount,
       }
     })
-  }, [enrichedCampusStudents, selectedDate, periodSubmissions])
+  }, [enrichedCampusStudents, selectedDate, periodSubmissions, configVersion])
 
   // Campus-Wide Telemetry KPIs
   const campusMetrics = useMemo(() => {
@@ -617,7 +625,7 @@ export function PrincipalDashboard() {
       periodsConducted += row.conductedCount
       periodsNotHeld += row.notHeldCount
       periodsSubstituted += row.substitutedCount
-      totalDailyPeriods += row.periodCells.length
+      totalDailyPeriods += row.teachingPeriodsCount
     }
 
     return {
@@ -641,7 +649,7 @@ export function PrincipalDashboard() {
     }[] = []
     for (const row of classMatrixRows) {
       for (const cell of row.periodCells) {
-        if (cell.state === 'not-held' || cell.state === 'substituted') {
+        if (!cell.isNonTeaching && (cell.state === 'not-held' || cell.state === 'substituted')) {
           items.push({ row, cell })
         }
       }
@@ -2162,23 +2170,29 @@ export function PrincipalDashboard() {
                           </td>
 
                           <td className="px-3.5 py-3">
-                            <div className="flex items-center justify-center gap-1.5">
+                            <div className="flex flex-wrap items-center justify-center gap-1.5">
                               {row.periodCells.map((cell) => (
                                 <span
                                   key={cell.periodIndex}
                                   title={`${cell.label}: ${cell.subject} (${cell.regularTeacher}) — ${cell.state.toUpperCase()}`}
                                   className={cn(
                                     'inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-bold tabular-nums',
-                                    cell.state === 'conducted'
-                                      ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-lime'
-                                      : cell.state === 'not-held'
-                                        ? 'border-red-500/50 bg-red-500/20 text-red-600 dark:text-red-400'
-                                        : cell.state === 'substituted'
-                                          ? 'border-cyan/50 bg-cyan/20 text-cyan'
-                                          : 'border-border bg-background/80 text-muted-foreground',
+                                    cell.state === 'break'
+                                      ? 'border-border/50 bg-muted/40 text-muted-foreground/80'
+                                      : cell.state === 'conducted'
+                                        ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-lime'
+                                        : cell.state === 'not-held'
+                                          ? 'border-red-500/50 bg-red-500/20 text-red-600 dark:text-red-400'
+                                          : cell.state === 'substituted'
+                                            ? 'border-cyan/50 bg-cyan/20 text-cyan'
+                                            : 'border-border bg-background/80 text-muted-foreground',
                                   )}
                                 >
                                   P{cell.periodIndex}
+                                  {cell.state === 'break' &&
+                                    (cell.subject.toLowerCase().includes('refreshment')
+                                      ? ' Break'
+                                      : ' Free')}
                                   {cell.state === 'conducted' && ' ✓'}
                                   {cell.state === 'not-held' && ' ✕'}
                                   {cell.state === 'substituted' && ' ⇄'}
@@ -2512,7 +2526,7 @@ export function PrincipalDashboard() {
                               <div>
                                 <span className="block text-[10px] text-muted-foreground">Conducted</span>
                                 <span className="font-mono font-bold text-emerald-600 dark:text-lime tabular-nums">
-                                  {row.conductedCount}/{row.periodCells.length}
+                                  {row.conductedCount}/{row.teachingPeriodsCount}
                                 </span>
                               </div>
                               <div>
@@ -2537,10 +2551,14 @@ export function PrincipalDashboard() {
                             </div>
 
                             <div className="text-[11px] text-muted-foreground tabular-nums">
-                              Staff ID: {u.staffId} • Assigned Class:{' '}
-                              {u.teachingBatches && u.teachingBatches.length > 1
-                                ? u.teachingBatches.join(' & ')
-                                : u.className}
+                              Staff ID: {u.staffId} •{' '}
+                              {u.designation === 'Teaching Usthad' && u.teachingBatches
+                                ? `Teaching Batches: ${u.teachingBatches.join(', ')}`
+                                : `Assigned Class: ${
+                                    u.teachingBatches && u.teachingBatches.length > 1
+                                      ? u.teachingBatches.join(' & ')
+                                      : u.className
+                                  }`}
                             </div>
                           </div>
 

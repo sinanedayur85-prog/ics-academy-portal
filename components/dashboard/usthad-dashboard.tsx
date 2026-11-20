@@ -19,11 +19,13 @@ import {
 import {
   BookOpen,
   CalendarCheck,
+  CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
   ClipboardList,
   CloudUpload,
+  Coffee,
   FileText,
   Globe,
   GraduationCap,
@@ -61,12 +63,17 @@ import {
   CLASS_USTHADS,
   HIGH_SCHOOL_CLASS_NAMES,
   MONTHS_META,
+  OFFICIAL_CLASS_USTHADS,
+  doesUsthadMatchTeacherName,
   ensureCleanLaunchStorage,
   formatTargetClassesBadge,
+  getActiveSemester,
+  getClassSemesterTimetableByClassName,
   getEffectiveStudentAttendance,
   getNoticeTargetClasses,
   getUsthadScheduledPeriodsAcrossClasses,
   getUsthadTeachingClasses,
+  isNonTeachingTimetableSlot,
   isUsthadAssignedClassUsthadOfBatch,
   leaveReasons,
   loadAttendanceOverrides,
@@ -116,6 +123,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
 const usthadNavItems = [
   { label: 'Class Students', href: '#class-roster', icon: Users },
+  { label: 'Timetable', href: '#usthad-timetable', icon: CalendarDays },
   { label: 'Syllabus, Tests & Zadul Khair', href: '#academic-hub', icon: Trophy },
   { label: 'My Periods & Attendance', href: '#usthad-attendance', icon: CalendarCheck },
   { label: 'Leave Register', href: '#usthad-leave', icon: ClipboardList },
@@ -183,31 +191,51 @@ export function UsthadDashboard() {
   const [baseUsthad] = useState<ClassUsthad>(() => {
     if (typeof window !== 'undefined') {
       const savedId = window.localStorage.getItem('loggedInUsthadId')
-      const matched = CLASS_USTHADS.find((u) => u.id === savedId)
+      const matched =
+        OFFICIAL_CLASS_USTHADS.find((u) => u.id === savedId) ??
+        CLASS_USTHADS.find((u) => u.id === savedId)
       if (matched) return matched
     }
     return CLASS_USTHADS.find((u) => u.batchCode === '07') ?? CLASS_USTHADS[0]
   })
 
+  const [configVersion, setConfigVersion] = useState(0)
   const [activeClassName, setActiveClassName] = useState<string>(() => baseUsthad.className)
 
+  useEffect(() => {
+    const syncConfig = () => setConfigVersion((v) => v + 1)
+    window.addEventListener('ics-academy-config-updated', syncConfig)
+    window.addEventListener('storage', syncConfig)
+    return () => {
+      window.removeEventListener('ics-academy-config-updated', syncConfig)
+      window.removeEventListener('storage', syncConfig)
+    }
+  }, [])
+
+  const activeSemester = getActiveSemester()
+
   const allScheduledPeriods = useMemo(
-    () => getUsthadScheduledPeriodsAcrossClasses(baseUsthad, 1),
-    [baseUsthad],
+    () => getUsthadScheduledPeriodsAcrossClasses(baseUsthad, activeSemester),
+    [baseUsthad, activeSemester, configVersion],
   )
 
   const allTeachingClasses = useMemo(
-    () => getUsthadTeachingClasses(baseUsthad, 1),
-    [baseUsthad],
+    () => getUsthadTeachingClasses(baseUsthad, activeSemester),
+    [baseUsthad, activeSemester, configVersion],
+  )
+
+  const activeClassTimetable = useMemo(
+    () => getClassSemesterTimetableByClassName(activeClassName),
+    [activeClassName, configVersion],
   )
 
   const isAssignedClassUsthadForActiveClass = useMemo(
     () => isUsthadAssignedClassUsthadOfBatch(baseUsthad, activeClassName),
-    [baseUsthad, activeClassName],
+    [baseUsthad, activeClassName, configVersion],
   )
 
   const [selectedAttendancePeriodIndex, setSelectedAttendancePeriodIndex] = useState<number>(() => {
-    const initialSlots = getUsthadScheduledPeriodsAcrossClasses(baseUsthad, 1)
+    const initialSlots = getUsthadScheduledPeriodsAcrossClasses(baseUsthad, getActiveSemester())
     const matchInOwnClass = initialSlots.find((s) => s.className === baseUsthad.className)
     return matchInOwnClass?.periodIndex ?? initialSlots[0]?.periodIndex ?? 1
   })
@@ -233,9 +261,9 @@ export function UsthadDashboard() {
   const [mobileTab, setMobileTab] = useState<
     'roster' | 'attendance' | 'leave' | 'chat' | 'notices' | 'library'
   >('roster')
-  const [mobileRosterSubTab, setMobileRosterSubTab] = useState<'students' | 'academic-hub'>(
-    'students',
-  )
+  const [mobileRosterSubTab, setMobileRosterSubTab] = useState<
+    'students' | 'timetable' | 'academic-hub'
+  >('students')
   const [mobileLibrarySubTab, setMobileLibrarySubTab] = useState<'kitabs' | 'portal'>('kitabs')
 
   useEffect(() => {
@@ -251,6 +279,9 @@ export function UsthadDashboard() {
       if (hash === 'class-roster') {
         setMobileTab('roster')
         setMobileRosterSubTab('students')
+      } else if (hash === 'usthad-timetable') {
+        setMobileTab('roster')
+        setMobileRosterSubTab('timetable')
       } else if (hash === 'academic-hub') {
         setMobileTab('roster')
         setMobileRosterSubTab('academic-hub')
@@ -1151,34 +1182,47 @@ export function UsthadDashboard() {
           </div>
         </div>
 
-        {/* Mobile Sub-Switcher on Students Tab: Class Roster vs Syllabus, Tests & Zadul Khair */}
+        {/* Mobile Sub-Switcher on Students Tab: Class Roster vs Timetable vs Tests & Hub */}
         {mobileTab === 'roster' ? (
-          <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-border bg-card/85 p-1.5 shadow-xs lg:hidden">
+          <div className="grid grid-cols-3 gap-1 rounded-2xl border border-border bg-card/85 p-1.5 shadow-xs lg:hidden">
             <button
               type="button"
               onClick={() => setMobileRosterSubTab('students')}
               className={cn(
-                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all',
+                'flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold transition-all sm:text-xs',
                 mobileRosterSubTab === 'students'
                   ? 'bg-lime text-primary-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              <Users className="size-4" aria-hidden="true" />
-              <span>Class Students ({classStudents.length})</span>
+              <Users className="size-3.5 shrink-0" aria-hidden="true" />
+              <span>Students ({classStudents.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileRosterSubTab('timetable')}
+              className={cn(
+                'flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold transition-all sm:text-xs',
+                mobileRosterSubTab === 'timetable'
+                  ? 'bg-lime text-primary-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
+              <span>Timetable</span>
             </button>
             <button
               type="button"
               onClick={() => setMobileRosterSubTab('academic-hub')}
               className={cn(
-                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all',
+                'flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold transition-all sm:text-xs',
                 mobileRosterSubTab === 'academic-hub'
                   ? 'bg-lime text-primary-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              <Trophy className="size-4" aria-hidden="true" />
-              <span>Tests, Syllabus & Hub</span>
+              <Trophy className="size-3.5 shrink-0" aria-hidden="true" />
+              <span>Tests &amp; Hub</span>
             </button>
           </div>
         ) : null}
@@ -1364,6 +1408,200 @@ export function UsthadDashboard() {
             </div>
           </div>
         </Panel>
+        </div>
+
+        {/* 1B. DEDICATED USTHAD PERSONAL TIMETABLE & ACTIVE CLASS SCHEDULE */}
+        <div
+          className={cn(
+            mobileTab === 'roster' && mobileRosterSubTab === 'timetable'
+              ? 'block'
+              : 'hidden lg:block',
+          )}
+        >
+          <Panel
+            id="usthad-timetable"
+            eyebrow={`${baseUsthad.name} · Semester ${activeSemester}`}
+            title="എൻ്റെ ടൈംടേബിളും ക്ലാസ്സ് ഷെഡ്യൂളും"
+            icon={CalendarDays}
+            action={
+              <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-lime/15 dark:text-lime tabular-nums">
+                {allScheduledPeriods.length} Scheduled Periods
+              </span>
+            }
+          >
+            <div className="flex flex-col gap-6">
+              {/* Personal Chronological Schedule Across All Classes */}
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-display text-sm font-bold text-foreground sm:text-base">
+                      എൻ്റെ സ്വന്തം ടൈംടേബിൾ (My Teaching Schedule Across Classes)
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      സമയക്രമത്തിൽ താങ്കൾ എടുക്കുന്ന എല്ലാ ക്ലാസ്സുകളിലെയും പിരീഡുകൾ താഴെ കാണാം.
+                    </p>
+                  </div>
+                </div>
+
+                {allScheduledPeriods.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {allScheduledPeriods.map((slot) => {
+                      const isActive =
+                        activeClassName === slot.className &&
+                        selectedAttendancePeriodIndex === slot.periodIndex
+                      return (
+                        <div
+                          key={`tt_${slot.className}_p${slot.periodIndex}`}
+                          className={cn(
+                            'flex flex-col justify-between gap-2.5 rounded-xl border p-3.5 transition-all',
+                            isActive
+                              ? 'border-lime bg-lime/10 shadow-xs'
+                              : 'border-border bg-background/60 hover:border-lime/40',
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2">
+                            <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-bold text-emerald-700 uppercase dark:bg-lime/15 dark:text-lime">
+                              {slot.className} · {slot.periodLabel}
+                            </span>
+                            <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
+                              {slot.time}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">{slot.subject}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {slot.teacher}
+                            </p>
+                          </div>
+                          <a
+                            href="#usthad-attendance"
+                            onClick={() => {
+                              setActiveClassName(slot.className)
+                              setSelectedAttendancePeriodIndex(slot.periodIndex)
+                              const firstSt = students.find((s) => s.className === slot.className)
+                              if (firstSt) {
+                                setSelectedStudentId(firstSt.id)
+                                setLeaveStudentId(firstSt.id)
+                              }
+                              setMobileTab('attendance')
+                            }}
+                            className="inline-flex h-8 w-full items-center justify-center rounded-lg border border-lime/40 bg-lime/15 px-2.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-lime/25 dark:text-lime"
+                          >
+                            Mark Attendance
+                          </a>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="rounded-xl border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
+                    ഈ സെമസ്റ്ററിൽ താങ്കൾക്ക് നേരിട്ടുള്ള പിരീഡുകളൊന്നും ഷെഡ്യൂൾ ചെയ്തിട്ടില്ല.
+                  </p>
+                )}
+              </div>
+
+              {/* Active Class Full Timetable */}
+              <div className="space-y-3 border-t border-border/70 pt-5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-display text-sm font-bold text-foreground sm:text-base">
+                      Class {activeClassName} — മുഴുവൻ ടൈംടേബിൾ (Full Class Schedule)
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      താങ്കളുടെ പിരീഡുകൾ പച്ച നിറത്തിൽ ഹൈലൈറ്റ് ചെയ്തിട്ടുണ്ട്.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {ALL_ACADEMY_CLASS_NAMES.map((clsName) => (
+                      <button
+                        key={`tt_cls_${clsName}`}
+                        type="button"
+                        onClick={() => {
+                          setActiveClassName(clsName)
+                          const firstSt = students.find((s) => s.className === clsName)
+                          if (firstSt) {
+                            setSelectedStudentId(firstSt.id)
+                            setLeaveStudentId(firstSt.id)
+                          }
+                        }}
+                        className={cn(
+                          'rounded-lg border px-2 py-1 text-[11px] font-semibold transition-colors',
+                          activeClassName === clsName
+                            ? 'border-lime bg-lime text-slate-950'
+                            : 'border-border bg-background/60 text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        {clsName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+                  {activeClassTimetable.periods.map((period, idx) => {
+                    const semSlots =
+                      activeSemester === 1
+                        ? activeClassTimetable.semester1
+                        : activeClassTimetable.semester2
+                    const slot = semSlots[idx]
+                    if (!slot) return null
+                    const isNonTeaching = isNonTeachingTimetableSlot(slot)
+                    const isMine =
+                      !isNonTeaching && doesUsthadMatchTeacherName(baseUsthad, slot.teacher)
+                    return (
+                      <div
+                        key={`full_${activeClassName}_p${idx + 1}`}
+                        className={cn(
+                          'flex flex-col justify-between rounded-xl border p-3 transition-colors',
+                          isNonTeaching
+                            ? 'border-border/60 bg-muted/25 text-muted-foreground'
+                            : isMine
+                              ? 'border-emerald-500/60 bg-emerald-500/[0.08] dark:border-lime/60 dark:bg-lime/[0.08]'
+                              : 'border-border bg-background/50',
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-1.5">
+                          <span
+                            className={cn(
+                              'text-xs font-bold uppercase',
+                              isMine
+                                ? 'text-emerald-700 dark:text-lime'
+                                : isNonTeaching
+                                  ? 'text-muted-foreground'
+                                  : 'text-foreground',
+                            )}
+                          >
+                            {period.label}
+                          </span>
+                          <span className="text-[11px] tabular-nums text-muted-foreground">
+                            {period.time}
+                          </span>
+                        </div>
+                        <div className="mt-2 space-y-1">
+                          <p className="text-sm font-semibold text-foreground">{slot.subject}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {isNonTeaching ? (
+                              <span className="inline-flex items-center gap-1">
+                                <Coffee className="size-3" aria-hidden="true" />
+                                {slot.subject}
+                              </span>
+                            ) : (
+                              slot.teacher
+                            )}
+                          </p>
+                          {isMine && (
+                            <span className="inline-flex items-center rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-lime/20 dark:text-lime">
+                              • എൻ്റെ പിരീഡ്
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          </Panel>
         </div>
 
         {/* 2. ATTENDANCE STATUS & MONTHLY ATTENDANCE EDITOR */}
