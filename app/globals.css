@@ -92,6 +92,7 @@
   --cyan: #00aeef;
   --radius: 0.75rem;
   --safe-top: max(env(safe-area-inset-top, 0px), var(--android-status-bar-height, 0px));
+  --safe-bottom: max(4px, min(env(safe-area-inset-bottom, 0px), 16px));
 }
 
 .dark {
@@ -118,6 +119,7 @@
   --cyan: #00aeef;
   --radius: 0.75rem;
   --safe-top: max(env(safe-area-inset-top, 0px), var(--android-status-bar-height, 0px));
+  --safe-bottom: max(4px, min(env(safe-area-inset-bottom, 0px), 16px));
 }
 
 @keyframes fadeInUp {
@@ -160,17 +162,32 @@ pre {
 
 @layer base {
   html {
+    height: 100%;
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     font-size: 100%;
+    overscroll-behavior-y: none;
+    background-color: var(--background);
   }
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground font-sans transition-colors duration-300;
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+    overscroll-behavior-y: none;
     -webkit-font-smoothing: antialiased;
+  }
+  @media all and (display-mode: standalone) {
+    html,
+    body {
+      height: 100%;
+      width: 100%;
+      background-color: var(--background);
+    }
   }
   [dir='rtl'],
   :lang(ar) {

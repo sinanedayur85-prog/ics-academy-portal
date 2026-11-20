@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Award, BookOpen, ChevronDown, Eye, EyeOff, GraduationCap, Hash, KeyRound, LogOut, PlayCircle, ShieldCheck, User, Volume2 } from 'lucide-react'
+import { Award, BookOpen, Eye, EyeOff, GraduationCap, Hash, KeyRound, LogOut, PlayCircle, ShieldCheck, User, Volume2 } from 'lucide-react'
 import type { ClassUsthad, PrincipalProfile, Student } from '@/components/dashboard/data'
 import { AppVideoGuideModal, unlockAndroidAudioOnGesture } from '@/components/dashboard/app-video-guide'
 import { cn } from '@/lib/utils'
@@ -124,24 +124,18 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
     <div ref={containerRef} className="relative">
       <button
         type="button"
+        aria-label="My Profile"
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={popoverId}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          'flex h-10 sm:h-11 items-center gap-2 rounded-full border bg-card py-1 pr-2.5 sm:pr-3 pl-1 text-left transition-colors duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-          open ? 'border-lime/50' : 'border-border hover:border-lime/30',
+          'flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-full border bg-card p-0.5 transition-all duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+          open ? 'border-lime ring-2 ring-lime/30' : 'border-border hover:border-lime/50',
         )}
       >
-        <StudentAvatar student={student} className="size-8 sm:size-9" />
-        <span className="text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">
-          My Profile
-        </span>
-        <span className="sr-only">Account profile</span>
-        <ChevronDown
-          className={cn('size-3.5 sm:size-4 text-muted-foreground transition-transform duration-200', open && 'rotate-180 text-lime')}
-          aria-hidden="true"
-        />
+        <StudentAvatar student={student} className="size-full border-0" />
+        <span className="sr-only">My Profile</span>
       </button>
 
       {open ? (
@@ -303,28 +297,22 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
     <div ref={containerRef} className="relative">
       <button
         type="button"
+        aria-label="My Profile"
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={popoverId}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          'flex h-10 sm:h-11 items-center gap-2 rounded-full border bg-card py-1 pr-2.5 sm:pr-3 pl-1 text-left transition-colors duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-          open ? 'border-lime/50' : 'border-border hover:border-lime/30',
+          'flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-full border bg-card p-0.5 transition-all duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+          open ? 'border-lime ring-2 ring-lime/30' : 'border-border hover:border-lime/50',
         )}
       >
         <ProfileInitialsAvatar
           name={usthad.name}
           avatarUrl={usthad.avatarUrl}
-          className="size-8 sm:size-9"
+          className="size-full border-0"
         />
-        <span className="text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">
-          My Profile
-        </span>
         <span className="sr-only">Usthad account profile</span>
-        <ChevronDown
-          className={cn('size-3.5 sm:size-4 text-muted-foreground transition-transform duration-200', open && 'rotate-180 text-lime')}
-          aria-hidden="true"
-        />
       </button>
 
       {open ? (
@@ -497,28 +485,22 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
     <div ref={containerRef} className="relative">
       <button
         type="button"
+        aria-label="My Profile"
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={popoverId}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          'flex h-10 sm:h-11 items-center gap-2 rounded-full border bg-card py-1 pr-2.5 sm:pr-3 pl-1 text-left transition-colors duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-          open ? 'border-lime/50' : 'border-border hover:border-lime/30',
+          'flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-full border bg-card p-0.5 transition-all duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+          open ? 'border-lime ring-2 ring-lime/30' : 'border-border hover:border-lime/50',
         )}
       >
         <ProfileInitialsAvatar
           name={principal.name}
           avatarUrl={principal.avatarUrl}
-          className="size-8 sm:size-9"
+          className="size-full border-0"
         />
-        <span className="text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">
-          My Profile
-        </span>
         <span className="sr-only">Principal account profile</span>
-        <ChevronDown
-          className={cn('size-3.5 sm:size-4 text-muted-foreground transition-transform duration-200', open && 'rotate-180 text-lime')}
-          aria-hidden="true"
-        />
       </button>
 
       {open ? (

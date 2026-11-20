@@ -54,13 +54,21 @@ export function BrandWordmark({
   gapClassName = 'gap-0.5',
 }: BrandWordmarkProps) {
   return (
-    <Tag className={cn('inline-flex w-max flex-col font-display antialiased', gapClassName, className)}>
+    <Tag
+      className={cn(
+        'inline-flex w-max shrink-0 flex-col whitespace-nowrap font-display antialiased',
+        gapClassName,
+        className,
+      )}
+    >
       {/* El Messiri glyphs carry side bearings (I and M start ~0.078em inside their box, final A overhangs ~0.03em), so em offsets align the visible ink edges. */}
-      <span className={cn('-ml-[0.078em] block leading-none', topClassName)}>ICS ACADEMY</span>
+      <span className={cn('-ml-[0.078em] block whitespace-nowrap leading-none', topClassName)}>
+        ICS ACADEMY
+      </span>
       <span className="sr-only">{SUBTITLE}</span>
       <span
         aria-hidden="true"
-        className={cn('flex w-full justify-between leading-none', bottomClassName)}
+        className={cn('flex w-full justify-between whitespace-nowrap leading-none', bottomClassName)}
       >
         {SUBTITLE.split('').map((letter, index, letters) => (
           <span

@@ -154,7 +154,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
   }
 
   return (
-    <div className="min-h-svh bg-background transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#0A0B0E] dark:to-[#060709] max-lg:fixed max-lg:inset-0 max-lg:flex max-lg:flex-col max-lg:overflow-hidden lg:pl-64">
+    <div className="lg:min-h-svh bg-background transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#0A0B0E] dark:to-[#060709] max-lg:fixed max-lg:inset-0 max-lg:flex max-lg:flex-col max-lg:overflow-hidden lg:pl-64">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-background pt-[var(--safe-top)] transition-colors duration-300 lg:flex">
         <Link href="/" className="flex h-20 items-center gap-3 border-b border-border px-6" aria-label="ICS Academy Manhappatta home">
           <BrandLogoMark className="h-10 w-auto" />
@@ -203,14 +203,14 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
       </aside>
 
       <header className="z-40 shrink-0 border-b border-border bg-background/95 pt-[var(--safe-top)] backdrop-blur-md transition-colors duration-300 lg:sticky lg:top-0">
-        <div className="flex h-16 sm:h-20 items-center justify-between gap-2 px-3.5 sm:gap-4 sm:px-5 md:px-8">
-          <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3 lg:hidden" aria-label="ICS Academy Manhappatta home">
-            <BrandLogoMark className="h-9 sm:h-11 w-auto shrink-0" />
+        <div className="flex h-16 sm:h-20 items-center justify-between gap-2 px-3 sm:gap-4 sm:px-5 md:px-8">
+          <Link href="/" className="flex shrink-0 items-center gap-2 sm:gap-3 lg:hidden" aria-label="ICS Academy Manhappatta home">
+            <BrandLogoMark className="h-8 sm:h-10 w-auto shrink-0" />
             <BrandWordmark
               className="pt-[2px]"
               gapClassName="gap-[1px]"
-              topClassName="translate-y-[1px] text-base sm:text-lg font-bold text-foreground leading-none"
-              bottomClassName="text-[9.5px] sm:text-[10px] font-semibold text-lime leading-none"
+              topClassName="translate-y-[1px] text-[15px] sm:text-lg font-bold text-foreground leading-none"
+              bottomClassName="text-[8.5px] sm:text-[10px] font-semibold text-lime leading-none"
             />
           </Link>
           <div className="hidden lg:block">
@@ -509,9 +509,9 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
       {/* PHONE & TABLET BOTTOM NAVIGATION MENU BAR (Hidden on Desktop lg:) */}
       <nav
         aria-label="Mobile & Tablet Bottom Navigation"
-        className="z-50 shrink-0 border-t border-border/85 bg-background/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl lg:hidden"
+        className="z-50 shrink-0 border-t border-border/85 bg-background/95 pb-[var(--safe-bottom)] backdrop-blur-xl lg:hidden"
       >
-        <div className="mx-auto grid h-16 max-w-xl grid-cols-6 items-center px-1">
+        <div className="mx-auto grid h-[58px] max-w-xl grid-cols-6 items-center px-1">
           <button
             type="button"
             onClick={() => selectMobileTab('home')}

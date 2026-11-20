@@ -23,6 +23,12 @@ export const metadata: Metadata = {
     'A unified digital campus for ICS Academy Manhappatta. Students, class leaders, teachers and the principal sign in to one secure portal.',
   generator: 'v0.app',
   applicationName: 'ICS Academy',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'ICS Academy',
+  },
   icons: {
     icon: '/icons/icon-192.png',
     apple: '/icons/apple-touch-icon.png',
@@ -30,6 +36,11 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
   colorScheme: 'dark light',
   themeColor: '#0A0B0E',
 }
@@ -44,7 +55,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=localStorage.getItem('ics-theme');var d=s?s==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.classList.toggle('dark',d);}catch(e){}})();`,
+            __html: `(function(){try{var s=localStorage.getItem('ics-theme');var d=s?s==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.classList.toggle('dark',d);var m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute('content',d?'#0A0B0E':'#FFFFFF');}}catch(e){}})();`,
           }}
         />
       </head>

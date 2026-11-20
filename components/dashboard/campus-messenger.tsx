@@ -2837,7 +2837,7 @@ export function CampusMessenger({
             'flex h-full min-w-0 flex-1 flex-col bg-background lg:bg-background/95',
             !mobileShowChatPane
               ? 'hidden lg:flex'
-              : 'flex max-lg:fixed max-lg:inset-0 max-lg:z-[55] max-lg:h-dvh max-lg:w-screen max-lg:pt-[var(--safe-top)] max-lg:pb-[env(safe-area-inset-bottom,0px)]',
+              : 'flex max-lg:fixed max-lg:inset-0 max-lg:z-[55] max-lg:w-full max-lg:pt-[var(--safe-top)] max-lg:pb-[var(--safe-bottom)]',
           )}
         >
           {/* Active Chat Header */}

@@ -44,30 +44,45 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return window.btoa(binary)
 }
 
+async function fetchArrayBufferSafe(url: string, retries = 1): Promise<ArrayBuffer> {
+  let lastError: unknown = null
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, {
+        cache: attempt === 0 ? 'force-cache' : 'reload',
+      })
+      if (!res.ok) {
+        throw new Error(`Failed to fetch ${url} (${res.status})`)
+      }
+      const buffer = await res.arrayBuffer()
+      if (!buffer || buffer.byteLength === 0) {
+        throw new Error(`Empty response buffer for ${url}`)
+      }
+      return buffer
+    } catch (err) {
+      lastError = err
+      if (attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, 150))
+      }
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(`Failed to load ${url}`)
+}
+
 export async function loadVectorPdfAssets(): Promise<CachedVectorPdfAssets> {
   if (cachedVectorAssetsSync) return cachedVectorAssetsSync
   if (cachedVectorAssetsPromise) return cachedVectorAssetsPromise
 
   cachedVectorAssetsPromise = (async () => {
-    const [regRes, semiRes, boldRes, elMessiriRes, uthmanRegRes, uthmanBoldRes, logoRes] =
+    const [regBuf, semiBuf, boldBuf, elMessiriBuf, uthmanRegBuf, uthmanBoldBuf, logoBuf] =
       await Promise.all([
-        fetch('/fonts/Poppins-Regular.ttf'),
-        fetch('/fonts/Poppins-SemiBold.ttf'),
-        fetch('/fonts/Poppins-Bold.ttf'),
-        fetch('/fonts/ElMessiri-Bold.ttf'),
-        fetch('/fonts/UthmanTN1-Regular.ttf'),
-        fetch('/fonts/UthmanTN1-Bold.ttf'),
-        fetch('/images/ics-mark-transparent.png').catch(() => null),
-      ])
-
-    const [regBuf, semiBuf, boldBuf, elMessiriBuf, uthmanRegBuf, uthmanBoldBuf] =
-      await Promise.all([
-        regRes.arrayBuffer(),
-        semiRes.arrayBuffer(),
-        boldRes.arrayBuffer(),
-        elMessiriRes.arrayBuffer(),
-        uthmanRegRes.arrayBuffer(),
-        uthmanBoldRes.arrayBuffer(),
+        fetchArrayBufferSafe('/fonts/Poppins-Regular.ttf'),
+        fetchArrayBufferSafe('/fonts/Poppins-SemiBold.ttf'),
+        fetchArrayBufferSafe('/fonts/Poppins-Bold.ttf'),
+        fetchArrayBufferSafe('/fonts/ElMessiri-Bold.ttf'),
+        fetchArrayBufferSafe('/fonts/UthmanTN1-Regular.ttf'),
+        fetchArrayBufferSafe('/fonts/UthmanTN1-Bold.ttf'),
+        fetchArrayBufferSafe('/images/ics-mark-transparent.png', 0).catch(() => null),
       ])
 
     // Ensure KFGQPC Uthman Taha Naskh is also registered in document.fonts for any mixed-script canvas measurement
@@ -92,11 +107,9 @@ export async function loadVectorPdfAssets(): Promise<CachedVectorPdfAssets> {
       }
     }
 
-    let logoDataUrl: string | null = null
-    if (logoRes && logoRes.ok) {
-      const logoBuf = await logoRes.arrayBuffer()
-      logoDataUrl = `data:image/png;base64,${arrayBufferToBase64(logoBuf)}`
-    }
+    const logoDataUrl = logoBuf
+      ? `data:image/png;base64,${arrayBufferToBase64(logoBuf)}`
+      : null
 
     const loaded: CachedVectorPdfAssets = {
       regularB64: arrayBufferToBase64(regBuf),
@@ -109,7 +122,10 @@ export async function loadVectorPdfAssets(): Promise<CachedVectorPdfAssets> {
     }
     cachedVectorAssetsSync = loaded
     return loaded
-  })()
+  })().catch((err) => {
+    cachedVectorAssetsPromise = null
+    throw err
+  })
 
   return cachedVectorAssetsPromise
 }
