@@ -34,6 +34,10 @@ import {
   MoreVertical,
   Paperclip,
   Pause,
+  Phone,
+  PhoneIncoming,
+  PhoneMissed,
+  PhoneOutgoing,
   Pin,
   Play,
   Reply,
@@ -48,9 +52,17 @@ import {
   Trash2,
   Unlock,
   Users,
+  Video,
   Volume2,
   X,
 } from 'lucide-react'
+import {
+  formatCallDuration,
+  makeDirectCallRoomId,
+  useCampusCall,
+  type CallMediaType,
+  type CampusCallStatus,
+} from '@/components/dashboard/campus-call-provider'
 import { ThemeSelect } from '@/components/ui/theme-select'
 import {
   ACADEMY_CLASSES,
@@ -79,6 +91,15 @@ export interface ChatReplyRef {
   previewText: string
 }
 
+export interface ChatCallMeta {
+  callId: string
+  callType: CallMediaType
+  callStatus: CampusCallStatus
+  durationSec?: number
+  callerId: string
+  calleeId: string
+}
+
 export interface ChatMessage {
   id: string
   roomId: string
@@ -87,7 +108,8 @@ export interface ChatMessage {
   senderRole: MessengerRole
   senderBadge?: string
   text: string
-  mediaType: 'none' | 'voice' | 'image' | 'pdf'
+  mediaType: 'none' | 'voice' | 'image' | 'pdf' | 'call'
+  callMeta?: ChatCallMeta
   mediaUrl?: string
   mediaName?: string
   mediaSizeLabel?: string
@@ -688,9 +710,29 @@ export function CampusMessenger({
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [settingsToast, setSettingsToast] = useState<string | null>(null)
 
+  // Global Voice & Video Calling Context
+  const {
+    startCall,
+    callHistory,
+    unreadMissedCallsCount,
+    markMissedCallsSeen,
+    registerActiveCallActor,
+    activeCall,
+  } = useCampusCall()
+
+  // Keep global call provider synced with the exact resolved messenger actor identity
+  useEffect(() => {
+    registerActiveCallActor({
+      id: actor.id,
+      name: actor.name,
+      role: actor.role,
+      subtitle: actor.badge,
+    })
+  }, [actor.id, actor.name, actor.role, actor.badge, registerActiveCallActor])
+
   // Filter tabs & search
   const [categoryFilter, setCategoryFilter] = useState<
-    'all' | 'groups' | 'usthads' | 'students' | 'staff'
+    'all' | 'groups' | 'usthads' | 'students' | 'staff' | 'calls'
   >('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [studentBatchFilter, setStudentBatchFilter] = useState<string>(() => actor.className)
@@ -1587,6 +1629,35 @@ export function CampusMessenger({
               text: typeof raw.text === 'string' ? raw.text : '',
               mediaType:
                 (raw.mediaType as ChatMessage['mediaType']) || 'none',
+              callMeta:
+                raw.callMeta && typeof raw.callMeta === 'object'
+                  ? {
+                      callId: String((raw.callMeta as Record<string, unknown>).callId || ''),
+                      callType:
+                        (raw.callMeta as Record<string, unknown>).callType === 'video'
+                          ? 'video'
+                          : 'voice',
+                      callStatus: (
+                        [
+                          'ringing',
+                          'accepted',
+                          'connected',
+                          'declined',
+                          'missed',
+                          'ended',
+                          'busy',
+                        ].includes(String((raw.callMeta as Record<string, unknown>).callStatus))
+                          ? String((raw.callMeta as Record<string, unknown>).callStatus)
+                          : 'ended'
+                      ) as CampusCallStatus,
+                      durationSec:
+                        typeof (raw.callMeta as Record<string, unknown>).durationSec === 'number'
+                          ? Number((raw.callMeta as Record<string, unknown>).durationSec)
+                          : undefined,
+                      callerId: String((raw.callMeta as Record<string, unknown>).callerId || ''),
+                      calleeId: String((raw.callMeta as Record<string, unknown>).calleeId || ''),
+                    }
+                  : undefined,
               mediaUrl: typeof raw.mediaUrl === 'string' && raw.mediaUrl ? raw.mediaUrl : undefined,
               mediaName: typeof raw.mediaName === 'string' ? raw.mediaName : undefined,
               mediaSizeLabel:
@@ -3391,22 +3462,35 @@ export function CampusMessenger({
                   ...(actor.isStaff ? [{ id: 'staff', label: 'Staff' } as const] : []),
                   { id: 'usthads', label: 'Teachers' },
                   { id: 'students', label: 'Students' },
+                  { id: 'calls', label: 'Calls' },
                 ] as const
               ).map((tab) => {
                 const active = categoryFilter === tab.id
+                const showMissedBadge = tab.id === 'calls' && unreadMissedCallsCount > 0
                 return (
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setCategoryFilter(tab.id)}
+                    onClick={() => {
+                      setCategoryFilter(tab.id)
+                      if (tab.id === 'calls') {
+                        markMissedCallsSeen()
+                      }
+                    }}
                     className={cn(
-                      'rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors whitespace-nowrap shrink-0 border',
+                      'inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors whitespace-nowrap shrink-0 border',
                       active
                         ? 'border-emerald-600 bg-emerald-600 text-white dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100'
                         : 'border-transparent bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
                     )}
                   >
-                    {tab.label}
+                    {tab.id === 'calls' && <Phone className="size-3" aria-hidden="true" />}
+                    <span>{tab.label}</span>
+                    {showMissedBadge && (
+                      <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 font-poppins text-[9px] font-bold text-white tabular-nums">
+                        {unreadMissedCallsCount > 99 ? '99+' : unreadMissedCallsCount}
+                      </span>
+                    )}
                   </button>
                 )
               })}
@@ -3436,9 +3520,173 @@ export function CampusMessenger({
             )}
           </div>
 
-          {/* Scrollable Room List */}
+          {/* Scrollable Room List OR Dedicated Calls History List */}
           <div className="flex-1 overflow-y-auto divide-y divide-border/50">
-            {filteredRooms.map((room) => {
+            {categoryFilter === 'calls' ? (
+              (() => {
+                const q = searchQuery.trim().toLowerCase()
+                const filteredCalls = callHistory.filter((rec) => {
+                  if (!q) return true
+                  const isOutgoing = rec.callerId === actor.id
+                  const peerName = (isOutgoing ? rec.calleeName : rec.callerName).toLowerCase()
+                  const peerSub = (
+                    (isOutgoing ? rec.calleeSubtitle : rec.callerSubtitle) || ''
+                  ).toLowerCase()
+                  return peerName.includes(q) || peerSub.includes(q) || rec.callType.includes(q)
+                })
+
+                if (filteredCalls.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+                      <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-500/12 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
+                        <Phone className="size-5" aria-hidden="true" />
+                      </div>
+                      <p className="mt-3 text-sm font-semibold text-foreground">No calls yet</p>
+                      <p className="mt-1 max-w-[230px] text-xs leading-relaxed text-muted-foreground">
+                        Open any student or Usthad chat and tap the voice or video call icon at the
+                        top to place a direct call.
+                      </p>
+                    </div>
+                  )
+                }
+
+                return filteredCalls.map((rec) => {
+                  const isOutgoing = rec.callerId === actor.id
+                  const peerId = isOutgoing ? rec.calleeId : rec.callerId
+                  const peerName = isOutgoing ? rec.calleeName : rec.callerName
+                  const peerRole = isOutgoing ? rec.calleeRole : rec.callerRole
+                  const peerSubtitle = isOutgoing ? rec.calleeSubtitle : rec.callerSubtitle
+                  const isMissedIncoming =
+                    !isOutgoing && (rec.status === 'missed' || rec.status === 'declined')
+                  const directRoomId = rec.roomId || makeDirectCallRoomId(actor.id, peerId)
+                  const matchingRoom = allRooms.find(
+                    (r) => r.roomId === directRoomId || r.peerId === peerId,
+                  )
+                  const avatarUrl = matchingRoom?.avatarUrl
+                  const initials = peerName
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((p) => p[0]?.toUpperCase() || '')
+                    .join('')
+
+                  const statusText =
+                    rec.status === 'missed'
+                      ? isOutgoing
+                        ? 'No answer'
+                        : 'Missed'
+                      : rec.status === 'declined'
+                        ? 'Declined'
+                        : rec.status === 'busy'
+                          ? 'Busy'
+                          : rec.status === 'ringing' ||
+                              rec.status === 'accepted' ||
+                              rec.status === 'connected'
+                            ? 'Ongoing'
+                            : rec.durationSec && rec.durationSec > 0
+                              ? formatCallDuration(rec.durationSec)
+                              : isOutgoing
+                                ? 'Outgoing'
+                                : 'Incoming'
+
+                  const handleQuickCall = (callType: CallMediaType) => {
+                    void startCall(
+                      {
+                        id: peerId,
+                        name: peerName,
+                        role: peerRole,
+                        subtitle: peerSubtitle,
+                        roomId: directRoomId,
+                        avatarUrl,
+                      },
+                      callType,
+                    )
+                  }
+
+                  return (
+                    <div
+                      key={rec.id}
+                      className="flex items-center justify-between gap-2.5 px-3.5 py-3 transition-colors hover:bg-muted/50 min-h-[68px]"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (matchingRoom) {
+                            setSelectedRoomId(matchingRoom.roomId)
+                            setMobileShowChatPane(true)
+                          } else {
+                            setSelectedRoomId(directRoomId)
+                            setMobileShowChatPane(true)
+                          }
+                        }}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      >
+                        <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-cyan/15 font-poppins text-xs font-bold text-cyan dark:border-[#262a33] dark:bg-[#1a1d24]">
+                          {avatarUrl ? (
+                            <img
+                              src={avatarUrl}
+                              alt={peerName}
+                              className="size-full object-cover object-top"
+                            />
+                          ) : (
+                            initials || 'IC'
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={cn(
+                              'truncate text-sm font-semibold',
+                              isMissedIncoming ? 'text-rose-600 dark:text-rose-400' : 'text-foreground',
+                            )}
+                          >
+                            {peerName}
+                          </p>
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            {isMissedIncoming ? (
+                              <PhoneMissed className="size-3.5 shrink-0 text-rose-500" />
+                            ) : isOutgoing ? (
+                              <PhoneOutgoing className="size-3.5 shrink-0 text-emerald-500" />
+                            ) : (
+                              <PhoneIncoming className="size-3.5 shrink-0 text-emerald-500" />
+                            )}
+                            <span className="truncate">
+                              {rec.callType === 'video' ? 'Video' : 'Voice'} · {statusText} ·{' '}
+                              <span className="tabular-nums">
+                                {formatChatTime(rec.startedAtMs)}
+                              </span>
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={Boolean(activeCall)}
+                          onClick={() => handleQuickCall('voice')}
+                          aria-label={`Voice call ${peerName}`}
+                          title="Voice call"
+                          className="flex size-10 items-center justify-center rounded-xl text-emerald-600 transition-colors hover:bg-emerald-500/12 disabled:opacity-40 dark:text-emerald-400"
+                        >
+                          <Phone className="size-4" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={Boolean(activeCall)}
+                          onClick={() => handleQuickCall('video')}
+                          aria-label={`Video call ${peerName}`}
+                          title="Video call"
+                          className="flex size-10 items-center justify-center rounded-xl text-emerald-600 transition-colors hover:bg-emerald-500/12 disabled:opacity-40 dark:text-emerald-400"
+                        >
+                          <Video className="size-4" aria-hidden="true" />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })
+              })()
+            ) : (
+              filteredRooms.map((room) => {
               const isSelected = room.roomId === activeRoom.roomId
               const roomMsgs = (messagesByRoom[room.roomId] ?? []).filter(
                 (m) => !isMessageHiddenForMe(m),
@@ -3597,7 +3845,9 @@ export function CampusMessenger({
                                     ? `📄 ${lastMsg.mediaName || 'PDF Note'}`
                                     : lastMsg.mediaType === 'image'
                                       ? `📷 ${lastMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo`
-                                      : lastMsg.text}
+                                      : lastMsg.mediaType === 'call'
+                                        ? `${lastMsg.callMeta?.callType === 'video' ? '📹' : '📞'} ${lastMsg.text || 'Call'}`
+                                        : lastMsg.text}
                               </span>
                             </>
                           )}
@@ -3617,7 +3867,8 @@ export function CampusMessenger({
                   </div>
                 </button>
               )
-            })}
+            })
+            )}
           </div>
         </div>
 
@@ -4246,8 +4497,62 @@ export function CampusMessenger({
                     </div>
                   </div>
 
-                  {/* Right Controls: Usthad / Principal Group Lock Toggle + Starred + Chat Settings */}
+                  {/* Right Controls: 1-on-1 Voice/Video Call + Group Lock Toggle + Starred + Chat Settings */}
                   <div className="flex shrink-0 items-center gap-1.5">
+                    {(activeRoom.type === 'direct_usthad' || activeRoom.type === 'direct_student') &&
+                      activeRoom.peerId && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={Boolean(activeCall)}
+                            onClick={() => {
+                              setShowAttachMenu(false)
+                              if (isRecordingVoice) cancelVoiceRecording()
+                              void startCall(
+                                {
+                                  id: activeRoom.peerId!,
+                                  name: activeRoom.title,
+                                  role: activeRoom.peerRole || 'student',
+                                  subtitle: activeRoom.subtitle,
+                                  roomId: activeRoom.roomId,
+                                  avatarUrl: activeRoom.avatarUrl,
+                                },
+                                'video',
+                              )
+                            }}
+                            title={`Video call ${activeRoom.title}`}
+                            aria-label={`Video call ${activeRoom.title}`}
+                            className="flex size-10 items-center justify-center rounded-xl border border-border bg-background/80 text-emerald-600 transition-colors hover:bg-emerald-500/12 disabled:opacity-45 sm:size-9 dark:text-emerald-400"
+                          >
+                            <Video className="size-4.5 sm:size-4" aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={Boolean(activeCall)}
+                            onClick={() => {
+                              setShowAttachMenu(false)
+                              if (isRecordingVoice) cancelVoiceRecording()
+                              void startCall(
+                                {
+                                  id: activeRoom.peerId!,
+                                  name: activeRoom.title,
+                                  role: activeRoom.peerRole || 'student',
+                                  subtitle: activeRoom.subtitle,
+                                  roomId: activeRoom.roomId,
+                                  avatarUrl: activeRoom.avatarUrl,
+                                },
+                                'voice',
+                              )
+                            }}
+                            title={`Voice call ${activeRoom.title}`}
+                            aria-label={`Voice call ${activeRoom.title}`}
+                            className="flex size-10 items-center justify-center rounded-xl border border-border bg-background/80 text-emerald-600 transition-colors hover:bg-emerald-500/12 disabled:opacity-45 sm:size-9 dark:text-emerald-400"
+                          >
+                            <Phone className="size-4.5 sm:size-4" aria-hidden="true" />
+                          </button>
+                        </>
+                      )}
+
                     {actor.isStaff && activeRoom.type === 'batch_group' && (
                       <button
                         type="button"
@@ -4689,6 +4994,113 @@ export function CampusMessenger({
                           </div>
                         )}
 
+                        {/* Media Attachment: WhatsApp-Style In-Chat Voice/Video Call Card */}
+                        {msg.mediaType === 'call' && (() => {
+                          const cMeta = msg.callMeta
+                          const callType: CallMediaType = cMeta?.callType === 'video' ? 'video' : 'voice'
+                          const cStatus = cMeta?.callStatus || 'ended'
+                          const isCallerMe = (cMeta?.callerId || msg.senderId) === actor.id
+                          const isMissedOrFailed =
+                            cStatus === 'missed' || cStatus === 'declined' || cStatus === 'busy'
+                          const durLabel =
+                            cStatus === 'missed'
+                              ? isCallerMe
+                                ? 'No answer'
+                                : 'Missed'
+                              : cStatus === 'declined'
+                                ? 'Declined'
+                                : cStatus === 'busy'
+                                  ? 'Busy'
+                                  : cMeta?.durationSec && cMeta.durationSec > 0
+                                    ? formatCallDuration(cMeta.durationSec)
+                                    : isCallerMe
+                                      ? 'Outgoing'
+                                      : 'Incoming'
+
+                          return (
+                            <div
+                              className={cn(
+                                'my-0.5 flex min-w-[215px] items-center justify-between gap-3 rounded-xl border border-border/70 p-2.5 dark:border-[#262a33]',
+                                isMine
+                                  ? 'bg-black/[0.05] dark:bg-[#0a0b0e]/60'
+                                  : 'bg-muted/60 dark:bg-[#0a0b0e]/50',
+                              )}
+                            >
+                              <div className="flex min-w-0 items-center gap-2.5">
+                                <div
+                                  className={cn(
+                                    'flex size-10 shrink-0 items-center justify-center rounded-full',
+                                    isMissedOrFailed
+                                      ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                                      : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+                                  )}
+                                >
+                                  {isMissedOrFailed ? (
+                                    <PhoneMissed className="size-4.5" aria-hidden="true" />
+                                  ) : callType === 'video' ? (
+                                    <Video className="size-4.5" aria-hidden="true" />
+                                  ) : isCallerMe ? (
+                                    <PhoneOutgoing className="size-4.5" aria-hidden="true" />
+                                  ) : (
+                                    <PhoneIncoming className="size-4.5" aria-hidden="true" />
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate text-xs font-bold">
+                                    {callType === 'video' ? 'Video call' : 'Voice call'}
+                                  </p>
+                                  <p
+                                    className={cn(
+                                      'text-[11px] font-medium tabular-nums',
+                                      isMissedOrFailed
+                                        ? 'text-rose-600 dark:text-rose-400'
+                                        : 'opacity-80',
+                                    )}
+                                  >
+                                    {durLabel}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {(activeRoom.type === 'direct_usthad' ||
+                                activeRoom.type === 'direct_student') &&
+                                activeRoom.peerId && (
+                                  <button
+                                    type="button"
+                                    disabled={Boolean(activeCall)}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (isSelectionActive) {
+                                        toggleSelectMessage(msg.id)
+                                        return
+                                      }
+                                      void startCall(
+                                        {
+                                          id: activeRoom.peerId!,
+                                          name: activeRoom.title,
+                                          role: activeRoom.peerRole || 'student',
+                                          subtitle: activeRoom.subtitle,
+                                          roomId: activeRoom.roomId,
+                                          avatarUrl: activeRoom.avatarUrl,
+                                        },
+                                        callType,
+                                      )
+                                    }}
+                                    aria-label={`Call back ${activeRoom.title}`}
+                                    className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-emerald-600 px-2.5 text-[11px] font-bold text-white transition-colors hover:bg-emerald-700 disabled:opacity-45 dark:border dark:border-[#262a33] dark:bg-[#222630] dark:text-emerald-300 dark:hover:bg-zinc-700"
+                                  >
+                                    {callType === 'video' ? (
+                                      <Video className="size-3.5" aria-hidden="true" />
+                                    ) : (
+                                      <Phone className="size-3.5" aria-hidden="true" />
+                                    )}
+                                    <span>Call</span>
+                                  </button>
+                                )}
+                            </div>
+                          )
+                        })()}
+
                         {/* Media Attachment: PDF Document Card */}
                         {msg.mediaType === 'pdf' && (
                           <div
@@ -4812,8 +5224,8 @@ export function CampusMessenger({
                           </div>
                         )}
 
-                        {/* Message Body Text (Never shown for voice notes) */}
-                        {msg.mediaType !== 'voice' && msg.text && (
+                        {/* Message Body Text (Never shown for voice notes or call log cards) */}
+                        {msg.mediaType !== 'voice' && msg.mediaType !== 'call' && msg.text && (
                           <p
                             className={cn(
                               'whitespace-pre-wrap break-words pr-1 leading-relaxed',

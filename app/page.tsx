@@ -5,6 +5,7 @@ import { ChevronDown } from 'lucide-react'
 import { AppUpdateBanner } from '@/components/app-update-manager'
 import { CampusMarqueeRibbon } from '@/components/campus-motion'
 import { CampusNotificationBar } from '@/components/campus-notifications'
+import { CampusCallProvider } from '@/components/dashboard/campus-call-provider'
 import { DashboardShell } from '@/components/dashboard/dashboard-shell'
 import { PrincipalDashboard } from '@/components/dashboard/principal-dashboard'
 import { UsthadDashboard } from '@/components/dashboard/usthad-dashboard'
@@ -120,30 +121,18 @@ export default function Page() {
   }
 
   if (isLoggedIn) {
-    if (authRole === 'principal') {
-      return (
-        <>
-          <SplashIntro />
-          <AppUpdateBanner />
-          <PrincipalDashboard />
-        </>
-      )
-    }
-    if (authRole === 'usthad') {
-      return (
-        <>
-          <SplashIntro />
-          <AppUpdateBanner />
-          <UsthadDashboard />
-        </>
-      )
-    }
     return (
-      <>
+      <CampusCallProvider authRole={authRole}>
         <SplashIntro />
         <AppUpdateBanner />
-        <DashboardShell isClassLeader={authRole === 'class-leader'} />
-      </>
+        {authRole === 'principal' ? (
+          <PrincipalDashboard />
+        ) : authRole === 'usthad' ? (
+          <UsthadDashboard />
+        ) : (
+          <DashboardShell isClassLeader={authRole === 'class-leader'} />
+        )}
+      </CampusCallProvider>
     )
   }
 

@@ -1437,7 +1437,15 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     senderRole: 'student' | 'usthad' | 'principal'
     senderBadge?: string
     text: string
-    mediaType: 'none' | 'voice' | 'image' | 'pdf'
+    mediaType: 'none' | 'voice' | 'image' | 'pdf' | 'call'
+    callMeta?: {
+      callId: string
+      callType: 'voice' | 'video'
+      callStatus: 'ringing' | 'accepted' | 'connected' | 'declined' | 'missed' | 'ended' | 'busy'
+      durationSec?: number
+      callerId: string
+      calleeId: string
+    }
     mediaUrl?: string
     mediaName?: string
     mediaSizeLabel?: string
@@ -1894,9 +1902,36 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
                 : 'student',
             senderBadge: message.senderBadge ? String(message.senderBadge).slice(0, 80) : undefined,
             text: String(message.text || '').slice(0, 4000),
-            mediaType: ['none', 'voice', 'image', 'pdf'].includes(message.mediaType)
+            mediaType: ['none', 'voice', 'image', 'pdf', 'call'].includes(message.mediaType)
               ? message.mediaType
               : 'none',
+            callMeta:
+              message.callMeta && typeof message.callMeta === 'object'
+                ? {
+                    callId: String(message.callMeta.callId || '').slice(0, 128),
+                    callType: message.callMeta.callType === 'video' ? 'video' : 'voice',
+                    callStatus: (
+                      ['ringing', 'accepted', 'connected', 'declined', 'missed', 'ended', 'busy'].includes(
+                        message.callMeta.callStatus,
+                      )
+                        ? message.callMeta.callStatus
+                        : 'ended'
+                    ) as
+                      | 'ringing'
+                      | 'accepted'
+                      | 'connected'
+                      | 'declined'
+                      | 'missed'
+                      | 'ended'
+                      | 'busy',
+                    durationSec:
+                      typeof message.callMeta.durationSec === 'number'
+                        ? Math.max(0, Math.min(86400, Math.round(message.callMeta.durationSec)))
+                        : undefined,
+                    callerId: String(message.callMeta.callerId || '').slice(0, 64),
+                    calleeId: String(message.callMeta.calleeId || '').slice(0, 64),
+                  }
+                : undefined,
             mediaUrl: message.mediaUrl ? String(message.mediaUrl) : undefined,
             mediaName: message.mediaName ? String(message.mediaName).slice(0, 180) : undefined,
             mediaSizeLabel: message.mediaSizeLabel
@@ -2145,6 +2180,206 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
       res.json({ ok: true, state: campusChatState })
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : 'Chat action failed' })
+    }
+  })
+
+  // Real-Time WhatsApp-Style 1-on-1 Voice & Video Call Signaling (Server Dual-Sync Fallback)
+  type ServerCallStatus =
+    | 'ringing'
+    | 'accepted'
+    | 'connected'
+    | 'declined'
+    | 'missed'
+    | 'ended'
+    | 'busy'
+
+  interface ServerCampusCall {
+    id: string
+    campusId: 'ics-academy'
+    roomId: string
+    callType: 'voice' | 'video'
+    callerId: string
+    callerName: string
+    callerRole: 'student' | 'usthad' | 'principal'
+    callerSubtitle?: string
+    calleeId: string
+    calleeName: string
+    calleeRole: 'student' | 'usthad' | 'principal'
+    calleeSubtitle?: string
+    status: ServerCallStatus
+    offerSdp: string
+    answerSdp?: string
+    callerCandidates: string[]
+    calleeCandidates: string[]
+    startedAtMs: number
+    connectedAtMs?: number
+    endedAtMs?: number
+    durationSec?: number
+    updatedAtMs: number
+  }
+
+  const campusCallsStore: Record<string, ServerCampusCall> = {}
+
+  function cleanupStaleCampusCalls(now: number) {
+    const entries = Object.values(campusCallsStore)
+    for (const c of entries) {
+      if (c.status === 'ringing' && now - c.startedAtMs > 50000) {
+        c.status = 'missed'
+        c.endedAtMs = now
+        c.durationSec = 0
+        c.updatedAtMs = now
+      }
+    }
+    if (entries.length > 220) {
+      const sorted = entries.sort((a, b) => b.startedAtMs - a.startedAtMs)
+      for (const stale of sorted.slice(200)) {
+        delete campusCallsStore[stale.id]
+      }
+    }
+  }
+
+  app.get('/api/campus/call/state', (req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    res.setHeader('Cache-Control', 'no-store')
+    const now = Date.now()
+    cleanupStaleCampusCalls(now)
+    const actorId = typeof req.query.actorId === 'string' ? req.query.actorId.trim() : ''
+    const callId = typeof req.query.callId === 'string' ? req.query.callId.trim() : ''
+
+    if (callId && campusCallsStore[callId]) {
+      res.json({ ok: true, call: campusCallsStore[callId], calls: [campusCallsStore[callId]] })
+      return
+    }
+
+    const calls = Object.values(campusCallsStore)
+      .filter((c) => !actorId || c.callerId === actorId || c.calleeId === actorId)
+      .sort((a, b) => b.startedAtMs - a.startedAtMs)
+      .slice(0, 80)
+
+    res.json({ ok: true, calls })
+  })
+
+  app.post('/api/campus/call/action', (req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    try {
+      const now = Date.now()
+      cleanupStaleCampusCalls(now)
+      const {
+        action,
+        callId,
+        call,
+        actorId,
+        answerSdp,
+        candidate,
+        candidateSide,
+        durationSec,
+      } = req.body ?? {}
+
+      const id = String(callId || call?.id || '').trim().slice(0, 128)
+      if (!id) {
+        res.status(400).json({ error: 'callId is required' })
+        return
+      }
+
+      if (action === 'initiate' && call && typeof call === 'object') {
+        const record: ServerCampusCall = {
+          id,
+          campusId: 'ics-academy',
+          roomId: String(call.roomId || '').slice(0, 160),
+          callType: call.callType === 'video' ? 'video' : 'voice',
+          callerId: String(call.callerId || actorId || '').slice(0, 64),
+          callerName: String(call.callerName || 'Member').slice(0, 120),
+          callerRole:
+            call.callerRole === 'principal' || call.callerRole === 'usthad'
+              ? call.callerRole
+              : 'student',
+          callerSubtitle: call.callerSubtitle ? String(call.callerSubtitle).slice(0, 120) : undefined,
+          calleeId: String(call.calleeId || '').slice(0, 64),
+          calleeName: String(call.calleeName || 'Member').slice(0, 120),
+          calleeRole:
+            call.calleeRole === 'principal' || call.calleeRole === 'usthad'
+              ? call.calleeRole
+              : 'student',
+          calleeSubtitle: call.calleeSubtitle ? String(call.calleeSubtitle).slice(0, 120) : undefined,
+          status: 'ringing',
+          offerSdp: String(call.offerSdp || '').slice(0, 24000),
+          callerCandidates: Array.isArray(call.callerCandidates)
+            ? call.callerCandidates.map(String).slice(0, 60)
+            : [],
+          calleeCandidates: [],
+          startedAtMs: Number(call.startedAtMs) || now,
+          updatedAtMs: now,
+        }
+        campusCallsStore[id] = record
+        res.json({ ok: true, call: record })
+        return
+      }
+
+      const existing = campusCallsStore[id]
+      if (!existing) {
+        res.json({ ok: true, call: null })
+        return
+      }
+
+      const isTerminal =
+        existing.status === 'declined' ||
+        existing.status === 'missed' ||
+        existing.status === 'ended' ||
+        existing.status === 'busy'
+
+      if (!isTerminal) {
+        if (action === 'answer') {
+          existing.status = 'accepted'
+          if (typeof answerSdp === 'string' && answerSdp.length > 0) {
+            existing.answerSdp = answerSdp.slice(0, 24000)
+          }
+          existing.connectedAtMs = existing.connectedAtMs || now
+          existing.updatedAtMs = now
+        } else if (action === 'connected') {
+          existing.status = 'connected'
+          existing.connectedAtMs = existing.connectedAtMs || now
+          existing.updatedAtMs = now
+        } else if (action === 'add_ice' && typeof candidate === 'string' && candidate.length > 0) {
+          const side =
+            candidateSide === 'caller' || actorId === existing.callerId ? 'caller' : 'callee'
+          if (side === 'caller') {
+            if (!existing.callerCandidates.includes(candidate) && existing.callerCandidates.length < 60) {
+              existing.callerCandidates.push(candidate)
+            }
+          } else if (
+            !existing.calleeCandidates.includes(candidate) &&
+            existing.calleeCandidates.length < 60
+          ) {
+            existing.calleeCandidates.push(candidate)
+          }
+          existing.updatedAtMs = now
+        } else if (
+          action === 'decline' ||
+          action === 'missed' ||
+          action === 'ended' ||
+          action === 'end' ||
+          action === 'busy'
+        ) {
+          existing.status =
+            action === 'decline'
+              ? 'declined'
+              : action === 'end'
+                ? 'ended'
+                : (action as ServerCallStatus)
+          existing.endedAtMs = now
+          existing.durationSec =
+            typeof durationSec === 'number'
+              ? Math.max(0, Math.min(86400, Math.round(durationSec)))
+              : existing.connectedAtMs
+                ? Math.max(0, Math.round((now - existing.connectedAtMs) / 1000))
+                : 0
+          existing.updatedAtMs = now
+        }
+      }
+
+      res.json({ ok: true, call: existing })
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Call action failed' })
     }
   })
 

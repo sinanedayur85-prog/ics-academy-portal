@@ -305,9 +305,13 @@
         "mediaType": {
           "type": "string",
           "description": "Attached media category.",
-          "enum": ["none", "voice", "image", "pdf"],
+          "enum": ["none", "voice", "image", "pdf", "call"],
           "minLength": 3,
           "maxLength": 10
+        },
+        "callMeta": {
+          "type": "object",
+          "description": "Optional structured metadata for in-chat Voice/Video call log cards (callId, callType, callStatus, durationSec, callerId, calleeId)."
         },
         "mediaUrl": {
           "type": "string",
@@ -886,6 +890,169 @@
         "createdAt",
         "updatedAtMs"
       ]
+    },
+    "CampusCall": {
+      "title": "CampusCall",
+      "description": "A real-time 1-on-1 WebRTC voice or video call signaling session and persistent call log record in ICS Academy Campus Messenger.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique call session identifier.",
+          "minLength": 4,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "campusId": {
+          "type": "string",
+          "description": "Fixed campus tenant identifier (ics-academy).",
+          "enum": ["ics-academy"],
+          "minLength": 11,
+          "maxLength": 16
+        },
+        "roomId": {
+          "type": "string",
+          "description": "Canonical 1-on-1 direct room identifier (direct__actorA__actorB).",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "callType": {
+          "type": "string",
+          "description": "Whether this call is a voice-only or video call.",
+          "enum": ["voice", "video"],
+          "minLength": 5,
+          "maxLength": 5
+        },
+        "callerId": {
+          "type": "string",
+          "description": "Canonical portal actor ID of the caller.",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^(st[d]?|usthad|principal)-[a-zA-Z0-9_\\-]+$"
+        },
+        "callerName": {
+          "type": "string",
+          "description": "Display name of the caller.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "callerRole": {
+          "type": "string",
+          "description": "Portal role of the caller.",
+          "enum": ["student", "usthad", "principal"],
+          "minLength": 6,
+          "maxLength": 12
+        },
+        "callerSubtitle": {
+          "type": "string",
+          "description": "Optional class or designation subtitle of the caller.",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "calleeId": {
+          "type": "string",
+          "description": "Canonical portal actor ID of the callee.",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^(st[d]?|usthad|principal)-[a-zA-Z0-9_\\-]+$"
+        },
+        "calleeName": {
+          "type": "string",
+          "description": "Display name of the callee.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "calleeRole": {
+          "type": "string",
+          "description": "Portal role of the callee.",
+          "enum": ["student", "usthad", "principal"],
+          "minLength": 6,
+          "maxLength": 12
+        },
+        "calleeSubtitle": {
+          "type": "string",
+          "description": "Optional class or designation subtitle of the callee.",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "status": {
+          "type": "string",
+          "description": "Current lifecycle state of the call.",
+          "enum": ["ringing", "accepted", "connected", "declined", "missed", "ended", "busy"],
+          "minLength": 4,
+          "maxLength": 12
+        },
+        "offerSdp": {
+          "type": "string",
+          "description": "WebRTC SDP offer JSON payload from the caller.",
+          "minLength": 0,
+          "maxLength": 24000
+        },
+        "answerSdp": {
+          "type": "string",
+          "description": "Optional WebRTC SDP answer JSON payload from the callee.",
+          "minLength": 0,
+          "maxLength": 24000
+        },
+        "callerCandidates": {
+          "type": "array",
+          "description": "Bounded list of serialized WebRTC ICE candidates emitted by the caller."
+        },
+        "calleeCandidates": {
+          "type": "array",
+          "description": "Bounded list of serialized WebRTC ICE candidates emitted by the callee."
+        },
+        "startedAtMs": {
+          "type": "integer",
+          "description": "Epoch milliseconds when the call was initiated.",
+          "minimum": 1
+        },
+        "connectedAtMs": {
+          "type": "integer",
+          "description": "Optional epoch milliseconds when media connected.",
+          "minimum": 0
+        },
+        "endedAtMs": {
+          "type": "integer",
+          "description": "Optional epoch milliseconds when the call ended.",
+          "minimum": 0
+        },
+        "durationSec": {
+          "type": "number",
+          "description": "Optional call duration in seconds.",
+          "minimum": 0,
+          "maximum": 86400
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the call document was created."
+        },
+        "updatedAtMs": {
+          "type": "integer",
+          "description": "Epoch milliseconds of the last signaling state update.",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id",
+        "campusId",
+        "roomId",
+        "callType",
+        "callerId",
+        "callerName",
+        "callerRole",
+        "calleeId",
+        "calleeName",
+        "calleeRole",
+        "status",
+        "offerSdp",
+        "callerCandidates",
+        "calleeCandidates",
+        "startedAtMs",
+        "createdAt",
+        "updatedAtMs"
+      ]
     }
   },
   "firestore": {
@@ -903,7 +1070,7 @@
     },
     "/campusChatMessages/{messageId}": {
       "schema": { "$ref": "#/entities/CampusChatMessage" },
-      "description": "Stores real-time Campus Messenger messages, delivery receipts, and read receipts synced across web, iOS PWA, and Android APK."
+      "description": "Stores real-time Campus Messenger messages, call log cards, delivery receipts, and read receipts synced across web, iOS PWA, and Android APK."
     },
     "/campusChatMeta/{roomDocId}": {
       "schema": { "$ref": "#/entities/CampusChatRoomMeta" },
@@ -920,6 +1087,10 @@
     "/campusAcademicRecords/{recordId}": {
       "schema": { "$ref": "#/entities/CampusAcademicRecord" },
       "description": "Stores real-time Monthly/Unit Tests, Student Submissions, Holiday Academic & SSF Da'wa Logs, Private Discipline Notes, and Zadul Khair Monthly Contribution Records."
+    },
+    "/campusCalls/{callId}": {
+      "schema": { "$ref": "#/entities/CampusCall" },
+      "description": "Stores real-time 1-on-1 WebRTC voice and video call signaling documents and call history records."
     }
   }
 }

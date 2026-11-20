@@ -265,6 +265,7 @@ service cloud.firestore {
           'senderBadge',
           'text',
           'mediaType',
+          'callMeta',
           'mediaUrl',
           'mediaName',
           'mediaSizeLabel',
@@ -301,7 +302,8 @@ service cloud.firestore {
         && data.text is string
         && data.text.size() <= 8000
         && data.mediaType is string
-        && (data.mediaType == 'none' || data.mediaType == 'voice' || data.mediaType == 'image' || data.mediaType == 'pdf')
+        && (data.mediaType == 'none' || data.mediaType == 'voice' || data.mediaType == 'image' || data.mediaType == 'pdf' || data.mediaType == 'call')
+        && (!('callMeta' in data) || (data.callMeta is map && data.callMeta.size() <= 8))
         && (!('mediaUrl' in data) || (data.mediaUrl is string && data.mediaUrl.size() <= 750000))
         && (!('mediaName' in data) || (data.mediaName is string && data.mediaName.size() <= 200))
         && (!('mediaSizeLabel' in data) || (data.mediaSizeLabel is string && data.mediaSizeLabel.size() <= 64))
@@ -773,6 +775,139 @@ service cloud.firestore {
           'questionMarks',
           'updatedAtMs'
         ]);
+      allow delete: if false;
+    }
+
+    // Validation Blueprint: CampusCall
+    function isValidCampusCall(data) {
+      return data.keys().hasAll([
+          'id',
+          'campusId',
+          'roomId',
+          'callType',
+          'callerId',
+          'callerName',
+          'callerRole',
+          'calleeId',
+          'calleeName',
+          'calleeRole',
+          'status',
+          'offerSdp',
+          'callerCandidates',
+          'calleeCandidates',
+          'startedAtMs',
+          'createdAt',
+          'updatedAtMs'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'campusId',
+          'roomId',
+          'callType',
+          'callerId',
+          'callerName',
+          'callerRole',
+          'callerSubtitle',
+          'calleeId',
+          'calleeName',
+          'calleeRole',
+          'calleeSubtitle',
+          'status',
+          'offerSdp',
+          'answerSdp',
+          'callerCandidates',
+          'calleeCandidates',
+          'startedAtMs',
+          'connectedAtMs',
+          'endedAtMs',
+          'durationSec',
+          'createdAt',
+          'updatedAtMs'
+        ])
+        && isValidId(data.id)
+        && data.campusId == 'ics-academy'
+        && data.roomId is string
+        && data.roomId.size() >= 3
+        && data.roomId.size() <= 160
+        && data.callType is string
+        && (data.callType == 'voice' || data.callType == 'video')
+        && isPortalActorId(data.callerId)
+        && data.callerName is string
+        && data.callerName.size() >= 1
+        && data.callerName.size() <= 120
+        && data.callerRole is string
+        && (data.callerRole == 'student' || data.callerRole == 'usthad' || data.callerRole == 'principal')
+        && (!('callerSubtitle' in data) || (data.callerSubtitle is string && data.callerSubtitle.size() <= 120))
+        && isPortalActorId(data.calleeId)
+        && data.callerId != data.calleeId
+        && data.calleeName is string
+        && data.calleeName.size() >= 1
+        && data.calleeName.size() <= 120
+        && data.calleeRole is string
+        && (data.calleeRole == 'student' || data.calleeRole == 'usthad' || data.calleeRole == 'principal')
+        && (!('calleeSubtitle' in data) || (data.calleeSubtitle is string && data.calleeSubtitle.size() <= 120))
+        && data.status is string
+        && (
+          data.status == 'ringing'
+          || data.status == 'accepted'
+          || data.status == 'connected'
+          || data.status == 'declined'
+          || data.status == 'missed'
+          || data.status == 'ended'
+          || data.status == 'busy'
+        )
+        && data.offerSdp is string
+        && data.offerSdp.size() <= 24000
+        && (!('answerSdp' in data) || (data.answerSdp is string && data.answerSdp.size() <= 24000))
+        && data.callerCandidates is list
+        && data.callerCandidates.size() <= 60
+        && (data.callerCandidates.size() == 0 || data.callerCandidates[0] is string)
+        && data.calleeCandidates is list
+        && data.calleeCandidates.size() <= 60
+        && (data.calleeCandidates.size() == 0 || data.calleeCandidates[0] is string)
+        && data.startedAtMs is int
+        && data.startedAtMs > 0
+        && (!('connectedAtMs' in data) || (data.connectedAtMs is int && data.connectedAtMs >= 0))
+        && (!('endedAtMs' in data) || (data.endedAtMs is int && data.endedAtMs >= 0))
+        && (!('durationSec' in data) || (data.durationSec is number && data.durationSec >= 0 && data.durationSec <= 86400))
+        && data.createdAt is timestamp
+        && data.updatedAtMs is int
+        && data.updatedAtMs > 0;
+    }
+
+    // Collection: /campusCalls/{callId}
+    match /campusCalls/{callId} {
+      allow get: if isValidId(callId)
+        && resource != null
+        && existing().campusId == 'ics-academy'
+        && isPortalActorId(existing().callerId)
+        && isPortalActorId(existing().calleeId);
+      allow list: if existing().campusId == 'ics-academy';
+      allow create: if isValidId(callId)
+        && isValidCampusCall(incoming())
+        && incoming().id == callId
+        && incoming().status == 'ringing'
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(callId)
+        && resource != null
+        && isValidCampusCall(incoming())
+        && incoming().id == existing().id
+        && incoming().campusId == existing().campusId
+        && incoming().roomId == existing().roomId
+        && incoming().callType == existing().callType
+        && incoming().callerId == existing().callerId
+        && incoming().calleeId == existing().calleeId
+        && incoming().offerSdp == existing().offerSdp
+        && incoming().startedAtMs == existing().startedAtMs
+        && incoming().createdAt == existing().createdAt
+        && !(existing().status in ['declined', 'missed', 'ended', 'busy'])
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['callerCandidates', 'updatedAtMs'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['calleeCandidates', 'updatedAtMs'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['status', 'answerSdp', 'calleeCandidates', 'connectedAtMs', 'updatedAtMs'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['status', 'connectedAtMs', 'updatedAtMs'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['status', 'endedAtMs', 'durationSec', 'updatedAtMs'])
+        );
       allow delete: if false;
     }
   }
