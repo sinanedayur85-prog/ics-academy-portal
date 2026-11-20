@@ -651,7 +651,7 @@ export function buildKitabPdfBlob(kitab: DigitalKitabItem): Blob {
         doc.setFontSize(14.5)
         doc.setTextColor(15, 23, 42)
         for (const aLine of arabicLines) {
-          doc.text(shapeArabicLineForUthmanVector(aLine), pageWidth - margin, y, {
+          doc.text(aLine, pageWidth - margin, y, {
             align: 'right',
           })
           y += 22

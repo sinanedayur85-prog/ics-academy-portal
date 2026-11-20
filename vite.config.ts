@@ -29,6 +29,9 @@ export default defineConfig(() => {
         'next/link': path.resolve(import.meta.dirname, './shims/next-link.tsx'),
       },
     },
+    optimizeDeps: {
+      exclude: ['harfbuzzjs'],
+    },
     server: {
       // HMR is disabled in AI Studio preview environments.
       hmr: false,
