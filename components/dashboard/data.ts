@@ -868,7 +868,7 @@ export type ClassSemesterTimetable = {
 }
 
 /** Active semester configured by the Principal (1 or 2) */
-export let CURRENT_SEMESTER: 1 | 2 = 1
+export let CURRENT_SEMESTER: 1 | 2 = 2
 
 export function getActiveSemester(): 1 | 2 {
   return CURRENT_SEMESTER
@@ -3166,6 +3166,7 @@ export type AcademyAdminConfig = {
   /** Maps className -> ClassSemesterTimetable */
   timetableOverrides?: Record<string, ClassSemesterTimetable>
   bsTimetableVersion?: number
+  semesterSyncVersion?: number
 }
 
 export const ACADEMY_ADMIN_CONFIG_STORAGE_KEY = 'ics_academy_admin_config_v1'
@@ -3255,8 +3256,10 @@ export function loadAcademyAdminConfig(): AcademyAdminConfig {
 }
 
 export function applyAcademyAdminConfig(config: AcademyAdminConfig): void {
-  // 1. Active Semester
-  CURRENT_SEMESTER = config.activeSemester === 2 ? 2 : 1
+  // 1. Active Semester (Semester 2 is current default; migrate legacy configs automatically)
+  const hasModernSemesterSync = (config.semesterSyncVersion ?? 0) >= 2
+  CURRENT_SEMESTER =
+    config.activeSemester === 1 && hasModernSemesterSync ? 1 : 2
 
   // 2. Rebuild Students array in-place
   const removedSet = new Set(config.removedStudentIds ?? [])
@@ -3792,6 +3795,7 @@ export function setActiveSemesterByPrincipal(semester: 1 | 2): void {
     {
       ...current,
       activeSemester: semester,
+      semesterSyncVersion: 2,
     },
     {
       title: `Academic Schedule Switched to Semester ${semester}`,
