@@ -358,9 +358,25 @@
           "type": "array",
           "description": "Bounded list of actor IDs that received the message."
         },
+        "deliveredAtMap": {
+          "type": "object",
+          "description": "Optional bounded map of actor ID to epoch ms timestamp when the message was delivered."
+        },
         "readBy": {
           "type": "array",
           "description": "Bounded list of actor IDs that read the message."
+        },
+        "readAtMap": {
+          "type": "object",
+          "description": "Optional bounded map of actor ID to epoch ms timestamp when the message was read."
+        },
+        "starredBy": {
+          "type": "array",
+          "description": "Optional bounded list of actor IDs who starred this message."
+        },
+        "isForwarded": {
+          "type": "boolean",
+          "description": "Optional flag indicating this message was forwarded from another chat."
         },
         "deletedFor": {
           "type": "array",

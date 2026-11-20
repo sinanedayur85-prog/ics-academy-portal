@@ -1447,7 +1447,11 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     replyTo?: ServerChatReplyRef
     reactions: Record<string, string[]>
     deliveredTo: string[]
+    deliveredAtMap?: Record<string, number>
     readBy: string[]
+    readAtMap?: Record<string, number>
+    starredBy?: string[]
+    isForwarded?: boolean
     isDeleted?: boolean
     deletedBy?: string
     deletedById?: string
@@ -1526,6 +1530,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
   ): boolean {
     if (!actorId || typeof actorId !== 'string') return false
     let changed = false
+    const now = Date.now()
     for (const [rId, list] of Object.entries(campusChatState.messagesByRoom)) {
       if (!Array.isArray(list) || list.length === 0) continue
       if (!isRoomRelevantToActor(rId, actorId, className, isStaff)) continue
@@ -1533,14 +1538,23 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
         if (!Array.isArray(msg.deliveredTo)) {
           msg.deliveredTo = msg.senderId ? [msg.senderId] : []
         }
+        if (!msg.deliveredAtMap || typeof msg.deliveredAtMap !== 'object') {
+          msg.deliveredAtMap = {}
+        }
         if (!msg.deliveredTo.includes(actorId)) {
           msg.deliveredTo.push(actorId)
+          if (!msg.deliveredAtMap[actorId]) {
+            msg.deliveredAtMap[actorId] = now
+          }
+          changed = true
+        } else if (actorId !== msg.senderId && !msg.deliveredAtMap[actorId]) {
+          msg.deliveredAtMap[actorId] = now
           changed = true
         }
       }
     }
     if (changed) {
-      campusChatState.updatedAtMs = Date.now()
+      campusChatState.updatedAtMs = now
     }
     return changed
   }
@@ -1664,13 +1678,23 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
       if (qReadRoomId && Array.isArray(campusChatState.messagesByRoom[qReadRoomId])) {
         for (const msg of campusChatState.messagesByRoom[qReadRoomId]) {
           if (!Array.isArray(msg.deliveredTo)) msg.deliveredTo = msg.senderId ? [msg.senderId] : []
+          if (!msg.deliveredAtMap || typeof msg.deliveredAtMap !== 'object') msg.deliveredAtMap = {}
           if (!msg.deliveredTo.includes(qActorId)) {
             msg.deliveredTo.push(qActorId)
+            if (!msg.deliveredAtMap[qActorId]) msg.deliveredAtMap[qActorId] = now
+            campusChatState.updatedAtMs = now
+          } else if (qActorId !== msg.senderId && !msg.deliveredAtMap[qActorId]) {
+            msg.deliveredAtMap[qActorId] = now
             campusChatState.updatedAtMs = now
           }
           if (!Array.isArray(msg.readBy)) msg.readBy = msg.senderId ? [msg.senderId] : []
+          if (!msg.readAtMap || typeof msg.readAtMap !== 'object') msg.readAtMap = {}
           if (!msg.readBy.includes(qActorId)) {
             msg.readBy.push(qActorId)
+            if (!msg.readAtMap[qActorId]) msg.readAtMap[qActorId] = now
+            campusChatState.updatedAtMs = now
+          } else if (qActorId !== msg.senderId && !msg.readAtMap[qActorId]) {
+            msg.readAtMap[qActorId] = now
             campusChatState.updatedAtMs = now
           }
         }
@@ -1708,6 +1732,8 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
         actorClassName,
         message,
         messageId,
+        messageIds,
+        starred,
         deleteMode,
         emoji,
         onlyAdminsCanPost,
@@ -1826,6 +1852,10 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
           Array.isArray(message.deliveredTo) ? message.deliveredTo : [senderIdStr],
         )
         initialDelivered.add(senderIdStr)
+        const initialDeliveredAtMap: Record<string, number> =
+          message.deliveredAtMap && typeof message.deliveredAtMap === 'object'
+            ? { ...(message.deliveredAtMap as Record<string, number>) }
+            : {}
         if (roomId.startsWith('direct__')) {
           const parts = roomId.split('__')
           const peerId = parts[1] === senderIdStr ? parts[2] : parts[1]
@@ -1833,6 +1863,9 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
             const peerPresence = campusChatState.presenceMap[peerId]
             if (peerPresence && now - peerPresence.lastSeenMs < 20000) {
               initialDelivered.add(peerId)
+              if (!initialDeliveredAtMap[peerId]) {
+                initialDeliveredAtMap[peerId] = now
+              }
             }
           }
         }
@@ -1841,6 +1874,10 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
           Array.isArray(message.readBy) ? message.readBy : [senderIdStr],
         )
         initialReadBy.add(senderIdStr)
+        const initialReadAtMap: Record<string, number> =
+          message.readAtMap && typeof message.readAtMap === 'object'
+            ? { ...(message.readAtMap as Record<string, number>) }
+            : {}
 
         const existingIdx = campusChatState.messagesByRoom[roomId].findIndex(
           (m) => m.id === msgId,
@@ -1887,7 +1924,11 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
                 ? message.reactions
                 : {},
             deliveredTo: Array.from(initialDelivered),
+            deliveredAtMap: initialDeliveredAtMap,
             readBy: Array.from(initialReadBy),
+            readAtMap: initialReadAtMap,
+            starredBy: Array.isArray(message.starredBy) ? message.starredBy.map(String) : [],
+            isForwarded: Boolean(message.isForwarded),
             isDeleted: false,
             createdAt: message.createdAt || new Date(now).toISOString(),
             createdAtMs: Number(message.createdAtMs) || now,
@@ -1984,8 +2025,15 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
           if (!Array.isArray(msg.deliveredTo)) {
             msg.deliveredTo = msg.senderId ? [msg.senderId] : []
           }
+          if (!msg.deliveredAtMap || typeof msg.deliveredAtMap !== 'object') {
+            msg.deliveredAtMap = {}
+          }
           if (!msg.deliveredTo.includes(actorId)) {
             msg.deliveredTo.push(actorId)
+            if (!msg.deliveredAtMap[actorId]) msg.deliveredAtMap[actorId] = now
+            changed = true
+          } else if (actorId !== msg.senderId && !msg.deliveredAtMap[actorId]) {
+            msg.deliveredAtMap[actorId] = now
             changed = true
           }
         }
@@ -1999,16 +2047,30 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
           if (!Array.isArray(msg.deliveredTo)) {
             msg.deliveredTo = msg.senderId ? [msg.senderId] : []
           }
+          if (!msg.deliveredAtMap || typeof msg.deliveredAtMap !== 'object') {
+            msg.deliveredAtMap = {}
+          }
           if (!msg.deliveredTo.includes(actorId)) {
             msg.deliveredTo.push(actorId)
+            if (!msg.deliveredAtMap[actorId]) msg.deliveredAtMap[actorId] = now
+            changed = true
+          } else if (actorId !== msg.senderId && !msg.deliveredAtMap[actorId]) {
+            msg.deliveredAtMap[actorId] = now
             changed = true
           }
           if (sendReadReceipts !== false) {
             if (!Array.isArray(msg.readBy)) {
               msg.readBy = msg.senderId ? [msg.senderId] : []
             }
+            if (!msg.readAtMap || typeof msg.readAtMap !== 'object') {
+              msg.readAtMap = {}
+            }
             if (!msg.readBy.includes(actorId)) {
               msg.readBy.push(actorId)
+              if (!msg.readAtMap[actorId]) msg.readAtMap[actorId] = now
+              changed = true
+            } else if (actorId !== msg.senderId && !msg.readAtMap[actorId]) {
+              msg.readAtMap[actorId] = now
               changed = true
             }
           }
@@ -2016,8 +2078,34 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
         if (changed) {
           campusChatState.updatedAtMs = now
         }
+      } else if (action === 'toggle_star' && actorId) {
+        const list = campusChatState.messagesByRoom[roomId] || []
+        const idsToUpdate: string[] = Array.isArray(messageIds)
+          ? messageIds.map(String)
+          : messageId
+            ? [String(messageId)]
+            : []
+        let changed = false
+        for (const target of list) {
+          if (!idsToUpdate.includes(target.id) || target.isDeleted) continue
+          const curStars = Array.isArray(target.starredBy) ? target.starredBy : []
+          const shouldStar = typeof starred === 'boolean' ? starred : !curStars.includes(actorId)
+          if (shouldStar && !curStars.includes(actorId)) {
+            target.starredBy = [...curStars, actorId].slice(0, 300)
+            changed = true
+          } else if (!shouldStar && curStars.includes(actorId)) {
+            target.starredBy = curStars.filter((id) => id !== actorId)
+            changed = true
+          }
+        }
+        if (changed) {
+          campusChatState.updatedAtMs = now
+        }
       } else if (action === 'toggle_pin') {
-        if (isStaffActor) {
+        const canPinRoom =
+          isStaffActor ||
+          (roomId.startsWith('direct__') && actorId && roomId.split('__').includes(String(actorId)))
+        if (canPinRoom) {
           campusChatState.roomsMeta[roomId].pinnedMessageId =
             typeof pinnedMessageId === 'string' && pinnedMessageId ? pinnedMessageId : null
           campusChatState.roomsMeta[roomId].updatedAtMs = now

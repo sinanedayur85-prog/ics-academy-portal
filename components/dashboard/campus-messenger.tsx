@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  arrayRemove,
   arrayUnion,
   collection,
   doc,
@@ -19,10 +20,13 @@ import {
   BookOpen,
   Check,
   CheckCheck,
+  Copy,
   Crown,
   Download,
   FileText,
+  Forward,
   Image as ImageIcon,
+  Info,
   Lock,
   MessageSquarePlus,
   MessageSquareText,
@@ -36,9 +40,11 @@ import {
   Search,
   Send,
   Settings,
+  Share2,
   ShieldCheck,
   Smile,
   Sparkles,
+  Star,
   Trash2,
   Unlock,
   Users,
@@ -91,7 +97,11 @@ export interface ChatMessage {
   replyTo?: ChatReplyRef
   reactions: Record<string, string[]>
   deliveredTo?: string[]
+  deliveredAtMap?: Record<string, number>
   readBy: string[]
+  readAtMap?: Record<string, number>
+  starredBy?: string[]
+  isForwarded?: boolean
   isDeleted?: boolean
   deletedBy?: string
   deletedById?: string
@@ -320,10 +330,18 @@ function buildFirestoreChatMessagePayload(msg: ChatMessage, safeMediaUrl?: strin
       Array.isArray(msg.deliveredTo) && msg.deliveredTo.length > 0
         ? msg.deliveredTo.slice(0, 300)
         : [msg.senderId],
+    deliveredAtMap:
+      msg.deliveredAtMap && typeof msg.deliveredAtMap === 'object'
+        ? msg.deliveredAtMap
+        : {},
     readBy:
       Array.isArray(msg.readBy) && msg.readBy.length > 0
         ? msg.readBy.slice(0, 300)
         : [msg.senderId],
+    readAtMap:
+      msg.readAtMap && typeof msg.readAtMap === 'object' ? msg.readAtMap : {},
+    starredBy: Array.isArray(msg.starredBy) ? msg.starredBy.slice(0, 300) : [],
+    isForwarded: Boolean(msg.isForwarded),
     deletedFor: Array.isArray(msg.deletedFor) ? msg.deletedFor.slice(0, 300) : [],
     isDeleted: Boolean(msg.isDeleted),
     createdAt: serverTimestamp(),
@@ -418,6 +436,130 @@ function formatChatTime(ms: number): string {
     })
   } catch {
     return 'Just now'
+  }
+}
+
+function formatReceiptTimestamp(ms?: number): string {
+  if (!ms || !Number.isFinite(ms) || ms <= 0) return '—'
+  try {
+    const date = new Date(ms)
+    const now = new Date()
+    const timeStr = date
+      .toLocaleTimeString('en-IN', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+      .toLowerCase()
+    const isSameDay =
+      date.getFullYear() === now.getFullYear() &&
+      date.getMonth() === now.getMonth() &&
+      date.getDate() === now.getDate()
+    if (isSameDay) {
+      return `Today, ${timeStr}`
+    }
+    const yesterday = new Date(now)
+    yesterday.setDate(now.getDate() - 1)
+    const isYesterday =
+      date.getFullYear() === yesterday.getFullYear() &&
+      date.getMonth() === yesterday.getMonth() &&
+      date.getDate() === yesterday.getDate()
+    if (isYesterday) {
+      return `Yesterday, ${timeStr}`
+    }
+    const datePart = date.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+    })
+    return `${datePart}, ${timeStr}`
+  } catch {
+    return '—'
+  }
+}
+
+function sanitizeTimestampMap(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== 'object') return {}
+  const out: Record<string, number> = {}
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const num = Number(v)
+    if (k && Number.isFinite(num) && num > 0) {
+      out[k] = Math.floor(num)
+    }
+  }
+  return out
+}
+
+function mergeTimestampMaps(
+  a?: Record<string, number>,
+  b?: Record<string, number>,
+): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const src of [a, b]) {
+    if (!src || typeof src !== 'object') continue
+    for (const [k, v] of Object.entries(src)) {
+      const num = Number(v)
+      if (!k || !Number.isFinite(num) || num <= 0) continue
+      if (!out[k] || num < out[k]) {
+        out[k] = Math.floor(num)
+      }
+    }
+  }
+  return out
+}
+
+function resolveActorDirectoryProfile(actorId: string): {
+  id: string
+  name: string
+  subtitle: string
+  avatarText: string
+  avatarUrl?: string
+  role: MessengerRole
+} {
+  const canonical = getCanonicalUsthadId(actorId)
+  if (canonical === ACADEMY_PRINCIPAL.usthadId || actorId === ACADEMY_PRINCIPAL.id) {
+    return {
+      id: canonical,
+      name: ACADEMY_PRINCIPAL.name,
+      subtitle: 'Principal • ICS Academy',
+      avatarText: 'PR',
+      avatarUrl:
+        OFFICIAL_CLASS_USTHADS.find((u) => u.id === ACADEMY_PRINCIPAL.usthadId)?.avatarUrl,
+      role: 'principal',
+    }
+  }
+  const usthadMatch =
+    OFFICIAL_CLASS_USTHADS.find((u) => u.id === actorId || u.id === canonical) ||
+    CLASS_USTHADS.find((u) => u.id === actorId || u.id === canonical)
+  if (usthadMatch) {
+    return {
+      id: usthadMatch.id,
+      name: usthadMatch.name,
+      subtitle: usthadMatch.designation || `Class ${usthadMatch.className} Usthad`,
+      avatarText: usthadMatch.name
+        .replace(/^Usthad\s+/i, '')
+        .slice(0, 2)
+        .toUpperCase(),
+      avatarUrl: usthadMatch.avatarUrl,
+      role: 'usthad',
+    }
+  }
+  const studentMatch = students.find((s) => s.id === actorId)
+  if (studentMatch) {
+    return {
+      id: studentMatch.id,
+      name: studentMatch.name,
+      subtitle: `Class ${studentMatch.className} • ${studentMatch.admissionNo}`,
+      avatarText: studentMatch.firstName.slice(0, 2).toUpperCase(),
+      avatarUrl: studentMatch.avatarUrl,
+      role: 'student',
+    }
+  }
+  return {
+    id: actorId,
+    name: actorId,
+    subtitle: 'ICS Academy Member',
+    avatarText: actorId.slice(0, 2).toUpperCase(),
+    role: 'student',
   }
 }
 
@@ -592,7 +734,12 @@ export function CampusMessenger({
   useEffect(() => {
     setSelectedRoomId(makeBatchRoomId(actor.className))
     setStudentBatchFilter(actor.className)
-    setDeleteModalMessage(null)
+    setDeleteModalMessages([])
+    setSelectedMessageIds([])
+    setShowSelectionMoreMenu(false)
+    setInfoMessageId(null)
+    setForwardMessageIds([])
+    setForwardTargetRoomIds([])
     if (typeof window !== 'undefined') {
       try {
         const raw = window.localStorage.getItem(`ics_chat_deleted_for_me_${actor.id}`)
@@ -600,14 +747,40 @@ export function CampusMessenger({
       } catch {
         setDeletedForMeIds([])
       }
+      try {
+        const rawStars = window.localStorage.getItem(`ics_chat_starred_ids_${actor.id}`)
+        setLocalStarredIds(rawStars ? (JSON.parse(rawStars) as string[]) : [])
+      } catch {
+        setLocalStarredIds([])
+      }
     }
   }, [actor.className, actor.id])
 
-  // Composer & Message Action Modal state
+  // Composer & WhatsApp Multi-Selection / Info / Forward / Starred State
   const [inputText, setInputText] = useState('')
   const [replyingTo, setReplyingTo] = useState<ChatReplyRef | null>(null)
-  const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null)
-  const [deleteModalMessage, setDeleteModalMessage] = useState<ChatMessage | null>(null)
+  const [selectedMessageIds, setSelectedMessageIds] = useState<string[]>([])
+  const [showSelectionMoreMenu, setShowSelectionMoreMenu] = useState(false)
+  const [infoMessageId, setInfoMessageId] = useState<string | null>(null)
+  const [forwardMessageIds, setForwardMessageIds] = useState<string[]>([])
+  const [forwardTargetRoomIds, setForwardTargetRoomIds] = useState<string[]>([])
+  const [forwardSearchQuery, setForwardSearchQuery] = useState('')
+  const [forwardBatchFilter, setForwardBatchFilter] = useState<string>('ALL')
+  const [showStarredModal, setShowStarredModal] = useState(false)
+  const [newChatSearchQuery, setNewChatSearchQuery] = useState('')
+  const [actionToast, setActionToast] = useState<string | null>(null)
+  const [deleteModalMessages, setDeleteModalMessages] = useState<ChatMessage[]>([])
+  const [localStarredIds, setLocalStarredIds] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const raw = window.localStorage.getItem(`ics_chat_starred_ids_${actor.id}`)
+      if (!raw) return []
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  })
   const [deletedForMeIds, setDeletedForMeIds] = useState<string[]>(() => {
     if (typeof window === 'undefined') return []
     try {
@@ -633,6 +806,9 @@ export function CampusMessenger({
     }
   })
   const longPressTimerRef = useRef<number | null>(null)
+  const longPressTriggeredRef = useRef<boolean>(false)
+  const actionToastTimerRef = useRef<number | null>(null)
+  const selectionMoreMenuRef = useRef<HTMLDivElement | null>(null)
   const [showAttachMenu, setShowAttachMenu] = useState(false)
   const [pendingAttachment, setPendingAttachment] = useState<{
     mediaType: 'image' | 'pdf'
@@ -771,12 +947,20 @@ export function CampusMessenger({
       })
     }
 
-    // 4. Direct Chats with Students (Show only name)
+    // 4. Direct Chats with Students (All students can chat with every student across all batches)
+    const normalizedSearch = searchQuery.trim().toLowerCase()
     const targetStudents = students.filter((s) => {
       if (s.id === actor.id) return false
       const dId = makeDirectRoomId(actor.id, s.id)
       const hasHistory = (messagesByRoom[dId]?.length ?? 0) > 0
       if (hasHistory) return true
+      if (normalizedSearch) {
+        return (
+          s.name.toLowerCase().includes(normalizedSearch) ||
+          s.className.toLowerCase().includes(normalizedSearch) ||
+          s.admissionNo.toLowerCase().includes(normalizedSearch)
+        )
+      }
       if (studentBatchFilter === 'ALL') return true
       return s.className === studentBatchFilter
     })
@@ -786,8 +970,8 @@ export function CampusMessenger({
         roomId: makeDirectRoomId(actor.id, st.id),
         type: 'direct_student',
         title: st.name,
-        subtitle: '',
-        badgeLabel: '',
+        subtitle: st.className !== actor.className ? `Class ${st.className}` : '',
+        badgeLabel: st.className !== actor.className ? st.className : '',
         batchName: st.className,
         peerId: st.id,
         peerRole: 'student',
@@ -797,7 +981,7 @@ export function CampusMessenger({
     }
 
     return list
-  }, [actor.id, actor.className, actor.isStaff, messagesByRoom, studentBatchFilter])
+  }, [actor.id, actor.className, actor.isStaff, messagesByRoom, studentBatchFilter, searchQuery])
 
   // Persist messages & room meta to localStorage
   useEffect(() => {
@@ -851,6 +1035,63 @@ export function CampusMessenger({
     }
   }, [deletedForEveryoneMap])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(
+        `ics_chat_starred_ids_${actor.id}`,
+        JSON.stringify(localStarredIds),
+      )
+    } catch {
+      // Ignore quota errors
+    }
+  }, [localStarredIds, actor.id])
+
+  // Clear selection / info panel when switching rooms
+  useEffect(() => {
+    setSelectedMessageIds([])
+    setShowSelectionMoreMenu(false)
+    setInfoMessageId(null)
+  }, [selectedRoomId])
+
+  // Close selection overflow menu on outside tap or Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (showSelectionMoreMenu) {
+        setShowSelectionMoreMenu(false)
+      } else if (infoMessageId) {
+        setInfoMessageId(null)
+      } else if (selectedMessageIds.length > 0) {
+        setSelectedMessageIds([])
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showSelectionMoreMenu, infoMessageId, selectedMessageIds.length])
+
+  useEffect(() => {
+    if (!showSelectionMoreMenu) return
+    const handleOutside = (event: PointerEvent) => {
+      const target = event.target as Node | null
+      if (!target) return
+      if (selectionMoreMenuRef.current?.contains(target)) return
+      setShowSelectionMoreMenu(false)
+    }
+    document.addEventListener('pointerdown', handleOutside, true)
+    return () => document.removeEventListener('pointerdown', handleOutside, true)
+  }, [showSelectionMoreMenu])
+
+  const showToast = useCallback((msg: string) => {
+    setActionToast(msg)
+    if (actionToastTimerRef.current) {
+      window.clearTimeout(actionToastTimerRef.current)
+    }
+    actionToastTimerRef.current = window.setTimeout(() => {
+      setActionToast(null)
+    }, 2400)
+  }, [])
+
   const isMessageHiddenForMe = useCallback(
     (msg: ChatMessage) => {
       if (deletedForMeIds.includes(msg.id)) return true
@@ -858,6 +1099,14 @@ export function CampusMessenger({
       return false
     },
     [deletedForMeIds, actor.id],
+  )
+
+  const isMessageStarredByMe = useCallback(
+    (msg: ChatMessage) => {
+      if (Array.isArray(msg.starredBy) && msg.starredBy.includes(actor.id)) return true
+      return localStarredIds.includes(msg.id)
+    },
+    [actor.id, localStarredIds],
   )
 
   const updateChatSetting = <K extends keyof ChatUserSettings>(
@@ -981,7 +1230,7 @@ export function CampusMessenger({
                 new Set([...(existing?.deletedFor ?? []), ...(sm.deletedFor ?? [])]),
               )
 
-              // Monotonically union readBy & deliveredTo across local and server states
+              // Monotonically union readBy & deliveredTo and earliest timestamps across local and server states
               const mergedReadBy = Array.from(
                 new Set(
                   [
@@ -1002,6 +1251,21 @@ export function CampusMessenger({
                   ].filter(Boolean),
                 ),
               )
+              const mergedDeliveredAtMap = mergeTimestampMaps(
+                existing?.deliveredAtMap,
+                sm.deliveredAtMap,
+              )
+              if (isMyRoom && actor.id !== sm.senderId && !mergedDeliveredAtMap[actor.id]) {
+                mergedDeliveredAtMap[actor.id] = Date.now()
+              }
+              const mergedReadAtMap = mergeTimestampMaps(
+                existing?.readAtMap,
+                sm.readAtMap,
+              )
+              const mergedStarredBy = Array.isArray(sm.starredBy)
+                ? sm.starredBy
+                : (existing?.starredBy ?? [])
+              const mergedIsForwarded = Boolean(sm.isForwarded || existing?.isForwarded)
 
               // Merge reactions across endpoints
               const mergedReactions: Record<string, string[]> = {
@@ -1013,7 +1277,11 @@ export function CampusMessenger({
                 ? {
                     ...sm,
                     deliveredTo: mergedDeliveredTo,
+                    deliveredAtMap: mergedDeliveredAtMap,
                     readBy: mergedReadBy,
+                    readAtMap: mergedReadAtMap,
+                    starredBy: [],
+                    isForwarded: mergedIsForwarded,
                     reactions: mergedReactions,
                     isDeleted: true,
                     deletedBy:
@@ -1033,7 +1301,11 @@ export function CampusMessenger({
                 : {
                     ...sm,
                     deliveredTo: mergedDeliveredTo,
+                    deliveredAtMap: mergedDeliveredAtMap,
                     readBy: mergedReadBy,
+                    readAtMap: mergedReadAtMap,
+                    starredBy: mergedStarredBy,
+                    isForwarded: mergedIsForwarded,
                     reactions: mergedReactions,
                     deletedFor: mergedDeletedFor,
                   }
@@ -1047,6 +1319,12 @@ export function CampusMessenger({
                 existing.deletedById !== mergedMsg.deletedById ||
                 prevDeliveredLen !== mergedDeliveredTo.length ||
                 prevReadLen !== mergedReadBy.length ||
+                Object.keys(existing.deliveredAtMap ?? {}).length !==
+                  Object.keys(mergedDeliveredAtMap).length ||
+                Object.keys(existing.readAtMap ?? {}).length !==
+                  Object.keys(mergedReadAtMap).length ||
+                JSON.stringify(existing.starredBy ?? []) !==
+                  JSON.stringify(mergedMsg.starredBy ?? []) ||
                 JSON.stringify(existing.deletedFor ?? []) !==
                   JSON.stringify(mergedMsg.deletedFor ?? []) ||
                 JSON.stringify(existing.reactions) !== JSON.stringify(mergedMsg.reactions)
@@ -1332,9 +1610,13 @@ export function CampusMessenger({
               deliveredTo: Array.isArray(raw.deliveredTo)
                 ? raw.deliveredTo.map(String)
                 : [String(raw.senderId || '')],
+              deliveredAtMap: sanitizeTimestampMap(raw.deliveredAtMap),
               readBy: Array.isArray(raw.readBy)
                 ? raw.readBy.map(String)
                 : [String(raw.senderId || '')],
+              readAtMap: sanitizeTimestampMap(raw.readAtMap),
+              starredBy: Array.isArray(raw.starredBy) ? raw.starredBy.map(String) : [],
+              isForwarded: raw.isForwarded === true,
               isDeleted: raw.isDeleted === true,
               deletedBy: typeof raw.deletedBy === 'string' ? raw.deletedBy : undefined,
               deletedById: typeof raw.deletedById === 'string' ? raw.deletedById : undefined,
@@ -1351,7 +1633,7 @@ export function CampusMessenger({
             if (!grouped[msg.roomId]) grouped[msg.roomId] = []
             grouped[msg.roomId].push(msg)
 
-            // Immediately acknowledge delivery in Firestore if this room belongs to the current user
+            // Immediately acknowledge delivery + timestamp in Firestore if this room belongs to the current user
             const isMyRoom =
               (msg.roomId.startsWith('direct__') &&
                 msg.roomId.split('__').includes(actor.id)) ||
@@ -1359,18 +1641,26 @@ export function CampusMessenger({
               (msg.roomId.startsWith('batch_group__') &&
                 (actor.isStaff || msg.roomId === makeBatchRoomId(actor.className)))
 
+            const needsDeliveredArray = !(msg.deliveredTo ?? []).includes(actor.id)
+            const needsDeliveredTs = !msg.deliveredAtMap?.[actor.id]
+
             if (
               isMyRoom &&
               !msg.isDeleted &&
               msg.senderId !== actor.id &&
-              !(msg.deliveredTo ?? []).includes(actor.id)
+              (needsDeliveredArray || needsDeliveredTs)
             ) {
               const delivKey = `d:${msg.id}:${actor.id}`
               if (!sentReceiptKeysRef.current.has(delivKey)) {
                 sentReceiptKeysRef.current.add(delivKey)
-                void updateDoc(doc(db, 'campusChatMessages', msg.id), {
+                const delivNow = Math.floor(Date.now())
+                const updateFields: Record<string, unknown> = {
                   deliveredTo: arrayUnion(actor.id),
-                }).catch(() => {
+                }
+                if (needsDeliveredTs) {
+                  updateFields[`deliveredAtMap.${actor.id}`] = delivNow
+                }
+                void updateDoc(doc(db, 'campusChatMessages', msg.id), updateFields).catch(() => {
                   sentReceiptKeysRef.current.delete(delivKey)
                 })
               }
@@ -1627,23 +1917,38 @@ export function CampusMessenger({
       (m) =>
         m.senderId !== actor.id &&
         (!(m.deliveredTo ?? []).includes(actor.id) ||
-          (chatSettings.sendReadReceipts && !m.readBy.includes(actor.id))),
+          !m.deliveredAtMap?.[actor.id] ||
+          (chatSettings.sendReadReceipts &&
+            (!m.readBy.includes(actor.id) || !m.readAtMap?.[actor.id]))),
     )
     if (toUpdate.length === 0) return
+
+    const nowMs = Math.floor(Date.now())
 
     setMessagesByRoom((prev) => {
       const currentList = prev[rId] ?? []
       return {
         ...prev,
         [rId]: currentList.map((m) => {
+          if (m.senderId === actor.id) return m
           const nextDelivered = Array.from(new Set([...(m.deliveredTo ?? [m.senderId]), actor.id]))
+          const nextDeliveredAtMap = {
+            ...(m.deliveredAtMap ?? {}),
+            ...(m.deliveredAtMap?.[actor.id] ? {} : { [actor.id]: nowMs }),
+          }
           const nextRead = chatSettings.sendReadReceipts
             ? Array.from(new Set([...m.readBy, actor.id]))
             : m.readBy
+          const nextReadAtMap =
+            chatSettings.sendReadReceipts && !m.readAtMap?.[actor.id]
+              ? { ...(m.readAtMap ?? {}), [actor.id]: nowMs }
+              : (m.readAtMap ?? {})
           return {
             ...m,
             deliveredTo: nextDelivered,
+            deliveredAtMap: nextDeliveredAtMap,
             readBy: nextRead,
+            readAtMap: nextReadAtMap,
           }
         }),
       }
@@ -1651,13 +1956,22 @@ export function CampusMessenger({
 
     for (const m of toUpdate) {
       if (!firestoreMessageIdsRef.current.has(m.id)) continue
-      const receiptKey = `${chatSettings.sendReadReceipts ? 'r' : 'd'}:${m.id}:${actor.id}`
+      const receiptKey = `${chatSettings.sendReadReceipts ? 'rt' : 'dt'}:${m.id}:${actor.id}`
       if (sentReceiptKeysRef.current.has(receiptKey)) continue
       sentReceiptKeysRef.current.add(receiptKey)
-      void updateDoc(doc(db, 'campusChatMessages', m.id), {
+      const updatePayload: Record<string, unknown> = {
         deliveredTo: arrayUnion(actor.id),
-        ...(chatSettings.sendReadReceipts ? { readBy: arrayUnion(actor.id) } : {}),
-      }).catch(() => {
+      }
+      if (!m.deliveredAtMap?.[actor.id]) {
+        updatePayload[`deliveredAtMap.${actor.id}`] = nowMs
+      }
+      if (chatSettings.sendReadReceipts) {
+        updatePayload.readBy = arrayUnion(actor.id)
+        if (!m.readAtMap?.[actor.id]) {
+          updatePayload[`readAtMap.${actor.id}`] = nowMs
+        }
+      }
+      void updateDoc(doc(db, 'campusChatMessages', m.id), updatePayload).catch(() => {
         sentReceiptKeysRef.current.delete(receiptKey)
       })
     }
@@ -1823,7 +2137,11 @@ export function CampusMessenger({
         replyTo: replyingTo ?? undefined,
         reactions: {},
         deliveredTo: [actor.id],
+        deliveredAtMap: {},
         readBy: [actor.id],
+        readAtMap: {},
+        starredBy: [],
+        isForwarded: false,
         isDeleted: false,
         createdAt: new Date(now).toISOString(),
         createdAtMs: now,
@@ -1961,7 +2279,8 @@ export function CampusMessenger({
   const startVoiceRecording = async () => {
     if (activeRoomMeta.onlyAdminsCanPost && !actor.isStaff) return
     setShowAttachMenu(false)
-    setActiveReactionMessageId(null)
+    setSelectedMessageIds([])
+    setShowSelectionMoreMenu(false)
     setShowSettingsModal(false)
     setShowNewChatModal(false)
     setIsRecordingVoice(true)
@@ -2359,7 +2678,8 @@ export function CampusMessenger({
         }),
       }
     })
-    setActiveReactionMessageId(null)
+    setSelectedMessageIds([])
+    setShowSelectionMoreMenu(false)
     if (updatedReactionsForFs && firestoreMessageIdsRef.current.has(messageId)) {
       void updateDoc(doc(db, 'campusChatMessages', messageId), {
         reactions: updatedReactionsForFs,
@@ -2373,8 +2693,13 @@ export function CampusMessenger({
     })
   }
 
+  const canPinActiveRoom =
+    actor.isStaff ||
+    activeRoom.type === 'direct_student' ||
+    activeRoom.type === 'direct_usthad'
+
   const handleTogglePinMessage = (messageId: string | null) => {
-    if (!actor.isStaff) return
+    if (!canPinActiveRoom) return
     const rId = activeRoom.roomId
     const nextPin = activeRoomMeta.pinnedMessageId === messageId ? null : messageId
     setRoomsMeta((prev) => ({
@@ -2385,6 +2710,9 @@ export function CampusMessenger({
         updatedAtMs: Date.now(),
       },
     }))
+    setSelectedMessageIds([])
+    setShowSelectionMoreMenu(false)
+    showToast(nextPin ? 'Message pinned' : 'Message unpinned')
     void syncRoomMetaToFirestore(rId, activeRoomMeta.onlyAdminsCanPost, nextPin)
     void sendChatActionToServer({
       action: 'toggle_pin',
@@ -2393,18 +2721,166 @@ export function CampusMessenger({
     })
   }
 
-  const handleDeleteForEveryone = (messageId: string) => {
+  const handleToggleStarMessages = (targetMsgs: ChatMessage[], roomIdOverride?: string) => {
+    const valid = targetMsgs.filter((m) => !m.isDeleted)
+    if (valid.length === 0) return
+    const allAlreadyStarred = valid.every((m) => isMessageStarredByMe(m))
+    const shouldStar = !allAlreadyStarred
+    const targetIds = valid.map((m) => m.id)
+
+    setLocalStarredIds((prev) => {
+      if (shouldStar) {
+        return Array.from(new Set([...prev, ...targetIds]))
+      }
+      return prev.filter((id) => !targetIds.includes(id))
+    })
+
+    setMessagesByRoom((prev) => {
+      const next = { ...prev }
+      const roomsToTouch = new Set(valid.map((m) => roomIdOverride || m.roomId))
+      for (const rId of roomsToTouch) {
+        const list = next[rId] ?? []
+        next[rId] = list.map((m) => {
+          if (!targetIds.includes(m.id)) return m
+          const cur = Array.isArray(m.starredBy) ? m.starredBy : []
+          const updated = shouldStar
+            ? Array.from(new Set([...cur, actor.id])).slice(0, 300)
+            : cur.filter((id) => id !== actor.id)
+          return { ...m, starredBy: updated }
+        })
+      }
+      return next
+    })
+
+    for (const m of valid) {
+      if (firestoreMessageIdsRef.current.has(m.id)) {
+        void updateDoc(doc(db, 'campusChatMessages', m.id), {
+          starredBy: shouldStar ? arrayUnion(actor.id) : arrayRemove(actor.id),
+        }).catch(() => {})
+      }
+    }
+
+    const byRoom = new Map<string, string[]>()
+    for (const m of valid) {
+      const rId = roomIdOverride || m.roomId
+      byRoom.set(rId, [...(byRoom.get(rId) ?? []), m.id])
+    }
+    for (const [rId, ids] of byRoom.entries()) {
+      void sendChatActionToServer({
+        action: 'toggle_star',
+        roomId: rId,
+        messageIds: ids,
+        starred: shouldStar,
+      })
+    }
+
+    setSelectedMessageIds([])
+    setShowSelectionMoreMenu(false)
+    showToast(
+      shouldStar
+        ? valid.length === 1
+          ? 'Message starred'
+          : `${valid.length} messages starred`
+        : valid.length === 1
+          ? 'Removed from starred'
+          : `Removed ${valid.length} messages from starred`,
+    )
+  }
+
+  const formatMessageForCopyOrShare = (msgs: ChatMessage[]): string => {
+    const valid = msgs.filter((m) => !m.isDeleted)
+    if (valid.length === 0) return ''
+    if (valid.length === 1) {
+      const m = valid[0]
+      if (m.text) return m.text
+      if (m.mediaType === 'pdf') return `📄 ${m.mediaName || 'PDF Document'}`
+      if (m.mediaType === 'voice')
+        return `🎤 Voice Note (${formatVoiceDuration(m.mediaDurationSec || 4)})`
+      if (m.mediaType === 'image') return `📷 ${m.mediaName || 'Photo'}`
+      return ''
+    }
+    return valid
+      .map((m) => {
+        const body =
+          m.text ||
+          (m.mediaType === 'pdf'
+            ? `📄 ${m.mediaName || 'PDF Document'}`
+            : m.mediaType === 'voice'
+              ? `🎤 Voice Note (${formatVoiceDuration(m.mediaDurationSec || 4)})`
+              : `📷 ${m.mediaName || 'Photo'}`)
+        return `[${formatChatTime(m.createdAtMs)}] ${m.senderName}: ${body}`
+      })
+      .join('\n')
+  }
+
+  const handleCopyMessages = async (targetMsgs: ChatMessage[]) => {
+    const formatted = formatMessageForCopyOrShare(targetMsgs)
+    if (!formatted) return
+    try {
+      await navigator.clipboard.writeText(formatted)
+      showToast(
+        targetMsgs.length === 1 ? 'Message copied' : `${targetMsgs.length} messages copied`,
+      )
+    } catch {
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = formatted
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+        showToast(
+          targetMsgs.length === 1 ? 'Message copied' : `${targetMsgs.length} messages copied`,
+        )
+      } catch {
+        showToast('Unable to copy text')
+      }
+    }
+    setSelectedMessageIds([])
+    setShowSelectionMoreMenu(false)
+  }
+
+  const handleShareMessages = async (targetMsgs: ChatMessage[]) => {
+    const formatted = formatMessageForCopyOrShare(targetMsgs)
+    if (!formatted) return
+    setSelectedMessageIds([])
+    setShowSelectionMoreMenu(false)
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({
+          title: 'ICS Academy Messenger',
+          text: formatted,
+        })
+        showToast('Shared successfully')
+        return
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(formatted)
+      showToast('Copied to share')
+    } catch {
+      showToast('Unable to share')
+    }
+  }
+
+  const handleDeleteForEveryone = (messageIds: string[]) => {
+    if (messageIds.length === 0) return
     const rId = activeRoom.roomId
-    setDeletedForEveryoneMap((prev) => ({
-      ...prev,
-      [messageId]: { deletedBy: actor.name, deletedById: actor.id },
-    }))
+    setDeletedForEveryoneMap((prev) => {
+      const next = { ...prev }
+      for (const id of messageIds) {
+        next[id] = { deletedBy: actor.name, deletedById: actor.id }
+      }
+      return next
+    })
     setMessagesByRoom((prev) => {
       const list = prev[rId] ?? []
       return {
         ...prev,
         [rId]: list.map((m) =>
-          m.id === messageId
+          messageIds.includes(m.id)
             ? {
                 ...m,
                 isDeleted: true,
@@ -2413,44 +2889,58 @@ export function CampusMessenger({
                 text: '',
                 mediaType: 'none',
                 mediaUrl: undefined,
+                starredBy: [],
               }
             : m,
         ),
       }
     })
-    if (activeRoomMeta.pinnedMessageId === messageId) {
+    if (activeRoomMeta.pinnedMessageId && messageIds.includes(activeRoomMeta.pinnedMessageId)) {
       handleTogglePinMessage(null)
     }
-    setDeleteModalMessage(null)
-    setActiveReactionMessageId(null)
+    setDeleteModalMessages([])
+    setSelectedMessageIds([])
+    setShowSelectionMoreMenu(false)
     setLightboxImage(null)
-    if (firestoreMessageIdsRef.current.has(messageId)) {
-      void updateDoc(doc(db, 'campusChatMessages', messageId), {
-        isDeleted: true,
-        deletedBy: actor.name.slice(0, 120),
-        deletedById: actor.id,
-        text: '',
-        mediaType: 'none',
-        mediaUrl: '',
-      }).catch(() => {})
+    if (infoMessageId && messageIds.includes(infoMessageId)) {
+      setInfoMessageId(null)
     }
-    void sendChatActionToServer({
-      action: 'delete_message',
-      deleteMode: 'everyone',
-      roomId: rId,
-      messageId,
-    })
+    for (const messageId of messageIds) {
+      if (firestoreMessageIdsRef.current.has(messageId)) {
+        void updateDoc(doc(db, 'campusChatMessages', messageId), {
+          isDeleted: true,
+          deletedBy: actor.name.slice(0, 120),
+          deletedById: actor.id,
+          text: '',
+          mediaType: 'none',
+          mediaUrl: '',
+        }).catch(() => {})
+      }
+      void sendChatActionToServer({
+        action: 'delete_message',
+        deleteMode: 'everyone',
+        roomId: rId,
+        messageId,
+      })
+    }
+    showToast(
+      messageIds.length === 1
+        ? 'Deleted for everyone'
+        : `Deleted ${messageIds.length} messages for everyone`,
+    )
   }
 
-  const handleDeleteForMe = (messageId: string) => {
+  const handleDeleteForMe = (messageIds: string[]) => {
+    if (messageIds.length === 0) return
     const rId = activeRoom.roomId
-    setDeletedForMeIds((prev) => (prev.includes(messageId) ? prev : [...prev, messageId]))
+    setDeletedForMeIds((prev) => Array.from(new Set([...prev, ...messageIds])))
+    setLocalStarredIds((prev) => prev.filter((id) => !messageIds.includes(id)))
     setMessagesByRoom((prev) => {
       const list = prev[rId] ?? []
       return {
         ...prev,
         [rId]: list.map((m) =>
-          m.id === messageId
+          messageIds.includes(m.id)
             ? {
                 ...m,
                 deletedFor: Array.from(new Set([...(m.deletedFor ?? []), actor.id])),
@@ -2459,21 +2949,293 @@ export function CampusMessenger({
         ),
       }
     })
-    setDeleteModalMessage(null)
-    setActiveReactionMessageId(null)
+    setDeleteModalMessages([])
+    setSelectedMessageIds([])
+    setShowSelectionMoreMenu(false)
     setLightboxImage(null)
-    if (firestoreMessageIdsRef.current.has(messageId)) {
-      void updateDoc(doc(db, 'campusChatMessages', messageId), {
-        deletedFor: arrayUnion(actor.id),
-      }).catch(() => {})
+    if (infoMessageId && messageIds.includes(infoMessageId)) {
+      setInfoMessageId(null)
     }
-    void sendChatActionToServer({
-      action: 'delete_message',
-      deleteMode: 'me',
-      roomId: rId,
-      messageId,
-    })
+    for (const messageId of messageIds) {
+      if (firestoreMessageIdsRef.current.has(messageId)) {
+        void updateDoc(doc(db, 'campusChatMessages', messageId), {
+          deletedFor: arrayUnion(actor.id),
+        }).catch(() => {})
+      }
+      void sendChatActionToServer({
+        action: 'delete_message',
+        deleteMode: 'me',
+        roomId: rId,
+        messageId,
+      })
+    }
+    showToast(
+      messageIds.length === 1 ? 'Deleted for you' : `Deleted ${messageIds.length} messages for you`,
+    )
   }
+
+  const handleConfirmForwardMessages = () => {
+    const sourceMsgs = activeMessages.filter(
+      (m) => forwardMessageIds.includes(m.id) && !m.isDeleted,
+    )
+    if (sourceMsgs.length === 0 || forwardTargetRoomIds.length === 0) return
+
+    const baseNow = Date.now()
+    let seq = 0
+
+    for (const targetRoomId of forwardTargetRoomIds) {
+      const targetMeta = roomsMeta[targetRoomId]
+      if (targetMeta?.onlyAdminsCanPost && !actor.isStaff) continue
+
+      const isDirect = targetRoomId.startsWith('direct__')
+      const directPeerId = isDirect
+        ? targetRoomId.split('__').find((p, idx) => idx > 0 && p !== actor.id)
+        : undefined
+      const isBatch = targetRoomId.startsWith('batch_group__')
+      const batchName = isBatch ? targetRoomId.replace(/^batch_group__/, '').trim() : undefined
+      const isStaffRoom = targetRoomId === STAFF_ROOM_ID
+
+      for (const src of sourceMsgs) {
+        seq += 1
+        const now = baseNow + seq
+        const msgId = `msg_${now}_${Math.random().toString(36).slice(2, 7)}`
+        const forwardedMsg: ChatMessage = {
+          id: msgId,
+          roomId: targetRoomId,
+          senderId: actor.id,
+          senderName: actor.name,
+          senderRole: actor.role,
+          senderBadge: actor.badge,
+          text: src.text,
+          mediaType: src.mediaType,
+          mediaUrl: src.mediaUrl,
+          mediaName: src.mediaName,
+          mediaSizeLabel: src.mediaSizeLabel,
+          mediaDurationSec: src.mediaDurationSec,
+          imageQuality: src.imageQuality,
+          imageDimensions: src.imageDimensions,
+          reactions: {},
+          deliveredTo: [actor.id],
+          deliveredAtMap: {},
+          readBy: [actor.id],
+          readAtMap: {},
+          starredBy: [],
+          isForwarded: true,
+          isDeleted: false,
+          createdAt: new Date(now).toISOString(),
+          createdAtMs: now,
+        }
+
+        setMessagesByRoom((prev) => ({
+          ...prev,
+          [targetRoomId]: [...(prev[targetRoomId] ?? []), forwardedMsg],
+        }))
+
+        void (async () => {
+          try {
+            const safeMediaUrl = await prepareMediaUrlForFirestore(
+              forwardedMsg.mediaType,
+              forwardedMsg.mediaUrl,
+            )
+            const fsPayload = buildFirestoreChatMessagePayload(forwardedMsg, safeMediaUrl)
+            await setDoc(doc(db, 'campusChatMessages', forwardedMsg.id), fsPayload)
+            firestoreMessageIdsRef.current.add(forwardedMsg.id)
+          } catch {
+            // Fallback already handled via HTTP sync
+          }
+        })()
+
+        void sendChatActionToServer({
+          action: 'send_message',
+          roomId: targetRoomId,
+          message: forwardedMsg,
+        })
+
+        const preview =
+          forwardedMsg.mediaType === 'pdf'
+            ? `📄 Forwarded PDF: ${forwardedMsg.mediaName || 'Document'}`
+            : forwardedMsg.mediaType === 'voice'
+              ? `🎤 Forwarded Voice Note`
+              : forwardedMsg.mediaType === 'image'
+                ? `📷 Forwarded Photo${forwardedMsg.text ? `: ${forwardedMsg.text.slice(0, 80)}` : ''}`
+                : forwardedMsg.text.slice(0, 120)
+
+        const deterministicNotifId = `notif_chat_${msgId}`
+        if (isDirect && directPeerId) {
+          publishCampusNotification({
+            id: deterministicNotifId,
+            type: 'chat',
+            title: `New Message from ${actor.name}`,
+            message: preview,
+            targetRecipientId: directPeerId,
+            actorId: actor.id,
+            actorName: actor.name,
+            href: '#campus-chat',
+          })
+        } else if (isBatch && batchName) {
+          publishCampusNotification({
+            id: deterministicNotifId,
+            type: 'chat',
+            title: `${actor.name} • ${batchName} Group`,
+            message: preview,
+            targetClass: batchName,
+            actorId: actor.id,
+            actorName: actor.name,
+            href: '#campus-chat',
+          })
+        } else if (isStaffRoom) {
+          publishCampusNotification({
+            id: deterministicNotifId,
+            type: 'chat',
+            title: `${actor.name} • Staff Room`,
+            message: preview,
+            targetStaffOnly: true,
+            actorId: actor.id,
+            actorName: actor.name,
+            href: '#campus-chat',
+          })
+        }
+      }
+    }
+
+    const destCount = forwardTargetRoomIds.length
+    const msgCount = sourceMsgs.length
+    if (destCount === 1) {
+      setSelectedRoomId(forwardTargetRoomIds[0])
+      setMobileShowChatPane(true)
+    }
+    setForwardMessageIds([])
+    setForwardTargetRoomIds([])
+    setForwardSearchQuery('')
+    setSelectedMessageIds([])
+    setShowSelectionMoreMenu(false)
+    showToast(
+      `Forwarded ${msgCount === 1 ? 'message' : `${msgCount} messages`} to ${destCount === 1 ? '1 chat' : `${destCount} chats`}`,
+    )
+  }
+
+  const toggleSelectMessage = (msgId: string) => {
+    setShowSelectionMoreMenu(false)
+    setSelectedMessageIds((prev) =>
+      prev.includes(msgId) ? prev.filter((id) => id !== msgId) : [...prev, msgId],
+    )
+  }
+
+  const selectedMessages = useMemo(
+    () => activeMessages.filter((m) => selectedMessageIds.includes(m.id)),
+    [activeMessages, selectedMessageIds],
+  )
+  const nonDeletedSelectedMessages = useMemo(
+    () => selectedMessages.filter((m) => !m.isDeleted),
+    [selectedMessages],
+  )
+  const singleSelectedMessage = selectedMessages.length === 1 ? selectedMessages[0] : null
+  const isAllSelectedStarred =
+    nonDeletedSelectedMessages.length > 0 &&
+    nonDeletedSelectedMessages.every((m) => isMessageStarredByMe(m))
+  const canShowInfoAction = Boolean(
+    singleSelectedMessage &&
+      !singleSelectedMessage.isDeleted &&
+      singleSelectedMessage.senderId === actor.id,
+  )
+
+  const infoMessage = useMemo(
+    () => (infoMessageId ? activeMessages.find((m) => m.id === infoMessageId) ?? null : null),
+    [infoMessageId, activeMessages],
+  )
+
+  const allStarredItems = useMemo(() => {
+    const items: Array<{ msg: ChatMessage; roomTitle: string; roomId: string }> = []
+    for (const [rId, list] of Object.entries(messagesByRoom)) {
+      if (!Array.isArray(list)) continue
+      for (const m of list) {
+        if (m.isDeleted || isMessageHiddenForMe(m)) continue
+        if (!isMessageStarredByMe(m)) continue
+        let roomTitle = rId
+        if (rId === STAFF_ROOM_ID) {
+          roomTitle = 'Staff Room'
+        } else if (rId.startsWith('batch_group__')) {
+          const b = rId.replace(/^batch_group__/, '')
+          roomTitle = b === actor.className ? 'My Class Group' : `${b} Group`
+        } else if (rId.startsWith('direct__')) {
+          const peerId = rId.split('__').find((p, i) => i > 0 && p !== actor.id)
+          roomTitle = peerId ? resolveActorDirectoryProfile(peerId).name : 'Direct Chat'
+        }
+        items.push({ msg: m, roomTitle, roomId: rId })
+      }
+    }
+    return items.sort((a, b) => b.msg.createdAtMs - a.msg.createdAtMs)
+  }, [messagesByRoom, isMessageHiddenForMe, isMessageStarredByMe, actor.className, actor.id])
+
+  // Complete list of forwardable destinations (groups + all Usthads + all Students)
+  const allForwardRooms = useMemo<ChatRoomDescriptor[]>(() => {
+    const list: ChatRoomDescriptor[] = []
+    if (actor.isStaff) {
+      list.push({
+        roomId: STAFF_ROOM_ID,
+        type: 'staff_group',
+        title: 'Staff Room',
+        subtitle: 'Usthads & Principal',
+        badgeLabel: 'Staff',
+        avatarText: 'SR',
+        isStaffOnly: true,
+      })
+      for (const cls of ACADEMY_CLASSES) {
+        list.push({
+          roomId: makeBatchRoomId(cls.className),
+          type: 'batch_group',
+          title: cls.className === actor.className ? 'My Class Group' : `${cls.fullLabel} Group`,
+          subtitle: cls.fullLabel,
+          badgeLabel: cls.className,
+          batchName: cls.className,
+          avatarText: 'CG',
+        })
+      }
+    } else {
+      const myCls =
+        ACADEMY_CLASSES.find((c) => c.className === actor.className) ?? ACADEMY_CLASSES[0]
+      list.push({
+        roomId: makeBatchRoomId(myCls.className),
+        type: 'batch_group',
+        title: 'My Class Group',
+        subtitle: myCls.fullLabel,
+        badgeLabel: myCls.className,
+        batchName: myCls.className,
+        avatarText: 'CG',
+      })
+    }
+    for (const u of OFFICIAL_CLASS_USTHADS) {
+      if (u.id === actor.id) continue
+      list.push({
+        roomId: makeDirectRoomId(actor.id, u.id),
+        type: 'direct_usthad',
+        title: u.name,
+        subtitle: u.designation || 'Usthad',
+        badgeLabel: 'Usthad',
+        batchName: u.className,
+        peerId: u.id,
+        peerRole: u.id === ACADEMY_PRINCIPAL.usthadId ? 'principal' : 'usthad',
+        avatarText: u.name.replace(/^Usthad\s+/i, '').slice(0, 2).toUpperCase(),
+        avatarUrl: u.avatarUrl,
+      })
+    }
+    for (const st of students) {
+      if (st.id === actor.id) continue
+      list.push({
+        roomId: makeDirectRoomId(actor.id, st.id),
+        type: 'direct_student',
+        title: st.name,
+        subtitle: `Class ${st.className} • ${st.admissionNo}`,
+        badgeLabel: st.className,
+        batchName: st.className,
+        peerId: st.id,
+        peerRole: 'student',
+        avatarText: st.firstName.slice(0, 2).toUpperCase(),
+        avatarUrl: st.avatarUrl,
+      })
+    }
+    return list
+  }, [actor.id, actor.className, actor.isStaff])
 
   const handleToggleGroupLock = () => {
     if (!actor.isStaff) return
@@ -2550,8 +3312,32 @@ export function CampusMessenger({
                 type="button"
                 onClick={() => {
                   setShowAttachMenu(false)
-                  setActiveReactionMessageId(null)
+                  setSelectedMessageIds([])
+                  setShowSelectionMoreMenu(false)
                   setShowSettingsModal(false)
+                  setShowNewChatModal(false)
+                  if (isRecordingVoice) cancelVoiceRecording()
+                  setShowStarredModal(true)
+                }}
+                title="Starred Messages"
+                aria-label="Open Starred Messages"
+                className="relative flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-muted hover:text-amber-500 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-200 dark:hover:bg-[#222630]"
+              >
+                <Star className="size-4" aria-hidden="true" />
+                {allStarredItems.length > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 font-poppins text-[9px] font-bold text-black">
+                    {allStarredItems.length > 99 ? '99+' : allStarredItems.length}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAttachMenu(false)
+                  setSelectedMessageIds([])
+                  setShowSelectionMoreMenu(false)
+                  setShowSettingsModal(false)
+                  setShowStarredModal(false)
                   if (isRecordingVoice) cancelVoiceRecording()
                   setShowNewChatModal((prev) => !prev)
                 }}
@@ -2565,8 +3351,10 @@ export function CampusMessenger({
                 type="button"
                 onClick={() => {
                   setShowAttachMenu(false)
-                  setActiveReactionMessageId(null)
+                  setSelectedMessageIds([])
+                  setShowSelectionMoreMenu(false)
                   setShowNewChatModal(false)
+                  setShowStarredModal(false)
                   if (isRecordingVoice) cancelVoiceRecording()
                   setShowSettingsModal((prev) => !prev)
                 }}
@@ -2624,11 +3412,11 @@ export function CampusMessenger({
               })}
             </div>
 
-            {/* Class selector when viewing Students tab (Staff only) */}
-            {categoryFilter === 'students' && actor.isStaff && (
+            {/* Class selector when viewing Students tab (Available for ALL students & staff) */}
+            {categoryFilter === 'students' && (
               <div className="flex items-center justify-between gap-2 pt-0.5">
                 <span className="text-[11px] font-medium text-muted-foreground">
-                  Filter:
+                  Class:
                 </span>
                 <ThemeSelect
                   value={studentBatchFilter}
@@ -2636,7 +3424,7 @@ export function CampusMessenger({
                   aria-label="Filter students"
                   className="h-8 flex-1 rounded-lg border border-input bg-card px-2.5 text-xs font-semibold text-foreground"
                 >
-                  <option value={actor.className}>My Class</option>
+                  <option value={actor.className}>My Class ({actor.className})</option>
                   <option value="ALL">All Students ({students.length})</option>
                   {ACADEMY_CLASSES.map((c) => (
                     <option key={c.id} value={c.className}>
@@ -2669,7 +3457,9 @@ export function CampusMessenger({
                   onClick={() => {
                     unlockNotificationAudio()
                     setShowAttachMenu(false)
-                    setActiveReactionMessageId(null)
+                    setSelectedMessageIds([])
+                    setShowSelectionMoreMenu(false)
+                    setInfoMessageId(null)
                     if (isRecordingVoice) cancelVoiceRecording()
                     setSelectedRoomId(room.roomId)
                     setMobileShowChatPane(true)
@@ -2831,311 +3621,903 @@ export function CampusMessenger({
           </div>
         </div>
 
-        {/* RIGHT PANE: ACTIVE WHATSAPP CONVERSATION WINDOW */}
+        {/* RIGHT PANE: ACTIVE WHATSAPP CONVERSATION WINDOW (OR MESSAGE INFO SCREEN) */}
         <div
           className={cn(
-            'flex h-full min-w-0 flex-1 flex-col bg-background lg:bg-background/95',
+            'relative flex h-full min-w-0 flex-1 flex-col bg-background lg:bg-background/95',
             !mobileShowChatPane
               ? 'hidden lg:flex'
               : 'flex max-lg:fixed max-lg:inset-0 max-lg:z-[55] max-lg:w-full max-lg:pt-[var(--safe-top)] max-lg:pb-[var(--safe-bottom)]',
           )}
         >
-          {/* Active Chat Header */}
-          <div className="flex items-center justify-between gap-2 border-b border-border bg-card/95 px-3 py-2.5 sm:px-4 sm:py-3">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAttachMenu(false)
-                  setActiveReactionMessageId(null)
-                  if (isRecordingVoice) cancelVoiceRecording()
-                  setMobileShowChatPane(false)
-                }}
-                aria-label="Back to chat list"
-                className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-foreground hover:bg-muted lg:hidden"
-              >
-                <ArrowLeft className="size-4" aria-hidden="true" />
-              </button>
-
-              <div className="relative shrink-0">
-                <div
-                  className={cn(
-                    'flex size-10 items-center justify-center overflow-hidden rounded-2xl font-poppins text-xs font-bold border border-border dark:border-[#262a33]',
-                    activeRoom.type === 'staff_group'
-                      ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1a1d24] dark:text-amber-300'
-                      : activeRoom.type === 'batch_group'
-                        ? 'bg-emerald-500/15 text-emerald-700 dark:bg-[#1a1d24] dark:text-zinc-100'
-                        : 'bg-cyan/15 text-cyan dark:bg-[#1a1d24] dark:text-cyan',
-                  )}
-                >
-                  {activeRoom.avatarUrl ? (
-                    <img
-                      src={activeRoom.avatarUrl}
-                      alt={activeRoom.title}
-                      className="size-full object-cover object-top"
-                    />
-                  ) : activeRoom.type === 'batch_group' ? (
-                    <Users className="size-4" aria-hidden="true" />
-                  ) : activeRoom.type === 'staff_group' ? (
-                    <Crown className="size-4" aria-hidden="true" />
-                  ) : (
-                    activeRoom.avatarText
-                  )}
-                </div>
-              </div>
-
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <h3 className="truncate font-poppins text-sm font-bold text-foreground sm:text-base">
-                    {activeRoom.title}
-                  </h3>
-                  {activeRoom.badgeLabel ? (
-                    <span className="hidden rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground sm:inline-block">
-                      {activeRoom.badgeLabel}
-                    </span>
-                  ) : null}
-                </div>
-
-                {activeTypingBanner ? (
-                  <p className="truncate text-[11px] font-semibold text-emerald-600 dark:text-zinc-300">
-                    {activeTypingBanner}
-                  </p>
-                ) : (() => {
-                    const headerStatus = getOpenChatHeaderStatus(activeRoom)
-                    if (headerStatus.isOnlineNow) {
-                      return (
-                        <p className="truncate text-[11px] font-medium text-emerald-600 dark:text-zinc-300">
-                          online
-                        </p>
-                      )
-                    }
-                    if (headerStatus.text) {
-                      return (
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {headerStatus.text}
-                        </p>
-                      )
-                    }
-                    return null
-                  })()}
-              </div>
-            </div>
-
-            {/* Right Controls: Usthad / Principal Group Lock Toggle + Chat Settings */}
-            <div className="flex shrink-0 items-center gap-1.5">
-              {actor.isStaff && activeRoom.type === 'batch_group' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAttachMenu(false)
-                    setActiveReactionMessageId(null)
-                    if (isRecordingVoice) cancelVoiceRecording()
-                    handleToggleGroupLock()
-                  }}
-                  title={
-                    activeRoomMeta.onlyAdminsCanPost
-                      ? 'Group is locked to Usthads only. Click to allow all students to message.'
-                      : 'Click to restrict group so only Usthads & Principal can send messages.'
-                  }
-                  className={cn(
-                    'inline-flex h-9 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-semibold transition-all whitespace-nowrap shrink-0',
-                    activeRoomMeta.onlyAdminsCanPost
-                      ? 'border-border bg-amber-500/15 text-amber-600 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-amber-300'
-                      : 'border-border bg-background/80 text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {activeRoomMeta.onlyAdminsCanPost ? (
-                    <>
-                      <Lock className="size-3.5" aria-hidden="true" />
-                      <span>Only Usthads</span>
-                    </>
-                  ) : (
-                    <>
-                      <Unlock className="size-3.5" aria-hidden="true" />
-                      <span className="hidden sm:inline">All Can Send</span>
-                    </>
-                  )}
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAttachMenu(false)
-                  setActiveReactionMessageId(null)
-                  setShowNewChatModal(false)
-                  if (isRecordingVoice) cancelVoiceRecording()
-                  setShowSettingsModal((prev) => !prev)
-                }}
-                title="Chat Settings"
-                aria-label="Open Chat Settings"
-                className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-200 dark:hover:bg-[#222630]"
-              >
-                <Settings className="size-4" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-
-          {/* Pinned Message Banner (If Pinned by Usthad/Principal) */}
-          {pinnedMessage && (
-            <div className="flex items-center justify-between gap-2 border-b border-border bg-emerald-500/10 px-3.5 py-2 dark:border-[#262a33] dark:bg-[#14171d]">
-              <button
-                type="button"
-                onClick={() => scrollToMessage(pinnedMessage.id)}
-                className="flex min-w-0 flex-1 items-center gap-2 text-left"
-              >
-                <Pin
-                  className="size-3.5 shrink-0 text-emerald-600 dark:text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-muted-foreground">
-                    Pinned by Usthad • {pinnedMessage.senderName}
-                  </p>
-                  <p className="truncate text-xs text-foreground">
-                    {pinnedMessage.mediaType === 'pdf'
-                      ? `📄 ${pinnedMessage.mediaName} — ${pinnedMessage.text}`
-                      : pinnedMessage.text}
-                  </p>
-                </div>
-              </button>
-              {actor.isStaff && (
-                <button
-                  type="button"
-                  onClick={() => handleTogglePinMessage(null)}
-                  aria-label="Unpin message"
-                  className="rounded-lg p-1 text-muted-foreground hover:bg-background/60 hover:text-foreground"
-                >
-                  <X className="size-3.5" aria-hidden="true" />
-                </button>
-              )}
+          {/* Floating Action Toast */}
+          {actionToast && (
+            <div className="pointer-events-none absolute left-1/2 top-16 z-40 -translate-x-1/2 rounded-full border border-border bg-card/95 px-4 py-1.5 text-xs font-semibold text-foreground shadow-lg backdrop-blur-xs dark:border-[#343946] dark:bg-[#1a1d24] dark:text-zinc-100">
+              {actionToast}
             </div>
           )}
 
-          {/* Scrollable Message Stream */}
-          <div
-            className={cn(
-              'flex-1 space-y-2.5 overflow-y-auto px-3 py-4 sm:px-5 transition-colors',
-              chatSettings.chatWallpaper === 'pitch_dark' &&
-                'bg-[#f1f5f9] dark:bg-[#07080a]',
-              chatSettings.chatWallpaper === 'soft_mint' &&
-                'bg-[#eef8f0] dark:bg-[#0c1110]',
-              chatSettings.chatWallpaper === 'warm_slate' &&
-                'bg-[#f5f3ef] dark:bg-[#101115]',
-            )}
-            onClick={() => {
-              setActiveReactionMessageId(null)
-              setShowAttachMenu(false)
-            }}
-          >
-            {/* End-to-End Campus Security Banner */}
-            <div className="mx-auto max-w-md rounded-2xl border border-border/70 bg-card/70 px-3.5 py-2 text-center text-[11px] text-muted-foreground dark:border-[#262a33] dark:bg-[#121418]">
-              <ShieldCheck
-                className="mr-1 inline-block size-3.5 text-emerald-600 dark:text-muted-foreground"
-                aria-hidden="true"
-              />
-              Messages and files are private to ICS Academy.
-            </div>
+          {infoMessage ? (
+            /* WHATSAPP-STYLE MESSAGE INFO SCREEN (← Message info) */
+            (() => {
+              const isGroupRoom =
+                activeRoom.type === 'batch_group' || activeRoom.type === 'staff_group'
+              const readIds = (infoMessage.readBy ?? []).filter(
+                (id) => id && id !== infoMessage.senderId,
+              )
+              const deliveredIds = (infoMessage.deliveredTo ?? []).filter(
+                (id) => id && id !== infoMessage.senderId,
+              )
+              const infoReadByOthers = readIds.length > 0
+              const infoDeliveredToOthers = infoReadByOthers || deliveredIds.length > 0
 
-            {activeMessages.map((msg) => {
-              const isMine = msg.senderId === actor.id
-              const isPinned = activeRoomMeta.pinnedMessageId === msg.id
-              const otherReadersCount = (msg.readBy ?? []).filter(
-                (id) => id && id !== msg.senderId,
-              ).length
-              const otherDeliveredCount = (msg.deliveredTo ?? []).filter(
-                (id) => id && id !== msg.senderId,
-              ).length
-              const isReadByOthers = otherReadersCount > 0 || (msg.readBy?.length ?? 0) > 1
-              const isDeliveredToOthers =
-                isReadByOthers || otherDeliveredCount > 0 || (msg.deliveredTo?.length ?? 0) > 1
-              const isSelectedMenuOpen = activeReactionMessageId === msg.id
-              const isImageMessage =
-                !msg.isDeleted && msg.mediaType === 'image' && Boolean(msg.mediaUrl)
-              const isImageOnlyWithoutCaption = isImageMessage && !msg.text
-              const reactionEntries = Object.entries(msg.reactions || {}).filter(
-                ([, users]) => Array.isArray(users) && users.length > 0,
+              // Compute expected recipients for group rooms
+              const expectedRecipientIds = new Set<string>()
+              if (activeRoom.type === 'staff_group') {
+                for (const u of OFFICIAL_CLASS_USTHADS) {
+                  if (u.id !== infoMessage.senderId) expectedRecipientIds.add(u.id)
+                }
+              } else if (activeRoom.type === 'batch_group' && activeRoom.batchName) {
+                for (const st of students) {
+                  if (st.className === activeRoom.batchName && st.id !== infoMessage.senderId) {
+                    expectedRecipientIds.add(st.id)
+                  }
+                }
+                for (const u of OFFICIAL_CLASS_USTHADS) {
+                  if (
+                    (u.className === activeRoom.batchName || u.id === ACADEMY_PRINCIPAL.usthadId) &&
+                    u.id !== infoMessage.senderId
+                  ) {
+                    expectedRecipientIds.add(u.id)
+                  }
+                }
+              } else if (activeRoom.peerId && activeRoom.peerId !== infoMessage.senderId) {
+                expectedRecipientIds.add(activeRoom.peerId)
+              }
+              for (const id of [...readIds, ...deliveredIds]) {
+                expectedRecipientIds.add(id)
+              }
+
+              const totalRecipients = expectedRecipientIds.size
+              const readByList = Array.from(new Set(readIds))
+                .map((id) => ({
+                  profile: resolveActorDirectoryProfile(id),
+                  ts: infoMessage.readAtMap?.[id],
+                }))
+                .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0))
+
+              const deliveredOnlyList = Array.from(new Set(deliveredIds))
+                .filter((id) => !readIds.includes(id))
+                .map((id) => ({
+                  profile: resolveActorDirectoryProfile(id),
+                  ts: infoMessage.deliveredAtMap?.[id],
+                }))
+                .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0))
+
+              const remainingToRead = Math.max(0, totalRecipients - readByList.length)
+              const remainingToDeliver = Math.max(
+                0,
+                totalRecipients - new Set([...readIds, ...deliveredIds]).size,
               )
 
+              // Direct chat single peer timestamps
+              const directPeerId = activeRoom.peerId || readIds[0] || deliveredIds[0]
+              const directIsRead = Boolean(
+                directPeerId ? readIds.includes(directPeerId) : readIds.length > 0,
+              )
+              const directIsDelivered = Boolean(
+                directIsRead ||
+                  (directPeerId ? deliveredIds.includes(directPeerId) : deliveredIds.length > 0),
+              )
+              const directReadTs = directPeerId ? infoMessage.readAtMap?.[directPeerId] : undefined
+              const directDeliveredTs = directPeerId
+                ? infoMessage.deliveredAtMap?.[directPeerId] ?? directReadTs
+                : undefined
+
               return (
-                <div
-                  key={msg.id}
-                  id={`chat-msg-${msg.id}`}
-                  className={cn(
-                    'group relative flex flex-col transition-all duration-200 rounded-2xl',
-                    isMine ? 'items-end' : 'items-start',
-                  )}
-                >
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setShowAttachMenu(false)
-                      setActiveReactionMessageId((prev) =>
-                        prev === msg.id ? null : msg.id,
-                      )
-                    }}
-                    onContextMenu={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setShowAttachMenu(false)
-                      setActiveReactionMessageId(msg.id)
-                      setDeleteModalMessage(msg)
-                    }}
-                    onTouchStart={() => {
-                      if (longPressTimerRef.current) {
-                        window.clearTimeout(longPressTimerRef.current)
-                      }
-                      longPressTimerRef.current = window.setTimeout(() => {
-                        setActiveReactionMessageId(msg.id)
-                        setDeleteModalMessage(msg)
-                      }, 420)
-                    }}
-                    onTouchEnd={() => {
-                      if (longPressTimerRef.current) {
-                        window.clearTimeout(longPressTimerRef.current)
-                        longPressTimerRef.current = null
-                      }
-                    }}
-                    onTouchMove={() => {
-                      if (longPressTimerRef.current) {
-                        window.clearTimeout(longPressTimerRef.current)
-                        longPressTimerRef.current = null
-                      }
-                    }}
-                    className={cn(
-                      'relative max-w-[86%] sm:max-w-[74%] rounded-2xl shadow-xs transition-colors cursor-pointer select-none',
-                      isImageMessage ? 'p-1 border-0' : 'px-3.5 py-2 pr-9 border',
-                      isMine
-                        ? 'rounded-br-xs border-[#bde6b4] bg-[#dcf8c6] text-[#081e21] dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-[#f3f4f6]'
-                        : 'rounded-bl-xs border-border bg-card text-foreground dark:border-[#262a33] dark:bg-[#121418] dark:text-[#f3f4f6]',
-                      isSelectedMenuOpen && 'ring-2 ring-emerald-500/60 dark:ring-zinc-500',
-                    )}
-                  >
-                    {/* Always-Visible Touch-Friendly Three-Dots Options Button in Top-Right Corner (Works on iPad, iPhone, Android & Desktop) */}
+                <div className="flex h-full flex-col bg-background dark:bg-[#0b1014]">
+                  {/* Message Info Top Bar */}
+                  <div className="flex items-center gap-3 border-b border-border bg-card/95 px-3 py-3 sm:px-4 dark:border-[#262a33] dark:bg-[#11171d]">
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setShowAttachMenu(false)
-                        setActiveReactionMessageId((prev) =>
-                          prev === msg.id ? null : msg.id,
-                        )
-                      }}
-                      aria-label="Message options"
+                      onClick={() => setInfoMessageId(null)}
+                      aria-label="Back to chat"
+                      className="flex size-9 shrink-0 items-center justify-center rounded-xl text-foreground transition-colors hover:bg-muted dark:hover:bg-white/10"
+                    >
+                      <ArrowLeft className="size-5" aria-hidden="true" />
+                    </button>
+                    <h3 className="font-poppins text-base font-semibold text-foreground">
+                      Message info
+                    </h3>
+                  </div>
+
+                  {/* Scrollable Body: Bubble Preview + Receipts */}
+                  <div className="flex-1 overflow-y-auto">
+                    {/* Message Bubble Preview over subtle wallpaper */}
+                    <div
                       className={cn(
-                        'absolute right-1.5 top-1.5 z-20 flex size-6 items-center justify-center rounded-full transition-colors',
-                        isSelectedMenuOpen
-                          ? 'bg-black/20 text-white dark:bg-white/20'
-                          : isImageMessage
-                            ? 'right-2 top-2 bg-black/55 text-white/95 backdrop-blur-[2px] hover:bg-black/75'
-                            : 'text-foreground/70 hover:bg-black/10 dark:text-zinc-300 dark:hover:bg-white/15',
+                        'flex flex-col items-end border-b border-border/80 px-4 py-5 sm:px-6 dark:border-[#1f262e]',
+                        chatSettings.chatWallpaper === 'pitch_dark'
+                          ? 'bg-[#e8edf2] dark:bg-[#07080a]'
+                          : chatSettings.chatWallpaper === 'soft_mint'
+                            ? 'bg-[#e7f5ea] dark:bg-[#0c1412]'
+                            : chatSettings.chatWallpaper === 'warm_slate'
+                              ? 'bg-[#f2efe9] dark:bg-[#101216]'
+                              : 'bg-muted/40 dark:bg-[#0b141a]',
                       )}
                     >
-                      <MoreVertical className="size-3.5" aria-hidden="true" />
+                      <div className="max-w-[90%] sm:max-w-[78%] rounded-2xl rounded-br-xs border border-[#bde6b4] bg-[#dcf8c6] px-3.5 py-2.5 text-[#081e21] shadow-xs dark:border-[#056150] dark:bg-[#005c4b] dark:text-[#e9edef]">
+                        {infoMessage.isForwarded && (
+                          <div className="mb-1 flex items-center gap-1 text-[11px] italic opacity-75">
+                            <Forward className="size-3" aria-hidden="true" />
+                            <span>Forwarded</span>
+                          </div>
+                        )}
+                        {infoMessage.mediaType === 'image' && infoMessage.mediaUrl && (
+                          <img
+                            src={infoMessage.mediaUrl}
+                            alt={infoMessage.mediaName || 'Photo'}
+                            className="mb-1.5 max-h-56 w-full rounded-xl object-cover"
+                          />
+                        )}
+                        {infoMessage.mediaType === 'pdf' && (
+                          <div className="mb-1.5 flex items-center gap-2 rounded-xl bg-black/10 px-2.5 py-2 text-xs font-semibold">
+                            <FileText className="size-4 shrink-0" aria-hidden="true" />
+                            <span className="truncate">
+                              {infoMessage.mediaName || 'PDF Document'}
+                            </span>
+                          </div>
+                        )}
+                        {infoMessage.mediaType === 'voice' && (
+                          <div className="mb-1 flex items-center gap-2 text-xs font-semibold">
+                            <Mic className="size-4 shrink-0" aria-hidden="true" />
+                            <span>
+                              Voice message ({formatVoiceDuration(infoMessage.mediaDurationSec || 4)})
+                            </span>
+                          </div>
+                        )}
+                        {infoMessage.text && (
+                          <p className="whitespace-pre-wrap break-words text-xs sm:text-sm leading-relaxed">
+                            {infoMessage.text}
+                          </p>
+                        )}
+                        <div className="mt-1.5 flex items-center justify-end gap-1 text-[10px] opacity-85">
+                          {isMessageStarredByMe(infoMessage) && (
+                            <Star
+                              className="size-3 fill-current opacity-85"
+                              aria-label="Starred"
+                            />
+                          )}
+                          <span className="font-poppins tabular-nums">
+                            {formatChatTime(infoMessage.createdAtMs).toLowerCase()}
+                          </span>
+                          {infoReadByOthers ? (
+                            <CheckCheck
+                              className="size-4 text-[#0095f6] dark:text-[#53bdeb] stroke-[2.5]"
+                              aria-label="Read"
+                            />
+                          ) : infoDeliveredToOthers ? (
+                            <CheckCheck
+                              className="size-4 text-zinc-500 dark:text-zinc-300 stroke-[2.2]"
+                              aria-label="Delivered"
+                            />
+                          ) : (
+                            <Check
+                              className="size-3.5 text-zinc-500 dark:text-zinc-300 stroke-[2.2]"
+                              aria-label="Sent"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Receipts Section */}
+                    {!isGroupRoom ? (
+                      /* 1-on-1 Direct Chat Receipts (Matches WhatsApp Screenshot) */
+                      <div className="divide-y divide-border/70 px-4 sm:px-6 dark:divide-[#1f262e]">
+                        <div className="py-4">
+                          <div className="flex items-center gap-2.5">
+                            <CheckCheck
+                              className="size-4.5 shrink-0 text-[#0095f6] dark:text-[#53bdeb] stroke-[2.5]"
+                              aria-hidden="true"
+                            />
+                            <span className="text-sm font-medium text-foreground">Read</span>
+                          </div>
+                          <p className="mt-1 pl-7 text-xs text-muted-foreground">
+                            {directIsRead
+                              ? directReadTs
+                                ? formatReceiptTimestamp(directReadTs)
+                                : 'Read'
+                              : '—'}
+                          </p>
+                        </div>
+
+                        <div className="py-4">
+                          <div className="flex items-center gap-2.5">
+                            <CheckCheck
+                              className="size-4.5 shrink-0 text-muted-foreground stroke-[2.2]"
+                              aria-hidden="true"
+                            />
+                            <span className="text-sm font-medium text-foreground">Delivered</span>
+                          </div>
+                          <p className="mt-1 pl-7 text-xs text-muted-foreground">
+                            {directIsDelivered
+                              ? directDeliveredTs
+                                ? formatReceiptTimestamp(directDeliveredTs)
+                                : 'Delivered'
+                              : '—'}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Group Chat Receipts (Read by + Delivered to member breakdown) */
+                      <div className="space-y-3 p-4 sm:p-5">
+                        {/* Read By Card */}
+                        <div className="overflow-hidden rounded-2xl border border-border bg-card dark:border-[#222831] dark:bg-[#11171d]">
+                          <div className="flex items-center justify-between border-b border-border/70 px-4 py-3 dark:border-[#1f262e]">
+                            <div className="flex items-center gap-2">
+                              <CheckCheck
+                                className="size-4.5 text-[#0095f6] dark:text-[#53bdeb] stroke-[2.5]"
+                                aria-hidden="true"
+                              />
+                              <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                                Read by
+                              </span>
+                            </div>
+                            <span className="font-poppins text-xs font-semibold text-muted-foreground tabular-nums">
+                              {readByList.length} / {totalRecipients}
+                            </span>
+                          </div>
+
+                          {readByList.length === 0 ? (
+                            <p className="px-4 py-3.5 text-xs text-muted-foreground">
+                              No one has read this message yet.
+                            </p>
+                          ) : (
+                            <div className="divide-y divide-border/50 dark:divide-[#1f262e]">
+                              {readByList.map(({ profile, ts }) => (
+                                <div
+                                  key={profile.id}
+                                  className="flex items-center justify-between gap-3 px-4 py-2.5"
+                                >
+                                  <div className="flex min-w-0 items-center gap-2.5">
+                                    {profile.avatarUrl ? (
+                                      <img
+                                        src={profile.avatarUrl}
+                                        alt={profile.name}
+                                        className="size-8 shrink-0 rounded-full border border-border object-cover object-top"
+                                      />
+                                    ) : (
+                                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 font-poppins text-[11px] font-bold text-emerald-700 dark:bg-[#1f262e] dark:text-zinc-200">
+                                        {profile.avatarText}
+                                      </span>
+                                    )}
+                                    <div className="min-w-0">
+                                      <p className="truncate text-xs font-semibold text-foreground">
+                                        {profile.name}
+                                      </p>
+                                      <p className="truncate text-[10px] text-muted-foreground">
+                                        {profile.subtitle}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                                    {ts ? formatReceiptTimestamp(ts) : 'Read'}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {remainingToRead > 0 && (
+                            <div className="border-t border-border/60 bg-muted/30 px-4 py-2 text-[11px] font-medium text-muted-foreground dark:border-[#1f262e] dark:bg-[#0d1217]">
+                              {remainingToRead} remaining
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Delivered To Card */}
+                        <div className="overflow-hidden rounded-2xl border border-border bg-card dark:border-[#222831] dark:bg-[#11171d]">
+                          <div className="flex items-center justify-between border-b border-border/70 px-4 py-3 dark:border-[#1f262e]">
+                            <div className="flex items-center gap-2">
+                              <CheckCheck
+                                className="size-4.5 text-muted-foreground stroke-[2.2]"
+                                aria-hidden="true"
+                              />
+                              <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                                Delivered to
+                              </span>
+                            </div>
+                            <span className="font-poppins text-xs font-semibold text-muted-foreground tabular-nums">
+                              {deliveredOnlyList.length}
+                            </span>
+                          </div>
+
+                          {deliveredOnlyList.length === 0 ? (
+                            <p className="px-4 py-3.5 text-xs text-muted-foreground">
+                              {remainingToDeliver === 0 && readByList.length > 0
+                                ? 'Everyone who received this message has read it.'
+                                : 'Waiting for delivery to remaining members.'}
+                            </p>
+                          ) : (
+                            <div className="divide-y divide-border/50 dark:divide-[#1f262e]">
+                              {deliveredOnlyList.map(({ profile, ts }) => (
+                                <div
+                                  key={profile.id}
+                                  className="flex items-center justify-between gap-3 px-4 py-2.5"
+                                >
+                                  <div className="flex min-w-0 items-center gap-2.5">
+                                    {profile.avatarUrl ? (
+                                      <img
+                                        src={profile.avatarUrl}
+                                        alt={profile.name}
+                                        className="size-8 shrink-0 rounded-full border border-border object-cover object-top"
+                                      />
+                                    ) : (
+                                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted font-poppins text-[11px] font-bold text-foreground dark:bg-[#1f262e] dark:text-zinc-200">
+                                        {profile.avatarText}
+                                      </span>
+                                    )}
+                                    <div className="min-w-0">
+                                      <p className="truncate text-xs font-semibold text-foreground">
+                                        {profile.name}
+                                      </p>
+                                      <p className="truncate text-[10px] text-muted-foreground">
+                                        {profile.subtitle}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                                    {ts ? formatReceiptTimestamp(ts) : 'Delivered'}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {remainingToDeliver > 0 && (
+                            <div className="border-t border-border/60 bg-muted/30 px-4 py-2 text-[11px] font-medium text-muted-foreground dark:border-[#1f262e] dark:bg-[#0d1217]">
+                              {remainingToDeliver} remaining
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()
+          ) : (
+            <>
+              {/* Active Chat Header OR WhatsApp Contextual Multi-Message Selection Bar */}
+              {selectedMessageIds.length > 0 ? (
+                <div className="relative z-30 flex items-center justify-between gap-2 border-b border-border bg-emerald-700 px-2.5 py-2.5 text-white shadow-sm sm:px-4 sm:py-3 dark:border-[#262a33] dark:bg-[#11171d] dark:text-zinc-100">
+                  <div className="flex items-center gap-2.5 sm:gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedMessageIds([])
+                        setShowSelectionMoreMenu(false)
+                      }}
+                      aria-label="Exit message selection"
+                      className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
+                    >
+                      <ArrowLeft className="size-5" aria-hidden="true" />
+                    </button>
+                    <span className="font-poppins text-base font-bold tabular-nums">
+                      {selectedMessageIds.length}
+                    </span>
+                  </div>
+
+                  {/* WhatsApp Selection Actions: Reply, Star, Info, Delete, Forward, More (⋮) */}
+                  <div className="flex items-center gap-0.5 sm:gap-1.5">
+                    {singleSelectedMessage && !singleSelectedMessage.isDeleted && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReplyingTo({
+                            messageId: singleSelectedMessage.id,
+                            senderName: singleSelectedMessage.senderName,
+                            previewText:
+                              singleSelectedMessage.mediaType === 'voice'
+                                ? `🎤 Voice Note (${formatVoiceDuration(singleSelectedMessage.mediaDurationSec || 4)})`
+                                : singleSelectedMessage.text ||
+                                  (singleSelectedMessage.mediaType === 'pdf'
+                                    ? `📄 ${singleSelectedMessage.mediaName}`
+                                    : '📷 Photo'),
+                          })
+                          setSelectedMessageIds([])
+                          setShowSelectionMoreMenu(false)
+                        }}
+                        title="Reply"
+                        aria-label="Reply to message"
+                        className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
+                      >
+                        <Reply className="size-5" aria-hidden="true" />
+                      </button>
+                    )}
+
+                    {nonDeletedSelectedMessages.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStarMessages(nonDeletedSelectedMessages)}
+                        title={isAllSelectedStarred ? 'Unstar' : 'Star'}
+                        aria-label={isAllSelectedStarred ? 'Unstar message' : 'Star message'}
+                        className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
+                      >
+                        <Star
+                          className={cn(
+                            'size-5',
+                            isAllSelectedStarred && 'fill-amber-400 text-amber-400',
+                          )}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    )}
+
+                    {canShowInfoAction && singleSelectedMessage && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInfoMessageId(singleSelectedMessage.id)
+                          setSelectedMessageIds([])
+                          setShowSelectionMoreMenu(false)
+                        }}
+                        title="Message info"
+                        aria-label="Message info"
+                        className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
+                      >
+                        <Info className="size-5" aria-hidden="true" />
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSelectionMoreMenu(false)
+                        setDeleteModalMessages(selectedMessages)
+                      }}
+                      title="Delete"
+                      aria-label="Delete selected messages"
+                      className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
+                    >
+                      <Trash2 className="size-5" aria-hidden="true" />
                     </button>
 
-                    {/* Sender Name Header (Name only) */}
-                    {!isMine && (
+                    {nonDeletedSelectedMessages.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSelectionMoreMenu(false)
+                          setForwardMessageIds(nonDeletedSelectedMessages.map((m) => m.id))
+                          setForwardTargetRoomIds([])
+                          setForwardSearchQuery('')
+                          setForwardBatchFilter('ALL')
+                        }}
+                        title="Forward"
+                        aria-label="Forward selected messages"
+                        className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
+                      >
+                        <Forward className="size-5" aria-hidden="true" />
+                      </button>
+                    )}
+
+                    {nonDeletedSelectedMessages.length > 0 && (
+                      <div ref={selectionMoreMenuRef} className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setShowSelectionMoreMenu((prev) => !prev)}
+                          title="More options"
+                          aria-label="More message options"
+                          className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
+                        >
+                          <MoreVertical className="size-5" aria-hidden="true" />
+                        </button>
+
+                        {showSelectionMoreMenu && (
+                          <div className="absolute right-0 top-11 z-40 w-48 overflow-hidden rounded-2xl border border-border bg-card py-1.5 text-xs text-foreground shadow-2xl dark:border-[#262a33] dark:bg-[#181b22] dark:text-zinc-100">
+                            <button
+                              type="button"
+                              onClick={() => void handleCopyMessages(nonDeletedSelectedMessages)}
+                              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left font-medium transition-colors hover:bg-muted dark:hover:bg-white/10"
+                            >
+                              <Copy className="size-4 text-muted-foreground" aria-hidden="true" />
+                              <span>Copy</span>
+                            </button>
+
+                            {singleSelectedMessage &&
+                              !singleSelectedMessage.isDeleted &&
+                              canPinActiveRoom && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleTogglePinMessage(singleSelectedMessage.id)
+                                  }
+                                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left font-medium transition-colors hover:bg-muted dark:hover:bg-white/10"
+                                >
+                                  <Pin
+                                    className="size-4 text-muted-foreground"
+                                    aria-hidden="true"
+                                  />
+                                  <span>
+                                    {activeRoomMeta.pinnedMessageId === singleSelectedMessage.id
+                                      ? 'Unpin'
+                                      : 'Pin'}
+                                  </span>
+                                </button>
+                              )}
+
+                            <button
+                              type="button"
+                              onClick={() => void handleShareMessages(nonDeletedSelectedMessages)}
+                              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left font-medium transition-colors hover:bg-muted dark:hover:bg-white/10"
+                            >
+                              <Share2
+                                className="size-4 text-muted-foreground"
+                                aria-hidden="true"
+                              />
+                              <span>Share</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2 border-b border-border bg-card/95 px-3 py-2.5 sm:px-4 sm:py-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAttachMenu(false)
+                        setSelectedMessageIds([])
+                        setShowSelectionMoreMenu(false)
+                        if (isRecordingVoice) cancelVoiceRecording()
+                        setMobileShowChatPane(false)
+                      }}
+                      aria-label="Back to chat list"
+                      className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-foreground hover:bg-muted lg:hidden"
+                    >
+                      <ArrowLeft className="size-4" aria-hidden="true" />
+                    </button>
+
+                    <div className="relative shrink-0">
+                      <div
+                        className={cn(
+                          'flex size-10 items-center justify-center overflow-hidden rounded-2xl font-poppins text-xs font-bold border border-border dark:border-[#262a33]',
+                          activeRoom.type === 'staff_group'
+                            ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1a1d24] dark:text-amber-300'
+                            : activeRoom.type === 'batch_group'
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:bg-[#1a1d24] dark:text-zinc-100'
+                              : 'bg-cyan/15 text-cyan dark:bg-[#1a1d24] dark:text-cyan',
+                        )}
+                      >
+                        {activeRoom.avatarUrl ? (
+                          <img
+                            src={activeRoom.avatarUrl}
+                            alt={activeRoom.title}
+                            className="size-full object-cover object-top"
+                          />
+                        ) : activeRoom.type === 'batch_group' ? (
+                          <Users className="size-4" aria-hidden="true" />
+                        ) : activeRoom.type === 'staff_group' ? (
+                          <Crown className="size-4" aria-hidden="true" />
+                        ) : (
+                          activeRoom.avatarText
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="truncate font-poppins text-sm font-bold text-foreground sm:text-base">
+                          {activeRoom.title}
+                        </h3>
+                        {activeRoom.badgeLabel ? (
+                          <span className="hidden rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground sm:inline-block">
+                            {activeRoom.badgeLabel}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {activeTypingBanner ? (
+                        <p className="truncate text-[11px] font-semibold text-emerald-600 dark:text-zinc-300">
+                          {activeTypingBanner}
+                        </p>
+                      ) : (() => {
+                          const headerStatus = getOpenChatHeaderStatus(activeRoom)
+                          if (headerStatus.isOnlineNow) {
+                            return (
+                              <p className="truncate text-[11px] font-medium text-emerald-600 dark:text-zinc-300">
+                                online
+                              </p>
+                            )
+                          }
+                          if (headerStatus.text) {
+                            return (
+                              <p className="truncate text-[11px] text-muted-foreground">
+                                {headerStatus.text}
+                              </p>
+                            )
+                          }
+                          return null
+                        })()}
+                    </div>
+                  </div>
+
+                  {/* Right Controls: Usthad / Principal Group Lock Toggle + Starred + Chat Settings */}
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {actor.isStaff && activeRoom.type === 'batch_group' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAttachMenu(false)
+                          setSelectedMessageIds([])
+                          setShowSelectionMoreMenu(false)
+                          if (isRecordingVoice) cancelVoiceRecording()
+                          handleToggleGroupLock()
+                        }}
+                        title={
+                          activeRoomMeta.onlyAdminsCanPost
+                            ? 'Group is locked to Usthads only. Click to allow all students to message.'
+                            : 'Click to restrict group so only Usthads & Principal can send messages.'
+                        }
+                        className={cn(
+                          'inline-flex h-9 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-semibold transition-all whitespace-nowrap shrink-0',
+                          activeRoomMeta.onlyAdminsCanPost
+                            ? 'border-border bg-amber-500/15 text-amber-600 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-amber-300'
+                            : 'border-border bg-background/80 text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        {activeRoomMeta.onlyAdminsCanPost ? (
+                          <>
+                            <Lock className="size-3.5" aria-hidden="true" />
+                            <span>Only Usthads</span>
+                          </>
+                        ) : (
+                          <>
+                            <Unlock className="size-3.5" aria-hidden="true" />
+                            <span className="hidden sm:inline">All Can Send</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAttachMenu(false)
+                        setSelectedMessageIds([])
+                        setShowSelectionMoreMenu(false)
+                        setShowNewChatModal(false)
+                        setShowSettingsModal(false)
+                        if (isRecordingVoice) cancelVoiceRecording()
+                        setShowStarredModal(true)
+                      }}
+                      title="Starred Messages"
+                      aria-label="Open Starred Messages"
+                      className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-muted hover:text-amber-500 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-200 dark:hover:bg-[#222630]"
+                    >
+                      <Star className="size-4" aria-hidden="true" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAttachMenu(false)
+                        setSelectedMessageIds([])
+                        setShowSelectionMoreMenu(false)
+                        setShowNewChatModal(false)
+                        setShowStarredModal(false)
+                        if (isRecordingVoice) cancelVoiceRecording()
+                        setShowSettingsModal((prev) => !prev)
+                      }}
+                      title="Chat Settings"
+                      aria-label="Open Chat Settings"
+                      className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-200 dark:hover:bg-[#222630]"
+                    >
+                      <Settings className="size-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Pinned Message Banner */}
+              {pinnedMessage && (
+                <div className="flex items-center justify-between gap-2 border-b border-border bg-emerald-500/10 px-3.5 py-2 dark:border-[#262a33] dark:bg-[#14171d]">
+                  <button
+                    type="button"
+                    onClick={() => scrollToMessage(pinnedMessage.id)}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  >
+                    <Pin
+                      className="size-3.5 shrink-0 text-emerald-600 dark:text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-muted-foreground">
+                        Pinned • {pinnedMessage.senderName}
+                      </p>
+                      <p className="truncate text-xs text-foreground">
+                        {pinnedMessage.mediaType === 'pdf'
+                          ? `📄 ${pinnedMessage.mediaName} — ${pinnedMessage.text}`
+                          : pinnedMessage.text || 'Media message'}
+                      </p>
+                    </div>
+                  </button>
+                  {canPinActiveRoom && (
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePinMessage(null)}
+                      aria-label="Unpin message"
+                      className="rounded-lg p-1 text-muted-foreground hover:bg-background/60 hover:text-foreground"
+                    >
+                      <X className="size-3.5" aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Scrollable Message Stream */}
+              <div
+                className={cn(
+                  'flex-1 space-y-2 overflow-y-auto px-2 py-4 sm:px-4 transition-colors',
+                  chatSettings.chatWallpaper === 'pitch_dark' &&
+                    'bg-[#f1f5f9] dark:bg-[#07080a]',
+                  chatSettings.chatWallpaper === 'soft_mint' &&
+                    'bg-[#eef8f0] dark:bg-[#0c1110]',
+                  chatSettings.chatWallpaper === 'warm_slate' &&
+                    'bg-[#f5f3ef] dark:bg-[#101115]',
+                )}
+                onClick={() => {
+                  if (selectedMessageIds.length > 0) {
+                    setSelectedMessageIds([])
+                    setShowSelectionMoreMenu(false)
+                  }
+                  setShowAttachMenu(false)
+                }}
+              >
+                {/* End-to-End Campus Security Banner */}
+                <div className="mx-auto max-w-md rounded-2xl border border-border/70 bg-card/70 px-3.5 py-2 text-center text-[11px] text-muted-foreground dark:border-[#262a33] dark:bg-[#121418]">
+                  <ShieldCheck
+                    className="mr-1 inline-block size-3.5 text-emerald-600 dark:text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  Messages and files are private to ICS Academy.
+                </div>
+
+                {activeMessages.map((msg) => {
+                  const isMine = msg.senderId === actor.id
+                  const isPinned = activeRoomMeta.pinnedMessageId === msg.id
+                  const isStarred = !msg.isDeleted && isMessageStarredByMe(msg)
+                  const otherReadersCount = (msg.readBy ?? []).filter(
+                    (id) => id && id !== msg.senderId,
+                  ).length
+                  const otherDeliveredCount = (msg.deliveredTo ?? []).filter(
+                    (id) => id && id !== msg.senderId,
+                  ).length
+                  const isReadByOthers = otherReadersCount > 0 || (msg.readBy?.length ?? 0) > 1
+                  const isDeliveredToOthers =
+                    isReadByOthers || otherDeliveredCount > 0 || (msg.deliveredTo?.length ?? 0) > 1
+                  const isSelected = selectedMessageIds.includes(msg.id)
+                  const isSelectionActive = selectedMessageIds.length > 0
+                  const showSingleReactionPill =
+                    isSelected && selectedMessageIds.length === 1 && !msg.isDeleted
+                  const isImageMessage =
+                    !msg.isDeleted && msg.mediaType === 'image' && Boolean(msg.mediaUrl)
+                  const isImageOnlyWithoutCaption = isImageMessage && !msg.text
+                  const reactionEntries = Object.entries(msg.reactions || {}).filter(
+                    ([, users]) => Array.isArray(users) && users.length > 0,
+                  )
+
+                  return (
+                    <div
+                      key={msg.id}
+                      id={`chat-msg-${msg.id}`}
+                      onClick={(e) => {
+                        if (!isSelectionActive) return
+                        e.stopPropagation()
+                        toggleSelectMessage(msg.id)
+                      }}
+                      className={cn(
+                        'group relative flex flex-col px-1.5 py-0.5 transition-all duration-150 rounded-xl',
+                        isMine ? 'items-end' : 'items-start',
+                        isSelected && 'bg-emerald-500/18 dark:bg-emerald-500/20',
+                      )}
+                    >
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowAttachMenu(false)
+                          if (longPressTriggeredRef.current) {
+                            longPressTriggeredRef.current = false
+                            return
+                          }
+                          toggleSelectMessage(msg.id)
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setShowAttachMenu(false)
+                          if (!selectedMessageIds.includes(msg.id)) {
+                            setSelectedMessageIds((prev) => [...prev, msg.id])
+                          }
+                        }}
+                        onTouchStart={() => {
+                          longPressTriggeredRef.current = false
+                          if (longPressTimerRef.current) {
+                            window.clearTimeout(longPressTimerRef.current)
+                          }
+                          longPressTimerRef.current = window.setTimeout(() => {
+                            longPressTriggeredRef.current = true
+                            setShowAttachMenu(false)
+                            setSelectedMessageIds((prev) =>
+                              prev.includes(msg.id) ? prev : [...prev, msg.id],
+                            )
+                          }, 380)
+                        }}
+                        onTouchEnd={() => {
+                          if (longPressTimerRef.current) {
+                            window.clearTimeout(longPressTimerRef.current)
+                            longPressTimerRef.current = null
+                          }
+                        }}
+                        onTouchMove={() => {
+                          if (longPressTimerRef.current) {
+                            window.clearTimeout(longPressTimerRef.current)
+                            longPressTimerRef.current = null
+                          }
+                        }}
+                        className={cn(
+                          'relative max-w-[86%] sm:max-w-[74%] rounded-2xl shadow-xs transition-colors cursor-pointer select-none',
+                          isImageMessage ? 'p-1 border-0' : 'px-3.5 py-2 pr-9 border',
+                          isMine
+                            ? 'rounded-br-xs border-[#bde6b4] bg-[#dcf8c6] text-[#081e21] dark:border-[#056150] dark:bg-[#005c4b] dark:text-[#e9edef]'
+                            : 'rounded-bl-xs border-border bg-card text-foreground dark:border-[#262a33] dark:bg-[#121418] dark:text-[#f3f4f6]',
+                          isSelected && 'ring-2 ring-emerald-500/75 dark:ring-emerald-400/70',
+                        )}
+                      >
+                        {/* Touch-Friendly Selector Trigger in Top-Right Corner */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setShowAttachMenu(false)
+                            toggleSelectMessage(msg.id)
+                          }}
+                          aria-label={isSelected ? 'Deselect message' : 'Select message'}
+                          className={cn(
+                            'absolute right-1.5 top-1.5 z-20 flex size-6 items-center justify-center rounded-full transition-colors',
+                            isSelected
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : isImageMessage
+                                ? 'right-2 top-2 bg-black/55 text-white/95 backdrop-blur-[2px] hover:bg-black/75'
+                                : 'text-foreground/70 hover:bg-black/10 dark:text-zinc-300 dark:hover:bg-white/15',
+                          )}
+                        >
+                          {isSelected ? (
+                            <Check className="size-3.5 stroke-[3]" aria-hidden="true" />
+                          ) : (
+                            <MoreVertical className="size-3.5" aria-hidden="true" />
+                          )}
+                        </button>
+
+                        {/* Forwarded Label */}
+                        {!msg.isDeleted && msg.isForwarded && (
+                          <div
+                            className={cn(
+                              'mb-0.5 flex items-center gap-1 text-[10.5px] italic opacity-75',
+                              isImageMessage && 'px-2 pt-1',
+                            )}
+                          >
+                            <Forward className="size-3" aria-hidden="true" />
+                            <span>Forwarded</span>
+                          </div>
+                        )}
+
+                        {/* Sender Name Header (Name only) */}
+                        {!isMine && (
                       <div
                         className={cn(
                           'mb-1 flex flex-wrap items-center gap-1.5 pr-7',
@@ -3260,6 +4642,12 @@ export function CampusMessenger({
                                   >
                                     {playbackRate}x
                                   </button>
+                                  {isStarred && (
+                                    <Star
+                                      className="size-3 fill-amber-400 text-amber-500 dark:text-amber-300"
+                                      aria-label="Starred message"
+                                    />
+                                  )}
                                   {isPinned && (
                                     <Pin className="size-3 opacity-80" aria-label="Pinned message" />
                                   )}
@@ -3328,6 +4716,10 @@ export function CampusMessenger({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation()
+                                if (isSelectionActive) {
+                                  toggleSelectMessage(msg.id)
+                                  return
+                                }
                                 handleOpenOrDownloadPdf(msg)
                               }}
                               className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-emerald-600 px-2.5 text-[11px] font-bold text-white transition-colors hover:bg-emerald-700 dark:border dark:border-[#262a33] dark:bg-[#222630] dark:text-zinc-100 dark:hover:bg-zinc-700"
@@ -3345,6 +4737,10 @@ export function CampusMessenger({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation()
+                                if (isSelectionActive) {
+                                  toggleSelectMessage(msg.id)
+                                  return
+                                }
                                 setLightboxImage({
                                   messageId: msg.id,
                                   url: msg.mediaUrl!,
@@ -3379,6 +4775,12 @@ export function CampusMessenger({
 
                             {isImageOnlyWithoutCaption && (
                               <div className="pointer-events-none absolute bottom-1.5 right-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] text-white backdrop-blur-[2px]">
+                                {isStarred && (
+                                  <Star
+                                    className="size-2.5 fill-amber-300 text-amber-300"
+                                    aria-label="Starred message"
+                                  />
+                                )}
                                 {isPinned && (
                                   <Pin className="size-2.5 opacity-90" aria-label="Pinned message" />
                                 )}
@@ -3429,7 +4831,7 @@ export function CampusMessenger({
                       </>
                     )}
 
-                    {/* Timestamp & WhatsApp Double Tick (✓ / ✓✓ Grey / ✓✓ Blue) for non-voice & non-captionless-image messages */}
+                    {/* Timestamp, Star, Pin & WhatsApp Double Tick for non-voice & non-captionless-image messages */}
                     {msg.mediaType !== 'voice' && !isImageOnlyWithoutCaption && (
                       <div
                         className={cn(
@@ -3437,6 +4839,12 @@ export function CampusMessenger({
                           isImageMessage && 'px-2 pb-0.5',
                         )}
                       >
+                        {isStarred && (
+                          <Star
+                            className="size-3 fill-amber-400 text-amber-500 dark:text-amber-300"
+                            aria-label="Starred message"
+                          />
+                        )}
                         {isPinned && (
                           <Pin className="size-3 opacity-80" aria-label="Pinned message" />
                         )}
@@ -3456,7 +4864,7 @@ export function CampusMessenger({
                           >
                             {isReadByOthers ? (
                               <CheckCheck
-                                className="size-4 text-[#0095f6] dark:text-[#38bdf8] stroke-[2.6]"
+                                className="size-4 text-[#0095f6] dark:text-[#53bdeb] stroke-[2.6]"
                                 aria-label="Read"
                               />
                             ) : isDeliveredToOthers ? (
@@ -3466,7 +4874,7 @@ export function CampusMessenger({
                               />
                             ) : (
                               <Check
-                                className="size-3.5 text-zinc-500/80 dark:text-zinc-400 stroke-[2.2]"
+                                className="size-3.5 text-zinc-500/80 dark:text-zinc-300 stroke-[2.2]"
                                 aria-label="Sent"
                               />
                             )}
@@ -3476,91 +4884,25 @@ export function CampusMessenger({
                     )}
                   </div>
 
-                  {/* Modern WhatsApp Floating Reaction Bar + Three-Dots Context Menu (Shown when message is selected/tapped) */}
-                  {isSelectedMenuOpen && (
+                  {/* Quick Floating Emoji Reaction Bar (Shown when 1 non-deleted message is selected) */}
+                  {showSingleReactionPill && (
                     <div
                       onClick={(e) => e.stopPropagation()}
                       className={cn(
-                        'z-20 mt-1.5 flex flex-col gap-1.5',
-                        isMine ? 'items-end' : 'items-start',
+                        'z-20 mt-1.5 flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 shadow-lg dark:border-[#262a33] dark:bg-[#121418]',
+                        isMine ? 'self-end' : 'self-start',
                       )}
                     >
-                      {/* Floating Emoji Reaction Pill (only for non-deleted messages) */}
-                      {!msg.isDeleted && (
-                        <div className="flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 shadow-lg dark:border-[#262a33] dark:bg-[#121418]">
-                          {QUICK_REACTIONS.map((emoji) => (
-                            <button
-                              key={emoji}
-                              type="button"
-                              onClick={() => handleToggleReaction(msg.id, emoji)}
-                              className="rounded-full p-1 text-base transition-transform hover:scale-125 active:scale-95"
-                            >
-                              {emoji}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* WhatsApp-Style Action Dropdown Menu */}
-                      <div className="flex min-w-[180px] flex-col overflow-hidden rounded-2xl border border-border bg-card py-1 text-xs shadow-xl dark:border-[#262a33] dark:bg-[#121418]">
-                        {!msg.isDeleted && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReplyingTo({
-                                messageId: msg.id,
-                                senderName: msg.senderName,
-                                previewText:
-                                  msg.mediaType === 'voice'
-                                    ? `🎤 Voice Note (${formatVoiceDuration(msg.mediaDurationSec || 4)})`
-                                    : msg.text ||
-                                      (msg.mediaType === 'pdf'
-                                        ? `📄 ${msg.mediaName}`
-                                        : '📷 Photo'),
-                              })
-                              setActiveReactionMessageId(null)
-                            }}
-                            className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium text-foreground transition-colors hover:bg-muted"
-                          >
-                            <Reply className="size-3.5 text-muted-foreground" aria-hidden="true" />
-                            <span>Reply</span>
-                          </button>
-                        )}
-
-                        {actor.isStaff && !msg.isDeleted && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleTogglePinMessage(msg.id)
-                              setActiveReactionMessageId(null)
-                            }}
-                            className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium text-foreground transition-colors hover:bg-muted"
-                          >
-                            <Pin className="size-3.5 text-muted-foreground" aria-hidden="true" />
-                            <span>{isPinned ? 'Unpin Message' : 'Pin Message'}</span>
-                          </button>
-                        )}
-
-                        {!msg.isDeleted && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteForEveryone(msg.id)}
-                            className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-semibold text-red-500 transition-colors hover:bg-red-500/10"
-                          >
-                            <Trash2 className="size-3.5" aria-hidden="true" />
-                            <span>Delete for everyone</span>
-                          </button>
-                        )}
-
+                      {QUICK_REACTIONS.map((emoji) => (
                         <button
+                          key={emoji}
                           type="button"
-                          onClick={() => handleDeleteForMe(msg.id)}
-                          className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-semibold text-red-500 transition-colors hover:bg-red-500/10"
+                          onClick={() => handleToggleReaction(msg.id, emoji)}
+                          className="rounded-full p-1 text-base transition-transform hover:scale-125 active:scale-95"
                         >
-                          <Trash2 className="size-3.5" aria-hidden="true" />
-                          <span>Delete for me</span>
+                          {emoji}
                         </button>
-                      </div>
+                      ))}
                     </div>
                   )}
 
@@ -3814,7 +5156,8 @@ export function CampusMessenger({
                     ref={attachButtonRef}
                     type="button"
                     onClick={() => {
-                      setActiveReactionMessageId(null)
+                      setSelectedMessageIds([])
+                      setShowSelectionMoreMenu(false)
                       setShowSettingsModal(false)
                       setShowNewChatModal(false)
                       setShowAttachMenu((prev) => !prev)
@@ -3835,11 +5178,13 @@ export function CampusMessenger({
                     value={inputText}
                     onFocus={() => {
                       setShowAttachMenu(false)
-                      setActiveReactionMessageId(null)
+                      setSelectedMessageIds([])
+                      setShowSelectionMoreMenu(false)
                     }}
                     onClick={() => {
                       setShowAttachMenu(false)
-                      setActiveReactionMessageId(null)
+                      setSelectedMessageIds([])
+                      setShowSelectionMoreMenu(false)
                     }}
                     onChange={(e) => handleInputChange(e.target.value)}
                     placeholder={
@@ -3864,7 +5209,8 @@ export function CampusMessenger({
                     type="submit"
                     onClick={() => {
                       setShowAttachMenu(false)
-                      setActiveReactionMessageId(null)
+                      setSelectedMessageIds([])
+                      setShowSelectionMoreMenu(false)
                     }}
                     disabled={!inputText.trim() && !pendingAttachment}
                     aria-label="Send message"
@@ -3876,20 +5222,28 @@ export function CampusMessenger({
               )}
             </div>
           )}
+            </>
+          )}
         </div>
       </div>
 
-      {/* NEW CHAT DIRECTORY MODAL (Quickly Start Direct Chat with Any Usthad or Student) */}
+      {/* NEW CHAT DIRECTORY MODAL (Quickly Start Direct Chat with Any Usthad or Student Across All Classes) */}
       {showNewChatModal && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]">
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          onClick={() => setShowNewChatModal(false)}
+        >
+          <div
+            className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
               <div>
                 <h3 className="font-display text-base font-bold text-foreground">
-                  Start Direct Chat (Usthads & Students)
+                  Start Direct Chat (Usthads &amp; Students)
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Select any Usthad or Student to open a 1-to-1 conversation
+                  Select any Usthad or Student from any class to open a 1-to-1 chat
                 </p>
               </div>
               <button
@@ -3901,98 +5255,147 @@ export function CampusMessenger({
               </button>
             </div>
 
-            <div className="flex-1 space-y-4 overflow-y-auto p-4">
-              <div>
-                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Teaching & Class Usthads (9)
-                </p>
-                <div className="grid gap-1.5">
-                  {OFFICIAL_CLASS_USTHADS.filter((u) => u.id !== actor.id).map((u) => (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedRoomId(makeDirectRoomId(actor.id, u.id))
-                        setMobileShowChatPane(true)
-                        setShowNewChatModal(false)
-                      }}
-                      className="flex items-center justify-between rounded-2xl border border-border bg-background/70 px-3.5 py-2.5 text-left transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
-                    >
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        {u.avatarUrl ? (
-                          <img
-                            src={u.avatarUrl}
-                            alt={u.name}
-                            className="size-8 shrink-0 rounded-full border border-lime/40 object-cover object-top"
-                          />
-                        ) : null}
-                        <p className="truncate text-xs font-bold text-foreground">{u.name}</p>
-                      </div>
-                      <span className="rounded-lg border border-border bg-muted px-2 py-1 text-[10px] font-bold text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
-                        Message
-                      </span>
-                    </button>
-                  ))}
-                </div>
+            <div className="border-b border-border/70 px-4 py-2.5 dark:border-[#262a33]">
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <input
+                  type="search"
+                  value={newChatSearchQuery}
+                  onChange={(e) => setNewChatSearchQuery(e.target.value)}
+                  placeholder="Search any Usthad or Student by name or class..."
+                  className="h-9 w-full rounded-xl border border-input bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 focus:outline-none dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                />
               </div>
+            </div>
 
-              <div>
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Students
-                  </p>
-                  {actor.isStaff && (
-                    <ThemeSelect
-                      value={studentBatchFilter}
-                      onChange={(e) => setStudentBatchFilter(e.target.value)}
-                      className="h-7 rounded-lg border border-input bg-background px-2 text-[11px] font-semibold dark:border-[#262a33] dark:bg-[#0a0b0e]"
-                    >
-                      <option value={actor.className}>My Class</option>
-                      <option value="ALL">All Classes</option>
-                      {ACADEMY_CLASSES.map((c) => (
-                        <option key={c.id} value={c.className}>
-                          Class {c.className}
-                        </option>
-                      ))}
-                    </ThemeSelect>
-                  )}
-                </div>
-                <div className="grid gap-1.5">
-                  {students
-                    .filter(
-                      (s) =>
-                        s.id !== actor.id &&
-                        (studentBatchFilter === 'ALL' || s.className === studentBatchFilter),
-                    )
-                    .slice(0, 40)
-                    .map((st) => (
-                      <button
-                        key={st.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedRoomId(makeDirectRoomId(actor.id, st.id))
-                          setMobileShowChatPane(true)
-                          setShowNewChatModal(false)
-                        }}
-                        className="flex items-center justify-between rounded-2xl border border-border bg-background/70 px-3.5 py-2.5 text-left transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
-                      >
-                        <div className="flex min-w-0 items-center gap-2.5">
-                          {st.avatarUrl ? (
-                            <img
-                              src={st.avatarUrl}
-                              alt={st.name}
-                              className="size-8 shrink-0 rounded-full border border-lime/40 object-cover object-top"
-                            />
-                          ) : null}
-                          <p className="truncate text-xs font-bold text-foreground">{st.name}</p>
+            <div className="flex-1 space-y-4 overflow-y-auto p-4">
+              {(() => {
+                const nq = newChatSearchQuery.trim().toLowerCase()
+                const matchingUsthads = OFFICIAL_CLASS_USTHADS.filter(
+                  (u) =>
+                    u.id !== actor.id &&
+                    (!nq ||
+                      u.name.toLowerCase().includes(nq) ||
+                      (u.designation || '').toLowerCase().includes(nq) ||
+                      u.className.toLowerCase().includes(nq)),
+                )
+                const matchingStudents = students.filter(
+                  (s) =>
+                    s.id !== actor.id &&
+                    (nq
+                      ? s.name.toLowerCase().includes(nq) ||
+                        s.className.toLowerCase().includes(nq) ||
+                        s.admissionNo.toLowerCase().includes(nq)
+                      : studentBatchFilter === 'ALL' || s.className === studentBatchFilter),
+                )
+
+                return (
+                  <>
+                    {matchingUsthads.length > 0 && (
+                      <div>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          Teaching &amp; Class Usthads ({matchingUsthads.length})
+                        </p>
+                        <div className="grid gap-1.5">
+                          {matchingUsthads.map((u) => (
+                            <button
+                              key={u.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedRoomId(makeDirectRoomId(actor.id, u.id))
+                                setMobileShowChatPane(true)
+                                setShowNewChatModal(false)
+                                setNewChatSearchQuery('')
+                              }}
+                              className="flex items-center justify-between rounded-2xl border border-border bg-background/70 px-3.5 py-2.5 text-left transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                            >
+                              <div className="flex min-w-0 items-center gap-2.5">
+                                {u.avatarUrl ? (
+                                  <img
+                                    src={u.avatarUrl}
+                                    alt={u.name}
+                                    className="size-8 shrink-0 rounded-full border border-lime/40 object-cover object-top"
+                                  />
+                                ) : null}
+                                <p className="truncate text-xs font-bold text-foreground">
+                                  {u.name}
+                                </p>
+                              </div>
+                              <span className="rounded-lg border border-border bg-muted px-2 py-1 text-[10px] font-bold text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
+                                Message
+                              </span>
+                            </button>
+                          ))}
                         </div>
-                        <span className="rounded-lg border border-border bg-muted px-2 py-1 text-[10px] font-bold text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
-                          Chat
-                        </span>
-                      </button>
-                    ))}
-                </div>
-              </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          Students ({matchingStudents.length})
+                        </p>
+                        <ThemeSelect
+                          value={studentBatchFilter}
+                          onChange={(e) => setStudentBatchFilter(e.target.value)}
+                          className="h-7 rounded-lg border border-input bg-background px-2 text-[11px] font-semibold dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                        >
+                          <option value={actor.className}>My Class ({actor.className})</option>
+                          <option value="ALL">All Classes ({students.length})</option>
+                          {ACADEMY_CLASSES.map((c) => (
+                            <option key={c.id} value={c.className}>
+                              Class {c.className}
+                            </option>
+                          ))}
+                        </ThemeSelect>
+                      </div>
+                      <div className="grid gap-1.5">
+                        {matchingStudents.map((st) => (
+                          <button
+                            key={st.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedRoomId(makeDirectRoomId(actor.id, st.id))
+                              setMobileShowChatPane(true)
+                              setShowNewChatModal(false)
+                              setNewChatSearchQuery('')
+                            }}
+                            className="flex items-center justify-between rounded-2xl border border-border bg-background/70 px-3.5 py-2.5 text-left transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                          >
+                            <div className="flex min-w-0 items-center gap-2.5">
+                              {st.avatarUrl ? (
+                                <img
+                                  src={st.avatarUrl}
+                                  alt={st.name}
+                                  className="size-8 shrink-0 rounded-full border border-lime/40 object-cover object-top"
+                                />
+                              ) : (
+                                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-cyan/15 font-poppins text-[11px] font-bold text-cyan">
+                                  {st.firstName.slice(0, 2).toUpperCase()}
+                                </span>
+                              )}
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-bold text-foreground">
+                                  {st.name}
+                                </p>
+                                <p className="truncate text-[10px] text-muted-foreground">
+                                  Class {st.className} • {st.admissionNo}
+                                </p>
+                              </div>
+                            </div>
+                            <span className="rounded-lg border border-border bg-muted px-2 py-1 text-[10px] font-bold text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
+                              Chat
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           </div>
         </div>
@@ -4290,39 +5693,48 @@ export function CampusMessenger({
         </div>
       )}
 
-      {/* WHATSAPP-STYLE DELETE MESSAGE DIALOG ("Delete for everyone" & "Delete for me") */}
-      {deleteModalMessage && (
+      {/* WHATSAPP-STYLE DELETE MESSAGE DIALOG (Single & Multi-Select) */}
+      {deleteModalMessages.length > 0 && (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/65 p-4 backdrop-blur-xs"
-          onClick={() => setDeleteModalMessage(null)}
+          onClick={() => setDeleteModalMessages([])}
         >
           <div
             className="w-full max-w-[320px] overflow-hidden rounded-3xl border border-border bg-card p-5 shadow-2xl dark:border-[#262a33] dark:bg-[#181b22]"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-sm font-semibold text-foreground">
-              Delete message?
+              {deleteModalMessages.length === 1
+                ? 'Delete message?'
+                : `Delete ${deleteModalMessages.length} messages?`}
             </h3>
             <p className="mt-1.5 text-xs text-muted-foreground">
-              {deleteModalMessage.isDeleted
-                ? 'Remove this deleted message from your chat screen.'
-                : 'You can delete this message for everyone in this chat or only for yourself.'}
+              {deleteModalMessages.every((m) => m.isDeleted)
+                ? 'Remove deleted messages from your chat screen.'
+                : 'You can delete selected messages for everyone in this chat or only for yourself.'}
             </p>
 
             <div className="mt-5 flex flex-col items-end gap-1">
-              {!deleteModalMessage.isDeleted && (
-                <button
-                  type="button"
-                  onClick={() => handleDeleteForEveryone(deleteModalMessage.id)}
-                  className="w-full rounded-xl px-3.5 py-2.5 text-right text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/10 dark:text-[#25d366]"
-                >
-                  Delete for everyone
-                </button>
-              )}
+              {deleteModalMessages.some((m) => !m.isDeleted) &&
+                deleteModalMessages
+                  .filter((m) => !m.isDeleted)
+                  .every((m) => m.senderId === actor.id || actor.isStaff) && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleDeleteForEveryone(
+                        deleteModalMessages.filter((m) => !m.isDeleted).map((m) => m.id),
+                      )
+                    }
+                    className="w-full rounded-xl px-3.5 py-2.5 text-right text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/10 dark:text-[#25d366]"
+                  >
+                    Delete for everyone
+                  </button>
+                )}
 
               <button
                 type="button"
-                onClick={() => handleDeleteForMe(deleteModalMessage.id)}
+                onClick={() => handleDeleteForMe(deleteModalMessages.map((m) => m.id))}
                 className="w-full rounded-xl px-3.5 py-2.5 text-right text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/10 dark:text-[#25d366]"
               >
                 Delete for me
@@ -4330,11 +5742,308 @@ export function CampusMessenger({
 
               <button
                 type="button"
-                onClick={() => setDeleteModalMessage(null)}
+                onClick={() => setDeleteModalMessages([])}
                 className="w-full rounded-xl px-3.5 py-2.5 text-right text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/10 dark:text-[#25d366]"
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WHATSAPP-STYLE FORWARD TO MODAL (Single & Multi-Message, Multi-Recipient) */}
+      {forwardMessageIds.length > 0 && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/65 p-4 backdrop-blur-xs"
+          onClick={() => {
+            setForwardMessageIds([])
+            setForwardTargetRoomIds([])
+          }}
+        >
+          <div
+            className="flex max-h-[86vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
+              <div className="flex items-center gap-2.5">
+                <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:bg-[#1a1d24] dark:text-[#25d366]">
+                  <Forward className="size-4" aria-hidden="true" />
+                </span>
+                <div>
+                  <h3 className="font-poppins text-base font-bold text-foreground">
+                    Forward to...
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {forwardMessageIds.length === 1
+                      ? 'Forwarding 1 message'
+                      : `Forwarding ${forwardMessageIds.length} messages`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setForwardMessageIds([])
+                  setForwardTargetRoomIds([])
+                }}
+                aria-label="Close forward dialog"
+                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2 border-b border-border/70 px-4 py-3 dark:border-[#262a33]">
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <input
+                  type="search"
+                  value={forwardSearchQuery}
+                  onChange={(e) => setForwardSearchQuery(e.target.value)}
+                  placeholder="Search groups, teachers, or students..."
+                  className="h-9 w-full rounded-xl border border-input bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 focus:outline-none dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  Filter students:
+                </span>
+                <ThemeSelect
+                  value={forwardBatchFilter}
+                  onChange={(e) => setForwardBatchFilter(e.target.value)}
+                  className="h-7 flex-1 rounded-lg border border-input bg-background px-2 text-[11px] font-semibold dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                >
+                  <option value="ALL">All Classes &amp; Chats</option>
+                  <option value={actor.className}>My Class ({actor.className})</option>
+                  {ACADEMY_CLASSES.map((c) => (
+                    <option key={c.id} value={c.className}>
+                      Class {c.className}
+                    </option>
+                  ))}
+                </ThemeSelect>
+              </div>
+            </div>
+
+            <div className="flex-1 space-y-1 overflow-y-auto p-3">
+              {allForwardRooms
+                .filter((r) => {
+                  const meta = roomsMeta[r.roomId]
+                  if (meta?.onlyAdminsCanPost && !actor.isStaff) return false
+                  const fq = forwardSearchQuery.trim().toLowerCase()
+                  if (fq) {
+                    return (
+                      r.title.toLowerCase().includes(fq) ||
+                      r.subtitle.toLowerCase().includes(fq) ||
+                      (r.batchName || '').toLowerCase().includes(fq)
+                    )
+                  }
+                  if (r.type === 'direct_student' && forwardBatchFilter !== 'ALL') {
+                    return r.batchName === forwardBatchFilter
+                  }
+                  return true
+                })
+                .map((room) => {
+                  const checked = forwardTargetRoomIds.includes(room.roomId)
+                  return (
+                    <button
+                      key={room.roomId}
+                      type="button"
+                      onClick={() =>
+                        setForwardTargetRoomIds((prev) =>
+                          prev.includes(room.roomId)
+                            ? prev.filter((id) => id !== room.roomId)
+                            : [...prev, room.roomId],
+                        )
+                      }
+                      className={cn(
+                        'flex w-full items-center justify-between gap-3 rounded-2xl border px-3 py-2.5 text-left transition-colors',
+                        checked
+                          ? 'border-emerald-500/60 bg-emerald-500/12 dark:border-[#25d366]/60 dark:bg-[#25d366]/10'
+                          : 'border-transparent hover:bg-muted/60 dark:hover:bg-white/5',
+                      )}
+                    >
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        {room.avatarUrl ? (
+                          <img
+                            src={room.avatarUrl}
+                            alt={room.title}
+                            className="size-9 shrink-0 rounded-full border border-border object-cover object-top"
+                          />
+                        ) : (
+                          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 font-poppins text-xs font-bold text-emerald-700 dark:bg-[#1a1d24] dark:text-zinc-200">
+                            {room.type === 'batch_group' ? (
+                              <Users className="size-4" aria-hidden="true" />
+                            ) : room.type === 'staff_group' ? (
+                              <Crown className="size-4" aria-hidden="true" />
+                            ) : (
+                              room.avatarText
+                            )}
+                          </span>
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-bold text-foreground">
+                            {room.title}
+                          </p>
+                          <p className="truncate text-[10px] text-muted-foreground">
+                            {room.subtitle}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={cn(
+                          'flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+                          checked
+                            ? 'border-emerald-600 bg-emerald-600 text-white dark:border-[#25d366] dark:bg-[#25d366] dark:text-[#0a0b0e]'
+                            : 'border-muted-foreground/40',
+                        )}
+                      >
+                        {checked && <Check className="size-3 stroke-[3]" aria-hidden="true" />}
+                      </span>
+                    </button>
+                  )
+                })}
+            </div>
+
+            <div className="flex items-center justify-between gap-3 border-t border-border bg-background/70 px-4 py-3 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+              <p className="min-w-0 truncate text-xs text-muted-foreground">
+                {forwardTargetRoomIds.length === 0
+                  ? 'Select one or more chats'
+                  : allForwardRooms
+                      .filter((r) => forwardTargetRoomIds.includes(r.roomId))
+                      .map((r) => r.title)
+                      .join(', ')}
+              </p>
+              <button
+                type="button"
+                disabled={forwardTargetRoomIds.length === 0}
+                onClick={handleConfirmForwardMessages}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-40 dark:bg-[#25d366] dark:text-[#0a0b0e] dark:hover:bg-[#1fc75d]"
+              >
+                <Send className="size-3.5" aria-hidden="true" />
+                <span>Forward ({forwardTargetRoomIds.length})</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* STARRED MESSAGES VIEWER MODAL */}
+      {showStarredModal && (
+        <div
+          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/65 p-4 backdrop-blur-xs"
+          onClick={() => setShowStarredModal(false)}
+        >
+          <div
+            className="flex max-h-[86vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
+              <div className="flex items-center gap-2.5">
+                <span className="flex size-9 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500">
+                  <Star className="size-4 fill-amber-400" aria-hidden="true" />
+                </span>
+                <div>
+                  <h3 className="font-poppins text-base font-bold text-foreground">
+                    Starred Messages
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {allStarredItems.length === 0
+                      ? 'Tap and hold any message, then press ★ to save it here'
+                      : `${allStarredItems.length} saved ${allStarredItems.length === 1 ? 'message' : 'messages'}`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowStarredModal(false)}
+                aria-label="Close Starred Messages"
+                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="flex-1 space-y-2.5 overflow-y-auto p-4">
+              {allStarredItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Star className="size-10 text-muted-foreground/35" aria-hidden="true" />
+                  <p className="mt-3 text-sm font-semibold text-foreground">
+                    No starred messages yet
+                  </p>
+                  <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+                    Select any message in a group or direct chat and tap the Star icon in the top bar to bookmark it for quick reference.
+                  </p>
+                </div>
+              ) : (
+                allStarredItems.map(({ msg, roomTitle, roomId }) => (
+                  <div
+                    key={`${roomId}:${msg.id}`}
+                    className="rounded-2xl border border-border bg-background/70 p-3.5 transition-colors hover:bg-muted/40 dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                  >
+                    <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px]">
+                      <span className="truncate font-bold text-emerald-700 dark:text-emerald-400">
+                        {msg.senderId === actor.id ? 'You' : msg.senderName} • {roomTitle}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <span className="text-[10px] text-muted-foreground">
+                          {formatReceiptTimestamp(msg.createdAtMs)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStarMessages([msg], roomId)}
+                          title="Remove star"
+                          aria-label="Unstar message"
+                          className="rounded-lg p-1 text-amber-500 hover:bg-amber-500/15"
+                        >
+                          <Star className="size-3.5 fill-amber-400" aria-hidden="true" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowStarredModal(false)
+                        setSelectedRoomId(roomId)
+                        setMobileShowChatPane(true)
+                        window.setTimeout(() => scrollToMessage(msg.id), 250)
+                      }}
+                      className="block w-full text-left"
+                    >
+                      {msg.mediaType === 'image' && msg.mediaUrl && (
+                        <img
+                          src={msg.mediaUrl}
+                          alt={msg.mediaName || 'Photo'}
+                          className="mb-1.5 max-h-36 rounded-xl object-cover"
+                        />
+                      )}
+                      {msg.mediaType === 'pdf' && (
+                        <p className="text-xs font-semibold text-foreground">
+                          📄 {msg.mediaName || 'PDF Document'}
+                        </p>
+                      )}
+                      {msg.mediaType === 'voice' && (
+                        <p className="text-xs font-semibold text-foreground">
+                          🎤 Voice Note ({formatVoiceDuration(msg.mediaDurationSec || 4)})
+                        </p>
+                      )}
+                      {msg.text && (
+                        <p className="line-clamp-4 whitespace-pre-wrap break-words text-xs text-foreground">
+                          {msg.text}
+                        </p>
+                      )}
+                      <span className="mt-1.5 inline-block text-[10px] font-semibold text-emerald-600 dark:text-[#25d366]">
+                        Jump to message →
+                      </span>
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -4606,7 +6315,7 @@ export function CampusMessenger({
                       const found = activeMessages.find((m) => m.id === lightboxImage.messageId)
                       if (found) {
                         setLightboxImage(null)
-                        setDeleteModalMessage(found)
+                        setDeleteModalMessages([found])
                       }
                     }}
                     className="inline-flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-500/20 px-2.5 py-1.5 text-[11px] font-bold text-red-300 hover:bg-red-500/30"

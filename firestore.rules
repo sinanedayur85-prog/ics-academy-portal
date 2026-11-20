@@ -274,7 +274,11 @@ service cloud.firestore {
           'replyTo',
           'reactions',
           'deliveredTo',
+          'deliveredAtMap',
           'readBy',
+          'readAtMap',
+          'starredBy',
+          'isForwarded',
           'deletedFor',
           'isDeleted',
           'deletedBy',
@@ -311,10 +315,14 @@ service cloud.firestore {
         && data.deliveredTo.size() >= 1
         && data.deliveredTo.size() <= 300
         && data.deliveredTo[0] is string
+        && (!('deliveredAtMap' in data) || (data.deliveredAtMap is map && data.deliveredAtMap.size() <= 300))
         && data.readBy is list
         && data.readBy.size() >= 1
         && data.readBy.size() <= 300
         && data.readBy[0] is string
+        && (!('readAtMap' in data) || (data.readAtMap is map && data.readAtMap.size() <= 300))
+        && (!('starredBy' in data) || (data.starredBy is list && data.starredBy.size() <= 300 && (data.starredBy.size() == 0 || data.starredBy[0] is string)))
+        && (!('isForwarded' in data) || data.isForwarded is bool)
         && data.deletedFor is list
         && data.deletedFor.size() <= 300
         && (data.deletedFor.size() == 0 || data.deletedFor[0] is string)
@@ -553,8 +561,9 @@ service cloud.firestore {
         && incoming().createdAt == existing().createdAt
         && incoming().createdAtMs == existing().createdAtMs
         && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['deliveredTo', 'readBy'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['deliveredTo', 'readBy', 'deliveredAtMap', 'readAtMap'])
           || incoming().diff(existing()).affectedKeys().hasOnly(['reactions'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['starredBy'])
           || incoming().diff(existing()).affectedKeys().hasOnly(['deletedFor'])
           || (!existing().isDeleted && incoming().isDeleted == true && incoming().diff(existing()).affectedKeys().hasOnly(['isDeleted', 'deletedBy', 'deletedById', 'text', 'mediaType', 'mediaUrl']))
         );
