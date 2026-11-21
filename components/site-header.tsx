@@ -19,7 +19,7 @@ export function SiteHeader() {
           <BrandWordmark
             className="pt-[2px]"
             gapClassName="gap-[1px]"
-            topClassName="translate-y-[1px] text-[15px] sm:text-lg font-bold text-[#009245] transition-colors duration-200 md:text-[19px] leading-none"
+            topClassName="translate-y-[1px] text-[15px] sm:text-lg font-bold text-[#009245] dark:text-[#89C53F] transition-colors duration-200 md:text-[19px] leading-none"
             bottomClassName="text-[8.5px] sm:text-[10px] font-semibold text-[#0077CC] transition-colors duration-200 dark:text-[#0095F6] md:text-[10.5px] leading-none"
           />
         </Link>
