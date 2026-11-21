@@ -449,9 +449,22 @@ function createSynthesizedVoiceWavDataUrl(durationSec = 4): string {
   return `data:audio/wav;base64,${typeof window !== 'undefined' ? window.btoa(binary) : ''}`
 }
 
+const IST_TIME_ZONE = 'Asia/Kolkata'
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+function getIstDayNumber(ms: number): number {
+  return Math.floor((ms + IST_OFFSET_MS) / MS_PER_DAY)
+}
+
+function getIstYear(ms: number): number {
+  return new Date(ms + IST_OFFSET_MS).getUTCFullYear()
+}
+
 function formatChatTime(ms: number): string {
   try {
     return new Date(ms).toLocaleTimeString('en-IN', {
+      timeZone: IST_TIME_ZONE,
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
@@ -461,37 +474,82 @@ function formatChatTime(ms: number): string {
   }
 }
 
+function formatLastSeenStatus(ms: number, nowMs: number = Date.now()): string {
+  try {
+    const timeStr = new Date(ms)
+      .toLocaleTimeString('en-IN', {
+        timeZone: IST_TIME_ZONE,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      })
+      .toLowerCase()
+    const diffDays = getIstDayNumber(nowMs) - getIstDayNumber(ms)
+    if (diffDays <= 0) {
+      return `last seen today at ${timeStr}`
+    }
+    if (diffDays === 1) {
+      return `last seen yesterday at ${timeStr}`
+    }
+    const sameYear = getIstYear(ms) === getIstYear(nowMs)
+    const datePart = new Date(ms).toLocaleDateString('en-IN', {
+      timeZone: IST_TIME_ZONE,
+      day: 'numeric',
+      month: 'short',
+      ...(sameYear ? {} : { year: 'numeric' }),
+    })
+    return `last seen ${datePart} at ${timeStr}`
+  } catch {
+    return `last seen ${formatChatTime(ms)}`
+  }
+}
+
+function formatSidebarDateOrTime(ms: number, nowMs: number = Date.now()): string {
+  try {
+    const diffDays = getIstDayNumber(nowMs) - getIstDayNumber(ms)
+    if (diffDays <= 0) {
+      return formatChatTime(ms)
+    }
+    if (diffDays === 1) {
+      return 'Yesterday'
+    }
+    const sameYear = getIstYear(ms) === getIstYear(nowMs)
+    return new Date(ms).toLocaleDateString('en-IN', {
+      timeZone: IST_TIME_ZONE,
+      day: 'numeric',
+      month: 'short',
+      ...(sameYear ? {} : { year: '2-digit' }),
+    })
+  } catch {
+    return formatChatTime(ms)
+  }
+}
+
 function formatReceiptTimestamp(ms?: number): string {
   if (!ms || !Number.isFinite(ms) || ms <= 0) return '—'
   try {
-    const date = new Date(ms)
-    const now = new Date()
-    const timeStr = date
+    const nowMs = Date.now()
+    const timeStr = new Date(ms)
       .toLocaleTimeString('en-IN', {
+        timeZone: IST_TIME_ZONE,
         hour: 'numeric',
         minute: '2-digit',
         hour12: true,
       })
       .toLowerCase()
-    const isSameDay =
-      date.getFullYear() === now.getFullYear() &&
-      date.getMonth() === now.getMonth() &&
-      date.getDate() === now.getDate()
-    if (isSameDay) {
+    const diffDays = getIstDayNumber(nowMs) - getIstDayNumber(ms)
+    if (diffDays <= 0) {
       return `Today, ${timeStr}`
     }
-    const yesterday = new Date(now)
-    yesterday.setDate(now.getDate() - 1)
-    const isYesterday =
-      date.getFullYear() === yesterday.getFullYear() &&
-      date.getMonth() === yesterday.getMonth() &&
-      date.getDate() === yesterday.getDate()
-    if (isYesterday) {
+    if (diffDays === 1) {
       return `Yesterday, ${timeStr}`
     }
-    const datePart = date.toLocaleDateString('en-IN', {
+    const sameYear = getIstYear(ms) === getIstYear(nowMs)
+    const datePart = new Date(ms).toLocaleDateString('en-IN', {
+      timeZone: IST_TIME_ZONE,
       day: 'numeric',
       month: 'short',
+      ...(sameYear ? {} : { year: 'numeric' }),
     })
     return `${datePart}, ${timeStr}`
   } catch {
@@ -2128,7 +2186,7 @@ export function CampusMessenger({
       if (entry && !entry.hideOnline && entry.lastSeenMs > 0) {
         return {
           isOnlineNow: false,
-          text: `last seen today at ${formatChatTime(entry.lastSeenMs)}`,
+          text: formatLastSeenStatus(entry.lastSeenMs),
         }
       }
       return { isOnlineNow: false, text: room.subtitle }
@@ -3652,7 +3710,7 @@ export function CampusMessenger({
                             <span className="truncate">
                               {rec.callType === 'video' ? 'Video' : 'Voice'} · {statusText} ·{' '}
                               <span className="tabular-nums">
-                                {formatChatTime(rec.startedAtMs)}
+                                {formatReceiptTimestamp(rec.startedAtMs)}
                               </span>
                             </span>
                           </div>
@@ -3770,7 +3828,7 @@ export function CampusMessenger({
                       </div>
                       {lastMsg && (
                         <span className="shrink-0 font-poppins text-[10px] tabular-nums text-muted-foreground">
-                          {formatChatTime(lastMsg.createdAtMs)}
+                          {formatSidebarDateOrTime(lastMsg.createdAtMs)}
                         </span>
                       )}
                     </div>
