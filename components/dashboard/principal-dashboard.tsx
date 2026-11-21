@@ -1603,20 +1603,20 @@ export function PrincipalDashboard() {
         {/* Executive Banner & 6 Live Campus Telemetry KPIs — Shown on Monitor Tab on Phone/Tablet, Always Shown on Desktop */}
         <section
           className={cn(
-            'relative overflow-hidden rounded-2xl border border-border bg-card/65 p-5 sm:p-6',
+            'relative overflow-hidden rounded-2xl bg-card p-5 sm:p-6',
             activeTab === 'chat'
               ? 'hidden'
               : activeTab !== 'monitor' && 'hidden lg:block',
           )}
         >
-          <div className="flex flex-col justify-between gap-4 border-b border-border/70 pb-5 lg:flex-row lg:items-center">
+          <div className="flex flex-col justify-between gap-4 border-b border-border/40 pb-5 lg:flex-row lg:items-center">
             <div className="flex flex-col gap-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-lime/40 bg-lime/15 px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-lime uppercase">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#0095F6]/15 px-3 py-0.5 text-[11px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
                   <Award className="size-3.5" aria-hidden="true" />
                   Principal
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-cyan uppercase">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/15 px-3 py-0.5 text-[11px] font-bold tracking-wider text-indigo-600 uppercase dark:text-indigo-400">
                   <GraduationCap className="size-3.5" aria-hidden="true" />
                   {principal.assignedClassesLabel} ({principal.usthadStaffId})
                 </span>
@@ -1629,7 +1629,7 @@ export function PrincipalDashboard() {
                   <ProfileInitialsAvatar
                     name={principal.name}
                     avatarUrl={principal.avatarUrl}
-                    className="size-14 sm:size-16 ring-2 ring-lime/45 shadow-md"
+                    className="size-14 sm:size-16 shadow-md"
                   />
                 )}
                 <div>
@@ -1644,8 +1644,8 @@ export function PrincipalDashboard() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex h-8 items-center gap-2 rounded-xl border border-border bg-background/80 px-3">
-                <CalendarClock className="size-3.5 text-lime" aria-hidden="true" />
+              <div className="flex h-9 items-center gap-2 rounded-full bg-muted/70 px-3.5">
+                <CalendarClock className="size-3.5 text-[#0095F6]" aria-hidden="true" />
                 <label htmlFor="principal-global-date" className="sr-only">
                   Monitor Date
                 </label>
@@ -1667,7 +1667,7 @@ export function PrincipalDashboard() {
                     }),
                   )
                 }}
-                className="rounded-xl border border-cyan/50 bg-cyan text-xs font-bold text-slate-950 hover:bg-cyan/90"
+                className="rounded-full bg-[#0095F6] px-3.5 text-xs font-semibold text-white hover:bg-[#0077CC]"
               >
                 <BookOpen className="mr-1.5 size-3.5" aria-hidden="true" />
                 My Classes ({principal.assignedClassesLabel})
@@ -1675,11 +1675,12 @@ export function PrincipalDashboard() {
               <Button
                 type="button"
                 size="sm"
+                variant="outline"
                 onClick={() => {
                   setActiveTab('notices')
                   setIsHolidayNotice(true)
                 }}
-                className="rounded-xl text-xs font-semibold"
+                className="rounded-full text-xs font-semibold"
               >
                 <CalendarClock className="mr-1.5 size-3.5" aria-hidden="true" />
                 Holiday
@@ -1689,7 +1690,7 @@ export function PrincipalDashboard() {
 
           {/* 6 High-Density Tabular KPI Strip */}
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <div className="rounded-xl border border-border bg-background/60 p-3.5">
+            <div className="rounded-2xl bg-muted/45 p-3.5">
               <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                 Students
               </p>
@@ -1701,11 +1702,11 @@ export function PrincipalDashboard() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5">
-              <p className="text-[11px] font-semibold tracking-wider text-emerald-700 uppercase dark:text-lime">
+            <div className="rounded-2xl bg-emerald-500/12 p-3.5">
+              <p className="text-[11px] font-semibold tracking-wider text-emerald-700 uppercase dark:text-emerald-400">
                 Attendance
               </p>
-              <p className="mt-1 font-display text-2xl font-bold text-emerald-700 tabular-nums dark:text-lime">
+              <p className="mt-1 font-display text-2xl font-bold text-emerald-700 tabular-nums dark:text-emerald-400">
                 {campusMetrics.avgRate}%
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
@@ -1713,7 +1714,7 @@ export function PrincipalDashboard() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5">
+            <div className="rounded-2xl bg-amber-500/12 p-3.5">
               <p className="text-[11px] font-semibold tracking-wider text-amber-700 uppercase dark:text-amber-300">
                 On Leave
               </p>
@@ -1725,7 +1726,7 @@ export function PrincipalDashboard() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-border bg-background/60 p-3.5">
+            <div className="rounded-2xl bg-muted/45 p-3.5">
               <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                 Periods
               </p>
@@ -1739,10 +1740,10 @@ export function PrincipalDashboard() {
 
             <div
               className={cn(
-                'rounded-xl border p-3.5',
+                'rounded-2xl p-3.5',
                 campusMetrics.periodsNotHeld > 0
-                  ? 'border-red-500/50 bg-red-500/15'
-                  : 'border-border bg-background/60',
+                  ? 'bg-red-500/15'
+                  : 'bg-muted/45',
               )}
             >
               <p
@@ -1770,11 +1771,11 @@ export function PrincipalDashboard() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-cyan/30 bg-cyan/10 p-3.5">
-              <p className="text-[11px] font-semibold tracking-wider text-cyan uppercase">
+            <div className="rounded-2xl bg-[#0095F6]/12 p-3.5">
+              <p className="text-[11px] font-semibold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
                 Substituted
               </p>
-              <p className="mt-1 font-display text-2xl font-bold text-cyan tabular-nums">
+              <p className="mt-1 font-display text-2xl font-bold text-[#0077CC] tabular-nums dark:text-[#0095F6]">
                 {campusMetrics.periodsSubstituted}
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -1794,7 +1795,7 @@ export function PrincipalDashboard() {
               title="Unheld Periods"
               icon={ShieldAlert}
               action={
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/15 px-3 py-1 text-xs font-semibold text-red-600 dark:text-red-400 tabular-nums">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/15 px-3 py-1 text-xs font-semibold text-red-600 dark:text-red-400 tabular-nums">
                   <Ban className="size-3.5" aria-hidden="true" />
                   {campusMetrics.periodsNotHeld} Unheld · {campusMetrics.periodsSubstituted} Sub
                 </span>
@@ -1802,7 +1803,7 @@ export function PrincipalDashboard() {
             >
               <div className="flex flex-col gap-5">
                 {/* Principal Quick Action Bar to Record Class Not Held or Assign Substitute */}
-                <div className="rounded-2xl border border-border bg-background/60 p-4">
+                <div className="rounded-2xl bg-muted/45 p-4">
                   <div className="mb-3 flex flex-col gap-1">
                     <h3 className="text-xs font-bold tracking-wider text-foreground uppercase">
                       Period Override
@@ -1818,7 +1819,7 @@ export function PrincipalDashboard() {
                         id="quick-class-select"
                         value={quickClassName}
                         onChange={(e) => setQuickClassName(e.target.value)}
-                        className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="h-10 rounded-xl bg-popover px-3 text-xs font-semibold text-foreground outline-none"
                       >
                         {CLASS_USTHADS.map((u) => (
                           <option key={u.className} value={u.className}>
@@ -1836,7 +1837,7 @@ export function PrincipalDashboard() {
                         id="quick-period-select"
                         value={quickPeriodIndex}
                         onChange={(e) => setQuickPeriodIndex(Number(e.target.value))}
-                        className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="h-10 rounded-xl bg-popover px-3 text-xs font-semibold text-foreground outline-none"
                       >
                         {getClassSemesterTimetableByClassName(quickClassName).periods.map(
                           (pObj, idx) => {
@@ -1859,7 +1860,7 @@ export function PrincipalDashboard() {
                         id="quick-reason-select"
                         value={quickNotHeldReason}
                         onChange={(e) => setQuickNotHeldReason(e.target.value)}
-                        className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="h-10 rounded-xl bg-popover px-3 text-xs font-semibold text-foreground outline-none"
                       >
                         {NOT_HELD_REASONS.map((r) => (
                           <option key={r} value={r}>
@@ -1877,7 +1878,7 @@ export function PrincipalDashboard() {
                         id="quick-sub-select"
                         value={quickSubstituteUsthadId}
                         onChange={(e) => setQuickSubstituteUsthadId(e.target.value)}
-                        className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="h-10 rounded-xl bg-popover px-3 text-xs font-semibold text-foreground outline-none"
                       >
                         <option value="">-- Select Substitute Usthad --</option>
                         {OFFICIAL_CLASS_USTHADS.map((u) => (
@@ -1891,7 +1892,7 @@ export function PrincipalDashboard() {
 
                   <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3">
                     {sessionActionToast ? (
-                      <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-lime">
+                      <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                         <Check className="size-4 shrink-0" aria-hidden="true" />
                         {sessionActionToast}
                       </p>
@@ -1907,7 +1908,7 @@ export function PrincipalDashboard() {
                         size="sm"
                         disabled={quickOverrideStatus.isNotHeldUnchanged}
                         onClick={() => handlePrincipalQuickPeriodAction('not-held')}
-                        className="rounded-xl bg-red-600 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                        className="rounded-full bg-red-600 px-3.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
                       >
                         <Ban className="mr-1.5 size-3.5" aria-hidden="true" />
                         {quickOverrideStatus.isNotHeldUnchanged
@@ -1918,10 +1919,9 @@ export function PrincipalDashboard() {
                       <Button
                         type="button"
                         size="sm"
-                        variant="outline"
                         disabled={quickOverrideStatus.isSubstitutedUnchanged}
                         onClick={() => handlePrincipalQuickPeriodAction('substituted')}
-                        className="rounded-xl border-cyan/50 bg-cyan/10 text-xs font-semibold text-cyan hover:bg-cyan/20 disabled:opacity-50"
+                        className="rounded-full bg-[#0095F6]/15 px-3.5 text-xs font-semibold text-[#0077CC] hover:bg-[#0095F6] hover:text-white dark:text-[#0095F6] dark:hover:text-white disabled:opacity-50"
                       >
                         <UserCog className="mr-1.5 size-3.5" aria-hidden="true" />
                         {quickOverrideStatus.isSubstitutedUnchanged
@@ -1934,8 +1934,8 @@ export function PrincipalDashboard() {
 
                 {/* Live Feed of Unheld & Substituted Periods */}
                 {unheldAndSubstitutedPeriods.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-background/40 px-6 py-8 text-center">
-                    <CheckCircle2 className="size-8 text-emerald-500 dark:text-lime" aria-hidden="true" />
+                  <div className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-muted/40 px-6 py-8 text-center">
+                    <CheckCircle2 className="size-8 text-emerald-500 dark:text-emerald-400" aria-hidden="true" />
                     <p className="text-sm font-semibold text-foreground">
                       No unheld periods (Class Not Held) reported for {selectedDate}.
                     </p>
@@ -1958,30 +1958,28 @@ export function PrincipalDashboard() {
                         <div
                           key={subKey}
                           className={cn(
-                            'flex flex-col justify-between gap-3 rounded-2xl border p-4',
-                            isNotHeld
-                              ? 'border-red-500/40 bg-red-500/[0.06]'
-                              : 'border-cyan/40 bg-cyan/[0.06]',
+                            'flex flex-col justify-between gap-3 rounded-2xl p-4',
+                            isNotHeld ? 'bg-red-500/10' : 'bg-[#0095F6]/10',
                           )}
                         >
                           <div className="flex flex-col gap-1.5">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div className="flex items-center gap-2">
-                                <span className="rounded-md bg-foreground/10 px-2 py-0.5 text-xs font-bold text-foreground">
+                                <span className="rounded-full bg-foreground/10 px-2.5 py-0.5 text-xs font-bold text-foreground">
                                   {row.className}
                                 </span>
-                                <span className="text-xs font-bold text-lime uppercase">
+                                <span className="text-xs font-bold text-[#0077CC] uppercase dark:text-[#0095F6]">
                                   {cell.label} ({cell.time})
                                 </span>
                               </div>
 
                               {isNotHeld ? (
-                                <span className="inline-flex items-center gap-1 rounded-full border border-red-500/40 bg-red-500/20 px-2.5 py-0.5 text-[11px] font-bold text-red-600 dark:text-red-300">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2.5 py-0.5 text-[11px] font-bold text-red-600 dark:text-red-300">
                                   <Lock className="size-3" aria-hidden="true" />
                                   Class Not Held • Attendance Locked
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 rounded-full border border-cyan/40 bg-cyan/20 px-2.5 py-0.5 text-[11px] font-bold text-cyan">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[#0095F6]/20 px-2.5 py-0.5 text-[11px] font-bold text-[#0077CC] dark:text-[#0095F6]">
                                   <UserCog className="size-3" aria-hidden="true" />
                                   Substitute Usthad Assigned
                                 </span>
@@ -1997,7 +1995,7 @@ export function PrincipalDashboard() {
                               {row.usthad.name})
                             </p>
 
-                            <div className="mt-1 rounded-xl border border-border/70 bg-background/70 p-2.5 text-xs">
+                            <div className="mt-1 rounded-xl bg-popover/90 p-2.5 text-xs">
                               <p className="font-semibold text-red-600 dark:text-red-400">
                                 Reason: {cell.submission?.notHeldReason ?? NOT_HELD_REASONS[0]}
                               </p>
@@ -2008,7 +2006,7 @@ export function PrincipalDashboard() {
                                   'Class Leader / Usthad'}
                               </p>
                               {cell.submission?.substituteUsthad && (
-                                <p className="mt-1 font-semibold text-cyan">
+                                <p className="mt-1 font-semibold text-[#0077CC] dark:text-[#0095F6]">
                                   Substitute Usthad: {cell.submission.substituteUsthad.usthadName} (Assigned by{' '}
                                   {cell.submission.substituteUsthad.assignedBy})
                                 </p>
@@ -2016,7 +2014,7 @@ export function PrincipalDashboard() {
                             </div>
                           </div>
 
-                          <div className="flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex flex-col gap-2 border-t border-border/35 pt-3 sm:flex-row sm:items-center sm:justify-between">
                             <ThemeSelect
                               aria-label={`Assign substitute Usthad for ${row.className} ${cell.label}`}
                               value={defaultSubUsthadId}
@@ -2026,7 +2024,7 @@ export function PrincipalDashboard() {
                                   [subKey]: e.target.value,
                                 }))
                               }
-                              className="h-9 flex-1 rounded-xl border border-input bg-background px-2.5 text-xs font-semibold text-foreground outline-none"
+                              className="h-9 flex-1 rounded-xl bg-popover px-2.5 text-xs font-semibold text-foreground outline-none"
                             >
                               {OFFICIAL_CLASS_USTHADS.map((u) => (
                                 <option key={u.id} value={u.id}>
@@ -2050,7 +2048,7 @@ export function PrincipalDashboard() {
                                     defaultSubUsthadId,
                                   )
                                 }
-                                className="h-9 rounded-xl bg-cyan px-3 text-xs font-semibold text-slate-950 hover:bg-cyan/90 disabled:opacity-50 whitespace-nowrap"
+                                className="h-9 rounded-full bg-[#0095F6] px-3.5 text-xs font-semibold text-white hover:bg-[#0077CC] disabled:opacity-50 whitespace-nowrap"
                               >
                                 <UserCog className="mr-1 size-3.5" aria-hidden="true" />
                                 {cell.state === 'substituted' &&
@@ -2066,7 +2064,7 @@ export function PrincipalDashboard() {
                                 onClick={() =>
                                   handleRestoreNormalPeriod(row.className, cell.periodIndex)
                                 }
-                                className="h-9 rounded-xl px-2.5 text-xs font-medium whitespace-nowrap"
+                                className="h-9 rounded-full px-3 text-xs font-medium whitespace-nowrap"
                               >
                                 Restore
                               </Button>
@@ -2087,10 +2085,10 @@ export function PrincipalDashboard() {
               title="All Classes"
               icon={Building2}
             >
-              <div className="overflow-x-auto rounded-2xl border border-border bg-background/50">
+              <div className="overflow-x-auto rounded-2xl bg-muted/40">
                 <table className="w-full min-w-[920px] border-collapse text-left text-xs">
                   <thead>
-                    <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase whitespace-nowrap">
+                    <tr className="border-b border-border/40 bg-muted/50 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase whitespace-nowrap">
                       <th className="px-3.5 py-3 whitespace-nowrap">Class</th>
                       <th className="px-3.5 py-3 whitespace-nowrap">Class Usthad</th>
                       <th className="px-3.5 py-3 whitespace-nowrap">Class Leaders (CL & ACL)</th>
@@ -2102,7 +2100,7 @@ export function PrincipalDashboard() {
                       <th className="px-3.5 py-3 text-right whitespace-nowrap">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody className="divide-y divide-border/35">
                     {classMatrixRows.map((row) => {
                       const isSelected = row.className === selectedClassName
                       return (
@@ -2114,8 +2112,8 @@ export function PrincipalDashboard() {
                             if (firstSt) setSelectedStudentId(firstSt.id)
                           }}
                           className={cn(
-                            'cursor-pointer transition-colors hover:bg-muted/30',
-                            isSelected && 'bg-lime/[0.08]',
+                            'cursor-pointer transition-colors hover:bg-muted/40',
+                            isSelected && 'bg-[#0095F6]/[0.09]',
                           )}
                         >
                           <td className="px-3.5 py-3 whitespace-nowrap">
@@ -2126,7 +2124,7 @@ export function PrincipalDashboard() {
                                   row.notHeldCount > 0
                                     ? 'bg-red-500'
                                     : isSelected
-                                      ? 'bg-lime'
+                                      ? 'bg-[#0095F6]'
                                       : 'bg-emerald-500',
                                 )}
                               />
@@ -2143,7 +2141,7 @@ export function PrincipalDashboard() {
 
                           <td className="px-3.5 py-3 whitespace-nowrap">
                             <p className="font-semibold text-foreground whitespace-nowrap">{row.usthad.name}</p>
-                            <p className="text-[11px] text-lime tabular-nums whitespace-nowrap">
+                            <p className="text-[11px] text-[#0077CC] dark:text-[#0095F6] tabular-nums whitespace-nowrap">
                               {row.usthad.staffId} • {row.usthad.specialization.split('&')[0]}
                             </p>
                           </td>
@@ -2155,7 +2153,7 @@ export function PrincipalDashboard() {
                                   key={cl.leaderId}
                                   className="text-[11px] text-muted-foreground whitespace-nowrap"
                                 >
-                                  <strong className="text-cyan">{cl.leaderId}:</strong>{' '}
+                                  <strong className="text-[#0077CC] dark:text-[#0095F6]">{cl.leaderId}:</strong>{' '}
                                   {cl.studentName}
                                 </span>
                               ))}
@@ -2166,7 +2164,7 @@ export function PrincipalDashboard() {
                             {row.totalStudents}
                           </td>
 
-                          <td className="px-3 py-3 text-right font-mono font-bold text-emerald-600 tabular-nums dark:text-lime">
+                          <td className="px-3 py-3 text-right font-mono font-bold text-emerald-600 tabular-nums dark:text-emerald-400">
                             {row.avgAttendance}%
                           </td>
 
@@ -2177,16 +2175,16 @@ export function PrincipalDashboard() {
                                   key={cell.periodIndex}
                                   title={`${cell.label}: ${cell.subject} (${cell.regularTeacher}) — ${cell.state.toUpperCase()}`}
                                   className={cn(
-                                    'inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-bold tabular-nums',
+                                    'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold tabular-nums',
                                     cell.state === 'break'
-                                      ? 'border-border/50 bg-muted/40 text-muted-foreground/80'
+                                      ? 'bg-muted/60 text-muted-foreground/80'
                                       : cell.state === 'conducted'
-                                        ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-lime'
+                                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
                                         : cell.state === 'not-held'
-                                          ? 'border-red-500/50 bg-red-500/20 text-red-600 dark:text-red-400'
+                                          ? 'bg-red-500/20 text-red-600 dark:text-red-400'
                                           : cell.state === 'substituted'
-                                            ? 'border-cyan/50 bg-cyan/20 text-cyan'
-                                            : 'border-border bg-background/80 text-muted-foreground',
+                                            ? 'bg-[#0095F6]/20 text-[#0077CC] dark:text-[#0095F6]'
+                                            : 'bg-popover text-muted-foreground',
                                   )}
                                 >
                                   P{cell.periodIndex}
@@ -2213,7 +2211,7 @@ export function PrincipalDashboard() {
                                 const firstSt = students.find((s) => s.className === row.className)
                                 if (firstSt) setSelectedStudentId(firstSt.id)
                               }}
-                              className="h-8 rounded-xl px-3 text-xs font-semibold whitespace-nowrap"
+                              className="h-8 rounded-full px-3 text-xs font-semibold whitespace-nowrap"
                             >
                               {isSelected ? 'Inspecting Class' : 'Inspect & Control'}
                             </Button>
@@ -2228,9 +2226,9 @@ export function PrincipalDashboard() {
 
             {/* C. Deep Class Period Session & Student Attendance Control for Selected Class */}
             <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-lime/40 bg-lime/10 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#0095F6]/12 px-4 py-3.5">
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <span className="rounded-lg bg-lime px-2.5 py-1 text-xs font-bold text-background uppercase">
+                  <span className="rounded-full bg-[#0095F6] px-3 py-1 text-xs font-bold text-white uppercase">
                     Selected Class Control
                   </span>
                   <h2 className="font-display text-lg font-bold text-foreground">
@@ -2250,7 +2248,7 @@ export function PrincipalDashboard() {
                       const firstSt = students.find((s) => s.className === e.target.value)
                       if (firstSt) setSelectedStudentId(firstSt.id)
                     }}
-                    className="h-9 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
+                    className="h-9 rounded-full bg-popover px-3.5 text-xs font-semibold text-foreground outline-none"
                   >
                     {CLASS_USTHADS.map((u) => (
                       <option key={u.className} value={u.className}>
@@ -2261,13 +2259,12 @@ export function PrincipalDashboard() {
                   <Button
                     type="button"
                     size="sm"
-                    variant="outline"
                     onClick={() => {
                       setTtEditClass(selectedClassName)
                       setPeopleSubTab('timetable')
                       setActiveTab('people')
                     }}
-                    className="h-9 rounded-xl border-cyan/40 bg-cyan/10 px-3 text-xs font-semibold text-cyan hover:bg-cyan/20"
+                    className="h-9 rounded-full bg-[#0095F6]/15 px-3.5 text-xs font-semibold text-[#0077CC] hover:bg-[#0095F6] hover:text-white dark:text-[#0095F6] dark:hover:text-white"
                   >
                     <CalendarClock className="mr-1.5 size-3.5" aria-hidden="true" />
                     Edit Timetable
@@ -2293,16 +2290,16 @@ export function PrincipalDashboard() {
         {activeTab === 'people' && (
           <div className="flex flex-col gap-6">
             {/* Sub-navigation between Teachers, Class Leaders, Students, and Timetable */}
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/60 p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-card p-3.5">
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setPeopleSubTab('usthads')}
                   className={cn(
-                    'inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold transition-all',
+                    'inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-all active:scale-[0.98]',
                     peopleSubTab === 'usthads'
-                      ? 'border-lime bg-lime/20 text-lime'
-                      : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                      ? 'bg-[#0095F6] text-white'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                 >
                   <GraduationCap className="size-4" aria-hidden="true" />
@@ -2313,10 +2310,10 @@ export function PrincipalDashboard() {
                   type="button"
                   onClick={() => setPeopleSubTab('leaders')}
                   className={cn(
-                    'inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold transition-all',
+                    'inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-all active:scale-[0.98]',
                     peopleSubTab === 'leaders'
-                      ? 'border-cyan bg-cyan/20 text-cyan'
-                      : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                      ? 'bg-[#0095F6] text-white'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                 >
                   <UserCheck className="size-4" aria-hidden="true" />
@@ -2327,10 +2324,10 @@ export function PrincipalDashboard() {
                   type="button"
                   onClick={() => setPeopleSubTab('students')}
                   className={cn(
-                    'inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold transition-all',
+                    'inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-all active:scale-[0.98]',
                     peopleSubTab === 'students'
-                      ? 'border-emerald-500 bg-emerald-500/20 text-emerald-600 dark:text-lime'
-                      : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                      ? 'bg-[#0095F6] text-white'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                 >
                   <Users className="size-4" aria-hidden="true" />
@@ -2341,10 +2338,10 @@ export function PrincipalDashboard() {
                   type="button"
                   onClick={() => setPeopleSubTab('timetable')}
                   className={cn(
-                    'inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold transition-all',
+                    'inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-all active:scale-[0.98]',
                     peopleSubTab === 'timetable'
-                      ? 'border-amber-500 bg-amber-500/20 text-amber-500'
-                      : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                      ? 'bg-[#0095F6] text-white'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                 >
                   <CalendarClock className="size-4" aria-hidden="true" />
@@ -2359,14 +2356,14 @@ export function PrincipalDashboard() {
                 {/* Top Row: Supreme Scholar (SHAIKHUNA HAMZA USTHAD) & Institution Manager (Usthad Muhammed Naeem Saqafi) */}
                 <div className="grid gap-4 lg:grid-cols-2">
                   {/* 1. Supreme Scholar Card: SHAIKHUNA HAMZA USTHAD */}
-                  <div className="relative flex flex-col justify-between gap-4 overflow-hidden rounded-2xl border-2 border-lime/50 bg-gradient-to-br from-lime/[0.14] via-card to-cyan/[0.08] p-5 shadow-lg">
+                  <div className="relative flex flex-col justify-between gap-4 overflow-hidden rounded-3xl bg-gradient-to-br from-[#0095F6]/15 via-card to-[#4F46E5]/10 p-5">
                     <div className="flex flex-col gap-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-lime/50 bg-lime px-3 py-0.5 text-[11px] font-extrabold tracking-wider text-slate-950 uppercase">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#0095F6] px-3 py-0.5 text-[11px] font-extrabold tracking-wider text-white uppercase">
                           <Crown className="size-3.5" aria-hidden="true" />
                           {SHAIKHUNA_HAMZA_USTHAD.honorificTitle}
                         </span>
-                        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background/80 px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-popover px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
                           No Login ID • Not a Class Usthad
                         </span>
                       </div>
@@ -2375,7 +2372,7 @@ export function PrincipalDashboard() {
                         <h2 className="font-display text-xl font-bold text-foreground sm:text-2xl">
                           {SHAIKHUNA_HAMZA_USTHAD.name}
                         </h2>
-                        <p className="mt-0.5 text-xs font-semibold text-lime sm:text-sm">
+                        <p className="mt-0.5 text-xs font-semibold text-[#0077CC] dark:text-[#0095F6] sm:text-sm">
                           {SHAIKHUNA_HAMZA_USTHAD.malayalamName} • {SHAIKHUNA_HAMZA_USTHAD.designation}
                         </p>
                       </div>
@@ -2385,7 +2382,7 @@ export function PrincipalDashboard() {
                       </p>
                     </div>
 
-                    <div className="flex flex-col gap-2.5 border-t border-border/70 pt-3">
+                    <div className="flex flex-col gap-2.5 border-t border-border/35 pt-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-bold text-foreground">
                           Senior Classes:
@@ -2398,7 +2395,7 @@ export function PrincipalDashboard() {
                               setSelectedClassName(batchName)
                               setActiveTab('monitor')
                             }}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-lime/40 bg-background/85 px-2.5 py-1 text-xs font-bold text-lime transition-colors hover:bg-lime hover:text-slate-950"
+                            className="inline-flex items-center gap-1.5 rounded-full bg-[#0095F6]/15 px-3 py-1 text-xs font-bold text-[#0077CC] transition-all hover:bg-[#0095F6] hover:text-white active:scale-[0.98] dark:text-[#0095F6] dark:hover:text-white"
                           >
                             <BookOpen className="size-3.5" aria-hidden="true" />
                             {batchName}
@@ -2412,14 +2409,14 @@ export function PrincipalDashboard() {
                   </div>
 
                   {/* 2. Institution Manager Card: Usthad Muhammed Naeem Saqafi (Manager) */}
-                  <div className="relative flex flex-col justify-between gap-4 overflow-hidden rounded-2xl border-2 border-amber-500/45 bg-gradient-to-br from-amber-500/[0.12] via-card to-background p-5 shadow-lg">
+                  <div className="relative flex flex-col justify-between gap-4 overflow-hidden rounded-3xl bg-gradient-to-br from-amber-500/14 via-card to-card p-5">
                     <div className="flex flex-col gap-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500 px-3 py-0.5 text-[11px] font-extrabold tracking-wider text-slate-950 uppercase">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-0.5 text-[11px] font-extrabold tracking-wider text-white uppercase">
                           <Building2 className="size-3.5" aria-hidden="true" />
                           Institution Manager (മാനേജർ)
                         </span>
-                        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background/80 px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-popover px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
                           No Login ID • No Classes / Not a Class Usthad
                         </span>
                       </div>
@@ -2428,7 +2425,7 @@ export function PrincipalDashboard() {
                         <h2 className="font-display text-xl font-bold text-foreground sm:text-2xl">
                           {ACADEMY_MANAGER.name} (Manager)
                         </h2>
-                        <p className="mt-0.5 text-xs font-semibold text-amber-500 sm:text-sm">
+                        <p className="mt-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400 sm:text-sm">
                           {ACADEMY_MANAGER.designation}
                         </p>
                       </div>
@@ -2438,7 +2435,7 @@ export function PrincipalDashboard() {
                       </p>
                     </div>
 
-                    <div className="flex flex-col gap-1.5 rounded-xl border border-border/70 bg-background/70 p-3 text-xs">
+                    <div className="flex flex-col gap-1.5 rounded-2xl bg-popover/85 p-3 text-xs">
                       <p className="font-semibold text-foreground">
                         Role: Overall Institutional Governance &amp; Administration
                       </p>
@@ -2463,29 +2460,29 @@ export function PrincipalDashboard() {
                         classMatrixRows[0]
                       const roleBadgeTone =
                         u.institutionalRole === 'Principal'
-                          ? 'border-cyan/50 bg-cyan/20 text-cyan'
+                          ? 'bg-[#0095F6]/20 text-[#0077CC] dark:text-[#0095F6]'
                           : u.institutionalRole === 'Swadr'
-                            ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-500 dark:text-lime'
-                            : 'border-border bg-muted/60 text-muted-foreground'
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                            : 'bg-muted/70 text-muted-foreground'
 
                       return (
                         <div
                           key={u.id}
                           className={cn(
-                            'flex flex-col justify-between gap-4 rounded-2xl border bg-background/60 p-4 transition-colors hover:border-lime/40',
-                            u.isPrincipalRole ? 'border-cyan/50 bg-cyan/[0.04]' : 'border-border',
+                            'flex flex-col justify-between gap-4 rounded-2xl p-4 transition-colors',
+                            u.isPrincipalRole ? 'bg-[#0095F6]/[0.09]' : 'bg-muted/40 hover:bg-muted/60',
                           )}
                         >
                           <div className="flex flex-col gap-2">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div className="flex items-center gap-1.5">
-                                <span className="rounded-lg border border-lime/40 bg-lime/15 px-2.5 py-0.5 text-xs font-bold text-lime tabular-nums">
+                                <span className="rounded-full bg-[#0095F6]/15 px-2.5 py-0.5 text-xs font-bold text-[#0077CC] dark:text-[#0095F6] tabular-nums">
                                   {u.staffId}
                                 </span>
                                 {u.institutionalRole && (
                                   <span
                                     className={cn(
-                                      'rounded-lg border px-2 py-0.5 text-[11px] font-bold',
+                                      'rounded-full px-2.5 py-0.5 text-[11px] font-bold',
                                       roleBadgeTone,
                                     )}
                                   >
@@ -2493,7 +2490,7 @@ export function PrincipalDashboard() {
                                   </span>
                                 )}
                               </div>
-                              <span className="text-xs font-semibold text-cyan">
+                              <span className="text-xs font-semibold text-[#0077CC] dark:text-[#0095F6]">
                                 {u.teachingBatches && u.teachingBatches.length > 1
                                   ? u.teachingBatches.join(' & ')
                                   : u.className}
@@ -2523,10 +2520,10 @@ export function PrincipalDashboard() {
                               Specialization: <span className="text-muted-foreground">{u.specialization}</span>
                             </p>
 
-                            <div className="grid grid-cols-3 gap-2 rounded-xl border border-border/70 bg-card/60 p-2.5 text-center text-xs">
+                            <div className="grid grid-cols-3 gap-2 rounded-xl bg-popover/85 p-2.5 text-center text-xs">
                               <div>
                                 <span className="block text-[10px] text-muted-foreground">Conducted</span>
-                                <span className="font-mono font-bold text-emerald-600 dark:text-lime tabular-nums">
+                                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
                                   {row.conductedCount}/{row.teachingPeriodsCount}
                                 </span>
                               </div>
@@ -2587,7 +2584,7 @@ export function PrincipalDashboard() {
                                     }),
                                   )
                                 }}
-                                className="rounded-xl border-cyan/40 bg-cyan/10 text-xs font-semibold text-cyan hover:bg-cyan/20"
+                                className="rounded-full bg-[#0095F6]/12 text-xs font-semibold text-[#0077CC] hover:bg-[#0095F6]/20 dark:text-[#0095F6]"
                               >
                                 Usthad View
                               </Button>
@@ -2966,10 +2963,10 @@ export function PrincipalDashboard() {
                   title="Class Leaders Directory"
                   icon={UserCheck}
                 >
-                  <div className="overflow-x-auto rounded-2xl border border-border bg-background/50">
+                  <div className="overflow-x-auto rounded-2xl bg-muted/35">
                     <table className="w-full min-w-[780px] border-collapse text-left text-xs">
                       <thead>
-                        <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                        <tr className="border-b border-border/40 bg-muted/50 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                           <th className="px-4 py-3">Leader ID</th>
                           <th className="px-4 py-3">Role Title</th>
                           <th className="px-4 py-3">Student Name</th>
@@ -2978,22 +2975,22 @@ export function PrincipalDashboard() {
                           <th className="px-4 py-3 text-right">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-border">
+                      <tbody className="divide-y divide-border/40">
                         {CLASS_LEADERS.map((cl) => {
                           const studentObj =
                             students.find((s) => s.id === cl.studentId) ?? students[0]
                           return (
-                            <tr key={cl.leaderId} className="hover:bg-muted/25">
-                              <td className="px-4 py-3 font-mono font-bold text-cyan tabular-nums">
+                            <tr key={cl.leaderId} className="hover:bg-muted/30">
+                              <td className="px-4 py-3 font-mono font-bold text-[#0077CC] tabular-nums dark:text-[#0095F6]">
                                 {cl.leaderId}
                               </td>
                               <td className="px-4 py-3">
                                 <span
                                   className={cn(
-                                    'rounded-md px-2 py-0.5 text-[11px] font-semibold',
+                                    'rounded-full px-2.5 py-0.5 text-[11px] font-semibold',
                                     cl.roleTitle === 'Main Class Leader'
-                                      ? 'bg-lime/15 text-lime'
-                                      : 'bg-cyan/15 text-cyan',
+                                      ? 'bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]'
+                                      : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400',
                                   )}
                                 >
                                   {cl.roleTitle}
@@ -3019,7 +3016,7 @@ export function PrincipalDashboard() {
                                       const el = document.getElementById('principal-leader-editor')
                                       el?.scrollIntoView({ behavior: 'smooth' })
                                     }}
-                                    className="h-8 rounded-xl px-2.5 text-xs font-semibold"
+                                    className="h-8 rounded-full px-3 text-xs font-semibold"
                                   >
                                     Change Leader
                                   </Button>
@@ -3028,7 +3025,7 @@ export function PrincipalDashboard() {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => setPdfReportStudent(studentObj)}
-                                    className="h-8 rounded-xl border-cyan/40 bg-cyan/10 px-2.5 text-xs font-semibold text-cyan hover:bg-cyan/20"
+                                    className="h-8 rounded-full bg-[#0095F6]/12 px-3 text-xs font-semibold text-[#0077CC] hover:bg-[#0095F6]/20 dark:text-[#0095F6]"
                                   >
                                     <FileText className="mr-1 size-3.5" aria-hidden="true" />
                                     Parent PDF
@@ -3632,13 +3629,13 @@ export function PrincipalDashboard() {
                                     type="button"
                                     size="sm"
                                     onClick={() => setPdfReportStudent(item.student)}
-                                    className="h-7 rounded-lg bg-cyan px-2.5 text-[11px] font-semibold text-slate-950 hover:bg-cyan/90"
+                                    className="h-7 rounded-full bg-[#0095F6] px-3 text-[11px] font-semibold text-white hover:bg-[#0077CC]"
                                   >
                                     <FileText className="mr-1 size-3" aria-hidden="true" />
                                     Parent PDF
                                   </Button>
                                   {confirmRemoveStudentId === item.student.id ? (
-                                    <div className="inline-flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-500/10 px-1.5 py-0.5">
+                                    <div className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5">
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -3650,7 +3647,7 @@ export function PrincipalDashboard() {
                                           )
                                           setTimeout(() => setStudentAdminToast(null), 4000)
                                         }}
-                                        className="rounded bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-red-700"
+                                        className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-red-700"
                                       >
                                         Confirm
                                       </button>
@@ -3668,7 +3665,7 @@ export function PrincipalDashboard() {
                                       size="sm"
                                       variant="ghost"
                                       onClick={() => setConfirmRemoveStudentId(item.student.id)}
-                                      className="h-7 rounded-lg px-2 text-[11px] font-semibold text-red-500 hover:bg-red-500/10 hover:text-red-600"
+                                      className="h-7 rounded-full px-2 text-[11px] font-semibold text-red-500 hover:bg-red-500/10 hover:text-red-600"
                                       title="Remove Student"
                                     >
                                       <Trash2 className="size-3.5" aria-hidden="true" />
@@ -3699,7 +3696,7 @@ export function PrincipalDashboard() {
                       <span className="text-xs font-semibold text-muted-foreground">
                         Active Academy Semester:
                       </span>
-                      <div className="inline-flex rounded-xl border border-border bg-background p-0.5">
+                      <div className="inline-flex rounded-full bg-muted/70 p-0.5">
                         {([1, 2] as const).map((sem) => {
                           const isCurrent = getActiveSemester() === sem
                           return (
@@ -3716,9 +3713,9 @@ export function PrincipalDashboard() {
                                 setTimeout(() => setTtAdminToast(null), 4000)
                               }}
                               className={cn(
-                                'rounded-lg px-3 py-1 text-xs font-bold transition-all',
+                                'rounded-full px-3 py-1 text-xs font-bold transition-all',
                                 isCurrent
-                                  ? 'bg-lime text-slate-950 shadow-2xs cursor-default'
+                                  ? 'bg-[#0095F6] text-white cursor-default'
                                   : 'text-muted-foreground hover:text-foreground',
                               )}
                             >
@@ -3747,7 +3744,7 @@ export function PrincipalDashboard() {
                       ഏത് ക്ലാസിലെയും പീരീഡുകളുടെ എണ്ണവും (5 മുതൽ 12 പീരീഡ് വരെ), സമയവും (Period Time), വിഷയങ്ങളും കിതാബുകളും (Subjects / Kitabs), പഠിപ്പിക്കുന്ന ഉസ്താദുമാരുടെ പേരുകളും ഇവിടെനിന്ന് മാറ്റാവുന്നതാണ്. പുതിയ പീരീഡുകൾ ചേർത്താൽ അവ തനിയെ ഹാജർ ഇടുന്നിടത്തും ടൈംടേബിളിലും വരുന്നതാണ്.
                     </p>
 
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-background/60 p-3.5">
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/45 p-3.5">
                       <div className="flex flex-wrap items-center gap-3">
                         <div className="flex items-center gap-2">
                           <Label htmlFor="pr-tt-class" className="text-xs font-bold">
@@ -3757,7 +3754,7 @@ export function PrincipalDashboard() {
                             id="pr-tt-class"
                             value={ttEditClass}
                             onChange={(e) => setTtEditClass(e.target.value)}
-                            className="h-9 rounded-xl border border-input bg-card px-3 text-xs font-semibold text-foreground outline-none"
+                            className="h-9 rounded-full bg-popover px-3.5 text-xs font-semibold text-foreground outline-none"
                           >
                             {ALL_ACADEMY_CLASS_NAMES.map((cls) => (
                               <option key={cls} value={cls}>
@@ -3767,16 +3764,16 @@ export function PrincipalDashboard() {
                           </ThemeSelect>
                         </div>
 
-                        <div className="inline-flex rounded-xl border border-border bg-card p-1">
+                        <div className="inline-flex rounded-full bg-popover p-1">
                           {([1, 2] as const).map((semTab) => (
                             <button
                               key={semTab}
                               type="button"
                               onClick={() => setTtEditSemesterTab(semTab)}
                               className={cn(
-                                'rounded-lg px-3 py-1 text-xs font-semibold transition-all',
+                                'rounded-full px-3 py-1 text-xs font-semibold transition-all',
                                 ttEditSemesterTab === semTab
-                                  ? 'bg-cyan/20 text-cyan'
+                                  ? 'bg-[#0095F6] text-white'
                                   : 'text-muted-foreground hover:text-foreground',
                               )}
                             >
@@ -3790,7 +3787,6 @@ export function PrincipalDashboard() {
                         <Button
                           type="button"
                           size="sm"
-                          variant="outline"
                           disabled={ttDraft.periods.length >= 12}
                           onClick={() => {
                             const nextNum = ttDraft.periods.length + 1
@@ -3814,7 +3810,7 @@ export function PrincipalDashboard() {
                               ],
                             })
                           }}
-                          className="h-8 rounded-xl border-lime/40 bg-lime/15 px-3 text-xs font-semibold text-lime hover:bg-lime/25"
+                          className="h-8 rounded-full bg-[#0095F6]/15 px-3 text-xs font-semibold text-[#0077CC] hover:bg-[#0095F6] hover:text-white dark:text-[#0095F6] dark:hover:text-white"
                         >
                           <Plus className="mr-1 size-3.5" aria-hidden="true" />
                           Add Period ({ttDraft.periods.length}/12)
@@ -3833,7 +3829,7 @@ export function PrincipalDashboard() {
                             setTtAdminToast(`Reset Class ${ttEditClass} timetable to default!`)
                             setTimeout(() => setTtAdminToast(null), 4000)
                           }}
-                          className="h-8 rounded-xl text-xs font-semibold disabled:opacity-50"
+                          className="h-8 rounded-full text-xs font-semibold disabled:opacity-50"
                         >
                           <RotateCcw className="mr-1.5 size-3.5" aria-hidden="true" />
                           Reset Class Default
@@ -3848,10 +3844,10 @@ export function PrincipalDashboard() {
                         return (
                           <div
                             key={`${idx}-${period.label}`}
-                            className="grid gap-3 rounded-2xl border border-border bg-background/50 p-3.5 sm:grid-cols-12 sm:items-end"
+                            className="grid gap-3 rounded-2xl bg-muted/40 p-3.5 sm:grid-cols-12 sm:items-end"
                           >
                             <div className="flex flex-col gap-1 sm:col-span-3">
-                              <Label className="text-[11px] font-bold text-lime uppercase">
+                              <Label className="text-[11px] font-bold text-[#0077CC] uppercase dark:text-[#0095F6]">
                                 {period.label} Timing
                               </Label>
                               <Input
@@ -3998,7 +3994,7 @@ export function PrincipalDashboard() {
               icon={Megaphone}
             >
               <form onSubmit={handlePublishNotice} className="flex flex-col gap-4">
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-lime/30 bg-lime/10 p-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#0095F6]/10 p-3.5">
                   <div className="flex flex-col gap-0.5">
                     <span className="text-xs font-bold text-foreground">
                       Declare Official Academy Holiday (Monthly 2nd Saturday / Festival Holiday)
@@ -4007,7 +4003,7 @@ export function PrincipalDashboard() {
                       When enabled, official holiday days are automatically deducted from the working days of all {students.length} students for the selected month.
                     </span>
                   </div>
-                  <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-lime">
+                  <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-[#0077CC] dark:text-[#0095F6]">
                     <input
                       type="checkbox"
                       checked={isHolidayNotice}
@@ -4023,7 +4019,7 @@ export function PrincipalDashboard() {
                           )
                         }
                       }}
-                      className="size-4 accent-lime"
+                      className="size-4 accent-[#0095F6]"
                     />
                     Official Holiday Mode
                   </label>
@@ -4054,7 +4050,7 @@ export function PrincipalDashboard() {
                       onChange={(e) =>
                         setNoticeCategory(e.target.value as Notice['category'])
                       }
-                      className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
+                      className="h-10 rounded-xl bg-popover px-3 text-xs font-semibold text-foreground outline-none"
                     >
                       <option value="Academic">Academic</option>
                       <option value="Hostel">Hostel</option>
@@ -4065,7 +4061,7 @@ export function PrincipalDashboard() {
                 </div>
 
                 {isHolidayNotice && (
-                  <div className="grid gap-3 rounded-2xl border border-border bg-background/60 p-4 sm:grid-cols-3">
+                  <div className="grid gap-3 rounded-2xl bg-muted/45 p-4 sm:grid-cols-3">
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="pr-holiday-month" className="text-xs">
                         Target Month (June – May)
@@ -4074,7 +4070,7 @@ export function PrincipalDashboard() {
                         id="pr-holiday-month"
                         value={holidayMonthId}
                         onChange={(e) => setHolidayMonthId(e.target.value)}
-                        className="h-9 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground"
+                        className="h-9 rounded-xl bg-popover px-3 text-xs font-semibold text-foreground outline-none"
                       >
                         {MONTHS_META.map((m) => (
                           <option key={m.id} value={m.id}>
@@ -4111,7 +4107,7 @@ export function PrincipalDashboard() {
                             e.target.value as OfficialHolidayMeta['holidayType'],
                           )
                         }
-                        className="h-9 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground"
+                        className="h-9 rounded-xl bg-popover px-3 text-xs font-semibold text-foreground outline-none"
                       >
                         <option value="monthly-second-saturday">
                           Monthly 2nd Saturday Leave
@@ -4170,12 +4166,12 @@ export function PrincipalDashboard() {
                     value={noticeBody}
                     onChange={(e) => setNoticeBody(e.target.value)}
                     placeholder="Write official principal announcement for all students, leaders, and usthads..."
-                    className="rounded-xl border border-input bg-background p-3 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="rounded-xl bg-popover p-3 text-xs text-foreground outline-none"
                   />
                 </div>
 
                 {/* Target Classes Selector */}
-                <div className="flex flex-col gap-2.5 rounded-2xl border border-cyan/30 bg-cyan/[0.05] p-3.5">
+                <div className="flex flex-col gap-2.5 rounded-2xl bg-[#0095F6]/[0.08] p-3.5">
                   <div className="flex flex-col gap-0.5">
                     <Label className="text-xs font-bold text-foreground">
                       Target Classes
@@ -4213,16 +4209,16 @@ export function PrincipalDashboard() {
                           type="button"
                           onClick={() => setNoticeTargetScope(opt.id)}
                           className={cn(
-                            'flex items-center justify-start gap-2 rounded-xl border px-3 py-2 text-left text-xs font-semibold transition-all',
+                            'flex items-center justify-start gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold transition-all active:scale-[0.98]',
                             active
-                              ? 'border-cyan bg-cyan/20 text-foreground shadow-2xs'
-                              : 'border-border bg-background/70 text-muted-foreground hover:text-foreground',
+                              ? 'bg-[#0095F6]/20 text-foreground'
+                              : 'bg-popover text-muted-foreground hover:text-foreground',
                           )}
                         >
                           <span
                             className={cn(
-                              'flex size-3.5 shrink-0 items-center justify-center rounded-full border',
-                              active ? 'border-cyan bg-cyan text-slate-950' : 'border-muted-foreground/50',
+                              'flex size-4 shrink-0 items-center justify-center rounded-full',
+                              active ? 'bg-[#0095F6] text-white' : 'bg-muted text-transparent',
                             )}
                           >
                             {active ? <Check className="size-2.5 stroke-[3]" /> : null}
@@ -4234,7 +4230,7 @@ export function PrincipalDashboard() {
                   </div>
 
                   {noticeTargetScope === 'custom' ? (
-                    <div className="mt-1 flex flex-col gap-2 rounded-xl border border-border/70 bg-background/80 p-3">
+                    <div className="mt-1 flex flex-col gap-2 rounded-xl bg-popover p-3">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs font-semibold text-foreground">
                           Select Classes ({noticeCustomBatches.length} selected):
@@ -4243,7 +4239,7 @@ export function PrincipalDashboard() {
                           <button
                             type="button"
                             onClick={() => setNoticeCustomBatches([...ALL_ACADEMY_CLASS_NAMES])}
-                            className="text-[11px] font-semibold text-cyan hover:underline"
+                            className="text-[11px] font-semibold text-[#0077CC] hover:underline dark:text-[#0095F6]"
                           >
                             Select All 11
                           </button>
@@ -4266,13 +4262,13 @@ export function PrincipalDashboard() {
                               type="button"
                               onClick={() => toggleNoticeCustomBatch(cls)}
                               className={cn(
-                                'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-all',
+                                'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-all active:scale-[0.97]',
                                 checked
-                                  ? 'border-lime bg-lime/20 text-foreground'
-                                  : 'border-border bg-card text-muted-foreground hover:text-foreground',
+                                  ? 'bg-[#0095F6] text-white'
+                                  : 'bg-muted/70 text-muted-foreground hover:text-foreground',
                               )}
                             >
-                              {checked ? <Check className="size-3 text-lime" /> : null}
+                              {checked ? <Check className="size-3" /> : null}
                               <span>{cls}</span>
                             </button>
                           )
@@ -4288,7 +4284,7 @@ export function PrincipalDashboard() {
                       type="checkbox"
                       checked={noticePinned}
                       onChange={(e) => setNoticePinned(e.target.checked)}
-                      className="size-4 accent-lime"
+                      className="size-4 accent-[#0095F6]"
                     />
                     Pin to top of Campus Notice Board
                   </label>
@@ -4304,14 +4300,14 @@ export function PrincipalDashboard() {
                 </div>
 
                 {noticeToast && (
-                  <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-600 dark:text-lime">
+                  <p className="rounded-xl bg-emerald-500/15 px-3.5 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
                     {noticeToast}
                   </p>
                 )}
               </form>
 
               {customNotices.length > 0 && (
-                <div className="mt-6 border-t border-border pt-4">
+                <div className="mt-6 border-t border-border/40 pt-4">
                   <h4 className="mb-2.5 text-xs font-bold tracking-wider text-muted-foreground uppercase">
                     Manage Published Custom Notices ({customNotices.length})
                   </h4>
@@ -4322,7 +4318,7 @@ export function PrincipalDashboard() {
                       return (
                         <div
                           key={n.id}
-                          className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/60 p-3 text-xs"
+                          className="flex items-center justify-between gap-3 rounded-2xl bg-muted/45 p-3 text-xs"
                         >
                           <div className="min-w-0">
                             <p className="truncate font-semibold text-foreground">{n.title}</p>
@@ -4331,7 +4327,7 @@ export function PrincipalDashboard() {
                               <span>•</span>
                               <span>{n.date}</span>
                               <span>•</span>
-                              <span className="font-semibold text-cyan">{nTargetBadge}</span>
+                              <span className="font-semibold text-[#0077CC] dark:text-[#0095F6]">{nTargetBadge}</span>
                             </p>
                           </div>
                           <div className="flex shrink-0 items-center gap-1.5">

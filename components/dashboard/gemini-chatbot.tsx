@@ -1152,8 +1152,8 @@ function FormattedChatText({
               className={cn(
                 'my-0.5 py-1.5 text-sm',
                 isAr
-                  ? `border-r-2 border-l-0 rounded-l-lg rounded-r-none pr-3 pl-2 text-right border-lime/70 bg-lime/10 ${isUr ? 'font-urdu' : 'font-arabic'}`
-                  : 'rounded-r-lg border-l-2 border-lime/70 bg-lime/10 pl-3 pr-2 text-left font-poppins',
+                  ? `border-r-2 border-l-0 rounded-l-lg rounded-r-none pr-3 pl-2 text-right border-[#0095F6]/70 bg-[#0095F6]/10 ${isUr ? 'font-urdu' : 'font-arabic'}`
+                  : 'rounded-r-lg border-l-2 border-[#0095F6]/70 bg-[#0095F6]/10 pl-3 pr-2 text-left font-poppins',
               )}
             >
               {renderInlineMarkdown(quoteContent, key, isUser, isUr)}
@@ -1178,7 +1178,7 @@ function FormattedChatText({
               <span
                 className={cn(
                   'mt-1.5 size-1.5 shrink-0 rounded-full',
-                  isUser ? 'bg-emerald-700 dark:bg-zinc-300' : 'bg-lime',
+                  isUser ? 'bg-white/85' : 'bg-[#0095F6]',
                 )}
                 aria-hidden="true"
               />
@@ -2638,16 +2638,16 @@ export function GeminiChatbot({
           <div
             role="group"
             aria-label="Select chat response language"
-            className="inline-flex max-w-full flex-wrap rounded-xl border border-border bg-background/70 p-1"
+            className="inline-flex max-w-full flex-wrap rounded-full bg-muted/50 p-1"
           >
             <button
               type="button"
               onClick={() => handleSelectLanguage('auto')}
               title="Reply in the language you ask"
               className={cn(
-                'rounded-lg px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap',
+                'rounded-full px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap',
                 responseLanguagePreference === 'auto'
-                  ? 'bg-lime text-primary-foreground font-semibold shadow-xs'
+                  ? 'bg-[#0095F6] text-white font-semibold'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
@@ -2662,12 +2662,12 @@ export function GeminiChatbot({
                   onClick={() => handleSelectLanguage(lang.id)}
                   title={`Reply in ${lang.label}`}
                   className={cn(
-                    'rounded-lg px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap',
+                    'rounded-full px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap',
                     lang.id === 'ml' && 'font-malayalam',
                     lang.id === 'ar' && 'font-arabic',
                     lang.id === 'ur' && 'font-urdu text-sm leading-none',
                     active
-                      ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                      ? 'bg-[#0095F6] text-white font-semibold'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -2680,7 +2680,7 @@ export function GeminiChatbot({
           <div
             role="group"
             aria-label="Select response speed tier"
-            className="hidden sm:inline-flex max-w-full flex-wrap rounded-xl border border-border bg-background/70 p-1"
+            className="hidden sm:inline-flex max-w-full flex-wrap rounded-full bg-muted/50 p-1"
           >
             {MODEL_TIERS.map((tier) => {
               const active = modelTier === tier.id
@@ -2691,9 +2691,9 @@ export function GeminiChatbot({
                   onClick={() => setModelTier(tier.id)}
                   title={`${tier.label} (${tier.description})`}
                   className={cn(
-                    'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap',
+                    'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap',
                     active
-                      ? 'bg-lime text-primary-foreground font-semibold shadow-xs'
+                      ? 'bg-[#0095F6] text-white font-semibold'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >

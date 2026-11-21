@@ -1391,7 +1391,7 @@ export function AppVideoGuideTriggerButton({
           onBeforeOpen?.()
           setOpen(true)
         }}
-        className="mb-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/12 px-4 text-xs font-semibold text-emerald-700 transition-colors duration-200 outline-none hover:border-emerald-500 hover:bg-emerald-500/20 dark:border-lime/35 dark:bg-lime/12 dark:text-lime dark:hover:bg-lime/20 focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="mb-2 flex h-10 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#7C3AED] via-[#4F46E5] to-[#0095F6] px-4 text-xs font-semibold text-white transition-all duration-200 outline-none hover:brightness-110 active:scale-[0.98]"
       >
         <PlayCircle className="size-4 shrink-0" aria-hidden="true" />
         <span>App Video Guide (മലയാളം ശബ്ദ സഹായി)</span>

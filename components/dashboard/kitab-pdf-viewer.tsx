@@ -333,20 +333,20 @@ export function KitabPdfCanvasViewer({
                   type="button"
                   onClick={() => setViewMode((m) => (m === 'scroll' ? 'single' : 'scroll'))}
                   className={cn(
-                    'inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors',
+                    'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[11px] font-semibold transition-all active:scale-[0.98]',
                     viewMode === 'scroll'
-                      ? 'border-lime/50 bg-lime/15 text-foreground'
-                      : 'border-border bg-card text-muted-foreground hover:text-foreground',
+                      ? 'bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]'
+                      : 'bg-muted/60 text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  <Layers className="size-3.5 text-lime" aria-hidden="true" />
+                  <Layers className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                   <span>{viewMode === 'scroll' ? 'All Pages Scroll' : 'Single Page'}</span>
                 </button>
               ) : null}
             </>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-1 text-xs font-medium text-muted-foreground">
-              <FileText className="size-3.5 text-lime" aria-hidden="true" />
+              <FileText className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
               <span>Built-in PDF Reader</span>
             </span>
           )}

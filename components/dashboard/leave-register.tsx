@@ -1457,7 +1457,7 @@ function ReturnRegistryForm({
       {!activeLeaveEntry ? (
         <div
           role="status"
-          className="flex items-start gap-3 rounded-xl border border-emerald-500/35 bg-emerald-500/10 p-3.5 text-xs leading-relaxed text-emerald-800 dark:border-lime/35 dark:bg-lime/10 dark:text-lime"
+          className="flex items-start gap-3 rounded-2xl bg-emerald-500/12 p-3.5 text-xs leading-relaxed text-emerald-700 dark:text-emerald-400"
         >
           <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <div>
@@ -1472,10 +1472,10 @@ function ReturnRegistryForm({
         <div
           role="status"
           className={cn(
-            'flex items-start gap-3 rounded-xl border p-3.5 text-xs leading-relaxed',
+            'flex items-start gap-3 rounded-2xl p-3.5 text-xs leading-relaxed',
             isTwelveHoursMet
-              ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-800 dark:border-lime/35 dark:bg-lime/10 dark:text-lime'
-              : 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300',
+              ? 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400'
+              : 'bg-amber-500/12 text-amber-800 dark:text-amber-300',
           )}
         >
           <Clock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />

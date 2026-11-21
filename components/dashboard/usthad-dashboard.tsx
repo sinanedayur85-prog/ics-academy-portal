@@ -1184,15 +1184,15 @@ export function UsthadDashboard() {
 
         {/* Mobile Sub-Switcher on Students Tab: Class Roster vs Timetable vs Tests & Hub */}
         {mobileTab === 'roster' ? (
-          <div className="grid grid-cols-3 gap-1 rounded-2xl border border-border bg-card/85 p-1.5 shadow-xs lg:hidden">
+          <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-card p-1.5 lg:hidden">
             <button
               type="button"
               onClick={() => setMobileRosterSubTab('students')}
               className={cn(
-                'flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold transition-all sm:text-xs',
+                'flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold transition-all active:scale-[0.98] sm:text-xs',
                 mobileRosterSubTab === 'students'
-                  ? 'bg-lime text-primary-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? 'bg-[#0095F6] text-white shadow-xs'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
               )}
             >
               <Users className="size-3.5 shrink-0" aria-hidden="true" />
@@ -1202,10 +1202,10 @@ export function UsthadDashboard() {
               type="button"
               onClick={() => setMobileRosterSubTab('timetable')}
               className={cn(
-                'flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold transition-all sm:text-xs',
+                'flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold transition-all active:scale-[0.98] sm:text-xs',
                 mobileRosterSubTab === 'timetable'
-                  ? 'bg-lime text-primary-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? 'bg-[#0095F6] text-white shadow-xs'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
               )}
             >
               <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
@@ -1215,10 +1215,10 @@ export function UsthadDashboard() {
               type="button"
               onClick={() => setMobileRosterSubTab('academic-hub')}
               className={cn(
-                'flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold transition-all sm:text-xs',
+                'flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold transition-all active:scale-[0.98] sm:text-xs',
                 mobileRosterSubTab === 'academic-hub'
-                  ? 'bg-lime text-primary-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? 'bg-[#0095F6] text-white shadow-xs'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
               )}
             >
               <Trophy className="size-3.5 shrink-0" aria-hidden="true" />
@@ -1276,7 +1276,7 @@ export function UsthadDashboard() {
                 ) : null}
               </div>
 
-              <div className="inline-flex items-center gap-1 rounded-xl border border-border bg-background/60 p-1">
+              <div className="inline-flex items-center gap-1 rounded-full bg-muted/60 p-1">
                 {(
                   [
                     { id: 'all', label: `All (${classStudents.length})` },
@@ -1292,9 +1292,9 @@ export function UsthadDashboard() {
                     type="button"
                     onClick={() => setRosterFilter(tab.id)}
                     className={cn(
-                      'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0',
+                      'rounded-full px-3 py-1.5 text-xs font-semibold transition-all active:scale-[0.98] whitespace-nowrap shrink-0',
                       rosterFilter === tab.id
-                        ? 'bg-primary text-primary-foreground shadow-xs'
+                        ? 'bg-[#0095F6] text-white shadow-xs'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                     )}
                   >
@@ -1307,7 +1307,7 @@ export function UsthadDashboard() {
             <div className="-mx-5 overflow-x-auto px-5 md:-mx-6 md:px-6">
               <table className="w-full min-w-[680px] border-collapse text-left text-sm">
                 <thead>
-                  <tr className="border-b border-border text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+                  <tr className="border-b border-border/40 text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
                     <th scope="col" className="py-3 pr-3 whitespace-nowrap">Admission No.</th>
                     <th scope="col" className="px-3 py-3 whitespace-nowrap">Student Name</th>
                     <th scope="col" className="px-3 py-3 whitespace-nowrap">Campus Status</th>
@@ -1316,7 +1316,7 @@ export function UsthadDashboard() {
                     <th scope="col" className="py-3 pl-3 text-right whitespace-nowrap">Quick Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border/70">
+                <tbody className="divide-y divide-border/35">
                   {filteredRoster.map(({ student: st, effective, overallRate, isOnLeave, activeLeaveEntry }) => {
                     const isSelected = st.id === selectedStudent?.id
                     return (
@@ -1324,7 +1324,7 @@ export function UsthadDashboard() {
                         key={st.id}
                         className={cn(
                           'transition-colors hover:bg-muted/40',
-                          isSelected && 'bg-lime/5',
+                          isSelected && 'bg-[#0095F6]/[0.07]',
                         )}
                       >
                         <td className="py-3 pr-3 font-mono text-xs font-medium tabular-nums text-muted-foreground whitespace-nowrap">
@@ -1332,7 +1332,7 @@ export function UsthadDashboard() {
                         </td>
                         <td className="px-3 py-3 font-medium text-foreground whitespace-nowrap">
                           <div className="flex items-center gap-2 whitespace-nowrap">
-                            <GraduationCap className="size-4 shrink-0 text-lime" aria-hidden="true" />
+                            <GraduationCap className="size-4 shrink-0 text-[#0095F6]" aria-hidden="true" />
                             <span className="whitespace-nowrap">{st.name}</span>
                           </div>
                         </td>
@@ -1340,7 +1340,7 @@ export function UsthadDashboard() {
                           <span
                             className={cn(
                               'inline-flex items-center gap-1.5 text-xs font-semibold',
-                              isOnLeave ? 'text-red-500' : 'text-emerald-600 dark:text-lime',
+                              isOnLeave ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400',
                             )}
                           >
                             {isOnLeave ? 'On Leave' : 'At Academy'}
@@ -1352,7 +1352,7 @@ export function UsthadDashboard() {
                           ) : null}
                         </td>
                         <td className="px-3 py-3 text-right font-mono text-xs tabular-nums text-muted-foreground whitespace-nowrap">
-                          <span className="font-semibold text-emerald-600 dark:text-lime">
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                             {effective.attendance.present}P
                           </span>
                           {' · '}
@@ -1360,7 +1360,7 @@ export function UsthadDashboard() {
                             {effective.attendance.absent}A
                           </span>
                           {' · '}
-                          <span className="font-semibold text-cyan">
+                          <span className="font-semibold text-[#0077CC] dark:text-[#0095F6]">
                             {effective.attendance.leave}L
                           </span>
                         </td>
@@ -1375,7 +1375,7 @@ export function UsthadDashboard() {
                                 setSelectedStudentId(st.id)
                                 setMobileTab('attendance')
                               }}
-                              className="inline-flex h-8 items-center rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:border-lime/40 hover:bg-muted whitespace-nowrap shrink-0"
+                              className="inline-flex h-8 items-center rounded-full bg-muted/70 px-3 text-xs font-medium text-foreground transition-all hover:bg-muted active:scale-[0.98] whitespace-nowrap shrink-0"
                             >
                               Attendance
                             </a>
@@ -1386,14 +1386,14 @@ export function UsthadDashboard() {
                                 setLeaveActionType(isOnLeave ? 'return' : 'application')
                                 setMobileTab('leave')
                               }}
-                              className="inline-flex h-8 items-center rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-cyan/40 hover:text-foreground whitespace-nowrap shrink-0"
+                              className="inline-flex h-8 items-center rounded-full bg-muted/60 px-3 text-xs font-medium text-muted-foreground transition-all hover:bg-muted hover:text-foreground active:scale-[0.98] whitespace-nowrap shrink-0"
                             >
                               {isOnLeave ? 'Mark Return' : 'Log Leave'}
                             </a>
                             <button
                               type="button"
                               onClick={() => setPdfReportStudent(st)}
-                              className="inline-flex h-8 items-center gap-1 rounded-lg border border-cyan/40 bg-cyan/10 px-2.5 text-xs font-semibold text-cyan transition-colors hover:bg-cyan/20 whitespace-nowrap shrink-0"
+                              className="inline-flex h-8 items-center gap-1 rounded-full bg-[#0095F6]/15 px-3 text-xs font-semibold text-[#0077CC] transition-all hover:bg-[#0095F6]/25 active:scale-[0.98] dark:text-[#0095F6] whitespace-nowrap shrink-0"
                             >
                               <FileText className="size-3.5" aria-hidden="true" />
                               Parent PDF
@@ -1424,7 +1424,7 @@ export function UsthadDashboard() {
             title="എൻ്റെ ടൈംടേബിളും ക്ലാസ്സ് ഷെഡ്യൂളും"
             icon={CalendarDays}
             action={
-              <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-lime/15 dark:text-lime tabular-nums">
+              <span className="inline-flex items-center rounded-full bg-[#0095F6]/15 px-3 py-1 text-xs font-semibold text-[#0077CC] dark:text-[#0095F6] tabular-nums">
                 {allScheduledPeriods.length} Scheduled Periods
               </span>
             }
@@ -1453,14 +1453,14 @@ export function UsthadDashboard() {
                         <div
                           key={`tt_${slot.className}_p${slot.periodIndex}`}
                           className={cn(
-                            'flex flex-col justify-between gap-2.5 rounded-xl border p-3.5 transition-all',
+                            'flex flex-col justify-between gap-2.5 rounded-2xl p-3.5 transition-all',
                             isActive
-                              ? 'border-lime bg-lime/10 shadow-xs'
-                              : 'border-border bg-background/60 hover:border-lime/40',
+                              ? 'bg-[#0095F6]/15'
+                              : 'bg-muted/45 hover:bg-muted/65',
                           )}
                         >
-                          <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2">
-                            <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-bold text-emerald-700 uppercase dark:bg-lime/15 dark:text-lime">
+                          <div className="flex items-center justify-between gap-2 border-b border-border/35 pb-2">
+                            <span className="rounded-full bg-[#0095F6]/15 px-2.5 py-0.5 font-mono text-[11px] font-bold text-[#0077CC] uppercase dark:text-[#0095F6]">
                               {slot.className} · {slot.periodLabel}
                             </span>
                             <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
@@ -1485,7 +1485,7 @@ export function UsthadDashboard() {
                               }
                               setMobileTab('attendance')
                             }}
-                            className="inline-flex h-8 w-full items-center justify-center rounded-lg border border-lime/40 bg-lime/15 px-2.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-lime/25 dark:text-lime"
+                            className="inline-flex h-8 w-full items-center justify-center rounded-full bg-[#0095F6]/15 px-3 text-xs font-semibold text-[#0077CC] transition-all hover:bg-[#0095F6] hover:text-white active:scale-[0.98] dark:text-[#0095F6] dark:hover:text-white"
                           >
                             Mark Attendance
                           </a>
@@ -1494,21 +1494,21 @@ export function UsthadDashboard() {
                     })}
                   </div>
                 ) : (
-                  <p className="rounded-xl border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
+                  <p className="rounded-2xl bg-muted/40 p-4 text-xs text-muted-foreground">
                     ഈ സെമസ്റ്ററിൽ താങ്കൾക്ക് നേരിട്ടുള്ള പിരീഡുകളൊന്നും ഷെഡ്യൂൾ ചെയ്തിട്ടില്ല.
                   </p>
                 )}
               </div>
 
               {/* Active Class Full Timetable */}
-              <div className="space-y-3 border-t border-border/70 pt-5">
+              <div className="space-y-3 border-t border-border/40 pt-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <h3 className="font-display text-sm font-bold text-foreground sm:text-base">
                       Class {activeClassName} — മുഴുവൻ ടൈംടേബിൾ (Full Class Schedule)
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      താങ്കളുടെ പിരീഡുകൾ പച്ച നിറത്തിൽ ഹൈലൈറ്റ് ചെയ്തിട്ടുണ്ട്.
+                      താങ്കളുടെ പിരീഡുകൾ നീല നിറത്തിൽ ഹൈലൈറ്റ് ചെയ്തിട്ടുണ്ട്.
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -1525,10 +1525,10 @@ export function UsthadDashboard() {
                           }
                         }}
                         className={cn(
-                          'rounded-lg border px-2 py-1 text-[11px] font-semibold transition-colors',
+                          'rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all active:scale-[0.97]',
                           activeClassName === clsName
-                            ? 'border-lime bg-lime text-slate-950'
-                            : 'border-border bg-background/60 text-muted-foreground hover:text-foreground',
+                            ? 'bg-[#0095F6] text-white'
+                            : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
                         )}
                       >
                         {clsName}
@@ -1552,20 +1552,20 @@ export function UsthadDashboard() {
                       <div
                         key={`full_${activeClassName}_p${idx + 1}`}
                         className={cn(
-                          'flex flex-col justify-between rounded-xl border p-3 transition-colors',
+                          'flex flex-col justify-between rounded-2xl p-3.5 transition-colors',
                           isNonTeaching
-                            ? 'border-border/60 bg-muted/25 text-muted-foreground'
+                            ? 'bg-muted/25 text-muted-foreground'
                             : isMine
-                              ? 'border-emerald-500/60 bg-emerald-500/[0.08] dark:border-lime/60 dark:bg-lime/[0.08]'
-                              : 'border-border bg-background/50',
+                              ? 'bg-[#0095F6]/12'
+                              : 'bg-muted/45',
                         )}
                       >
-                        <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-1.5">
+                        <div className="flex items-center justify-between gap-2 border-b border-border/35 pb-1.5">
                           <span
                             className={cn(
                               'text-xs font-bold uppercase',
                               isMine
-                                ? 'text-emerald-700 dark:text-lime'
+                                ? 'text-[#0077CC] dark:text-[#0095F6]'
                                 : isNonTeaching
                                   ? 'text-muted-foreground'
                                   : 'text-foreground',
@@ -1590,7 +1590,7 @@ export function UsthadDashboard() {
                             )}
                           </p>
                           {isMine && (
-                            <span className="inline-flex items-center rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-lime/20 dark:text-lime">
+                            <span className="inline-flex items-center rounded-full bg-[#0095F6]/15 px-2 py-0.5 text-[10px] font-bold text-[#0077CC] dark:text-[#0095F6]">
                               • എൻ്റെ പിരീഡ്
                             </span>
                           )}
@@ -1626,7 +1626,7 @@ export function UsthadDashboard() {
                   id="usthad-att-student"
                   value={selectedStudent?.id ?? ''}
                   onChange={(e) => setSelectedStudentId(e.target.value)}
-                  className="h-9 rounded-xl border border-input bg-muted/60 px-3 text-xs font-semibold text-foreground outline-none hover:border-foreground/25 focus-visible:border-ring"
+                  className="h-9 rounded-full bg-muted/70 px-3.5 text-xs font-semibold text-foreground outline-none hover:bg-muted"
                 >
                   {classStudents.map((st) => (
                     <option key={st.id} value={st.id}>
@@ -1644,7 +1644,7 @@ export function UsthadDashboard() {
                   id="usthad-att-month"
                   value={selectedMonthId}
                   onChange={(e) => setSelectedMonthId(e.target.value)}
-                  className="h-9 rounded-xl border border-input bg-muted/60 px-3 text-xs font-semibold text-foreground outline-none hover:border-foreground/25 focus-visible:border-ring"
+                  className="h-9 rounded-full bg-muted/70 px-3.5 text-xs font-semibold text-foreground outline-none hover:bg-muted"
                 >
                   {selectedStudentEffective?.monthlyAttendance.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -1658,7 +1658,7 @@ export function UsthadDashboard() {
                 <button
                   type="button"
                   onClick={() => setPdfReportStudent(selectedStudent)}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-cyan/40 bg-cyan/15 px-3 text-xs font-semibold text-cyan transition-colors hover:bg-cyan/25 whitespace-nowrap shrink-0"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#0095F6] px-3.5 text-xs font-semibold text-white transition-all hover:bg-[#0077CC] active:scale-[0.98] whitespace-nowrap shrink-0"
                 >
                   <FileText className="size-3.5" aria-hidden="true" />
                   Parent PDF Report
@@ -1736,7 +1736,7 @@ export function UsthadDashboard() {
                   </div>
 
                   {/* Working Days vs Official Academy Holidays Excluded Banner */}
-                  <div className="grid grid-cols-2 gap-3 rounded-xl border border-lime/30 bg-lime/[0.06] p-3 text-xs">
+                  <div className="grid grid-cols-2 gap-3 rounded-2xl bg-[#0095F6]/10 p-3.5 text-xs">
                     <div className="flex flex-col">
                       <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
                         Total Working Days ({selectedMonthRecord?.month})
@@ -1748,11 +1748,11 @@ export function UsthadDashboard() {
                         Present ({editPresent}d) + Absent ({editAbsent}d) + Personal Leave ({editLeave}d)
                       </span>
                     </div>
-                    <div className="flex flex-col border-l border-border/70 pl-3">
-                      <span className="text-[10px] font-bold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                    <div className="flex flex-col border-l border-border/40 pl-3">
+                      <span className="text-[10px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
                         Official Academy Holidays (Excluded)
                       </span>
-                      <span className="mt-0.5 font-display text-base font-bold text-emerald-700 tabular-nums dark:text-lime">
+                      <span className="mt-0.5 font-display text-base font-bold text-[#0077CC] tabular-nums dark:text-[#0095F6]">
                         {Math.max(
                           0,
                           (selectedMonthRecord?.calendarDays ?? 30) -
@@ -1858,13 +1858,13 @@ export function UsthadDashboard() {
                     <div
                       onClick={() => setFocusedReasonField('leave')}
                       className={cn(
-                        'flex cursor-pointer flex-col gap-1.5 rounded-xl border bg-card/60 p-3 transition-colors',
+                        'flex cursor-pointer flex-col gap-1.5 rounded-2xl p-3 transition-colors',
                         focusedReasonField === 'leave' || editLeave > 0
-                          ? 'border-cyan/40 bg-cyan/[0.04]'
-                          : 'border-border',
+                          ? 'bg-[#0095F6]/12'
+                          : 'bg-muted/45',
                       )}
                     >
-                      <Label htmlFor="edit-leave" className="text-xs text-cyan">
+                      <Label htmlFor="edit-leave" className="text-xs text-[#0077CC] dark:text-[#0095F6]">
                         Leave Days
                       </Label>
                       <div className="flex items-center gap-1.5">
@@ -1874,7 +1874,7 @@ export function UsthadDashboard() {
                             setFocusedReasonField('leave')
                             setEditLeave((v) => Math.max(0, v - 1))
                           }}
-                          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted"
+                          className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-popover text-foreground hover:bg-muted"
                           aria-label="Decrease leave days"
                         >
                           <Minus className="size-3.5" aria-hidden="true" />
@@ -1890,7 +1890,7 @@ export function UsthadDashboard() {
                             setFocusedReasonField('leave')
                             setEditLeave(Math.max(0, Number.parseInt(e.target.value, 10) || 0))
                           }}
-                          className="h-9 w-full rounded-lg border border-input bg-background text-center font-mono text-sm font-semibold tabular-nums text-foreground"
+                          className="h-9 w-full rounded-xl border-0 bg-popover text-center font-mono text-sm font-semibold tabular-nums text-foreground outline-none"
                         />
                         <button
                           type="button"
@@ -1898,7 +1898,7 @@ export function UsthadDashboard() {
                             setFocusedReasonField('leave')
                             setEditLeave((v) => Math.min(31, v + 1))
                           }}
-                          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted"
+                          className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-popover text-foreground hover:bg-muted"
                           aria-label="Increase leave days"
                         >
                           <Plus className="size-3.5" aria-hidden="true" />
@@ -1909,7 +1909,7 @@ export function UsthadDashboard() {
 
                   {/* 4 Absent Reasons Selector when Absent is touched or > 0 */}
                   {(focusedReasonField === 'absent' || editAbsent > 0) && (
-                    <div className="flex flex-col gap-2 rounded-xl border border-red-500/30 bg-red-500/5 p-3">
+                    <div className="flex flex-col gap-2 rounded-2xl bg-red-500/10 p-3">
                       <span className="text-[11px] font-semibold tracking-wider text-red-600 uppercase dark:text-red-400">
                         Select Absent Reason (4 Options):
                       </span>
@@ -1922,10 +1922,10 @@ export function UsthadDashboard() {
                               type="button"
                               onClick={() => setEditAbsentReason(reason)}
                               className={cn(
-                                'flex items-center justify-start gap-2 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all',
+                                'flex items-center justify-start gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium transition-all active:scale-[0.98]',
                                 isSelected
-                                  ? 'border-red-500 bg-red-500/20 font-semibold text-red-700 dark:border-red-400 dark:text-red-300'
-                                  : 'border-border bg-background/80 text-muted-foreground hover:text-foreground',
+                                  ? 'bg-red-500/20 font-semibold text-red-700 dark:text-red-300'
+                                  : 'bg-card text-muted-foreground hover:text-foreground',
                               )}
                             >
                               {isSelected ? (
@@ -1941,8 +1941,8 @@ export function UsthadDashboard() {
 
                   {/* 4 Leave Reasons Selector when Leave is touched or > 0 */}
                   {(focusedReasonField === 'leave' || editLeave > 0) && (
-                    <div className="flex flex-col gap-2 rounded-xl border border-cyan/30 bg-cyan/5 p-3">
-                      <span className="text-[11px] font-semibold tracking-wider text-cyan uppercase">
+                    <div className="flex flex-col gap-2 rounded-2xl bg-[#0095F6]/10 p-3">
+                      <span className="text-[11px] font-semibold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
                         Select Leave Reason (4 Options):
                       </span>
                       <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
@@ -1954,10 +1954,10 @@ export function UsthadDashboard() {
                               type="button"
                               onClick={() => setEditLeaveReason(reason)}
                               className={cn(
-                                'flex items-center justify-start gap-2 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all',
+                                'flex items-center justify-start gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium transition-all active:scale-[0.98]',
                                 isSelected
-                                  ? 'border-cyan bg-cyan/20 font-semibold text-cyan'
-                                  : 'border-border bg-background/80 text-muted-foreground hover:text-foreground',
+                                  ? 'bg-[#0095F6] font-semibold text-white'
+                                  : 'bg-card text-muted-foreground hover:text-foreground',
                               )}
                             >
                               {isSelected ? (
@@ -1974,7 +1974,7 @@ export function UsthadDashboard() {
                   {attendanceSavedToast ? (
                     <p
                       role="status"
-                      className="flex items-center gap-2 rounded-lg border border-lime/30 bg-lime/10 px-3 py-2 text-xs font-medium text-lime"
+                      className="flex items-center gap-2 rounded-2xl bg-emerald-500/12 px-3 py-2 text-xs font-medium text-emerald-700 dark:text-emerald-400"
                     >
                       <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
                       {attendanceSavedToast}
@@ -1985,7 +1985,7 @@ export function UsthadDashboard() {
                     <Button
                       type="submit"
                       disabled={!isUsthadMonthAttendanceDirty}
-                      className="h-9 rounded-lg px-4 text-xs font-semibold disabled:opacity-50"
+                      className="h-9 rounded-full px-4 text-xs font-semibold disabled:opacity-50"
                     >
                       <Check className="mr-1.5 size-3.5" aria-hidden="true" />
                       {isUsthadMonthAttendanceDirty ? 'Save Attendance Update' : 'Attendance Saved ✓'}
@@ -2010,21 +2010,21 @@ export function UsthadDashboard() {
                         type="button"
                         onClick={() => setSelectedMonthId(m.id)}
                         className={cn(
-                          'flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-xs transition-colors',
+                          'flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs transition-all active:scale-[0.98]',
                           isActive
-                            ? 'border-lime/50 bg-lime/10 text-foreground'
-                            : 'border-border/60 bg-background/40 hover:bg-muted/50',
+                            ? 'bg-[#0095F6]/15 text-foreground'
+                            : 'bg-muted/40 hover:bg-muted/70',
                         )}
                       >
                         <span className="font-semibold">
                           {m.month} {m.year}
                         </span>
                         <span className="font-mono tabular-nums text-muted-foreground">
-                          <span className="text-emerald-600 dark:text-lime">{m.present}P</span>
+                          <span className="text-emerald-600 dark:text-emerald-400">{m.present}P</span>
                           {' · '}
                           <span className="text-destructive">{m.absent}A</span>
                           {' · '}
-                          <span className="text-cyan">{m.leave}L</span>
+                          <span className="text-[#0077CC] dark:text-[#0095F6]">{m.leave}L</span>
                           {' · '}
                           <span className="font-bold text-foreground">{rt}%</span>
                         </span>
@@ -2039,10 +2039,10 @@ export function UsthadDashboard() {
 
         {/* 2B. MY SCHEDULED TEACHING PERIODS ACROSS ALL CLASSES + PERIOD-SPECIFIC ATTENDANCE CONTROL */}
         {allScheduledPeriods.length > 0 && (
-          <div className="rounded-2xl border border-emerald-600/30 bg-emerald-500/[0.06] p-4 sm:p-5 dark:border-lime/35 dark:bg-lime/[0.06]">
+          <div className="rounded-2xl bg-[#0095F6]/10 p-4 sm:p-5">
             <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
               <div>
-                <p className="text-[11px] font-bold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                <p className="text-[11px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
                   എൻ്റെ പിരീഡുകൾ · My Scheduled Teaching Periods Across Classes
                 </p>
                 <h3 className="mt-0.5 font-display text-base font-bold text-foreground sm:text-lg">
@@ -2073,19 +2073,19 @@ export function UsthadDashboard() {
                       }
                     }}
                     className={cn(
-                      'flex flex-col items-start justify-between gap-1.5 rounded-xl border p-3 text-left transition-all',
+                      'flex flex-col items-start justify-between gap-1.5 rounded-2xl p-3.5 text-left transition-all active:scale-[0.98]',
                       isSelectedSlot
-                        ? 'border-emerald-600 bg-lime text-slate-950 shadow-sm dark:border-lime'
-                        : 'border-border bg-card text-foreground hover:border-lime/50 hover:bg-muted/60',
+                        ? 'bg-[#0095F6] text-white shadow-sm'
+                        : 'bg-card text-foreground hover:bg-muted/70',
                     )}
                   >
                     <div className="flex w-full items-center justify-between gap-2">
                       <span
                         className={cn(
-                          'rounded-md px-2 py-0.5 font-mono text-[11px] font-bold uppercase',
+                          'rounded-full px-2.5 py-0.5 font-mono text-[11px] font-bold uppercase',
                           isSelectedSlot
-                            ? 'bg-slate-950/15 text-slate-950'
-                            : 'bg-emerald-500/15 text-emerald-700 dark:bg-lime/15 dark:text-lime',
+                            ? 'bg-white/20 text-white'
+                            : 'bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]',
                         )}
                       >
                         Class {slot.className} · {slot.periodLabel}
@@ -2093,7 +2093,7 @@ export function UsthadDashboard() {
                       <span
                         className={cn(
                           'font-mono text-[10px] font-semibold tabular-nums',
-                          isSelectedSlot ? 'text-slate-900' : 'text-muted-foreground',
+                          isSelectedSlot ? 'text-white/85' : 'text-muted-foreground',
                         )}
                       >
                         {slot.time}
@@ -2143,7 +2143,7 @@ export function UsthadDashboard() {
                   Students Currently On Leave ({studentsCurrentlyOnLeave.length})
                 </h3>
                 {studentsCurrentlyOnLeave.length === 0 ? (
-                  <div className="mt-2.5 flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-emerald-800 dark:border-lime/30 dark:bg-lime/10 dark:text-lime">
+                  <div className="mt-2.5 flex items-center gap-2.5 rounded-2xl bg-emerald-500/12 p-4 text-xs text-emerald-700 dark:text-emerald-400">
                     <UserCheck className="size-4 shrink-0" aria-hidden="true" />
                     <span>
                       All {classStudents.length} students of {usthad.fullClassLabel} are currently present at the academy.
@@ -2154,7 +2154,7 @@ export function UsthadDashboard() {
                     {studentsCurrentlyOnLeave.map(({ student: st, activeLeaveEntry }) => (
                       <li
                         key={st.id}
-                        className="flex flex-col justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/5 p-3.5 sm:flex-row sm:items-center"
+                        className="flex flex-col justify-between gap-3 rounded-2xl bg-red-500/10 p-3.5 sm:flex-row sm:items-center"
                       >
                         <div>
                           <p className="text-sm font-semibold text-foreground">
@@ -2180,7 +2180,7 @@ export function UsthadDashboard() {
                               'Marked returned by Class Usthad',
                             )
                           }
-                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 whitespace-nowrap shrink-0"
+                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full bg-[#0095F6] px-3.5 text-xs font-semibold text-white transition-all hover:bg-[#0077CC] active:scale-[0.98] whitespace-nowrap shrink-0"
                         >
                           <LogIn className="size-3.5" aria-hidden="true" />
                           Mark Returned
@@ -2192,7 +2192,7 @@ export function UsthadDashboard() {
               </div>
 
               {/* Recent Leave & Return Logs Across Class */}
-              <div className="border-t border-border pt-4">
+              <div className="border-t border-border/40 pt-4">
                 <div className="mb-2.5 flex items-center justify-between">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Class Leave & Return Log
@@ -2203,7 +2203,7 @@ export function UsthadDashboard() {
                 </div>
 
                 {allClassLeaveLogs.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                  <p className="rounded-2xl bg-muted/40 p-4 text-center text-xs text-muted-foreground">
                     No leave or return entries logged for {usthad.fullClassLabel} yet.
                   </p>
                 ) : (
@@ -2211,7 +2211,7 @@ export function UsthadDashboard() {
                     {allClassLeaveLogs.map((entry) => (
                       <li
                         key={entry.id}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/50 px-3.5 py-2.5 text-xs"
+                        className="flex items-center justify-between gap-3 rounded-2xl bg-muted/45 px-3.5 py-2.5 text-xs"
                       >
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-foreground">
@@ -2226,7 +2226,7 @@ export function UsthadDashboard() {
                                 'font-semibold',
                                 entry.recordType === 'application'
                                   ? 'text-red-500'
-                                  : 'text-emerald-600 dark:text-lime',
+                                  : 'text-emerald-600 dark:text-emerald-400',
                               )}
                             >
                               {entry.recordType === 'application' ? 'Leave Departure' : 'Campus Return'}
@@ -2239,7 +2239,7 @@ export function UsthadDashboard() {
                           type="button"
                           onClick={() => void handleDeleteLeaveLog(entry)}
                           aria-label="Delete leave record"
-                          className="rounded p-1 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
+                          className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
                         >
                           <Trash2 className="size-3.5" aria-hidden="true" />
                         </button>
@@ -2253,7 +2253,7 @@ export function UsthadDashboard() {
             {/* Record Leave or Return Form for a Class Student */}
             <form
               onSubmit={handleSubmitLeaveForm}
-              className="flex flex-col gap-4 rounded-xl border border-border bg-background/60 p-4 xl:col-span-5"
+              className="flex flex-col gap-4 rounded-2xl bg-muted/40 p-4 xl:col-span-5"
             >
               <h3 className="text-sm font-semibold text-foreground">
                 Record Student Leave / Return
@@ -2277,14 +2277,14 @@ export function UsthadDashboard() {
                 </ThemeSelect>
               </div>
 
-              <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-border bg-background/60 p-1">
+              <div className="grid grid-cols-2 gap-1.5 rounded-full bg-popover p-1">
                 <button
                   type="button"
                   onClick={() => setLeaveActionType('application')}
                   className={cn(
-                    'flex h-9 items-center justify-center gap-1.5 rounded-lg text-xs font-semibold transition-colors',
+                    'flex h-9 items-center justify-center gap-1.5 rounded-full text-xs font-semibold transition-all active:scale-[0.98]',
                     leaveActionType === 'application'
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-[#0095F6] text-white'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -2295,9 +2295,9 @@ export function UsthadDashboard() {
                   type="button"
                   onClick={() => setLeaveActionType('return')}
                   className={cn(
-                    'flex h-9 items-center justify-center gap-1.5 rounded-lg text-xs font-semibold transition-colors',
+                    'flex h-9 items-center justify-center gap-1.5 rounded-full text-xs font-semibold transition-all active:scale-[0.98]',
                     leaveActionType === 'return'
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-[#0095F6] text-white'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -2321,10 +2321,10 @@ export function UsthadDashboard() {
                             type="button"
                             onClick={() => setLeaveReason(r)}
                             className={cn(
-                              'flex items-center justify-start gap-2 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all',
+                              'flex items-center justify-start gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium transition-all active:scale-[0.98]',
                               isSelected
-                                ? 'border-amber-500 bg-amber-500/20 font-semibold text-amber-800 dark:border-amber-400 dark:text-amber-200'
-                                : 'border-border bg-background/80 text-muted-foreground hover:text-foreground',
+                                ? 'bg-amber-500/20 font-semibold text-amber-800 dark:text-amber-300'
+                                : 'bg-popover text-muted-foreground hover:text-foreground',
                             )}
                           >
                             {isSelected ? (
@@ -2356,7 +2356,7 @@ export function UsthadDashboard() {
               {leaveSavedToast ? (
                 <p
                   role="status"
-                  className="flex items-center gap-2 rounded-lg border border-lime/30 bg-lime/10 px-3 py-2 text-xs font-medium text-lime"
+                  className="flex items-center gap-2 rounded-xl bg-emerald-500/15 px-3 py-2 text-xs font-medium text-emerald-700 dark:text-emerald-400"
                 >
                   <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
                   {leaveSavedToast}
@@ -2366,7 +2366,7 @@ export function UsthadDashboard() {
               <Button
                 type="submit"
                 disabled={isUsthadLeaveActionDuplicate}
-                className="mt-auto h-10 w-full rounded-lg text-xs font-semibold disabled:opacity-50"
+                className="mt-auto h-10 w-full rounded-full text-xs font-semibold disabled:opacity-50"
               >
                 {isUsthadLeaveActionDuplicate
                   ? leaveActionType === 'return'
@@ -2398,7 +2398,7 @@ export function UsthadDashboard() {
             {/* Publish New Notice Form */}
             <form
               onSubmit={handlePublishNotice}
-              className="flex flex-col gap-4 rounded-xl border border-border bg-background/60 p-4 xl:col-span-5"
+              className="flex flex-col gap-4 rounded-2xl bg-muted/40 p-4 xl:col-span-5"
             >
               <h3 className="text-sm font-semibold text-foreground">
                 Publish New Notice
@@ -2438,12 +2438,12 @@ export function UsthadDashboard() {
                 </div>
 
                 <div className="flex flex-col justify-end">
-                  <label className="flex h-11 cursor-pointer items-center gap-2 rounded-lg border border-input bg-input/30 px-3 text-xs font-medium text-foreground">
+                  <label className="flex h-11 cursor-pointer items-center gap-2 rounded-xl bg-popover px-3 text-xs font-medium text-foreground">
                     <input
                       type="checkbox"
                       checked={noticePinned}
                       onChange={(e) => setNoticePinned(e.target.checked)}
-                      className="size-4 accent-lime"
+                      className="size-4 accent-[#0095F6]"
                     />
                     <span>Pin to top</span>
                   </label>
@@ -2466,7 +2466,7 @@ export function UsthadDashboard() {
               </div>
 
               {/* Target Classes Selector */}
-              <div className="flex flex-col gap-2.5 rounded-xl border border-cyan/30 bg-cyan/[0.05] p-3">
+              <div className="flex flex-col gap-2.5 rounded-2xl bg-[#0095F6]/[0.08] p-3">
                 <div className="flex flex-col gap-0.5">
                   <Label className="text-xs font-bold text-foreground">
                     Target Classes
@@ -2508,17 +2508,17 @@ export function UsthadDashboard() {
                         type="button"
                         onClick={() => setNoticeTargetScope(opt.id)}
                         className={cn(
-                          'flex items-center justify-start gap-2 rounded-lg border px-2.5 py-2 text-left text-xs font-semibold transition-all',
+                          'flex items-center justify-start gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-semibold transition-all active:scale-[0.98]',
                           opt.id === 'custom' && 'sm:col-span-2',
                           active
-                            ? 'border-cyan bg-cyan/20 text-foreground shadow-2xs'
-                            : 'border-border bg-background/70 text-muted-foreground hover:text-foreground',
+                            ? 'bg-[#0095F6]/20 text-foreground'
+                            : 'bg-popover text-muted-foreground hover:text-foreground',
                         )}
                       >
                         <span
                           className={cn(
-                            'flex size-3.5 shrink-0 items-center justify-center rounded-full border',
-                            active ? 'border-cyan bg-cyan text-slate-950' : 'border-muted-foreground/50',
+                            'flex size-4 shrink-0 items-center justify-center rounded-full',
+                            active ? 'bg-[#0095F6] text-white' : 'bg-muted text-transparent',
                           )}
                         >
                           {active ? <Check className="size-2.5 stroke-[3]" /> : null}
@@ -2530,7 +2530,7 @@ export function UsthadDashboard() {
                 </div>
 
                 {noticeTargetScope === 'custom' ? (
-                  <div className="mt-1 flex flex-col gap-2 rounded-lg border border-border/70 bg-background/80 p-2.5">
+                  <div className="mt-1 flex flex-col gap-2 rounded-xl bg-popover p-2.5">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[11px] font-semibold text-foreground">
                         Select Classes ({noticeCustomBatches.length} selected):
@@ -2539,7 +2539,7 @@ export function UsthadDashboard() {
                         <button
                           type="button"
                           onClick={() => setNoticeCustomBatches([...ALL_ACADEMY_CLASS_NAMES])}
-                          className="text-[10px] font-semibold text-cyan hover:underline"
+                          className="text-[10px] font-semibold text-[#0077CC] hover:underline dark:text-[#0095F6]"
                         >
                           Select All
                         </button>
@@ -2562,13 +2562,13 @@ export function UsthadDashboard() {
                             type="button"
                             onClick={() => toggleNoticeCustomBatch(cls)}
                             className={cn(
-                              'inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold transition-all',
+                              'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all active:scale-[0.97]',
                               checked
-                                ? 'border-lime bg-lime/20 text-foreground'
-                                : 'border-border bg-card text-muted-foreground hover:text-foreground',
+                                ? 'bg-[#0095F6] text-white'
+                                : 'bg-muted/70 text-muted-foreground hover:text-foreground',
                             )}
                           >
-                            {checked ? <Check className="size-3 text-lime" /> : null}
+                            {checked ? <Check className="size-3" /> : null}
                             <span>{cls}</span>
                           </button>
                         )
@@ -2579,7 +2579,7 @@ export function UsthadDashboard() {
               </div>
 
               {/* Official Academy Holiday Schedule & Working Days Deduction Toggle */}
-              <div className="flex flex-col gap-3 rounded-xl border border-lime/30 bg-lime/[0.05] p-3">
+              <div className="flex flex-col gap-3 rounded-2xl bg-[#0095F6]/[0.08] p-3">
                 <label className="flex cursor-pointer items-center justify-between gap-2 text-xs font-semibold text-foreground">
                   <span>
                     Official Holiday / Working Days Adjustment Notice (2nd Sat or Festival)
@@ -2599,12 +2599,12 @@ export function UsthadDashboard() {
                         )
                       }
                     }}
-                    className="size-4 accent-lime"
+                    className="size-4 accent-[#0095F6]"
                   />
                 </label>
 
                 {isHolidayNotice ? (
-                  <div className="grid gap-2.5 border-t border-border/60 pt-2.5 sm:grid-cols-2">
+                  <div className="grid gap-2.5 border-t border-border/40 pt-2.5 sm:grid-cols-2">
                     <div className="flex flex-col gap-1">
                       <Label htmlFor="holiday-type-select" className="text-[11px]">
                         Holiday Type
@@ -2621,7 +2621,7 @@ export function UsthadDashboard() {
                             setHolidayDaysDeducted('3')
                           }
                         }}
-                        className="h-9 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground"
+                        className="h-9 rounded-xl bg-popover px-2.5 text-xs text-foreground outline-none"
                       >
                         <option value="monthly-second-saturday">
                           Monthly 2nd Saturday Leave (Thu/Fri → Sun/Mon)
@@ -2641,7 +2641,7 @@ export function UsthadDashboard() {
                           id="holiday-month-select"
                           value={holidayMonthId}
                           onChange={(e) => setHolidayMonthId(e.target.value)}
-                          className="h-9 rounded-lg border border-input bg-background px-2 text-xs text-foreground"
+                          className="h-9 rounded-xl bg-popover px-2 text-xs text-foreground outline-none"
                         >
                           {MONTHS_META.map((m) => (
                             <option key={m.id} value={m.id}>
@@ -2662,7 +2662,7 @@ export function UsthadDashboard() {
                           max={25}
                           value={holidayDaysDeducted}
                           onChange={(e) => setHolidayDaysDeducted(e.target.value)}
-                          className="h-9 rounded-lg border border-input bg-background px-2.5 font-mono text-xs font-bold text-lime tabular-nums"
+                          className="h-9 rounded-xl bg-popover px-2.5 font-mono text-xs font-bold text-[#0077CC] dark:text-[#0095F6] tabular-nums outline-none"
                         />
                       </div>
                     </div>
@@ -2677,7 +2677,7 @@ export function UsthadDashboard() {
                         value={holidayDepartureDate}
                         onChange={(e) => setHolidayDepartureDate(e.target.value)}
                         placeholder="e.g. Friday, 13 Nov 2026"
-                        className="h-9 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground"
+                        className="h-9 rounded-xl bg-popover px-2.5 text-xs text-foreground outline-none"
                       />
                     </div>
 
@@ -2691,7 +2691,7 @@ export function UsthadDashboard() {
                         value={holidayDepartureTime}
                         onChange={(e) => setHolidayDepartureTime(e.target.value)}
                         placeholder="e.g. 12:45 PM (After Jumu’ah) or 09:30 AM"
-                        className="h-9 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground"
+                        className="h-9 rounded-xl bg-popover px-2.5 text-xs text-foreground outline-none"
                       />
                     </div>
 
@@ -2705,7 +2705,7 @@ export function UsthadDashboard() {
                         value={holidayReturnDate}
                         onChange={(e) => setHolidayReturnDate(e.target.value)}
                         placeholder="e.g. Monday, 16 Nov 2026"
-                        className="h-9 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground"
+                        className="h-9 rounded-xl bg-popover px-2.5 text-xs text-foreground outline-none"
                       />
                     </div>
 
@@ -2719,7 +2719,7 @@ export function UsthadDashboard() {
                         value={holidayReturnTime}
                         onChange={(e) => setHolidayReturnTime(e.target.value)}
                         placeholder="e.g. 07:30 AM (Before Period 1)"
-                        className="h-9 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground"
+                        className="h-9 rounded-xl bg-popover px-2.5 text-xs text-foreground outline-none"
                       />
                     </div>
 
@@ -2733,7 +2733,7 @@ export function UsthadDashboard() {
                         value={holidayAnnouncedBy}
                         onChange={(e) => setHolidayAnnouncedBy(e.target.value)}
                         placeholder="e.g. Principal • ICS Academy Manhappatta"
-                        className="h-9 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground"
+                        className="h-9 rounded-xl bg-popover px-2.5 text-xs text-foreground outline-none"
                       />
                     </div>
                   </div>
@@ -2743,7 +2743,7 @@ export function UsthadDashboard() {
               {noticeToast ? (
                 <p
                   role="status"
-                  className="flex items-center gap-2 rounded-lg border border-lime/30 bg-lime/10 px-3 py-2 text-xs font-medium text-lime"
+                  className="flex items-center gap-2 rounded-xl bg-emerald-500/15 px-3 py-2 text-xs font-medium text-emerald-700 dark:text-emerald-400"
                 >
                   <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
                   {noticeToast}
@@ -2753,7 +2753,7 @@ export function UsthadDashboard() {
               <Button
                 type="submit"
                 disabled={!noticeTitle.trim() || !noticeBody.trim()}
-                className="h-10 w-full rounded-lg text-xs font-semibold disabled:opacity-50"
+                className="h-10 w-full rounded-full text-xs font-semibold disabled:opacity-50"
               >
                 <Plus className="mr-1.5 size-3.5" aria-hidden="true" />
                 {isHolidayNotice
@@ -2768,8 +2768,8 @@ export function UsthadDashboard() {
                 Published Notices (Synced with Student Dashboard)
               </h3>
               {allNoticesCombined.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/80 bg-background/40 px-4 py-10 text-center">
-                  <Megaphone className="size-6 text-lime" aria-hidden="true" />
+                <div className="flex flex-col items-center justify-center rounded-2xl bg-muted/40 px-4 py-10 text-center">
+                  <Megaphone className="size-6 text-[#0095F6]" aria-hidden="true" />
                   <p className="mt-2 text-xs font-semibold text-foreground">
                     No Announcements Published Yet
                   </p>
@@ -2778,7 +2778,7 @@ export function UsthadDashboard() {
                   </p>
                 </div>
               ) : (
-                <ul className="flex max-h-96 flex-col divide-y divide-border overflow-y-auto rounded-xl border border-border bg-background/40 px-4">
+                <ul className="flex max-h-96 flex-col divide-y divide-border/35 overflow-y-auto rounded-2xl bg-muted/40 px-4">
                   {allNoticesCombined.map((item) => {
                     const isCustom =
                       item.id.startsWith('nt-usthad-') || item.id.startsWith('nt-principal-')
@@ -2788,15 +2788,15 @@ export function UsthadDashboard() {
                       <li key={item.id} className="flex items-start justify-between gap-3 py-3.5">
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2 text-xs">
-                            <span className="font-semibold text-lime">{item.category}</span>
+                            <span className="font-semibold text-[#0077CC] dark:text-[#0095F6]">{item.category}</span>
                             <span aria-hidden="true">·</span>
                             <span className="font-mono tabular-nums text-muted-foreground">{item.date}</span>
                             <span
                               className={cn(
-                                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                                'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold',
                                 itemTargets.length > 0
-                                  ? 'border-cyan/40 bg-cyan/15 text-cyan'
-                                  : 'border-border bg-muted/50 text-muted-foreground',
+                                  ? 'bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]'
+                                  : 'bg-muted/70 text-muted-foreground',
                               )}
                             >
                               <Users className="size-2.5" aria-hidden="true" />
@@ -2805,7 +2805,7 @@ export function UsthadDashboard() {
                             {item.pinned ? (
                               <>
                                 <span aria-hidden="true">·</span>
-                                <span className="inline-flex items-center gap-1 font-medium text-cyan">
+                                <span className="inline-flex items-center gap-1 font-medium text-[#0077CC] dark:text-[#0095F6]">
                                   <Pin className="size-3" aria-hidden="true" /> Pinned
                                 </span>
                               </>
@@ -2821,7 +2821,7 @@ export function UsthadDashboard() {
                               type="button"
                               onClick={() => handleToggleNoticePin(item.id)}
                               title={item.pinned ? 'Unpin notice' : 'Pin notice'}
-                              className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                              className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                             >
                               <Pin className="size-3.5" aria-hidden="true" />
                             </button>
@@ -2829,7 +2829,7 @@ export function UsthadDashboard() {
                               type="button"
                               onClick={() => handleDeleteCustomNotice(item.id)}
                               aria-label="Delete notice"
-                              className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
+                              className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
                             >
                               <Trash2 className="size-3.5" aria-hidden="true" />
                             </button>
@@ -2847,15 +2847,15 @@ export function UsthadDashboard() {
 
         {/* 5. DIGITAL LIBRARY — ADD KITAB PDF & UNIVERSITY PORTAL */}
         {mobileTab === 'library' ? (
-          <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-border bg-card/85 p-1.5 shadow-xs lg:hidden">
+          <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-card p-1.5 lg:hidden">
             <button
               type="button"
               onClick={() => setMobileLibrarySubTab('kitabs')}
               className={cn(
-                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all',
+                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all active:scale-[0.98]',
                 mobileLibrarySubTab === 'kitabs'
-                  ? 'bg-lime text-primary-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? 'bg-[#0095F6] text-white shadow-xs'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
               )}
             >
               <Library className="size-4" aria-hidden="true" />
@@ -2865,10 +2865,10 @@ export function UsthadDashboard() {
               type="button"
               onClick={() => setMobileLibrarySubTab('portal')}
               className={cn(
-                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all',
+                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all active:scale-[0.98]',
                 mobileLibrarySubTab === 'portal'
-                  ? 'bg-lime text-primary-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? 'bg-[#0095F6] text-white shadow-xs'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
               )}
             >
               <Globe className="size-4" aria-hidden="true" />

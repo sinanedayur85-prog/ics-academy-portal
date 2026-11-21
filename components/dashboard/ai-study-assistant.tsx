@@ -460,7 +460,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
       action={
         <div className="flex items-center gap-2">
           {cloudConnected ? (
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-lime">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
               <Cloud className="size-3.5" aria-hidden="true" />
               {firebaseUser?.email
                 ? `Cloud Synced (${firebaseUser.email.split('@')[0]})`
@@ -472,7 +472,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
               variant="outline"
               size="sm"
               onClick={() => void handleConnectCloud()}
-              className="h-8 gap-1.5 rounded-lg border-lime/30 bg-lime/10 px-3 text-xs font-semibold text-lime hover:bg-lime hover:text-primary-foreground whitespace-nowrap shrink-0"
+              className="h-8 gap-1.5 rounded-full bg-[#0095F6]/12 px-3 text-xs font-semibold text-[#0077CC] hover:bg-[#0095F6] hover:text-white dark:text-[#0095F6] dark:hover:text-white whitespace-nowrap shrink-0"
             >
               <Cloud className="size-3.5" aria-hidden="true" />
               Reconnect Cloud
@@ -489,7 +489,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
           <div
             role="tablist"
             aria-label="Study research modes"
-            className="grid grid-cols-2 gap-1.5 rounded-xl border border-border bg-background/60 p-1.5 sm:grid-cols-4"
+            className="grid grid-cols-2 gap-1.5 rounded-2xl bg-muted/45 p-1.5 sm:grid-cols-4"
           >
             {MODES.map((m) => {
               const active = mode === m.id
@@ -501,9 +501,9 @@ export function AiStudyAssistant({ student }: { student: Student }) {
                   aria-selected={active}
                   onClick={() => setMode(m.id)}
                   className={cn(
-                    'flex flex-col items-start justify-center rounded-lg px-3 py-2 text-left transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-lime',
+                    'flex flex-col items-start justify-center rounded-xl px-3 py-2 text-left transition-all duration-200 outline-none active:scale-[0.98]',
                     active
-                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      ? 'bg-[#0095F6] text-white'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                 >
@@ -514,7 +514,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
                   <span
                     className={cn(
                       'mt-0.5 truncate text-[10px] w-full',
-                      active ? 'text-primary-foreground/85' : 'text-muted-foreground/80',
+                      active ? 'text-white/85' : 'text-muted-foreground/80',
                     )}
                   >
                     {m.malayalamLabel}
@@ -534,16 +534,16 @@ export function AiStudyAssistant({ student }: { student: Student }) {
                 id="ai-output-language"
                 role="group"
                 aria-label="Output language"
-                className="inline-flex flex-wrap rounded-lg border border-border bg-background/60 p-0.5"
+                className="inline-flex flex-wrap rounded-full bg-muted/50 p-0.5"
               >
                 <button
                   type="button"
                   onClick={() => setLanguagePreference('auto')}
                   title="Reply in the language you ask"
                   className={cn(
-                    'rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap shrink-0',
+                    'rounded-full px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap shrink-0',
                     languagePreference === 'auto'
-                      ? 'bg-lime text-primary-foreground font-semibold'
+                      ? 'bg-[#0095F6] text-white font-semibold'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -560,9 +560,9 @@ export function AiStudyAssistant({ student }: { student: Student }) {
                       setLanguage(lang.id)
                     }}
                     className={cn(
-                      'rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap shrink-0',
+                      'rounded-full px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap shrink-0',
                       languagePreference === lang.id
-                        ? 'bg-primary text-primary-foreground font-semibold'
+                        ? 'bg-[#0095F6] text-white font-semibold'
                         : 'text-muted-foreground hover:text-foreground',
                     )}
                   >
@@ -588,7 +588,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
                   type="button"
                   onClick={() => void handleAskAssistant(preset.prompt)}
                   disabled={loading}
-                  className="rounded-lg border border-border bg-background/70 px-3 py-1.5 text-left text-xs font-medium text-foreground/90 transition-colors hover:border-lime/50 hover:bg-lime/10 hover:text-foreground disabled:opacity-50"
+                  className="rounded-full bg-muted/60 px-3.5 py-1.5 text-left text-xs font-medium text-foreground/90 transition-all hover:bg-[#0095F6]/15 hover:text-foreground active:scale-[0.98] disabled:opacity-50"
                 >
                   {preset.title}
                 </button>
@@ -670,10 +670,10 @@ export function AiStudyAssistant({ student }: { student: Student }) {
           ) : null}
 
           {/* Scholarly Response Output Box */}
-          <div className="flex flex-col gap-3 rounded-xl border border-border bg-background/60 p-4 md:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+          <div className="flex flex-col gap-3 rounded-2xl bg-muted/40 p-4 md:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-3">
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-lime">
+                <p className="text-xs font-semibold text-[#0077CC] dark:text-[#0095F6]">
                   Scholarly Explanation & Study Notes
                 </p>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
@@ -688,11 +688,11 @@ export function AiStudyAssistant({ student }: { student: Student }) {
                   size="sm"
                   onClick={handleCopyResponse}
                   disabled={!response || loading}
-                  className="h-8 gap-1.5 rounded-lg px-2.5 text-xs whitespace-nowrap shrink-0"
+                  className="h-8 gap-1.5 rounded-full px-3 text-xs whitespace-nowrap shrink-0"
                 >
                   {copied ? (
                     <>
-                      <Check className="size-3.5 text-lime" aria-hidden="true" />
+                      <Check className="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                       Copied
                     </>
                   ) : (
@@ -708,7 +708,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
                   size="sm"
                   onClick={() => void handleSaveNote()}
                   disabled={!response || loading}
-                  className="h-8 gap-1.5 rounded-lg px-3 text-xs font-semibold whitespace-nowrap shrink-0"
+                  className="h-8 gap-1.5 rounded-full px-3.5 text-xs font-semibold whitespace-nowrap shrink-0"
                 >
                   {justSaved ? (
                     <>
@@ -741,7 +741,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
         </div>
 
         {/* Zone 2: Saved Cloud Notebook & Reference Deck (2 columns on large screens) */}
-        <div className="flex flex-col gap-4 rounded-xl border border-border bg-background/40 p-4 md:p-5 lg:col-span-2">
+        <div className="flex flex-col gap-4 rounded-2xl bg-muted/35 p-4 md:p-5 lg:col-span-2">
           <div className="flex items-center justify-between gap-2">
             <div>
               <h3 className="font-display text-base font-semibold text-foreground">
@@ -753,7 +753,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
                   : 'Saved in session · Reconnecting to Cloud Firestore'}
               </p>
             </div>
-            <span className="font-mono text-xs font-semibold tabular-nums text-lime">
+            <span className="font-mono text-xs font-semibold tabular-nums text-[#0077CC] dark:text-[#0095F6]">
               {allNotes.length} {allNotes.length === 1 ? 'note' : 'notes'}
             </span>
           </div>
@@ -775,7 +775,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
               />
             </div>
 
-            <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-background/60 p-1">
+            <div className="flex flex-wrap gap-1 rounded-full bg-card p-1">
               {(
                 [
                   { id: 'all', label: 'All' },
@@ -790,9 +790,9 @@ export function AiStudyAssistant({ student }: { student: Student }) {
                   type="button"
                   onClick={() => setModeFilter(item.id)}
                   className={cn(
-                    'flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors whitespace-nowrap shrink-0',
+                    'flex-1 rounded-full px-2 py-1 text-[11px] font-medium transition-colors whitespace-nowrap shrink-0',
                     modeFilter === item.id
-                      ? 'bg-primary text-primary-foreground font-semibold'
+                      ? 'bg-[#0095F6] text-white font-semibold'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -804,7 +804,7 @@ export function AiStudyAssistant({ student }: { student: Student }) {
 
           {/* Notes List */}
           {allNotes.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border px-4 py-10 text-center">
+            <div className="flex flex-1 flex-col items-center justify-center rounded-2xl bg-card/70 px-4 py-10 text-center">
               <Bookmark className="size-6 text-muted-foreground/60" aria-hidden="true" />
               <p className="mt-2 text-xs font-medium text-foreground">
                 No saved study notes match your filter
@@ -818,11 +818,11 @@ export function AiStudyAssistant({ student }: { student: Student }) {
               {allNotes.map((note) => (
                 <li
                   key={note.id}
-                  className="group flex flex-col gap-2 rounded-xl border border-border bg-card/80 p-3.5 transition-colors hover:border-lime/40"
+                  className="group flex flex-col gap-2 rounded-2xl bg-card p-3.5 transition-colors hover:bg-popover"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <span className="font-semibold uppercase text-lime">
+                      <span className="font-semibold uppercase text-[#0077CC] dark:text-[#0095F6]">
                         {note.mode}
                       </span>
                       <span aria-hidden="true">·</span>

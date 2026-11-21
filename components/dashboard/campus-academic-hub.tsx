@@ -228,11 +228,11 @@ export function StarOfTheMonthSpotlight({
   const winner = summary.winner
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-emerald-600/25 bg-gradient-to-br from-card via-[#F3FAF5] to-[#E8F5EC] p-5 text-foreground shadow-sm transition-colors duration-300 sm:p-6 dark:border-lime/35 dark:from-[#081E21] dark:via-[#0B272B] dark:to-[#071619] dark:text-white dark:shadow-lg">
-      <div className="flex flex-col justify-between gap-4 border-b border-border/80 pb-4 sm:flex-row sm:items-center dark:border-white/10">
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-card via-[#EFF6FF] to-[#E6F1FE] p-5 text-foreground transition-colors duration-300 sm:p-6 dark:from-[#121922] dark:via-[#161E28] dark:to-[#10161D] dark:text-white">
+      <div className="flex flex-col justify-between gap-4 border-b border-border/40 pb-4 sm:flex-row sm:items-center dark:border-white/10">
         <div>
-          <p className="flex items-center gap-2 text-[11px] font-bold tracking-[0.18em] text-emerald-700 uppercase dark:text-lime">
-            <Trophy className="size-3.5 text-emerald-600 dark:text-lime" aria-hidden="true" />
+          <p className="flex items-center gap-2 text-[11px] font-bold tracking-[0.18em] text-[#0077CC] uppercase dark:text-[#0095F6]">
+            <Trophy className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
             Star of the Month · Class {summary.className}
           </p>
           <h3 className="mt-1 font-display text-xl font-bold tracking-tight text-foreground sm:text-2xl dark:text-white">
@@ -249,7 +249,7 @@ export function StarOfTheMonthSpotlight({
               value={monthId}
               onChange={(e) => onSelectMonth(e.target.value)}
               aria-label="Select Star of the Month period"
-              className="border-border bg-background/90 text-xs text-foreground dark:border-white/20 dark:bg-white/10 dark:text-white"
+              className="border-0 bg-background/90 text-xs text-foreground dark:bg-white/10 dark:text-white"
             >
               {MONTHS_META.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -268,15 +268,15 @@ export function StarOfTheMonthSpotlight({
               <ProfileInitialsAvatar
                 name={winner.student.name}
                 avatarUrl={winner.student.avatarUrl}
-                className="size-16 ring-2 ring-emerald-600/45 shadow-md sm:size-20 dark:ring-lime"
+                className="size-16 sm:size-20"
               />
-              <span className="absolute -bottom-1.5 -right-1.5 flex size-7 items-center justify-center rounded-full bg-lime text-slate-950 shadow">
+              <span className="absolute -bottom-1.5 -right-1.5 flex size-7 items-center justify-center rounded-full bg-[#0095F6] text-white shadow">
                 <Crown className="size-4" aria-hidden="true" />
               </span>
             </div>
 
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-emerald-700 dark:text-lime">
+              <p className="text-xs font-semibold text-[#0077CC] dark:text-[#0095F6]">
                 #1 Ranked Performer · {winner.student.admissionNo}
               </p>
               <h4 className="truncate font-display text-xl font-bold text-foreground sm:text-2xl dark:text-white">
@@ -284,7 +284,7 @@ export function StarOfTheMonthSpotlight({
               </h4>
               <p className="mt-1 text-xs text-muted-foreground tabular-nums dark:text-slate-300">
                 Composite Score:{' '}
-                <strong className="text-emerald-700 dark:text-lime">
+                <strong className="text-emerald-600 dark:text-emerald-400">
                   {winner.compositeScore}%
                 </strong>{' '}
                 · Unit Tests:{' '}
@@ -299,25 +299,25 @@ export function StarOfTheMonthSpotlight({
             </div>
           </div>
 
-          <div className="border-t border-border/80 pt-4 lg:col-span-5 lg:border-t-0 lg:border-l lg:pl-5 lg:pt-0 dark:border-white/10">
+          <div className="border-t border-border/40 pt-4 lg:col-span-5 lg:border-t-0 lg:border-l lg:pl-5 lg:pt-0 dark:border-white/10">
             <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase dark:text-slate-300">
               Class Top Performers ({summary.className})
             </p>
-            <div className="mt-2.5 divide-y divide-border/70 dark:divide-white/10">
+            <div className="mt-2.5 divide-y divide-border/40 dark:divide-white/10">
               {summary.allRankings.slice(0, 3).map((item) => (
                 <div
                   key={item.student.id}
                   className="flex items-center justify-between gap-2 py-1.5 text-xs"
                 >
                   <span className="truncate font-medium text-foreground dark:text-white">
-                    <span className="mr-2 font-mono font-bold text-emerald-700 tabular-nums dark:text-lime">
+                    <span className="mr-2 font-mono font-bold text-[#0077CC] tabular-nums dark:text-[#0095F6]">
                       #{item.rank}
                     </span>
                     {item.student.name}
                   </span>
                   <span className="shrink-0 font-mono text-muted-foreground tabular-nums dark:text-slate-300">
                     Test {item.testPercentage}% · Att {item.attendancePercentage}% ·{' '}
-                    <strong className="text-emerald-700 dark:text-lime">
+                    <strong className="text-emerald-600 dark:text-emerald-400">
                       {item.compositeScore}%
                     </strong>
                   </span>
@@ -734,9 +734,9 @@ function ClassZadulKhairManager({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-background/60 p-4 sm:flex-row sm:items-center sm:p-5">
+      <div className="flex flex-col justify-between gap-4 rounded-2xl bg-muted/45 p-4 sm:flex-row sm:items-center sm:p-5">
         <div>
-          <p className="text-xs font-semibold tracking-wider text-emerald-700 uppercase dark:text-lime">
+          <p className="text-xs font-semibold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
             زاد الخير · Voluntary Zadul Khair Class Ledger ({actorRoleLabel})
           </p>
           <h4 className="mt-1 font-display text-lg font-bold text-foreground">
@@ -766,7 +766,7 @@ function ClassZadulKhairManager({
             size="sm"
             disabled={pdfBusyKey !== null}
             onClick={() => handleExportClassPdf('download')}
-            className="rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+            className="rounded-full bg-[#0095F6] text-xs font-semibold text-white hover:bg-[#0077CC]"
           >
             <Download className="mr-1.5 size-3.5" aria-hidden="true" />
             {pdfBusyKey === 'class_download' ? 'Generating PDF...' : 'Class Statement PDF'}
@@ -777,7 +777,7 @@ function ClassZadulKhairManager({
             variant="outline"
             disabled={pdfBusyKey !== null}
             onClick={() => handleExportClassPdf('print')}
-            className="rounded-xl text-xs"
+            className="rounded-full text-xs"
           >
             <Printer className="mr-1.5 size-3.5" aria-hidden="true" />
             Print Class List
@@ -787,7 +787,7 @@ function ClassZadulKhairManager({
 
       {/* 3 Class Voluntary Summary Cards */}
       <div className="grid gap-3.5 sm:grid-cols-3">
-        <div className="rounded-xl border border-border bg-background/60 p-4">
+        <div className="rounded-2xl bg-muted/45 p-4">
           <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
             Previous Contribution
           </p>
@@ -799,11 +799,11 @@ function ClassZadulKhairManager({
           </p>
         </div>
 
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-          <p className="text-[11px] font-semibold tracking-wider text-emerald-700 uppercase dark:text-lime">
+        <div className="rounded-2xl bg-emerald-500/12 p-4">
+          <p className="text-[11px] font-semibold tracking-wider text-emerald-700 uppercase dark:text-emerald-400">
             Current Monthly Contribution
           </p>
-          <p className="mt-1 font-display text-2xl font-bold text-emerald-700 tabular-nums dark:text-lime">
+          <p className="mt-1 font-display text-2xl font-bold text-emerald-700 tabular-nums dark:text-emerald-400">
             ₹{classTotals.current.toLocaleString('en-IN')}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -811,8 +811,8 @@ function ClassZadulKhairManager({
           </p>
         </div>
 
-        <div className="rounded-xl border border-emerald-700/30 bg-background/80 p-4 dark:border-lime/30">
-          <p className="text-[11px] font-semibold tracking-wider text-foreground uppercase">
+        <div className="rounded-2xl bg-[#0095F6]/10 p-4">
+          <p className="text-[11px] font-semibold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
             Total Contribution
           </p>
           <p className="mt-1 font-display text-2xl font-bold text-foreground tabular-nums">
@@ -824,9 +824,9 @@ function ClassZadulKhairManager({
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-border bg-background/60">
+      <div className="overflow-x-auto rounded-2xl bg-muted/35">
         <table className="w-full text-left text-xs">
-          <thead className="border-b border-border bg-muted/50 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+          <thead className="border-b border-border/40 bg-muted/50 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
             <tr>
               <th className="px-3 py-3">Student</th>
               <th className="px-3 py-3">Receipt No.</th>
@@ -838,9 +838,9 @@ function ClassZadulKhairManager({
               <th className="px-3 py-3 text-right">Save &amp; Receipt</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border tabular-nums">
+          <tbody className="divide-y divide-border/40 tabular-nums">
             {studentRows.map((row) => (
-              <tr key={row.student.id} className="hover:bg-muted/25">
+              <tr key={row.student.id} className="hover:bg-muted/30">
                 <td className="px-3 py-2.5">
                   <p className="font-semibold text-foreground">{row.student.name}</p>
                   <p className="font-mono text-[11px] text-muted-foreground">
@@ -892,9 +892,9 @@ function ClassZadulKhairManager({
                 <td className="px-3 py-2.5">
                   <span
                     className={cn(
-                      'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold',
+                      'inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold',
                       row.isRecorded
-                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-lime'
+                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
                         : 'bg-muted text-muted-foreground',
                     )}
                   >
@@ -925,7 +925,7 @@ function ClassZadulKhairManager({
                       size="sm"
                       disabled={savingStudentId === row.student.id}
                       onClick={() => handleSaveStudentContribution(row)}
-                      className="h-8 rounded-lg bg-lime px-2.5 text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                      className="h-8 rounded-full bg-[#0095F6] px-3 text-xs font-semibold text-white hover:bg-[#0077CC]"
                     >
                       {savingStudentId === row.student.id ? 'Saving...' : 'Save'}
                     </Button>
@@ -935,7 +935,7 @@ function ClassZadulKhairManager({
                       variant="outline"
                       disabled={pdfBusyKey !== null}
                       onClick={() => handleExportSingleStudentReceipt(row, 'download')}
-                      className="h-8 rounded-lg px-2.5 text-xs"
+                      className="h-8 rounded-full px-2.5 text-xs"
                       title="Download Student Zadul Khair Receipt PDF"
                     >
                       <Download className="size-3.5" aria-hidden="true" />
@@ -1461,7 +1461,7 @@ export function StudentAcademicHub({
         icon={Trophy}
       >
         {/* Tab Bar */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-border pb-4">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border/40 pb-4">
           <button
             type="button"
             onClick={() => {
@@ -1469,10 +1469,10 @@ export function StudentAcademicHub({
               setStatusBanner(null)
             }}
             className={cn(
-              'flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
+              'flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition-all active:scale-[0.98]',
               activeTab === 'syllabus'
-                ? 'bg-lime text-slate-950 shadow-sm'
-                : 'border border-border bg-background/60 text-muted-foreground hover:text-foreground',
+                ? 'bg-[#0095F6] text-white'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
             <BookOpen className="size-3.5" aria-hidden="true" />
@@ -1489,10 +1489,10 @@ export function StudentAcademicHub({
               setStatusBanner(null)
             }}
             className={cn(
-              'flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
+              'flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition-all active:scale-[0.98]',
               activeTab === 'tests'
-                ? 'bg-lime text-slate-950 shadow-sm'
-                : 'border border-border bg-background/60 text-muted-foreground hover:text-foreground',
+                ? 'bg-[#0095F6] text-white'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
             <ClipboardCheck className="size-3.5" aria-hidden="true" />
@@ -1506,10 +1506,10 @@ export function StudentAcademicHub({
               setStatusBanner(null)
             }}
             className={cn(
-              'flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
+              'flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition-all active:scale-[0.98]',
               activeTab === 'holiday'
-                ? 'bg-lime text-slate-950 shadow-sm'
-                : 'border border-border bg-background/60 text-muted-foreground hover:text-foreground',
+                ? 'bg-[#0095F6] text-white'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
             <Sparkles className="size-3.5" aria-hidden="true" />
@@ -1523,10 +1523,10 @@ export function StudentAcademicHub({
               setStatusBanner(null)
             }}
             className={cn(
-              'flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
+              'flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition-all active:scale-[0.98]',
               activeTab === 'zadul_khair'
-                ? 'bg-lime text-slate-950 shadow-sm'
-                : 'border border-border bg-background/60 text-muted-foreground hover:text-foreground',
+                ? 'bg-[#0095F6] text-white'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
             <HeartHandshake className="size-3.5" aria-hidden="true" />
@@ -1540,10 +1540,10 @@ export function StudentAcademicHub({
               setStatusBanner(null)
             }}
             className={cn(
-              'flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
+              'flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition-all active:scale-[0.98]',
               activeTab === 'discipline'
-                ? 'bg-lime text-slate-950 shadow-sm'
-                : 'border border-border bg-background/60 text-muted-foreground hover:text-foreground',
+                ? 'bg-[#0095F6] text-white'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
             <Lock className="size-3.5" aria-hidden="true" />
@@ -1557,7 +1557,7 @@ export function StudentAcademicHub({
         </div>
 
         {statusBanner && (
-          <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-lime/40 bg-lime/10 px-4 py-3 text-xs font-medium text-foreground">
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-emerald-500/12 px-4 py-3 text-xs font-medium text-foreground">
             <span>{statusBanner}</span>
             <button
               type="button"
@@ -1572,9 +1572,9 @@ export function StudentAcademicHub({
         {/* TAB 0: JAMIATHUL HIND MONTHLY SYLLABUS UPDATION & KITAB PAGE TRACKER */}
         {activeTab === 'syllabus' && (
           <div className="mt-5 space-y-5">
-            <div className="flex flex-col justify-between gap-4 rounded-2xl border border-emerald-600/25 bg-emerald-500/[0.06] p-4 sm:flex-row sm:items-center sm:p-5 dark:border-lime/30 dark:bg-lime/[0.06]">
+            <div className="flex flex-col justify-between gap-4 rounded-2xl bg-[#0095F6]/10 p-4 sm:flex-row sm:items-center sm:p-5">
               <div>
-                <p className="text-xs font-bold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                <p className="text-xs font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
                   ജാമിഅതുൽ ഹിന്ദ് മാസ സിലബസ് · Jamiathul Hind Monthly Syllabus Updation
                 </p>
                 <h4 className="mt-1 font-display text-lg font-bold text-foreground sm:text-xl">
@@ -1606,7 +1606,7 @@ export function StudentAcademicHub({
                     type="button"
                     size="sm"
                     onClick={() => setShowAddKitabForm((v) => !v)}
-                    className="rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                    className="rounded-full bg-[#0095F6] text-xs font-semibold text-white hover:bg-[#0077CC]"
                   >
                     <Plus className="mr-1.5 size-3.5" aria-hidden="true" />
                     {showAddKitabForm ? 'Close Form' : 'Add Kitab / Subject'}
@@ -1617,7 +1617,7 @@ export function StudentAcademicHub({
 
             {/* 3-Box Summary KPI Strip */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-border bg-background/60 p-4">
+              <div className="rounded-2xl bg-muted/45 p-4">
                 <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                   ആകെ എടുക്കേണ്ട പേജുകൾ (Total Target Pages)
                 </p>
@@ -1627,17 +1627,17 @@ export function StudentAcademicHub({
                 </p>
               </div>
 
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-                <p className="text-[11px] font-semibold tracking-wider text-emerald-700 uppercase dark:text-lime">
+              <div className="rounded-2xl bg-emerald-500/12 p-4">
+                <p className="text-[11px] font-semibold tracking-wider text-emerald-700 uppercase dark:text-emerald-400">
                   ഇതുവരെ എടുത്ത പേജുകൾ (Completed Pages)
                 </p>
-                <p className="mt-1 font-display text-2xl font-bold text-emerald-700 tabular-nums dark:text-lime">
+                <p className="mt-1 font-display text-2xl font-bold text-emerald-700 tabular-nums dark:text-emerald-400">
                   {classSyllabusTotals.totalCompleted}{' '}
                   <span className="text-xs font-normal opacity-80">Pages Completed</span>
                 </p>
               </div>
 
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+              <div className="rounded-2xl bg-amber-500/12 p-4">
                 <p className="text-[11px] font-semibold tracking-wider text-amber-800 uppercase dark:text-amber-300">
                   ഇനി എടുക്കാനുള്ള പേജുകൾ (Remaining Pages)
                 </p>
@@ -1652,7 +1652,7 @@ export function StudentAcademicHub({
             {isClassLeader && showAddKitabForm && (
               <form
                 onSubmit={handleClassLeaderAddCustomKitab}
-                className="space-y-4 rounded-2xl border border-lime/40 bg-background/80 p-4 sm:p-5"
+                className="space-y-4 rounded-2xl bg-muted/45 p-4 sm:p-5"
               >
                 <h5 className="font-display text-sm font-bold text-foreground">
                   പുതിയ കിതാബ് / വിഷയം ചേർക്കുക (Add Kitab to Class {normClass} Monthly Syllabus)
@@ -1693,7 +1693,7 @@ export function StudentAcademicHub({
 
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="space-y-1">
-                    <Label className="text-xs font-semibold text-emerald-700 dark:text-lime">
+                    <Label className="text-xs font-semibold text-[#0077CC] dark:text-[#0095F6]">
                       ഏത് അദ്ധ്യായം മുതൽ (From Chapter) *
                     </Label>
                     <Input
@@ -1704,7 +1704,7 @@ export function StudentAcademicHub({
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs font-semibold text-emerald-700 dark:text-lime">
+                    <Label className="text-xs font-semibold text-[#0077CC] dark:text-[#0095F6]">
                       ഏത് അദ്ധ്യായം വരെ (Up to Chapter) *
                     </Label>
                     <Input
@@ -1739,7 +1739,7 @@ export function StudentAcademicHub({
                 <div className="flex justify-end">
                   <Button
                     type="submit"
-                    className="rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                    className="rounded-full bg-[#0095F6] text-xs font-semibold text-white hover:bg-[#0077CC]"
                   >
                     <Send className="mr-1.5 size-3.5" aria-hidden="true" />
                     സേവ് ചെയ്ത് ഉസ്താദിനെ അറിയിക്കുക (Save & Notify Usthad)
@@ -1766,12 +1766,12 @@ export function StudentAcademicHub({
                 return (
                   <div
                     key={row.id}
-                    className="rounded-2xl border border-border bg-background/60 p-4 sm:p-5"
+                    className="rounded-2xl bg-muted/40 p-4 sm:p-5"
                   >
-                    <div className="flex flex-col justify-between gap-3 border-b border-border/70 pb-3.5 sm:flex-row sm:items-center">
+                    <div className="flex flex-col justify-between gap-3 border-b border-border/40 pb-3.5 sm:flex-row sm:items-center">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-lg border border-emerald-600/30 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-bold text-emerald-700 dark:border-lime/30 dark:bg-lime/10 dark:text-lime">
+                          <span className="rounded-full bg-[#0095F6]/12 px-2.5 py-0.5 font-mono text-[11px] font-bold text-[#0077CC] dark:text-[#0095F6]">
                             {row.admissionNo || 'Period'}
                           </span>
                           <span className="text-xs font-semibold text-muted-foreground">
@@ -1783,20 +1783,20 @@ export function StudentAcademicHub({
                         </h5>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-3 text-xs tabular-nums">
-                        <div className="rounded-xl border border-border bg-card px-3 py-1.5">
+                      <div className="flex flex-wrap items-center gap-2.5 text-xs tabular-nums">
+                        <div className="rounded-xl bg-card px-3 py-1.5">
                           <span className="text-muted-foreground">എടുക്കേണ്ടത്: </span>
                           <strong className="font-mono text-sm text-foreground">
                             {totalPagesVal}p
                           </strong>
                         </div>
-                        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5">
-                          <span className="text-emerald-700 dark:text-lime">എടുത്തത്: </span>
-                          <strong className="font-mono text-sm text-emerald-700 dark:text-lime">
+                        <div className="rounded-xl bg-emerald-500/12 px-3 py-1.5">
+                          <span className="text-emerald-700 dark:text-emerald-400">എടുത്തത്: </span>
+                          <strong className="font-mono text-sm text-emerald-700 dark:text-emerald-400">
                             {completedPagesVal}p
                           </strong>
                         </div>
-                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5">
+                        <div className="rounded-xl bg-amber-500/12 px-3 py-1.5">
                           <span className="text-amber-800 dark:text-amber-300">ഇനി ബാക്കി: </span>
                           <strong className="font-mono text-sm text-amber-700 dark:text-amber-300">
                             {remainingPagesVal}p
@@ -1806,17 +1806,17 @@ export function StudentAcademicHub({
                     </div>
 
                     {/* Jamiathul Hind Chapter Range Box (ഏത് അദ്ധ്യായം മുതൽ → ഏത് അദ്ധ്യായം വരെ) */}
-                    <div className="mt-3 grid gap-2.5 rounded-xl border border-emerald-600/20 bg-emerald-500/[0.04] p-3 sm:grid-cols-2 dark:border-lime/25 dark:bg-lime/[0.04]">
+                    <div className="mt-3 grid gap-2.5 rounded-xl bg-card/80 p-3 sm:grid-cols-2">
                       <div>
-                        <span className="block text-[10px] font-bold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                        <span className="block text-[10px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
                           ഏത് അദ്ധ്യായം മുതൽ (From Chapter)
                         </span>
                         <p className="mt-0.5 text-xs font-semibold text-foreground">
                           {fromChapterVal || 'രേഖപ്പെടുത്തിയിട്ടില്ല'}
                         </p>
                       </div>
-                      <div className="border-t border-border/60 pt-2 sm:border-t-0 sm:border-l sm:pl-3 sm:pt-0">
-                        <span className="block text-[10px] font-bold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                      <div className="border-t border-border/40 pt-2 sm:border-t-0 sm:border-l sm:pl-3 sm:pt-0">
+                        <span className="block text-[10px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
                           ഏത് അദ്ധ്യായം വരെ (Up to Chapter)
                         </span>
                         <p className="mt-0.5 text-xs font-semibold text-foreground">
@@ -1831,23 +1831,23 @@ export function StudentAcademicHub({
                         <span>
                           ജാമിഅതുൽ ഹിന്ദ് സിലബസ് പുരോഗതി (Monthly Page Progress)
                         </span>
-                        <span className="font-mono font-semibold text-emerald-700 dark:text-lime">
+                        <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-400">
                           {progressPct}% Completed ({completedPagesVal}/{totalPagesVal} Pages)
                         </span>
                       </div>
                       <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
                         <div
-                          className="h-full rounded-full bg-emerald-600 transition-all duration-300 dark:bg-lime"
+                          className="h-full rounded-full bg-[#0095F6] transition-all duration-300"
                           style={{ width: `${progressPct}%` }}
                         />
                       </div>
                     </div>
 
                     {isClassLeader ? (
-                      <div className="mt-4 space-y-3 border-t border-border/60 pt-3.5">
+                      <div className="mt-4 space-y-3 border-t border-border/40 pt-3.5">
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold text-emerald-700 dark:text-lime">
+                            <Label className="text-[11px] font-semibold text-[#0077CC] dark:text-[#0095F6]">
                               ഏത് അദ്ധ്യായം മുതൽ (From Chapter — തുടങ്ങേണ്ട അദ്ധ്യായം)
                             </Label>
                             <Input
@@ -1870,7 +1870,7 @@ export function StudentAcademicHub({
                           </div>
 
                           <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold text-emerald-700 dark:text-lime">
+                            <Label className="text-[11px] font-semibold text-[#0077CC] dark:text-[#0095F6]">
                               ഏത് അദ്ധ്യായം വരെ (Up to Chapter — അവസാനിക്കേണ്ട അദ്ധ്യായം)
                             </Label>
                             <Input
@@ -1920,7 +1920,7 @@ export function StudentAcademicHub({
                           </div>
 
                           <div className="space-y-1 sm:col-span-4">
-                            <Label className="text-[11px] text-emerald-700 dark:text-lime">
+                            <Label className="text-[11px] text-emerald-700 dark:text-emerald-400">
                               എത്ര പേജ് എടുത്തു (Completed Pages)
                             </Label>
                             <Input
@@ -1950,7 +1950,7 @@ export function StudentAcademicHub({
                               size="sm"
                               disabled={savingSyllabusId === row.id}
                               onClick={() => handleClassLeaderSaveSyllabusRow(row)}
-                              className="h-9 w-full rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                              className="h-9 w-full rounded-full bg-[#0095F6] text-xs font-semibold text-white hover:bg-[#0077CC]"
                             >
                               <Send className="mr-1.5 size-3.5" aria-hidden="true" />
                               {savingSyllabusId === row.id
@@ -1976,7 +1976,7 @@ export function StudentAcademicHub({
         {activeTab === 'tests' && (
           <div className="mt-5 space-y-5">
             {classUnitTests.length === 0 ? (
-              <div className="rounded-xl border border-border bg-background/50 p-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-2xl bg-muted/40 p-6 text-center text-sm text-muted-foreground">
                 No Monthly or Unit Tests have been published for Class {student.className} yet.
               </div>
             ) : (
@@ -2015,7 +2015,7 @@ export function StudentAcademicHub({
                 </div>
 
                 {currentTest && (
-                  <div className="rounded-2xl border border-border bg-background/60 p-4 sm:p-6">
+                  <div className="rounded-2xl bg-muted/40 p-4 sm:p-6">
                     {(() => {
                       const titleLang = getMultilingualTextProps(currentTest.title)
                       const descLang = getMultilingualTextProps(
@@ -2025,7 +2025,7 @@ export function StudentAcademicHub({
                       const remarksLang = getMultilingualTextProps(currentSubmission?.remarks)
                       return (
                         <>
-                          <div className="flex flex-col justify-between gap-3 border-b border-border pb-4 sm:flex-row sm:items-center">
+                          <div className="flex flex-col justify-between gap-3 border-b border-border/40 pb-4 sm:flex-row sm:items-center">
                             <div className="min-w-0 flex-1">
                               <p className="text-xs font-medium text-muted-foreground tabular-nums">
                                 <span
@@ -2080,7 +2080,7 @@ export function StudentAcademicHub({
                               <p className="font-display text-2xl font-bold text-foreground tabular-nums">
                                 {currentSubmission ? (
                                   <>
-                                    <span className="text-emerald-700 dark:text-lime">
+                                    <span className="text-emerald-600 dark:text-emerald-400">
                                       {currentSubmission.obtainedMarks ?? 0}
                                     </span>
                                     <span className="text-muted-foreground">
@@ -2102,7 +2102,7 @@ export function StudentAcademicHub({
                           </div>
 
                           {currentSubmission?.remarks && (
-                            <div className="mt-4 rounded-xl border border-lime/40 bg-lime/10 p-3.5 text-xs">
+                            <div className="mt-4 rounded-2xl bg-[#0095F6]/10 p-3.5 text-xs">
                               <p className="font-bold text-foreground">
                                 Usthad Evaluation Remarks:
                               </p>
@@ -2124,7 +2124,7 @@ export function StudentAcademicHub({
                           )}
 
                           {/* Questions List */}
-                          <div className="mt-5 space-y-5">
+                          <div className="mt-5 space-y-4">
                             {(currentTest.questions || []).map((q, qIndex) => {
                               const studentAns = draftAnswers[q.id] ?? ''
                               const awardedMarks = currentSubmission?.questionMarks?.[q.id]
@@ -2141,7 +2141,7 @@ export function StudentAcademicHub({
                               return (
                                 <div
                                   key={q.id}
-                                  className="rounded-xl border border-border bg-card/70 p-4"
+                                  className="rounded-2xl bg-card p-4"
                                 >
                                   <div
                                     className={cn(
@@ -2161,7 +2161,7 @@ export function StudentAcademicHub({
                                       <span
                                         dir="ltr"
                                         className={cn(
-                                          'inline-block font-mono text-xs font-bold text-emerald-700 tabular-nums dark:text-lime',
+                                          'inline-block font-mono text-xs font-bold text-[#0077CC] tabular-nums dark:text-[#0095F6]',
                                           promptLang.isRtl ? 'ml-2' : 'mr-2',
                                         )}
                                       >
@@ -2203,13 +2203,14 @@ export function StudentAcademicHub({
                                               }))
                                             }
                                             className={cn(
-                                              'flex items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-xs transition-all',
+                                              'flex items-center justify-between gap-2 rounded-xl px-3.5 py-2.5 text-xs transition-all active:scale-[0.98]',
                                               optLang.alignClass,
                                               optLang.fontClass,
-                                              isSelected
-                                                ? 'border-lime bg-lime/15 font-semibold text-foreground'
-                                                : 'border-border bg-background/60 text-muted-foreground hover:text-foreground',
-                                              showCorrect && 'ring-1 ring-emerald-500/60',
+                                              showCorrect
+                                                ? 'bg-emerald-500/15 font-semibold text-foreground'
+                                                : isSelected
+                                                  ? 'bg-[#0095F6]/15 font-semibold text-foreground'
+                                                  : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
                                             )}
                                           >
                                             <span className="min-w-0 flex-1">
@@ -2226,7 +2227,7 @@ export function StudentAcademicHub({
                                             </span>
                                             {isSelected && (
                                               <CheckCircle2
-                                                className="size-4 shrink-0 text-emerald-700 dark:text-lime"
+                                                className="size-4 shrink-0 text-[#0077CC] dark:text-[#0095F6]"
                                                 aria-hidden="true"
                                               />
                                             )}
@@ -2260,7 +2261,7 @@ export function StudentAcademicHub({
                                             : 'Type your clear answer here...'
                                         }
                                         className={cn(
-                                          'w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground outline-none focus:border-lime',
+                                          'w-full rounded-2xl border-0 bg-popover px-3.5 py-2.5 text-xs text-foreground outline-none',
                                           ansLang.fontClass,
                                           ansLang.alignClass,
                                         )}
@@ -2293,7 +2294,7 @@ export function StudentAcademicHub({
                       )
                     })()}
 
-                    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+                    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-4">
                       <p className="text-xs text-muted-foreground">
                         {currentSubmission
                           ? `Last submitted on ${currentSubmission.dateString}. You can update and resubmit if needed.`
@@ -2303,7 +2304,7 @@ export function StudentAcademicHub({
                         type="button"
                         disabled={isSubmittingTest}
                         onClick={handleSubmitUnitTest}
-                        className="rounded-xl bg-lime font-semibold text-slate-950 hover:bg-lime/90"
+                        className="rounded-full bg-[#0095F6] font-semibold text-white hover:bg-[#0077CC]"
                       >
                         <Send className="mr-2 size-4" aria-hidden="true" />
                         {isSubmittingTest
@@ -2325,7 +2326,7 @@ export function StudentAcademicHub({
           <div className="mt-5 grid gap-6 lg:grid-cols-12">
             <form
               onSubmit={handleUploadHolidayActivity}
-              className="space-y-4 rounded-2xl border border-border bg-background/60 p-4 sm:p-5 lg:col-span-5"
+              className="space-y-4 rounded-2xl bg-muted/40 p-4 sm:p-5 lg:col-span-5"
             >
               <div>
                 <h4 className="font-display text-base font-bold text-foreground">
@@ -2387,7 +2388,7 @@ export function StudentAcademicHub({
                   onChange={(e) => setHolidayDescription(e.target.value)}
                   placeholder="Describe the chapters studied, SSF Da'wa activities conducted, or Ziyarat performed..."
                   required
-                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground outline-none focus:border-lime"
+                  className="w-full rounded-2xl border-0 bg-popover px-3.5 py-2.5 text-xs text-foreground outline-none"
                 />
               </div>
 
@@ -2407,7 +2408,7 @@ export function StudentAcademicHub({
                     variant="outline"
                     disabled={isUploadingPhoto}
                     onClick={() => photoInputRef.current?.click()}
-                    className="rounded-xl text-xs"
+                    className="rounded-full text-xs"
                   >
                     <Camera className="mr-1.5 size-3.5" aria-hidden="true" />
                     {isUploadingPhoto
@@ -2422,14 +2423,14 @@ export function StudentAcademicHub({
                       size="sm"
                       variant="ghost"
                       onClick={() => setHolidayPhotoUrl('')}
-                      className="rounded-xl text-xs text-red-500"
+                      className="rounded-full text-xs text-red-500"
                     >
                       Remove Photo
                     </Button>
                   )}
                 </div>
                 {holidayPhotoUrl && (
-                  <div className="overflow-hidden rounded-xl border border-border">
+                  <div className="overflow-hidden rounded-2xl bg-card">
                     <img
                       src={holidayPhotoUrl}
                       alt="Uploaded activity proof"
@@ -2442,7 +2443,7 @@ export function StudentAcademicHub({
               <Button
                 type="submit"
                 disabled={isSavingHoliday}
-                className="w-full rounded-xl bg-lime font-semibold text-slate-950 hover:bg-lime/90"
+                className="w-full rounded-full bg-[#0095F6] font-semibold text-white hover:bg-[#0077CC]"
               >
                 <Upload className="mr-2 size-4" aria-hidden="true" />
                 {isSavingHoliday ? 'Uploading Activity...' : 'Submit Activity to Class Usthad'}
@@ -2455,7 +2456,7 @@ export function StudentAcademicHub({
               </h4>
 
               {myHolidayLogs.length === 0 ? (
-                <div className="rounded-2xl border border-border bg-background/50 p-6 text-center text-xs text-muted-foreground">
+                <div className="rounded-2xl bg-muted/40 p-6 text-center text-xs text-muted-foreground">
                   You have not uploaded any holiday Academic, SSF Da&apos;wa, or Ziyarat logs yet.
                 </div>
               ) : (
@@ -2463,7 +2464,7 @@ export function StudentAcademicHub({
                   {myHolidayLogs.map((log) => (
                     <div
                       key={log.id}
-                      className="rounded-2xl border border-border bg-background/60 p-4"
+                      className="rounded-2xl bg-muted/40 p-4"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-xs font-medium text-muted-foreground tabular-nums">
@@ -2473,7 +2474,7 @@ export function StudentAcademicHub({
                           className={cn(
                             'text-xs font-bold',
                             log.status === 'verified'
-                              ? 'text-emerald-700 dark:text-lime'
+                              ? 'text-emerald-600 dark:text-emerald-400'
                               : 'text-amber-700 dark:text-amber-400',
                           )}
                         >
@@ -2490,7 +2491,7 @@ export function StudentAcademicHub({
                       </p>
 
                       {log.photoUrl && (
-                        <div className="mt-3 overflow-hidden rounded-xl border border-border">
+                        <div className="mt-3 overflow-hidden rounded-2xl bg-card">
                           <img
                             src={log.photoUrl}
                             alt={log.title || 'Holiday proof'}
@@ -2500,8 +2501,8 @@ export function StudentAcademicHub({
                       )}
 
                       {log.remarks && (
-                        <p className="mt-3 border-t border-border/70 pt-2.5 text-xs text-foreground">
-                          <strong className="text-emerald-700 dark:text-lime">Usthad Note:</strong>{' '}
+                        <p className="mt-3 border-t border-border/40 pt-2.5 text-xs text-foreground">
+                          <strong className="text-[#0077CC] dark:text-[#0095F6]">Usthad Note:</strong>{' '}
                           {log.remarks}
                         </p>
                       )}
@@ -2517,21 +2518,21 @@ export function StudentAcademicHub({
         {activeTab === 'zadul_khair' && (
           <div className="mt-5 space-y-5">
             {isClassLeader && (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#0095F6]/10 px-4 py-3">
                 <div className="flex items-center gap-2 text-xs text-foreground">
-                  <Crown className="size-4 shrink-0 text-emerald-700 dark:text-lime" aria-hidden="true" />
+                  <Crown className="size-4 shrink-0 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                   <span>
                     <strong>Class Leader Access ({normClass}):</strong> Switch to Class Entry to record voluntary monthly Zadul Khair contributions directly for your class.
                   </span>
                 </div>
-                <div className="inline-flex rounded-xl border border-border bg-background p-1">
+                <div className="inline-flex rounded-full bg-card p-1">
                   <button
                     type="button"
                     onClick={() => setZkLeaderView('personal')}
                     className={cn(
-                      'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+                      'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-[0.98]',
                       zkLeaderView === 'personal'
-                        ? 'bg-emerald-950 text-lime dark:bg-lime dark:text-slate-950'
+                        ? 'bg-[#0095F6] text-white'
                         : 'text-muted-foreground hover:text-foreground',
                     )}
                   >
@@ -2541,9 +2542,9 @@ export function StudentAcademicHub({
                     type="button"
                     onClick={() => setZkLeaderView('class')}
                     className={cn(
-                      'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+                      'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-[0.98]',
                       zkLeaderView === 'class'
-                        ? 'bg-emerald-950 text-lime dark:bg-lime dark:text-slate-950'
+                        ? 'bg-[#0095F6] text-white'
                         : 'text-muted-foreground hover:text-foreground',
                     )}
                   >
@@ -2566,9 +2567,9 @@ export function StudentAcademicHub({
               />
             ) : (
               <>
-                <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-background/60 p-4 sm:flex-row sm:items-center sm:p-5">
+                <div className="flex flex-col justify-between gap-4 rounded-2xl bg-muted/45 p-4 sm:flex-row sm:items-center sm:p-5">
                   <div>
-                    <p className="text-xs font-semibold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                    <p className="text-xs font-semibold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
                       زاد الخير · Zadul Khair Voluntary Household Contribution
                     </p>
                     <h4 className="mt-1 font-display text-lg font-bold text-foreground sm:text-xl">
@@ -2598,7 +2599,7 @@ export function StudentAcademicHub({
                       size="sm"
                       disabled={pdfBusyId !== null}
                       onClick={() => handleExportMyZadulKhairPdf('download')}
-                      className="rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                      className="rounded-full bg-[#0095F6] text-xs font-semibold text-white hover:bg-[#0077CC]"
                     >
                       <Download className="mr-1.5 size-3.5" aria-hidden="true" />
                       {pdfBusyId?.endsWith('_download')
@@ -2611,7 +2612,7 @@ export function StudentAcademicHub({
                       variant="outline"
                       disabled={pdfBusyId !== null}
                       onClick={() => handleExportMyZadulKhairPdf('print')}
-                      className="rounded-xl text-xs"
+                      className="rounded-full text-xs"
                     >
                       <Printer className="mr-1.5 size-3.5" aria-hidden="true" />
                       Print Receipt
@@ -2621,7 +2622,7 @@ export function StudentAcademicHub({
 
                 {/* 3 Voluntary Contribution KPI Shapes: PREVIOUS / CURRENT MONTHLY / TOTAL */}
                 <div className="grid gap-3.5 sm:grid-cols-3">
-                  <div className="rounded-xl border border-border bg-background/60 p-4">
+                  <div className="rounded-2xl bg-muted/45 p-4">
                     <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                       Previous Contribution
                     </p>
@@ -2635,17 +2636,17 @@ export function StudentAcademicHub({
 
                   <div
                     className={cn(
-                      'rounded-xl border p-4',
+                      'rounded-2xl p-4',
                       myZadulKhairSummary.currentMonthlyContribution > 0
-                        ? 'border-emerald-500/30 bg-emerald-500/10'
-                        : 'border-border bg-background/60',
+                        ? 'bg-emerald-500/12'
+                        : 'bg-muted/45',
                     )}
                   >
                     <p
                       className={cn(
                         'text-[11px] font-semibold tracking-wider uppercase',
                         myZadulKhairSummary.currentMonthlyContribution > 0
-                          ? 'text-emerald-700 dark:text-lime'
+                          ? 'text-emerald-700 dark:text-emerald-400'
                           : 'text-muted-foreground',
                       )}
                     >
@@ -2655,7 +2656,7 @@ export function StudentAcademicHub({
                       className={cn(
                         'mt-1 font-display text-2xl font-bold tabular-nums',
                         myZadulKhairSummary.currentMonthlyContribution > 0
-                          ? 'text-emerald-700 dark:text-lime'
+                          ? 'text-emerald-700 dark:text-emerald-400'
                           : 'text-foreground',
                       )}
                     >
@@ -2672,8 +2673,8 @@ export function StudentAcademicHub({
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-emerald-700/30 bg-background/80 p-4 dark:border-lime/30">
-                    <p className="text-[11px] font-semibold tracking-wider text-foreground uppercase">
+                  <div className="rounded-2xl bg-[#0095F6]/10 p-4">
+                    <p className="text-[11px] font-semibold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
                       Total Contribution
                     </p>
                     <p className="mt-1 font-display text-2xl font-bold text-foreground tabular-nums">
@@ -2689,9 +2690,9 @@ export function StudentAcademicHub({
                 </div>
 
                 {/* Full Academic-Year Monthly Contribution Ledger Table */}
-                <div className="overflow-x-auto rounded-2xl border border-border bg-background/60">
+                <div className="overflow-x-auto rounded-2xl bg-muted/35">
                   <table className="w-full text-left text-xs">
-                    <thead className="border-b border-border bg-muted/50 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                    <thead className="border-b border-border/40 bg-muted/50 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                       <tr>
                         <th className="px-4 py-3">Month</th>
                         <th className="px-4 py-3">Receipt No.</th>
@@ -2701,14 +2702,14 @@ export function StudentAcademicHub({
                         <th className="px-4 py-3">Remarks</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border tabular-nums">
+                    <tbody className="divide-y divide-border/40 tabular-nums">
                       {myZadulKhairSummary.monthlyRows.map((row) => (
                         <tr
                           key={row.monthId}
                           onClick={() => setSelectedMonth(row.monthId)}
                           className={cn(
                             'cursor-pointer transition-colors hover:bg-muted/30',
-                            row.isSelectedMonth && 'bg-emerald-500/10',
+                            row.isSelectedMonth && 'bg-[#0095F6]/10',
                           )}
                         >
                           <td className="px-4 py-3 font-semibold text-foreground">
@@ -2724,9 +2725,9 @@ export function StudentAcademicHub({
                           <td className="px-4 py-3">
                             <span
                               className={cn(
-                                'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold',
+                                'inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold',
                                 row.isRecorded
-                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-lime'
+                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
                                   : 'bg-muted text-muted-foreground',
                               )}
                             >
@@ -2739,15 +2740,15 @@ export function StudentAcademicHub({
                         </tr>
                       ))}
                     </tbody>
-                    <tfoot className="border-t border-emerald-500/30 bg-emerald-500/10 font-semibold tabular-nums">
+                    <tfoot className="border-t border-border/40 bg-emerald-500/10 font-semibold tabular-nums">
                       <tr>
                         <td className="px-4 py-3 text-foreground" colSpan={3}>
                           Total Contribution (2026–27)
                         </td>
-                        <td className="px-4 py-3 font-mono font-bold text-emerald-800 dark:text-lime">
+                        <td className="px-4 py-3 font-mono font-bold text-emerald-700 dark:text-emerald-400">
                           ₹{myZadulKhairSummary.fullAcademicYearTotal.toLocaleString('en-IN')}
                         </td>
-                        <td className="px-4 py-3 text-xs text-emerald-700 dark:text-lime" colSpan={2}>
+                        <td className="px-4 py-3 text-xs text-emerald-700 dark:text-emerald-400" colSpan={2}>
                           {myZadulKhairSummary.recordedMonthsCount}{' '}
                           {myZadulKhairSummary.recordedMonthsCount === 1 ? 'Month' : 'Months'} Recorded
                         </td>
@@ -2763,16 +2764,16 @@ export function StudentAcademicHub({
         {/* TAB 4: STRICTLY PRIVATE DISCIPLINE / CONDUCT ADVISORY FOR THIS STUDENT ONLY */}
         {activeTab === 'discipline' && (
           <div className="mt-5 space-y-4">
-            <div className="flex items-center gap-2.5 rounded-xl border border-border bg-background/60 px-4 py-3 text-xs text-muted-foreground">
-              <Lock className="size-4 shrink-0 text-emerald-700 dark:text-lime" aria-hidden="true" />
+            <div className="flex items-center gap-2.5 rounded-2xl bg-muted/45 px-4 py-3 text-xs text-muted-foreground">
+              <Lock className="size-4 shrink-0 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
               <span>
                 <strong>Confidentiality Guarantee:</strong> Notes in this section are strictly private between you ({student.name}) and your Class Usthad / Principal. No other student can view this record.
               </span>
             </div>
 
             {myDisciplineNotes.length === 0 ? (
-              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6 text-center">
-                <CheckCircle2 className="mx-auto size-8 text-emerald-700 dark:text-lime" aria-hidden="true" />
+              <div className="rounded-2xl bg-emerald-500/12 p-6 text-center">
+                <CheckCircle2 className="mx-auto size-8 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                 <h4 className="mt-2 font-display text-base font-bold text-foreground">
                   Exemplary Institutional Conduct — No Disciplinary Notes
                 </h4>
@@ -2785,7 +2786,7 @@ export function StudentAcademicHub({
                 {myDisciplineNotes.map((note) => (
                   <div
                     key={note.id}
-                    className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 sm:p-5"
+                    className="rounded-2xl bg-amber-500/12 p-4 sm:p-5"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-xs font-semibold text-amber-800 uppercase tabular-nums dark:text-amber-300">
@@ -2812,7 +2813,7 @@ export function StudentAcademicHub({
                           type="button"
                           size="sm"
                           onClick={() => handleAcknowledgeDisciplineNote(note)}
-                          className="rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                          className="rounded-full bg-[#0095F6] text-xs font-semibold text-white hover:bg-[#0077CC]"
                         >
                           <Check className="mr-1.5 size-3.5" aria-hidden="true" />
                           I Have Read & Acknowledged This Guidance
@@ -3274,15 +3275,15 @@ export function UsthadAcademicHub({
         eyebrow={`Managed by ${actorName} (${role === 'principal' ? 'Principal' : 'Usthad'})`}
         icon={Trophy}
       >
-        <div className="flex flex-wrap items-center gap-2 border-b border-border pb-4">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border/40 pb-4">
           <button
             type="button"
             onClick={() => setActiveTab('syllabus')}
             className={cn(
-              'flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
+              'flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition-all active:scale-[0.98]',
               activeTab === 'syllabus'
-                ? 'bg-lime text-slate-950 shadow-sm'
-                : 'border border-border bg-background/60 text-muted-foreground hover:text-foreground',
+                ? 'bg-[#0095F6] text-white'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
             <BookOpen className="size-3.5" aria-hidden="true" />
@@ -3296,10 +3297,10 @@ export function UsthadAcademicHub({
             type="button"
             onClick={() => setActiveTab('tests')}
             className={cn(
-              'flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
+              'flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition-all active:scale-[0.98]',
               activeTab === 'tests'
-                ? 'bg-lime text-slate-950 shadow-sm'
-                : 'border border-border bg-background/60 text-muted-foreground hover:text-foreground',
+                ? 'bg-[#0095F6] text-white'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
             <ClipboardCheck className="size-3.5" aria-hidden="true" />
@@ -3310,10 +3311,10 @@ export function UsthadAcademicHub({
             type="button"
             onClick={() => setActiveTab('holiday')}
             className={cn(
-              'flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
+              'flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition-all active:scale-[0.98]',
               activeTab === 'holiday'
-                ? 'bg-lime text-slate-950 shadow-sm'
-                : 'border border-border bg-background/60 text-muted-foreground hover:text-foreground',
+                ? 'bg-[#0095F6] text-white'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
             <Sparkles className="size-3.5" aria-hidden="true" />
@@ -3324,10 +3325,10 @@ export function UsthadAcademicHub({
             type="button"
             onClick={() => setActiveTab('discipline')}
             className={cn(
-              'flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
+              'flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition-all active:scale-[0.98]',
               activeTab === 'discipline'
-                ? 'bg-lime text-slate-950 shadow-sm'
-                : 'border border-border bg-background/60 text-muted-foreground hover:text-foreground',
+                ? 'bg-[#0095F6] text-white'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
             <ShieldAlert className="size-3.5" aria-hidden="true" />
@@ -3338,10 +3339,10 @@ export function UsthadAcademicHub({
             type="button"
             onClick={() => setActiveTab('zadul_khair')}
             className={cn(
-              'flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
+              'flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition-all active:scale-[0.98]',
               activeTab === 'zadul_khair'
-                ? 'bg-lime text-slate-950 shadow-sm'
-                : 'border border-border bg-background/60 text-muted-foreground hover:text-foreground',
+                ? 'bg-[#0095F6] text-white'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
             <HeartHandshake className="size-3.5" aria-hidden="true" />
@@ -3350,7 +3351,7 @@ export function UsthadAcademicHub({
         </div>
 
         {toastMessage && (
-          <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-lime/40 bg-lime/10 px-4 py-3 text-xs font-medium text-foreground">
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-emerald-500/12 px-4 py-3 text-xs font-medium text-foreground">
             <span>{toastMessage}</span>
             <button
               type="button"
@@ -3367,10 +3368,10 @@ export function UsthadAcademicHub({
           <div className="mt-5 space-y-6">
             {/* Section A: My Teaching Subjects Across All Classes */}
             {myTeachingSyllabusRows.length > 0 && (
-              <div className="space-y-4 rounded-2xl border border-emerald-600/30 bg-emerald-500/[0.06] p-4 sm:p-5 dark:border-lime/35 dark:bg-lime/[0.06]">
-                <div className="flex flex-col justify-between gap-3 border-b border-border/70 pb-3.5 sm:flex-row sm:items-center">
+              <div className="space-y-4 rounded-2xl bg-[#0095F6]/10 p-4 sm:p-5">
+                <div className="flex flex-col justify-between gap-3 border-b border-border/40 pb-3.5 sm:flex-row sm:items-center">
                   <div>
-                    <p className="text-xs font-bold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                    <p className="text-xs font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
                       എൻ്റെ ക്ലാസ്സുകളും വിഷയങ്ങളും · My Teaching Subjects Across All Classes
                     </p>
                     <h4 className="mt-1 font-display text-base font-bold text-foreground sm:text-lg">
@@ -3413,14 +3414,14 @@ export function UsthadAcademicHub({
                     return (
                       <div
                         key={row.id}
-                        className="flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-2xs"
+                        className="flex flex-col justify-between rounded-2xl bg-card p-4"
                       >
                         <div>
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600/35 bg-emerald-500/15 px-2.5 py-0.5 font-mono text-xs font-bold text-emerald-800 dark:border-lime/40 dark:bg-lime/15 dark:text-lime">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#0095F6]/12 px-2.5 py-0.5 font-mono text-xs font-bold text-[#0077CC] dark:text-[#0095F6]">
                               Class {row.className} · {row.admissionNo}
                             </span>
-                            <span className="font-mono text-xs font-bold text-emerald-700 tabular-nums dark:text-lime">
+                            <span className="font-mono text-xs font-bold text-emerald-600 tabular-nums dark:text-emerald-400">
                               {progressPct}% Done
                             </span>
                           </div>
@@ -3429,17 +3430,17 @@ export function UsthadAcademicHub({
                             {row.title}
                           </h5>
 
-                          <div className="mt-2 grid gap-2 rounded-lg border border-border/80 bg-background/70 p-2.5 sm:grid-cols-2">
+                          <div className="mt-2 grid gap-2 rounded-xl bg-muted/45 p-2.5 sm:grid-cols-2">
                             <div>
-                              <span className="block text-[10px] font-bold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                              <span className="block text-[10px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
                                 ഏത് അദ്ധ്യായം മുതൽ (From)
                               </span>
                               <p className="mt-0.5 text-xs font-semibold text-foreground">
                                 {parsedRange.fromChapter}
                               </p>
                             </div>
-                            <div className="border-t border-border/60 pt-1.5 sm:border-t-0 sm:border-l sm:pl-2.5 sm:pt-0">
-                              <span className="block text-[10px] font-bold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                            <div className="border-t border-border/40 pt-1.5 sm:border-t-0 sm:border-l sm:pl-2.5 sm:pt-0">
+                              <span className="block text-[10px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
                                 ഏത് അദ്ധ്യായം വരെ (Up To)
                               </span>
                               <p className="mt-0.5 text-xs font-semibold text-foreground">
@@ -3449,7 +3450,7 @@ export function UsthadAcademicHub({
                           </div>
 
                           <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs tabular-nums">
-                            <div className="rounded-lg border border-border bg-background/60 p-2">
+                            <div className="rounded-xl bg-muted/45 p-2">
                               <span className="block text-[10px] text-muted-foreground">
                                 എടുക്കേണ്ടത്
                               </span>
@@ -3457,15 +3458,15 @@ export function UsthadAcademicHub({
                                 {totalPagesVal}p
                               </strong>
                             </div>
-                            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2">
-                              <span className="block text-[10px] text-emerald-700 dark:text-lime">
+                            <div className="rounded-xl bg-emerald-500/12 p-2">
+                              <span className="block text-[10px] text-emerald-700 dark:text-emerald-400">
                                 എടുത്തത്
                               </span>
-                              <strong className="font-mono text-sm text-emerald-700 dark:text-lime">
+                              <strong className="font-mono text-sm text-emerald-700 dark:text-emerald-400">
                                 {completedPagesVal}p
                               </strong>
                             </div>
-                            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2">
+                            <div className="rounded-xl bg-amber-500/12 p-2">
                               <span className="block text-[10px] text-amber-800 dark:text-amber-300">
                                 ഇനി ബാക്കി
                               </span>
@@ -3476,7 +3477,7 @@ export function UsthadAcademicHub({
                           </div>
                         </div>
 
-                        <div className="mt-3.5 flex items-end gap-2 border-t border-border/70 pt-3">
+                        <div className="mt-3.5 flex items-end gap-2 border-t border-border/40 pt-3">
                           <div className="flex-1 space-y-1">
                             <Label className="text-[11px] font-semibold text-foreground">
                               എത്ര പേജ് എടുത്തു (Update Completed Pages):
@@ -3507,7 +3508,7 @@ export function UsthadAcademicHub({
                             onClick={() =>
                               handleUsthadUpdateSyllabusPages(row, role === 'principal')
                             }
-                            className="h-9 rounded-xl bg-lime px-3.5 text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                            className="h-9 rounded-full bg-[#0095F6] px-4 text-xs font-semibold text-white hover:bg-[#0077CC]"
                           >
                             <Check className="mr-1.5 size-3.5" aria-hidden="true" />
                             {savingSyllabusId === row.id ? 'Saving...' : 'Save Pages'}
@@ -3533,9 +3534,9 @@ export function UsthadAcademicHub({
                 </div>
               </div>
 
-              <div className="overflow-x-auto rounded-2xl border border-border bg-background/60">
+              <div className="overflow-x-auto rounded-2xl bg-muted/35">
                 <table className="w-full text-left text-xs">
-                  <thead className="border-b border-border bg-muted/50 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                  <thead className="border-b border-border/40 bg-muted/50 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                     <tr>
                       <th className="px-3.5 py-3">Period & Kitab</th>
                       <th className="px-3.5 py-3">Teaching Usthad</th>
@@ -3546,7 +3547,7 @@ export function UsthadAcademicHub({
                       <th className="px-3.5 py-3 text-right">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border tabular-nums">
+                  <tbody className="divide-y divide-border/40 tabular-nums">
                     {activeClassSyllabusRows.map((row) => {
                       const parsedRange = extractSyllabusChapterRange(row)
                       const canEditThisSubject =
@@ -3561,9 +3562,9 @@ export function UsthadAcademicHub({
                       const remainingVal = Math.max(0, totalVal - completedVal)
 
                       return (
-                        <tr key={row.id} className="hover:bg-muted/25">
+                        <tr key={row.id} className="hover:bg-muted/30">
                           <td className="px-3.5 py-3">
-                            <span className="font-mono text-[11px] font-bold text-emerald-700 dark:text-lime">
+                            <span className="font-mono text-[11px] font-bold text-[#0077CC] dark:text-[#0095F6]">
                               {row.admissionNo}
                             </span>
                             <p className="font-semibold text-foreground">{row.title}</p>
@@ -3574,13 +3575,13 @@ export function UsthadAcademicHub({
                           <td className="px-3.5 py-3 text-foreground">
                             <div className="space-y-0.5 text-xs">
                               <p>
-                                <span className="font-semibold text-emerald-700 dark:text-lime">
+                                <span className="font-semibold text-[#0077CC] dark:text-[#0095F6]">
                                   മുതൽ:
                                 </span>{' '}
                                 {parsedRange.fromChapter}
                               </p>
                               <p>
-                                <span className="font-semibold text-emerald-700 dark:text-lime">
+                                <span className="font-semibold text-[#0077CC] dark:text-[#0095F6]">
                                   വരെ:
                                 </span>{' '}
                                 {parsedRange.toChapter}
@@ -3611,7 +3612,7 @@ export function UsthadAcademicHub({
                                 className="h-8 w-24 font-mono text-xs font-bold tabular-nums"
                               />
                             ) : (
-                              <span className="font-mono font-bold text-emerald-700 dark:text-lime">
+                              <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
                                 {completedVal} പേജ്
                               </span>
                             )}
@@ -3628,7 +3629,7 @@ export function UsthadAcademicHub({
                                 onClick={() =>
                                   handleUsthadUpdateSyllabusPages(row, role === 'principal')
                                 }
-                                className="h-8 rounded-lg bg-lime px-3 text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                                className="h-8 rounded-full bg-[#0095F6] px-3.5 text-xs font-semibold text-white hover:bg-[#0077CC]"
                               >
                                 Save
                               </Button>
@@ -3662,7 +3663,7 @@ export function UsthadAcademicHub({
                 type="button"
                 size="sm"
                 onClick={() => setShowCreateTestForm((v) => !v)}
-                className="rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                className="rounded-full bg-[#0095F6] text-xs font-semibold text-white hover:bg-[#0077CC]"
               >
                 <Plus className="mr-1.5 size-4" aria-hidden="true" />
                 {showCreateTestForm ? 'Hide Test Builder' : 'Create New Monthly / Unit Test'}
@@ -3672,7 +3673,7 @@ export function UsthadAcademicHub({
             {showCreateTestForm && (
               <form
                 onSubmit={handlePublishNewUnitTest}
-                className="space-y-4 rounded-2xl border border-lime/35 bg-background/70 p-4 sm:p-6"
+                className="space-y-4 rounded-2xl bg-muted/45 p-4 sm:p-6"
               >
                 <h5 className="font-display text-base font-bold text-foreground">
                   Create New Monthly / Unit Test for Class {normClass}
@@ -3735,10 +3736,10 @@ export function UsthadAcademicHub({
                     return (
                       <div
                         key={q.id}
-                        className="space-y-3 rounded-xl border border-border bg-card/70 p-4"
+                        className="space-y-3 rounded-2xl bg-card p-4"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="font-mono text-xs font-bold text-emerald-700 dark:text-lime">
+                          <span className="font-mono text-xs font-bold text-[#0077CC] dark:text-[#0095F6]">
                             Question #{idx + 1} (
                             {q.type === 'mcq' ? 'Multiple Choice' : 'Objective / Typed'})
                           </span>
@@ -3877,7 +3878,7 @@ export function UsthadAcademicHub({
                       size="sm"
                       variant="outline"
                       onClick={() => addQuestionRow('mcq')}
-                      className="rounded-xl text-xs"
+                      className="rounded-full text-xs"
                     >
                       <Plus className="mr-1.5 size-3.5" aria-hidden="true" />
                       Add Multiple-Choice (MCQ)
@@ -3887,7 +3888,7 @@ export function UsthadAcademicHub({
                       size="sm"
                       variant="outline"
                       onClick={() => addQuestionRow('objective')}
-                      className="rounded-xl text-xs"
+                      className="rounded-full text-xs"
                     >
                       <Plus className="mr-1.5 size-3.5" aria-hidden="true" />
                       Add Objective (Typed Answer)
@@ -3896,7 +3897,7 @@ export function UsthadAcademicHub({
 
                   <Button
                     type="submit"
-                    className="rounded-xl bg-lime font-semibold text-slate-950 hover:bg-lime/90"
+                    className="rounded-full bg-[#0095F6] font-semibold text-white hover:bg-[#0077CC]"
                   >
                     Publish Test to Class {normClass}
                   </Button>
@@ -3906,8 +3907,8 @@ export function UsthadAcademicHub({
 
             {/* Grading Section */}
             {activeGradingTest && (
-              <div className="space-y-4 rounded-2xl border border-border bg-background/60 p-4 sm:p-5">
-                <div className="flex flex-col justify-between gap-3 border-b border-border pb-4 sm:flex-row sm:items-center">
+              <div className="space-y-4 rounded-2xl bg-muted/40 p-4 sm:p-5">
+                <div className="flex flex-col justify-between gap-3 border-b border-border/40 pb-4 sm:flex-row sm:items-center">
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold text-muted-foreground uppercase">
                       Evaluate Student Submissions
@@ -3962,9 +3963,9 @@ export function UsthadAcademicHub({
                       return (
                         <div
                           key={sub.id}
-                          className="rounded-xl border border-border bg-card/80 p-4"
+                          className="rounded-2xl bg-card p-4"
                         >
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-3">
                             <div>
                               <h6 className="font-display text-sm font-bold text-foreground">
                                 {sub.studentName}{' '}
@@ -3979,7 +3980,7 @@ export function UsthadAcademicHub({
                             </div>
                             <div className="text-right font-mono text-sm font-bold tabular-nums">
                               Total:{' '}
-                              <span className="text-emerald-700 dark:text-lime">{liveSum}</span>/
+                              <span className="text-emerald-600 dark:text-emerald-400">{liveSum}</span>/
                               {activeGradingTest.totalMarks || 20}
                             </div>
                           </div>
@@ -4003,7 +4004,7 @@ export function UsthadAcademicHub({
                               return (
                                 <div
                                   key={q.id}
-                                  className="flex flex-col justify-between gap-2 rounded-lg border border-border/60 bg-background/60 p-3 text-xs sm:flex-row sm:items-center"
+                                  className="flex flex-col justify-between gap-2 rounded-xl bg-muted/45 p-3 text-xs sm:flex-row sm:items-center"
                                 >
                                   <div className="min-w-0 flex-1 space-y-1">
                                     <p
@@ -4085,7 +4086,7 @@ export function UsthadAcademicHub({
                               type="button"
                               size="sm"
                               onClick={() => handleSaveStudentGrade(sub)}
-                              className="rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                              className="rounded-full bg-[#0095F6] text-xs font-semibold text-white hover:bg-[#0077CC]"
                             >
                               <Check className="mr-1.5 size-3.5" aria-hidden="true" />
                               Save & Publish Marks
@@ -4114,7 +4115,7 @@ export function UsthadAcademicHub({
             </div>
 
             {classHolidayLogs.length === 0 ? (
-              <div className="rounded-2xl border border-border bg-background/50 p-6 text-center text-xs text-muted-foreground">
+              <div className="rounded-2xl bg-muted/40 p-6 text-center text-xs text-muted-foreground">
                 No holiday Academic or SSF Da&apos;wa logs uploaded by Class {normClass} students yet.
               </div>
             ) : (
@@ -4122,7 +4123,7 @@ export function UsthadAcademicHub({
                 {classHolidayLogs.map((log) => (
                   <div
                     key={log.id}
-                    className="flex flex-col justify-between rounded-2xl border border-border bg-background/60 p-4"
+                    className="flex flex-col justify-between rounded-2xl bg-muted/40 p-4"
                   >
                     <div>
                       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -4136,7 +4137,7 @@ export function UsthadAcademicHub({
                           className={cn(
                             'text-xs font-bold',
                             log.status === 'verified'
-                              ? 'text-emerald-700 dark:text-lime'
+                              ? 'text-emerald-600 dark:text-emerald-400'
                               : 'text-amber-700 dark:text-amber-400',
                           )}
                         >
@@ -4155,7 +4156,7 @@ export function UsthadAcademicHub({
                       </p>
 
                       {log.photoUrl && (
-                        <div className="mt-3 overflow-hidden rounded-xl border border-border">
+                        <div className="mt-3 overflow-hidden rounded-2xl bg-card">
                           <img
                             src={log.photoUrl}
                             alt={log.title || 'Student activity proof'}
@@ -4165,7 +4166,7 @@ export function UsthadAcademicHub({
                       )}
                     </div>
 
-                    <div className="mt-4 flex flex-col gap-2 border-t border-border/70 pt-3 sm:flex-row">
+                    <div className="mt-4 flex flex-col gap-2 border-t border-border/40 pt-3 sm:flex-row">
                       <Input
                         value={holidayRemarksDraft[log.id] ?? log.remarks ?? ''}
                         onChange={(e) =>
@@ -4181,7 +4182,7 @@ export function UsthadAcademicHub({
                         type="button"
                         size="sm"
                         onClick={() => handleVerifyHolidayLog(log)}
-                        className="h-8 rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                        className="h-8 rounded-full bg-[#0095F6] px-3.5 text-xs font-semibold text-white hover:bg-[#0077CC]"
                       >
                         <CheckCircle2 className="mr-1.5 size-3.5" aria-hidden="true" />
                         {log.status === 'verified' ? 'Update Note' : 'Verify Activity'}
@@ -4199,7 +4200,7 @@ export function UsthadAcademicHub({
           <div className="mt-5 grid gap-6 lg:grid-cols-12">
             <form
               onSubmit={handleCreateDisciplineNote}
-              className="space-y-4 rounded-2xl border border-border bg-background/60 p-4 sm:p-5 lg:col-span-5"
+              className="space-y-4 rounded-2xl bg-muted/40 p-4 sm:p-5 lg:col-span-5"
             >
               <div>
                 <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-amber-700 uppercase dark:text-amber-400">
@@ -4270,7 +4271,7 @@ export function UsthadAcademicHub({
                   onChange={(e) => setDisciplineDesc(e.target.value)}
                   placeholder="Describe the disciplinary observation privately..."
                   required
-                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground outline-none focus:border-lime"
+                  className="w-full rounded-2xl border-0 bg-popover px-3.5 py-2.5 text-xs text-foreground outline-none"
                 />
               </div>
 
@@ -4288,7 +4289,7 @@ export function UsthadAcademicHub({
 
               <Button
                 type="submit"
-                className="w-full rounded-xl bg-amber-500 font-semibold text-slate-950 hover:bg-amber-400"
+                className="w-full rounded-full bg-amber-500 font-semibold text-white hover:bg-amber-600"
               >
                 <Lock className="mr-2 size-4" aria-hidden="true" />
                 Save Private Note for Selected Student Only
@@ -4301,7 +4302,7 @@ export function UsthadAcademicHub({
               </h4>
 
               {classDisciplineNotes.length === 0 ? (
-                <div className="rounded-2xl border border-border bg-background/50 p-6 text-center text-xs text-muted-foreground">
+                <div className="rounded-2xl bg-muted/40 p-6 text-center text-xs text-muted-foreground">
                   No confidential discipline notes recorded for Class {normClass}.
                 </div>
               ) : (
@@ -4309,7 +4310,7 @@ export function UsthadAcademicHub({
                   {classDisciplineNotes.map((note) => (
                     <div
                       key={note.id}
-                      className="rounded-2xl border border-border bg-background/60 p-4"
+                      className="rounded-2xl bg-muted/40 p-4"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
@@ -4328,7 +4329,7 @@ export function UsthadAcademicHub({
                             className={cn(
                               'text-xs font-semibold',
                               note.acknowledged
-                                ? 'text-emerald-700 dark:text-lime'
+                                ? 'text-emerald-600 dark:text-emerald-400'
                                 : 'text-amber-700 dark:text-amber-400',
                             )}
                           >
@@ -4339,7 +4340,7 @@ export function UsthadAcademicHub({
                             size="sm"
                             variant="ghost"
                             onClick={() => handleDeleteDisciplineNote(note)}
-                            className="h-7 px-2 text-red-500"
+                            className="h-7 rounded-full px-2 text-red-500"
                           >
                             <Trash2 className="size-3.5" aria-hidden="true" />
                           </Button>
@@ -4351,7 +4352,7 @@ export function UsthadAcademicHub({
                       <p className="mt-1 text-xs text-muted-foreground">{note.description}</p>
                       {note.remarks && (
                         <p className="mt-1.5 text-xs text-foreground">
-                          <strong className="text-emerald-700 dark:text-lime">
+                          <strong className="text-[#0077CC] dark:text-[#0095F6]">
                             Corrective Advice:
                           </strong>{' '}
                           {note.remarks}
