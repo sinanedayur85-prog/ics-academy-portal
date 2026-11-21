@@ -49,6 +49,8 @@ export type AcademicRecordStatus =
   | 'paid'
   | 'partial'
   | 'unpaid'
+  | 'received'
+  | 'not_recorded'
   | 'deleted'
 
 export type UnitTestQuestionType = 'mcq' | 'objective'
@@ -95,9 +97,7 @@ export type CampusAcademicRecord = {
 }
 
 const STORAGE_KEY = 'ics_campus_academic_records_v1'
-const SEEDED_VERSION_KEY = 'ics_campus_academic_records_seeded_v4_chapter_range'
-
-export const ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT = 600
+const SEEDED_VERSION_KEY = 'ics_campus_academic_records_seeded_v5_voluntary_zadul_khair'
 
 export const HOLIDAY_ACTIVITY_CATEGORIES = [
   'Academic Study (Kitab / Revision)',
@@ -298,15 +298,37 @@ function buildInitialSeededAcademicRecords(): CampusAcademicRecord[] {
       })
     }
 
-    // 4. Seed Zadul Khair (زاد الخير) Monthly Household Contribution records for the first 5 students per class
+    // 4. Seed Zadul Khair (زاد الخير) Voluntary Household Contribution records across prior & current months
+    const sampleOctAmounts = [300, 500, 250, 400, 200]
+    const sampleNovAmounts = [500, 250, 300, 200, 0]
     classStudents.slice(0, 5).forEach((stu, idx) => {
-      const status: AcademicRecordStatus = idx < 3 ? 'paid' : idx === 3 ? 'partial' : 'unpaid'
-      const paidAmount =
-        status === 'paid'
-          ? ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT
-          : status === 'partial'
-            ? 300
-            : 0
+      const octAmt = sampleOctAmounts[idx] ?? 250
+      if (octAmt > 0) {
+        records.push({
+          id: `zk_2026-10_${stu.id}`,
+          campusId: 'ics-academy',
+          recordKind: 'zadul_khair',
+          className,
+          studentId: stu.id,
+          studentName: stu.name,
+          admissionNo: stu.admissionNo,
+          month: '2026-10',
+          title: 'Zadul Khair (زاد الخير) Voluntary Household Contribution',
+          subjectOrCategory: 'October 2026',
+          remarks: 'Received voluntary household Zadul Khair contribution with heartfelt gratitude.',
+          status: 'received',
+          actorId: usthad.id,
+          actorName: usthad.name,
+          dateString: '16 Oct 2026',
+          receiptNo: `ZK-2610-${stu.admissionNo.slice(-4)}`,
+          paidAmount: octAmt,
+          isDeleted: false,
+          updatedAtMs: baseTs + seq++,
+        })
+      }
+
+      const novAmt = sampleNovAmounts[idx] ?? 0
+      const novStatus: AcademicRecordStatus = novAmt > 0 ? 'received' : 'not_recorded'
       records.push({
         id: `zk_2026-11_${stu.id}`,
         campusId: 'ics-academy',
@@ -316,21 +338,18 @@ function buildInitialSeededAcademicRecords(): CampusAcademicRecord[] {
         studentName: stu.name,
         admissionNo: stu.admissionNo,
         month: '2026-11',
-        title: 'Zadul Khair (زاد الخير) Monthly Household Contribution',
+        title: 'Zadul Khair (زاد الخير) Voluntary Household Contribution',
         subjectOrCategory: 'November 2026',
         remarks:
-          status === 'paid'
-            ? 'Received full monthly household contribution with gratitude.'
-            : status === 'partial'
-              ? 'Partial contribution received; balance pending.'
-              : 'Monthly household collection pending for November 2026.',
-        status,
+          novAmt > 0
+            ? 'Received voluntary household Zadul Khair contribution with heartfelt gratitude.'
+            : '',
+        status: novStatus,
         actorId: usthad.id,
         actorName: usthad.name,
-        dateString: '15 Nov 2026',
-        receiptNo: `ZK-2611-${stu.admissionNo.slice(-4)}`,
-        fixedAmount: ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT,
-        paidAmount,
+        dateString: novAmt > 0 ? '15 Nov 2026' : '',
+        receiptNo: novAmt > 0 ? `ZK-2611-${stu.admissionNo.slice(-4)}` : '',
+        paidAmount: novAmt,
         isDeleted: false,
         updatedAtMs: baseTs + seq++,
       })
@@ -412,7 +431,7 @@ function buildInitialSeededAcademicRecords(): CampusAcademicRecord[] {
   return records
 }
 
-function normalizeLegacyZadulKhairAmount(
+function normalizeAcademicRecord(
   rec: CampusAcademicRecord,
   defaultSeed?: CampusAcademicRecord,
 ): CampusAcademicRecord {
@@ -436,15 +455,33 @@ function normalizeLegacyZadulKhairAmount(
     return rec
   }
   if (rec.recordKind !== 'zadul_khair') return rec
-  if (rec.fixedAmount === 500 || rec.fixedAmount === undefined) {
-    const wasPaid500 = rec.status === 'paid' && (rec.paidAmount === 500 || rec.paidAmount === undefined)
-    return {
-      ...rec,
-      fixedAmount: ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT,
-      paidAmount: wasPaid500 ? ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT : rec.paidAmount,
-    }
+
+  const safePaid = Math.max(0, Math.round(Number(rec.paidAmount ?? 0) || 0))
+  const voluntaryStatus: AcademicRecordStatus = safePaid > 0 ? 'received' : 'not_recorded'
+  let cleanedRemarks = rec.remarks || ''
+  if (
+    cleanedRemarks === 'Received full monthly household contribution with gratitude.' ||
+    cleanedRemarks === 'Full monthly Zadul Khair contribution received.' ||
+    cleanedRemarks === 'Partial contribution received; balance pending.' ||
+    cleanedRemarks === 'Partial contribution recorded.'
+  ) {
+    cleanedRemarks =
+      safePaid > 0
+        ? 'Received voluntary household Zadul Khair contribution with heartfelt gratitude.'
+        : ''
+  } else if (
+    cleanedRemarks.startsWith('Monthly household collection pending') ||
+    cleanedRemarks === 'Pending monthly contribution.'
+  ) {
+    cleanedRemarks = ''
   }
-  return rec
+
+  return {
+    ...rec,
+    paidAmount: safePaid,
+    status: voluntaryStatus,
+    remarks: cleanedRemarks,
+  }
 }
 
 export function loadCampusAcademicRecords(): CampusAcademicRecord[] {
@@ -462,7 +499,7 @@ export function loadCampusAcademicRecords(): CampusAcademicRecord[] {
             for (const d of defaults) byId.set(d.id, d)
             for (const p of prev) {
               if (p && typeof p.id === 'string') {
-                byId.set(p.id, normalizeLegacyZadulKhairAmount(p, byId.get(p.id)))
+                byId.set(p.id, normalizeAcademicRecord(p, byId.get(p.id)))
               }
             }
             const upgraded = Array.from(byId.values())
@@ -490,7 +527,7 @@ export function loadCampusAcademicRecords(): CampusAcademicRecord[] {
     for (const p of parsed) {
       if (p && typeof p.id === 'string') {
         const existing = byId.get(p.id)
-        const normalized = normalizeLegacyZadulKhairAmount(p, existing)
+        const normalized = normalizeAcademicRecord(p, existing)
         if (!existing || (normalized.updatedAtMs || 0) >= (existing.updatedAtMs || 0)) {
           byId.set(normalized.id, normalized)
         }
@@ -994,17 +1031,153 @@ async function loadOfficialPdfFontsAndLogo(pdf: {
   return { fontFamily, hasElMessiri, logoDataUrl }
 }
 
+export type ZadulKhairMonthlyLedgerRow = {
+  monthId: string
+  monthLabel: string
+  shortMonthLabel: string
+  record: CampusAcademicRecord | null
+  amount: number
+  isRecorded: boolean
+  statusLabel: 'Received' | 'Not Recorded'
+  receiptNo: string
+  dateString: string
+  remarks: string
+  actorName: string
+  isSelectedMonth: boolean
+}
+
+export type StudentZadulKhairSummary = {
+  selectedMonth: string
+  selectedMonthLabel: string
+  previousContribution: number
+  currentMonthlyContribution: number
+  totalContribution: number
+  fullAcademicYearTotal: number
+  recordedMonthsCount: number
+  currentMonthRecord: CampusAcademicRecord | null
+  monthlyRows: ZadulKhairMonthlyLedgerRow[]
+}
+
+const ACADEMIC_MONTH_ORDER = new Map<string, number>(
+  MONTHS_META.map((m, index) => [m.id, index]),
+)
+
+export function getAcademicMonthOrderIndex(monthId: string): number {
+  const known = ACADEMIC_MONTH_ORDER.get(monthId)
+  if (known !== undefined) return known
+  return 999
+}
+
+/**
+ * Computes voluntary Zadul Khair cumulative metrics and the full chronological 2026-27
+ * monthly ledger for a single student:
+ * - previousContribution: sum of all contributions strictly prior to `selectedMonth`
+ * - currentMonthlyContribution: voluntary contribution recorded for `selectedMonth`
+ * - totalContribution: previousContribution + currentMonthlyContribution
+ */
+export function computeStudentZadulKhairSummary(
+  studentId: string,
+  selectedMonth: string,
+  allRecords: CampusAcademicRecord[],
+): StudentZadulKhairSummary {
+  const byMonth = new Map<string, CampusAcademicRecord>()
+  for (const r of allRecords) {
+    if (
+      r.recordKind !== 'zadul_khair' ||
+      r.isDeleted ||
+      r.status === 'deleted' ||
+      r.studentId !== studentId ||
+      !r.month
+    ) {
+      continue
+    }
+    const existing = byMonth.get(r.month)
+    if (!existing || (r.updatedAtMs || 0) >= (existing.updatedAtMs || 0)) {
+      byMonth.set(r.month, r)
+    }
+  }
+
+  const selectedIndex = getAcademicMonthOrderIndex(selectedMonth)
+  let previousContribution = 0
+  let currentMonthlyContribution = 0
+  let fullAcademicYearTotal = 0
+  let recordedMonthsCount = 0
+
+  const monthlyRows: ZadulKhairMonthlyLedgerRow[] = MONTHS_META.map((m, idx) => {
+    const rec = byMonth.get(m.id) || null
+    const amount = Math.max(0, Math.round(Number(rec?.paidAmount ?? 0) || 0))
+    const isRecorded = amount > 0
+    if (isRecorded) {
+      recordedMonthsCount += 1
+      fullAcademicYearTotal += amount
+    }
+    if (idx < selectedIndex) {
+      previousContribution += amount
+    } else if (m.id === selectedMonth) {
+      currentMonthlyContribution = amount
+    }
+    return {
+      monthId: m.id,
+      monthLabel: `${m.month} ${m.year}`,
+      shortMonthLabel: `${m.shortMonth} ${m.year}`,
+      record: rec,
+      amount,
+      isRecorded,
+      statusLabel: isRecorded ? 'Received' : 'Not Recorded',
+      receiptNo: isRecorded ? rec?.receiptNo || `ZK-${m.id.replace('-', '')}` : '—',
+      dateString: isRecorded ? rec?.dateString || '—' : '—',
+      remarks: rec?.remarks || '',
+      actorName: rec?.actorName || '',
+      isSelectedMonth: m.id === selectedMonth,
+    }
+  })
+
+  // Include any records whose month falls outside MONTHS_META safely
+  for (const [mId, rec] of byMonth.entries()) {
+    if (ACADEMIC_MONTH_ORDER.has(mId)) continue
+    const amount = Math.max(0, Math.round(Number(rec.paidAmount ?? 0) || 0))
+    if (amount > 0) {
+      fullAcademicYearTotal += amount
+      if (mId < selectedMonth) {
+        previousContribution += amount
+      } else if (mId === selectedMonth) {
+        currentMonthlyContribution = amount
+      }
+    }
+  }
+
+  const selectedMeta = MONTHS_META.find((m) => m.id === selectedMonth)
+  const selectedMonthLabel = selectedMeta
+    ? `${selectedMeta.month} ${selectedMeta.year}`
+    : selectedMonth
+
+  return {
+    selectedMonth,
+    selectedMonthLabel,
+    previousContribution,
+    currentMonthlyContribution,
+    totalContribution: previousContribution + currentMonthlyContribution,
+    fullAcademicYearTotal,
+    recordedMonthsCount,
+    currentMonthRecord: byMonth.get(selectedMonth) || null,
+    monthlyRows,
+  }
+}
+
 /**
  * Generates and downloads/prints an Official ICS Academy Manhappatta
- * Zadul Khair (زاد الخير) Individual Student Receipt & Household Ledger Statement PDF.
+ * Zadul Khair (زاد الخير) Individual Student Voluntary Household Contribution Receipt & Monthly Ledger PDF.
  */
 export async function exportStudentZadulKhairReceiptPdf(params: {
   student: Student
+  selectedMonth: string
   record: CampusAcademicRecord
   historyRecords: CampusAcademicRecord[]
   mode: 'download' | 'print'
 }): Promise<void> {
-  const { student, record, historyRecords, mode } = params
+  const { student, selectedMonth, record, historyRecords, mode } = params
+  const summary = computeStudentZadulKhairSummary(student.id, selectedMonth, historyRecords)
+
   const { jsPDF } = await import('jspdf')
   const pdf = new jsPDF({
     orientation: 'portrait',
@@ -1035,164 +1208,166 @@ export async function exportStudentZadulKhairReceiptPdf(params: {
   let y = 10
 
   // 1. Dark Emerald-Teal Official Institutional Banner (#081E21)
-  const headerH = 29
+  const headerH = 27
   pdf.setFillColor(8, 30, 33)
   pdf.roundedRect(margin, y, contentWidth, headerH, 3.5, 3.5, 'F')
 
   if (logoDataUrl) {
     pdf.setFillColor(255, 255, 255)
-    pdf.roundedRect(margin + 4.5, y + 4.2, 16.5, 20.6, 2.5, 2.5, 'F')
-    const markH = 17.5
+    pdf.roundedRect(margin + 4.5, y + 3.6, 15.8, 19.8, 2.4, 2.4, 'F')
+    const markH = 16.8
     const markW = markH * (381 / 512)
-    const markX = margin + 4.5 + (16.5 - markW) / 2
-    const markY = y + 4.2 + (20.6 - markH) / 2
+    const markX = margin + 4.5 + (15.8 - markW) / 2
+    const markY = y + 3.6 + (19.8 - markH) / 2
     pdf.addImage(logoDataUrl, 'PNG', markX, markY, markW, markH)
   }
 
-  const textStartX = logoDataUrl ? margin + 24.5 : margin + 6
+  const textStartX = logoDataUrl ? margin + 24 : margin + 6
   setFont('bold')
-  pdf.setFontSize(7.5)
+  pdf.setFontSize(7.3)
   pdf.setTextColor(163, 230, 53) // #a3e635 lime
-  pdf.text('ZADUL KHAIR MONTHLY HOUSEHOLD CONTRIBUTION RECEIPT', textStartX, y + 7.2)
+  pdf.text('ZADUL KHAIR VOLUNTARY HOUSEHOLD CONTRIBUTION RECEIPT', textStartX, y + 6.8)
 
   setBrandFont()
-  pdf.setFontSize(13.5)
+  pdf.setFontSize(13.2)
   pdf.setTextColor(255, 255, 255)
-  pdf.text('ICS ACADEMY MANHAPPATTA', textStartX, y + 13.8)
+  pdf.text('ICS ACADEMY MANHAPPATTA', textStartX, y + 13.2)
 
   setFont('semibold')
-  pdf.setFontSize(8.2)
+  pdf.setFontSize(8)
   pdf.setTextColor(203, 213, 225)
-  pdf.text('Islamic Cultural Society • Manhappatta, Kerala', textStartX, y + 18.8)
+  pdf.text('Islamic Cultural Society • Manhappatta, Kerala', textStartX, y + 18)
 
   setFont('normal')
-  pdf.setFontSize(7.2)
+  pdf.setFontSize(7)
   pdf.setTextColor(148, 163, 184)
   pdf.text(
-    'Academic Year 2026-27  |  Official Household Contribution & Receipt Statement',
+    'Academic Year 2026-27  |  Official Voluntary Charity & Household Ledger Statement',
     textStartX,
-    y + 23.8,
+    y + 22.8,
   )
 
   // Right receipt badge
   const badgeW = 48
-  const badgeH = 17
+  const badgeH = 16.5
   const badgeX = pageWidth - margin - badgeW - 4.5
-  const badgeY = y + 6
+  const badgeY = y + 5.2
   pdf.setFillColor(13, 46, 50)
   pdf.setDrawColor(163, 230, 53)
   pdf.setLineWidth(0.3)
   pdf.roundedRect(badgeX, badgeY, badgeW, badgeH, 2.2, 2.2, 'FD')
 
   setFont('bold')
-  pdf.setFontSize(6.5)
+  pdf.setFontSize(6.2)
   pdf.setTextColor(163, 230, 53)
-  pdf.text('RECEIPT NO.', badgeX + badgeW / 2, badgeY + 5.2, { align: 'center' })
+  pdf.text('RECEIPT NO.', badgeX + badgeW / 2, badgeY + 4.8, { align: 'center' })
 
   setFont('bold')
-  pdf.setFontSize(9)
+  pdf.setFontSize(8.8)
   pdf.setTextColor(255, 255, 255)
-  const receiptCode = record.receiptNo || `ZK-${record.month || '2026-11'}-${student.admissionNo.slice(-4)}`
-  pdf.text(receiptCode, badgeX + badgeW / 2, badgeY + 10.5, { align: 'center' })
+  const receiptCode =
+    summary.currentMonthlyContribution > 0
+      ? record.receiptNo || `ZK-${selectedMonth.replace('-', '')}-${student.admissionNo.slice(-4)}`
+      : `STMT-${selectedMonth.replace('-', '')}`
+  pdf.text(receiptCode, badgeX + badgeW / 2, badgeY + 10.1, { align: 'center' })
 
   setFont('normal')
-  pdf.setFontSize(6.5)
+  pdf.setFontSize(6.3)
   pdf.setTextColor(203, 213, 225)
-  pdf.text(record.dateString || 'Nov 2026', badgeX + badgeW / 2, badgeY + 14.8, {
-    align: 'center',
-  })
+  pdf.text(
+    summary.currentMonthlyContribution > 0
+      ? record.dateString || summary.selectedMonthLabel
+      : summary.selectedMonthLabel,
+    badgeX + badgeW / 2,
+    badgeY + 14.3,
+    { align: 'center' },
+  )
 
-  y += headerH + 6
+  y += headerH + 5
 
   // 2. Student & Household Identity Card
-  const idCardH = 26
+  const idCardH = 24
   pdf.setFillColor(248, 250, 252)
   pdf.setDrawColor(203, 213, 225)
   pdf.setLineWidth(0.35)
   pdf.roundedRect(margin, y, contentWidth, idCardH, 2.8, 2.8, 'FD')
 
   setFont('bold')
-  pdf.setFontSize(7)
+  pdf.setFontSize(6.8)
   pdf.setTextColor(100, 116, 139)
-  pdf.text('STUDENT & HOUSEHOLD DETAILS', margin + 5, y + 6)
+  pdf.text('STUDENT & HOUSEHOLD DETAILS', margin + 5, y + 5.6)
 
   setFont('bold')
-  pdf.setFontSize(12)
+  pdf.setFontSize(11.8)
   pdf.setTextColor(15, 23, 42)
-  pdf.text(student.name, margin + 5, y + 13)
+  pdf.text(student.name, margin + 5, y + 12.2)
 
   setFont('semibold')
-  pdf.setFontSize(8.5)
+  pdf.setFontSize(8.2)
   pdf.setTextColor(51, 65, 85)
   pdf.text(
     `Admission No: ${student.admissionNo}   •   Class: ${student.className} (${student.batch})`,
     margin + 5,
-    y + 19,
+    y + 17.6,
   )
 
   setFont('normal')
-  pdf.setFontSize(7.5)
+  pdf.setFontSize(7.3)
   pdf.setTextColor(100, 116, 139)
+  const recordedByDisplay =
+    summary.currentMonthRecord?.actorName || record.actorName || 'Class Usthad / Leader'
   pdf.text(
-    `Recorded By: ${record.actorName || 'Class Usthad'}   •   Collection Month: ${record.subjectOrCategory || record.month || 'November 2026'}`,
+    `Recorded By: ${recordedByDisplay}   •   Statement Month: ${summary.selectedMonthLabel}`,
     margin + 5,
-    y + 23.5,
+    y + 22,
   )
 
-  y += idCardH + 6
+  y += idCardH + 5
 
-  // 3. Current Month Financial Summary KPI Strip (3 Boxes)
-  const fixedAmt = Number(record.fixedAmount ?? ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT)
-  const paidAmt = Number(record.paidAmount ?? 0)
-  const balanceAmt = Math.max(0, fixedAmt - paidAmt)
+  // 3. Voluntary Contribution Summary KPI Strip (Exact 3 Shapes: PREVIOUS / CURRENT MONTHLY / TOTAL)
   const kpiGap = 4
   const kpiW = (contentWidth - kpiGap * 2) / 3
-  const kpiH = 22
+  const kpiH = 21.5
+  const isCurrentRecorded = summary.currentMonthlyContribution > 0
 
   const kpis = [
     {
-      label: 'FIXED MONTHLY CONTRIBUTION',
-      val: `INR ${fixedAmt.toLocaleString('en-IN')}`,
-      sub: 'Standard Household Quota',
-      bg: [241, 245, 249] as [number, number, number],
-      border: [203, 213, 225] as [number, number, number],
-      color: [15, 23, 42] as [number, number, number],
-    },
-    {
-      label: 'AMOUNT RECEIVED (PAID)',
-      val: `INR ${paidAmt.toLocaleString('en-IN')}`,
-      sub:
-        record.status === 'paid'
-          ? 'Status: PAID IN FULL'
-          : record.status === 'partial'
-            ? 'Status: PARTIALLY PAID'
-            : 'Status: UNPAID / PENDING',
-      bg:
-        record.status === 'paid'
-          ? ([236, 253, 245] as [number, number, number])
-          : record.status === 'partial'
-            ? ([254, 243, 199] as [number, number, number])
-            : ([254, 242, 242] as [number, number, number]),
-      border:
-        record.status === 'paid'
-          ? ([16, 185, 129] as [number, number, number])
-          : record.status === 'partial'
-            ? ([245, 158, 11] as [number, number, number])
-            : ([239, 68, 68] as [number, number, number]),
-      color:
-        record.status === 'paid'
-          ? ([4, 120, 87] as [number, number, number])
-          : record.status === 'partial'
-            ? ([180, 83, 9] as [number, number, number])
-            : ([185, 28, 28] as [number, number, number]),
-    },
-    {
-      label: 'BALANCE PENDING',
-      val: `INR ${balanceAmt.toLocaleString('en-IN')}`,
-      sub: balanceAmt === 0 ? 'No Dues Remaining' : 'Remaining for Month',
+      label: 'PREVIOUS CONTRIBUTION',
+      val: `INR ${summary.previousContribution.toLocaleString('en-IN')}`,
+      sub: 'Prior Months Cumulative',
       bg: [248, 250, 252] as [number, number, number],
       border: [203, 213, 225] as [number, number, number],
-      color: balanceAmt === 0 ? ([4, 120, 87] as [number, number, number]) : ([185, 28, 28] as [number, number, number]),
+      labelColor: [100, 116, 139] as [number, number, number],
+      valColor: [15, 23, 42] as [number, number, number],
+      subColor: [71, 85, 105] as [number, number, number],
+    },
+    {
+      label: 'CURRENT MONTHLY CONTRIBUTION',
+      val: `INR ${summary.currentMonthlyContribution.toLocaleString('en-IN')}`,
+      sub: `${summary.selectedMonthLabel} • ${isCurrentRecorded ? 'Received' : 'Not Recorded'}`,
+      bg: isCurrentRecorded
+        ? ([236, 253, 245] as [number, number, number])
+        : ([248, 250, 252] as [number, number, number]),
+      border: isCurrentRecorded
+        ? ([16, 185, 129] as [number, number, number])
+        : ([203, 213, 225] as [number, number, number]),
+      labelColor: isCurrentRecorded
+        ? ([4, 120, 87] as [number, number, number])
+        : ([100, 116, 139] as [number, number, number]),
+      valColor: isCurrentRecorded
+        ? ([4, 120, 87] as [number, number, number])
+        : ([51, 65, 85] as [number, number, number]),
+      subColor: [71, 85, 105] as [number, number, number],
+    },
+    {
+      label: 'TOTAL CONTRIBUTION',
+      val: `INR ${summary.totalContribution.toLocaleString('en-IN')}`,
+      sub: 'Previous + Current Total',
+      bg: [240, 253, 244] as [number, number, number],
+      border: [8, 30, 33] as [number, number, number],
+      labelColor: [8, 30, 33] as [number, number, number],
+      valColor: [8, 30, 33] as [number, number, number],
+      subColor: [51, 65, 85] as [number, number, number],
     },
   ]
 
@@ -1200,134 +1375,146 @@ export async function exportStudentZadulKhairReceiptPdf(params: {
     const bx = margin + idx * (kpiW + kpiGap)
     pdf.setFillColor(...box.bg)
     pdf.setDrawColor(...box.border)
-    pdf.setLineWidth(0.35)
+    pdf.setLineWidth(idx === 2 ? 0.45 : 0.35)
     pdf.roundedRect(bx, y, kpiW, kpiH, 2.5, 2.5, 'FD')
 
     setFont('bold')
-    pdf.setFontSize(6.5)
-    pdf.setTextColor(100, 116, 139)
-    pdf.text(box.label, bx + 4, y + 5.8)
+    pdf.setFontSize(6.1)
+    pdf.setTextColor(...box.labelColor)
+    pdf.text(box.label, bx + 3.8, y + 5.6)
 
     setFont('bold')
-    pdf.setFontSize(12.5)
-    pdf.setTextColor(...box.color)
-    pdf.text(box.val, bx + 4, y + 13.5)
+    pdf.setFontSize(12.2)
+    pdf.setTextColor(...box.valColor)
+    pdf.text(box.val, bx + 3.8, y + 13.2)
 
     setFont('semibold')
-    pdf.setFontSize(7)
-    pdf.setTextColor(71, 85, 105)
-    pdf.text(box.sub, bx + 4, y + 18.8)
+    pdf.setFontSize(6.7)
+    pdf.setTextColor(...box.subColor)
+    pdf.text(box.sub, bx + 3.8, y + 18.4)
   })
 
-  y += kpiH + 6
+  y += kpiH + 5
 
-  // 4. Usthad Remarks Box
-  const remarkH = 18
+  // 4. Voluntary Gratitude Acknowledgement Box
+  const remarkH = 15
   pdf.setFillColor(255, 255, 255)
   pdf.setDrawColor(203, 213, 225)
-  pdf.roundedRect(margin, y, contentWidth, remarkH, 2.5, 2.5, 'FD')
+  pdf.setLineWidth(0.3)
+  pdf.roundedRect(margin, y, contentWidth, remarkH, 2.4, 2.4, 'FD')
+
   setFont('bold')
-  pdf.setFontSize(7)
+  pdf.setFontSize(6.6)
   pdf.setTextColor(8, 30, 33)
-  pdf.text('USTHAD / OFFICE ACKNOWLEDGEMENT NOTE', margin + 4.5, y + 5.5)
+  pdf.text('VOLUNTARY HOUSEHOLD CONTRIBUTION ACKNOWLEDGEMENT', margin + 4.2, y + 5)
 
   setFont('normal')
-  pdf.setFontSize(8)
+  pdf.setFontSize(7.6)
   pdf.setTextColor(51, 65, 85)
+  const customNote = (summary.currentMonthRecord?.remarks || record.remarks || '').trim()
   const noteText =
-    record.remarks ||
-    'Jazakallahu Khairan for supporting ICS Academy Manhappatta through the monthly Zadul Khair household contribution.'
-  pdf.text(pdf.splitTextToSize(noteText, contentWidth - 9).slice(0, 2), margin + 4.5, y + 11.2)
+    customNote ||
+    (isCurrentRecorded
+      ? 'Jazakallahu Khairan. Received voluntary household Zadul Khair contribution with heartfelt gratitude.'
+      : 'Zadul Khair is a voluntary household charity initiative supporting ICS Academy Manhappatta. Thank you for your prayers and support.')
+  pdf.text(pdf.splitTextToSize(noteText, contentWidth - 8.4).slice(0, 2), margin + 4.2, y + 10.2)
 
-  y += remarkH + 7
+  y += remarkH + 6
 
-  // 5. Complete Academic Year Household Ledger Table for this Student
+  // 5. Complete Academic Year Monthly Contribution Ledger Table (All 12 Months)
   setFont('bold')
-  pdf.setFontSize(9)
+  pdf.setFontSize(8.8)
   pdf.setTextColor(8, 30, 33)
-  pdf.text('STUDENT ZADUL KHAIR LEDGER HISTORY (2026–27)', margin, y)
-  y += 3.5
+  pdf.text('STUDENT ZADUL KHAIR MONTHLY CONTRIBUTION LEDGER (2026–27)', margin, y)
+  y += 3.2
 
-  const colX = [margin, margin + 38, margin + 74, margin + 108, margin + 142, margin + 168]
+  const colX = [margin, margin + 44, margin + 88, margin + 124, margin + 158]
   pdf.setFillColor(8, 30, 33)
-  pdf.roundedRect(margin, y, contentWidth, 8, 1.5, 1.5, 'F')
+  pdf.roundedRect(margin, y, contentWidth, 7.5, 1.5, 1.5, 'F')
   setFont('bold')
-  pdf.setFontSize(7)
+  pdf.setFontSize(6.8)
   pdf.setTextColor(255, 255, 255)
-  pdf.text('MONTH', colX[0] + 3, y + 5.3)
-  pdf.text('RECEIPT NO.', colX[1] + 2, y + 5.3)
-  pdf.text('DATE', colX[2] + 2, y + 5.3)
-  pdf.text('FIXED (INR)', colX[3] + 2, y + 5.3)
-  pdf.text('PAID (INR)', colX[4] + 2, y + 5.3)
-  pdf.text('STATUS', colX[5] + 2, y + 5.3)
-  y += 8
+  pdf.text('MONTH', colX[0] + 3, y + 5)
+  pdf.text('RECEIPT NO.', colX[1] + 2, y + 5)
+  pdf.text('DATE', colX[2] + 2, y + 5)
+  pdf.text('CONTRIBUTION (INR)', colX[3] + 2, y + 5)
+  pdf.text('STATUS', colX[4] + 2, y + 5)
+  y += 7.5
 
-  const rows = historyRecords.length > 0 ? historyRecords : [record]
-  let totalFixedSum = 0
-  let totalPaidSum = 0
-
-  rows.slice(0, 12).forEach((r, idx) => {
-    const rFixed = Number(r.fixedAmount ?? ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT)
-    const rPaid = Number(r.paidAmount ?? 0)
-    totalFixedSum += rFixed
-    totalPaidSum += rPaid
-
-    if (idx % 2 === 0) {
+  const rowH = 7.8
+  summary.monthlyRows.forEach((row, idx) => {
+    if (row.isSelectedMonth) {
+      pdf.setFillColor(236, 253, 245)
+    } else if (idx % 2 === 0) {
       pdf.setFillColor(248, 250, 252)
     } else {
       pdf.setFillColor(255, 255, 255)
     }
     pdf.setDrawColor(226, 232, 240)
-    pdf.rect(margin, y, contentWidth, 7.5, 'FD')
+    pdf.setLineWidth(0.25)
+    pdf.rect(margin, y, contentWidth, rowH, 'FD')
 
-    const mMeta = MONTHS_META.find((m) => m.id === r.month)
-    const monthTitle = mMeta ? `${mMeta.month} ${mMeta.year}` : r.subjectOrCategory || r.month || 'Nov 2026'
-
-    setFont('semibold')
-    pdf.setFontSize(7.5)
+    setFont(row.isSelectedMonth ? 'bold' : 'semibold')
+    pdf.setFontSize(7.4)
     pdf.setTextColor(15, 23, 42)
-    pdf.text(monthTitle, colX[0] + 3, y + 5)
+    pdf.text(row.monthLabel, colX[0] + 3, y + 5.1)
 
     setFont('normal')
+    pdf.setFontSize(7.2)
     pdf.setTextColor(71, 85, 105)
-    pdf.text(r.receiptNo || `ZK-${r.month || '2611'}`, colX[1] + 2, y + 5)
-    pdf.text(r.dateString || '-', colX[2] + 2, y + 5)
-    pdf.text(rFixed.toLocaleString('en-IN'), colX[3] + 2, y + 5)
+    pdf.text(row.receiptNo, colX[1] + 2, y + 5.1)
+    pdf.text(row.dateString, colX[2] + 2, y + 5.1)
 
-    setFont('bold')
-    pdf.setTextColor(15, 23, 42)
-    pdf.text(rPaid.toLocaleString('en-IN'), colX[4] + 2, y + 5)
+    if (row.isRecorded) {
+      setFont('bold')
+      pdf.setTextColor(15, 23, 42)
+      pdf.text(`INR ${row.amount.toLocaleString('en-IN')}`, colX[3] + 2, y + 5.1)
 
-    const stLabel =
-      r.status === 'paid' ? 'PAID' : r.status === 'partial' ? 'PARTIAL' : 'UNPAID'
-    if (r.status === 'paid') pdf.setTextColor(4, 120, 87)
-    else if (r.status === 'partial') pdf.setTextColor(180, 83, 9)
-    else pdf.setTextColor(185, 28, 28)
-    pdf.text(stLabel, colX[5] + 2, y + 5)
+      setFont('bold')
+      pdf.setTextColor(4, 120, 87)
+      pdf.text('RECEIVED', colX[4] + 2, y + 5.1)
+    } else {
+      setFont('normal')
+      pdf.setTextColor(148, 163, 184)
+      pdf.text('—', colX[3] + 2, y + 5.1)
 
-    y += 7.5
+      setFont('semibold')
+      pdf.setTextColor(100, 116, 139)
+      pdf.text('NOT RECORDED', colX[4] + 2, y + 5.1)
+    }
+
+    y += rowH
   })
 
   // Total Footer Row
   pdf.setFillColor(236, 253, 245)
   pdf.setDrawColor(16, 185, 129)
-  pdf.rect(margin, y, contentWidth, 8, 'FD')
+  pdf.setLineWidth(0.35)
+  pdf.rect(margin, y, contentWidth, 8.2, 'FD')
   setFont('bold')
   pdf.setFontSize(8)
   pdf.setTextColor(8, 30, 33)
-  pdf.text('TOTAL CUMULATIVE CONTRIBUTION', colX[0] + 3, y + 5.3)
-  pdf.text(`INR ${totalFixedSum.toLocaleString('en-IN')}`, colX[3] + 2, y + 5.3)
-  pdf.text(`INR ${totalPaidSum.toLocaleString('en-IN')}`, colX[4] + 2, y + 5.3)
+  pdf.text('TOTAL CONTRIBUTION (2026–27)', colX[0] + 3, y + 5.4)
+  pdf.text(`INR ${summary.fullAcademicYearTotal.toLocaleString('en-IN')}`, colX[3] + 2, y + 5.4)
+  setFont('semibold')
+  pdf.setFontSize(7.2)
+  pdf.setTextColor(4, 120, 87)
+  pdf.text(
+    `${summary.recordedMonthsCount} ${summary.recordedMonthsCount === 1 ? 'Month' : 'Months'}`,
+    colX[4] + 2,
+    y + 5.4,
+  )
 
   // Signature & Verification Footer at bottom of page
   const footerY = 266
   pdf.setDrawColor(203, 213, 225)
+  pdf.setLineWidth(0.3)
   pdf.line(margin, footerY, pageWidth - margin, footerY)
 
   setFont('semibold')
   pdf.setFontSize(7.5)
   pdf.setTextColor(51, 65, 85)
-  pdf.text(`Verified By: ${record.actorName || 'Class Usthad'}`, margin, footerY + 6)
+  pdf.text(`Recorded / Verified By: ${recordedByDisplay}`, margin, footerY + 6)
   pdf.text('Principal Seal & Signature: _______________________', pageWidth - margin, footerY + 6, {
     align: 'right',
   })
@@ -1336,7 +1523,7 @@ export async function exportStudentZadulKhairReceiptPdf(params: {
   pdf.setFontSize(7.2)
   pdf.setTextColor(71, 85, 105)
   pdf.text(
-    'ICS ACADEMY MANHAPPATTA • OFFICIAL DIGITAL PORTAL • VALID ZADUL KHAIR RECEIPT',
+    'ICS ACADEMY MANHAPPATTA • OFFICIAL DIGITAL PORTAL • VOLUNTARY ZADUL KHAIR RECEIPT',
     pageWidth / 2,
     footerY + 13,
     { align: 'center' },
@@ -1354,16 +1541,18 @@ export async function exportStudentZadulKhairReceiptPdf(params: {
 }
 
 /**
- * Generates and downloads/prints the Full Class Monthly Zadul Khair (زاد الخير) Statement PDF for Usthads & Principal.
+ * Generates and downloads/prints the Full Class Voluntary Monthly Zadul Khair (زاد الخير)
+ * Statement PDF for Class Leaders, Usthads & Principal.
  */
 export async function exportClassZadulKhairReportPdf(params: {
   className: string
   monthId: string
   rows: Array<{
     student: Student
-    fixedAmount: number
-    paidAmount: number
-    status: AcademicRecordStatus
+    previousAmount: number
+    currentAmount: number
+    totalAmount: number
+    isRecorded: boolean
     receiptNo: string
     dateString: string
     remarks: string
@@ -1424,7 +1613,7 @@ export async function exportClassZadulKhairReportPdf(params: {
   setFont('bold')
   pdf.setFontSize(7.5)
   pdf.setTextColor(163, 230, 53)
-  pdf.text('ZADUL KHAIR CLASS MONTHLY COLLECTION STATEMENT', textStartX, y + 7)
+  pdf.text('ZADUL KHAIR VOLUNTARY CLASS CONTRIBUTION STATEMENT', textStartX, y + 7)
 
   setBrandFont()
   pdf.setFontSize(13.5)
@@ -1435,7 +1624,7 @@ export async function exportClassZadulKhairReportPdf(params: {
   pdf.setFontSize(8.2)
   pdf.setTextColor(203, 213, 225)
   pdf.text(
-    `Class ${className}  •  Collection Period: ${monthLabel}`,
+    `Class ${className}  •  Statement Period: ${monthLabel}`,
     textStartX,
     y + 18.5,
   )
@@ -1451,42 +1640,58 @@ export async function exportClassZadulKhairReportPdf(params: {
 
   y += headerH + 5
 
-  // 2. Class Summary Metrics Strip
-  const totalFixed = rows.reduce((acc, r) => acc + r.fixedAmount, 0)
-  const totalCollected = rows.reduce((acc, r) => acc + r.paidAmount, 0)
-  const totalPending = Math.max(0, totalFixed - totalCollected)
-  const paidCount = rows.filter((r) => r.status === 'paid').length
+  // 2. Class Voluntary Contribution Summary Strip (4 KPI Cards)
+  const classPreviousTotal = rows.reduce((acc, r) => acc + r.previousAmount, 0)
+  const classCurrentTotal = rows.reduce((acc, r) => acc + r.currentAmount, 0)
+  const classGrandTotal = rows.reduce((acc, r) => acc + r.totalAmount, 0)
+  const recordedCount = rows.filter((r) => r.isRecorded).length
 
   const kpiGap = 3.5
   const kpiW = (contentWidth - kpiGap * 3) / 4
-  const kpiH = 18
+  const kpiH = 18.5
   const kpiItems = [
-    { label: 'CLASS STRENGTH', val: `${rows.length} Students`, sub: `${paidCount} Paid in Full` },
-    { label: 'EXPECTED TARGET', val: `INR ${totalFixed.toLocaleString('en-IN')}`, sub: monthLabel },
-    { label: 'TOTAL COLLECTED', val: `INR ${totalCollected.toLocaleString('en-IN')}`, sub: `${totalFixed > 0 ? Math.round((totalCollected / totalFixed) * 100) : 0}% Achieved` },
-    { label: 'BALANCE PENDING', val: `INR ${totalPending.toLocaleString('en-IN')}`, sub: `${rows.length - paidCount} Households Pending` },
+    {
+      label: 'CLASS STRENGTH',
+      val: `${rows.length} Students`,
+      sub: `${recordedCount} Recorded (${monthLabel})`,
+    },
+    {
+      label: 'PREVIOUS CONTRIBUTION',
+      val: `INR ${classPreviousTotal.toLocaleString('en-IN')}`,
+      sub: 'Prior Months Total',
+    },
+    {
+      label: 'CURRENT MONTH',
+      val: `INR ${classCurrentTotal.toLocaleString('en-IN')}`,
+      sub: monthLabel,
+    },
+    {
+      label: 'TOTAL CONTRIBUTION',
+      val: `INR ${classGrandTotal.toLocaleString('en-IN')}`,
+      sub: 'Previous + Current',
+    },
   ]
 
   kpiItems.forEach((k, i) => {
     const bx = margin + i * (kpiW + kpiGap)
-    pdf.setFillColor(248, 250, 252)
-    pdf.setDrawColor(203, 213, 225)
+    pdf.setFillColor(i === 3 ? 236 : 248, i === 3 ? 253 : 250, i === 3 ? 245 : 252)
+    pdf.setDrawColor(i === 3 ? 16 : 203, i === 3 ? 185 : 213, i === 3 ? 129 : 225)
     pdf.roundedRect(bx, y, kpiW, kpiH, 2.2, 2.2, 'FD')
 
     setFont('bold')
-    pdf.setFontSize(6)
+    pdf.setFontSize(5.8)
     pdf.setTextColor(100, 116, 139)
-    pdf.text(k.label, bx + 3, y + 5)
+    pdf.text(k.label, bx + 2.8, y + 5)
 
     setFont('bold')
-    pdf.setFontSize(10)
+    pdf.setFontSize(9.6)
     pdf.setTextColor(8, 30, 33)
-    pdf.text(k.val, bx + 3, y + 11.2)
+    pdf.text(k.val, bx + 2.8, y + 11.4)
 
     setFont('normal')
-    pdf.setFontSize(6.5)
+    pdf.setFontSize(6.3)
     pdf.setTextColor(71, 85, 105)
-    pdf.text(k.sub, bx + 3, y + 15.6)
+    pdf.text(k.sub, bx + 2.8, y + 15.8)
   })
 
   y += kpiH + 5
@@ -1496,22 +1701,23 @@ export async function exportClassZadulKhairReportPdf(params: {
     pdf.setFillColor(8, 30, 33)
     pdf.roundedRect(margin, topY, contentWidth, 7.5, 1.2, 1.2, 'F')
     setFont('bold')
-    pdf.setFontSize(6.8)
+    pdf.setFontSize(6.4)
     pdf.setTextColor(255, 255, 255)
-    pdf.text('#', margin + 2.5, topY + 5)
-    pdf.text('ADMISSION NO.', margin + 10, topY + 5)
-    pdf.text('STUDENT NAME', margin + 40, topY + 5)
-    pdf.text('RECEIPT NO.', margin + 102, topY + 5)
-    pdf.text('FIXED', margin + 132, topY + 5)
-    pdf.text('PAID', margin + 152, topY + 5)
-    pdf.text('STATUS', margin + 170, topY + 5)
+    pdf.text('#', margin + 2, topY + 5)
+    pdf.text('ADMISSION NO.', margin + 8.5, topY + 5)
+    pdf.text('STUDENT NAME', margin + 35, topY + 5)
+    pdf.text('RECEIPT NO.', margin + 86, topY + 5)
+    pdf.text('PREVIOUS', margin + 115, topY + 5)
+    pdf.text('CURRENT', margin + 134, topY + 5)
+    pdf.text('TOTAL', margin + 151, topY + 5)
+    pdf.text('STATUS', margin + 166, topY + 5)
     return topY + 7.5
   }
 
   y = drawTableHeader(y)
 
   rows.forEach((row, index) => {
-    if (y > 268) {
+    if (y > 264) {
       pdf.addPage()
       y = 14
       y = drawTableHeader(y)
@@ -1526,33 +1732,59 @@ export async function exportClassZadulKhairReportPdf(params: {
     pdf.rect(margin, y, contentWidth, rowH, 'FD')
 
     setFont('normal')
-    pdf.setFontSize(7)
+    pdf.setFontSize(6.8)
     pdf.setTextColor(71, 85, 105)
-    pdf.text(String(index + 1), margin + 2.5, y + 4.5)
-    pdf.text(row.student.admissionNo, margin + 10, y + 4.5)
+    pdf.text(String(index + 1), margin + 2, y + 4.5)
+    pdf.text(row.student.admissionNo, margin + 8.5, y + 4.5)
 
     setFont('semibold')
     pdf.setTextColor(15, 23, 42)
-    pdf.text(row.student.name.slice(0, 32), margin + 40, y + 4.5)
+    pdf.text(row.student.name.slice(0, 26), margin + 35, y + 4.5)
 
     setFont('normal')
     pdf.setTextColor(71, 85, 105)
-    pdf.text(row.receiptNo || '-', margin + 102, y + 4.5)
-    pdf.text(String(row.fixedAmount), margin + 132, y + 4.5)
+    pdf.text(row.isRecorded ? row.receiptNo || '-' : '—', margin + 86, y + 4.5)
+    pdf.text(row.previousAmount.toLocaleString('en-IN'), margin + 115, y + 4.5)
+
+    setFont('bold')
+    pdf.setTextColor(row.isRecorded ? 4 : 148, row.isRecorded ? 120 : 163, row.isRecorded ? 87 : 184)
+    pdf.text(row.isRecorded ? row.currentAmount.toLocaleString('en-IN') : '—', margin + 134, y + 4.5)
 
     setFont('bold')
     pdf.setTextColor(15, 23, 42)
-    pdf.text(String(row.paidAmount), margin + 152, y + 4.5)
+    pdf.text(row.totalAmount.toLocaleString('en-IN'), margin + 151, y + 4.5)
 
-    const statusText =
-      row.status === 'paid' ? 'PAID' : row.status === 'partial' ? 'PARTIAL' : 'UNPAID'
-    if (row.status === 'paid') pdf.setTextColor(4, 120, 87)
-    else if (row.status === 'partial') pdf.setTextColor(180, 83, 9)
-    else pdf.setTextColor(185, 28, 28)
-    pdf.text(statusText, margin + 170, y + 4.5)
+    if (row.isRecorded) {
+      setFont('bold')
+      pdf.setTextColor(4, 120, 87)
+      pdf.text('RECEIVED', margin + 166, y + 4.5)
+    } else {
+      setFont('normal')
+      pdf.setTextColor(100, 116, 139)
+      pdf.text('NOT RECORDED', margin + 166, y + 4.5)
+    }
 
     y += rowH
   })
+
+  // Class Summary Footer Row
+  if (y > 268) {
+    pdf.addPage()
+    y = 14
+  }
+  pdf.setFillColor(236, 253, 245)
+  pdf.setDrawColor(16, 185, 129)
+  pdf.rect(margin, y, contentWidth, 7.6, 'FD')
+  setFont('bold')
+  pdf.setFontSize(7.2)
+  pdf.setTextColor(8, 30, 33)
+  pdf.text(`CLASS ${className} TOTAL`, margin + 8.5, y + 5)
+  pdf.text(classPreviousTotal.toLocaleString('en-IN'), margin + 115, y + 5)
+  pdf.text(classCurrentTotal.toLocaleString('en-IN'), margin + 134, y + 5)
+  pdf.text(classGrandTotal.toLocaleString('en-IN'), margin + 151, y + 5)
+  pdf.setTextColor(4, 120, 87)
+  pdf.text(`${recordedCount}/${rows.length}`, margin + 166, y + 5)
+  y += 7.6
 
   // Footer
   const footerY = Math.min(282, y + 8)
@@ -1560,7 +1792,7 @@ export async function exportClassZadulKhairReportPdf(params: {
   pdf.setFontSize(7.5)
   pdf.setTextColor(71, 85, 105)
   pdf.text(
-    `ICS ACADEMY MANHAPPATTA • OFFICIAL CLASS STATEMENT • ${new Date().toLocaleDateString('en-IN')}`,
+    `ICS ACADEMY MANHAPPATTA • OFFICIAL VOLUNTARY CLASS STATEMENT • ${new Date().toLocaleDateString('en-IN')}`,
     pageWidth / 2,
     footerY,
     { align: 'center' },

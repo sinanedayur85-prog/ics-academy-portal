@@ -32,9 +32,9 @@ import {
 } from 'lucide-react'
 import {
   HOLIDAY_ACTIVITY_CATEGORIES,
-  ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT,
   calculateClassStarOfTheMonth,
   compressImageFileToDataUrl,
+  computeStudentZadulKhairSummary,
   exportClassZadulKhairReportPdf,
   exportStudentZadulKhairReceiptPdf,
   loadCampusAcademicRecords,
@@ -497,6 +497,460 @@ export function buildUsthadTeachingSyllabusRows(
   return Array.from(resultMap.values())
 }
 
+function ClassZadulKhairManager({
+  className,
+  selectedMonth,
+  onSelectMonth,
+  records,
+  actorId,
+  actorName,
+  actorRoleLabel,
+  onNotify,
+}: {
+  className: string
+  selectedMonth: string
+  onSelectMonth: (monthId: string) => void
+  records: CampusAcademicRecord[]
+  actorId: string
+  actorName: string
+  actorRoleLabel: 'Class Leader' | 'Usthad' | 'Principal'
+  onNotify?: (message: string) => void
+}) {
+  const normClass = normalizeClassName(className)
+  const classStudents = useMemo(
+    () => students.filter((s) => normalizeClassName(s.className) === normClass),
+    [normClass],
+  )
+
+  const [zkEdits, setZkEdits] = useState<
+    Record<
+      string,
+      {
+        paidAmount: string
+        receiptNo: string
+        remarks: string
+      }
+    >
+  >({})
+  const [savingStudentId, setSavingStudentId] = useState<string | null>(null)
+  const [pdfBusyKey, setPdfBusyKey] = useState<string | null>(null)
+
+  useEffect(() => {
+    setZkEdits({})
+  }, [normClass, selectedMonth])
+
+  const selectedMonthMeta = MONTHS_META.find((m) => m.id === selectedMonth)
+  const selectedMonthLabel = selectedMonthMeta
+    ? `${selectedMonthMeta.month} ${selectedMonthMeta.year}`
+    : selectedMonth
+
+  const studentRows = useMemo(() => {
+    return classStudents.map((stu) => {
+      const summary = computeStudentZadulKhairSummary(stu.id, selectedMonth, records)
+      const saved = summary.currentMonthRecord
+      const draft = zkEdits[stu.id]
+      const rawAmountStr =
+        draft !== undefined
+          ? draft.paidAmount
+          : summary.currentMonthlyContribution > 0
+            ? String(summary.currentMonthlyContribution)
+            : ''
+      const parsedAmount = Math.max(0, Math.round(Number(rawAmountStr) || 0))
+      const isRecorded = parsedAmount > 0
+      const receiptNo =
+        draft?.receiptNo ??
+        saved?.receiptNo ??
+        `ZK-${selectedMonth.replace('-', '')}-${stu.admissionNo.slice(-4)}`
+      const remarks = draft?.remarks ?? saved?.remarks ?? ''
+
+      return {
+        student: stu,
+        saved,
+        summary,
+        rawAmountStr,
+        previousAmount: summary.previousContribution,
+        currentAmount: parsedAmount,
+        totalAmount: summary.previousContribution + parsedAmount,
+        isRecorded,
+        receiptNo,
+        remarks,
+      }
+    })
+  }, [classStudents, selectedMonth, records, zkEdits])
+
+  const classTotals = useMemo(() => {
+    let previous = 0
+    let current = 0
+    let total = 0
+    let recordedCount = 0
+    for (const row of studentRows) {
+      previous += row.previousAmount
+      current += row.currentAmount
+      total += row.totalAmount
+      if (row.isRecorded) recordedCount += 1
+    }
+    return { previous, current, total, recordedCount }
+  }, [studentRows])
+
+  async function handleSaveStudentContribution(row: (typeof studentRows)[number]) {
+    setSavingStudentId(row.student.id)
+    try {
+      const paidAmount = row.currentAmount
+      const status: AcademicRecordStatus = paidAmount > 0 ? 'received' : 'not_recorded'
+      const receiptNo =
+        paidAmount > 0
+          ? row.receiptNo.trim() ||
+            `ZK-${selectedMonth.replace('-', '')}-${row.student.admissionNo.slice(-4)}`
+          : ''
+      const remarks =
+        row.remarks.trim() ||
+        (paidAmount > 0
+          ? 'Received voluntary household Zadul Khair contribution with heartfelt gratitude.'
+          : '')
+
+      const record: CampusAcademicRecord = {
+        id: `zk_${selectedMonth}_${row.student.id}`,
+        campusId: 'ics-academy',
+        recordKind: 'zadul_khair',
+        className: normClass,
+        studentId: row.student.id,
+        studentName: row.student.name,
+        admissionNo: row.student.admissionNo,
+        month: selectedMonth,
+        title: 'Zadul Khair (زاد الخير) Voluntary Household Contribution',
+        subjectOrCategory: selectedMonthLabel,
+        remarks,
+        status,
+        actorId,
+        actorName,
+        dateString: paidAmount > 0 ? formatTodayDateDisplay() : '',
+        receiptNo,
+        paidAmount,
+        isDeleted: false,
+        updatedAtMs: Date.now(),
+      }
+
+      await upsertCampusAcademicRecord(record)
+
+      if (paidAmount > 0) {
+        publishCampusNotification({
+          type: 'notice',
+          title: `Zadul Khair Receipt Updated (${selectedMonthMeta?.shortMonth || selectedMonth})`,
+          message: `${actorName} recorded your voluntary Zadul Khair contribution of ₹${paidAmount.toLocaleString('en-IN')} for ${selectedMonthLabel}. Official Receipt PDF is ready.`,
+          targetClass: normClass,
+          targetStudentId: row.student.id,
+          actorId,
+          actorName,
+          href: '#academic-hub',
+        })
+      }
+
+      setZkEdits((prev) => {
+        const next = { ...prev }
+        delete next[row.student.id]
+        return next
+      })
+
+      onNotify?.(
+        paidAmount > 0
+          ? `Saved voluntary Zadul Khair contribution of ₹${paidAmount.toLocaleString('en-IN')} for ${row.student.name} (${selectedMonthLabel}).`
+          : `Marked ${row.student.name} as Not Recorded for ${selectedMonthLabel}.`,
+      )
+    } finally {
+      setSavingStudentId(null)
+    }
+  }
+
+  async function handleExportClassPdf(mode: 'download' | 'print') {
+    setPdfBusyKey(`class_${mode}`)
+    try {
+      await exportClassZadulKhairReportPdf({
+        className: normClass,
+        monthId: selectedMonth,
+        rows: studentRows.map((row) => ({
+          student: row.student,
+          previousAmount: row.previousAmount,
+          currentAmount: row.currentAmount,
+          totalAmount: row.totalAmount,
+          isRecorded: row.isRecorded,
+          receiptNo: row.receiptNo,
+          dateString: row.saved?.dateString || (row.isRecorded ? formatTodayDateDisplay() : '—'),
+          remarks: row.remarks,
+        })),
+        preparedByName: actorName,
+        preparedByRole: actorRoleLabel,
+        mode,
+      })
+    } finally {
+      setPdfBusyKey(null)
+    }
+  }
+
+  async function handleExportSingleStudentReceipt(
+    row: (typeof studentRows)[number],
+    mode: 'download' | 'print',
+  ) {
+    setPdfBusyKey(`${row.student.id}_${mode}`)
+    try {
+      const record: CampusAcademicRecord = {
+        id: `zk_${selectedMonth}_${row.student.id}`,
+        campusId: 'ics-academy',
+        recordKind: 'zadul_khair',
+        className: normClass,
+        studentId: row.student.id,
+        studentName: row.student.name,
+        admissionNo: row.student.admissionNo,
+        month: selectedMonth,
+        title: 'Zadul Khair (زاد الخير) Voluntary Household Contribution',
+        subjectOrCategory: selectedMonthLabel,
+        remarks: row.remarks,
+        status: row.isRecorded ? 'received' : 'not_recorded',
+        actorId: row.saved?.actorId || actorId,
+        actorName: row.saved?.actorName || actorName,
+        dateString: row.saved?.dateString || (row.isRecorded ? formatTodayDateDisplay() : ''),
+        receiptNo: row.isRecorded ? row.receiptNo : '',
+        paidAmount: row.currentAmount,
+        isDeleted: false,
+        updatedAtMs: Date.now(),
+      }
+      const otherRecords = records.filter(
+        (r) =>
+          r.recordKind === 'zadul_khair' &&
+          !r.isDeleted &&
+          r.studentId === row.student.id &&
+          r.month !== selectedMonth,
+      )
+      await exportStudentZadulKhairReceiptPdf({
+        student: row.student,
+        selectedMonth,
+        record,
+        historyRecords: [...otherRecords, record],
+        mode,
+      })
+    } finally {
+      setPdfBusyKey(null)
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-background/60 p-4 sm:flex-row sm:items-center sm:p-5">
+        <div>
+          <p className="text-xs font-semibold tracking-wider text-emerald-700 uppercase dark:text-lime">
+            زاد الخير · Voluntary Zadul Khair Class Ledger ({actorRoleLabel})
+          </p>
+          <h4 className="mt-1 font-display text-lg font-bold text-foreground">
+            Class {normClass} Household Contributions ({selectedMonthLabel})
+          </h4>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Record any voluntary household charity amount directly—no fixed quota or dues. Saves live across Student, Class Leader, Usthad &amp; Principal portals.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="w-44">
+            <ThemeSelect
+              value={selectedMonth}
+              onChange={(e) => onSelectMonth(e.target.value)}
+              aria-label="Select Zadul Khair Month"
+            >
+              {MONTHS_META.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.month} {m.year}
+                </option>
+              ))}
+            </ThemeSelect>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            disabled={pdfBusyKey !== null}
+            onClick={() => handleExportClassPdf('download')}
+            className="rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+          >
+            <Download className="mr-1.5 size-3.5" aria-hidden="true" />
+            {pdfBusyKey === 'class_download' ? 'Generating PDF...' : 'Class Statement PDF'}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={pdfBusyKey !== null}
+            onClick={() => handleExportClassPdf('print')}
+            className="rounded-xl text-xs"
+          >
+            <Printer className="mr-1.5 size-3.5" aria-hidden="true" />
+            Print Class List
+          </Button>
+        </div>
+      </div>
+
+      {/* 3 Class Voluntary Summary Cards */}
+      <div className="grid gap-3.5 sm:grid-cols-3">
+        <div className="rounded-xl border border-border bg-background/60 p-4">
+          <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+            Previous Contribution
+          </p>
+          <p className="mt-1 font-display text-2xl font-bold text-foreground tabular-nums">
+            ₹{classTotals.previous.toLocaleString('en-IN')}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Prior months cumulative · Class {normClass}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+          <p className="text-[11px] font-semibold tracking-wider text-emerald-700 uppercase dark:text-lime">
+            Current Monthly Contribution
+          </p>
+          <p className="mt-1 font-display text-2xl font-bold text-emerald-700 tabular-nums dark:text-lime">
+            ₹{classTotals.current.toLocaleString('en-IN')}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {selectedMonthLabel} · {classTotals.recordedCount} of {studentRows.length} recorded
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-emerald-700/30 bg-background/80 p-4 dark:border-lime/30">
+          <p className="text-[11px] font-semibold tracking-wider text-foreground uppercase">
+            Total Contribution
+          </p>
+          <p className="mt-1 font-display text-2xl font-bold text-foreground tabular-nums">
+            ₹{classTotals.total.toLocaleString('en-IN')}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Previous + Current cumulative total
+          </p>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-2xl border border-border bg-background/60">
+        <table className="w-full text-left text-xs">
+          <thead className="border-b border-border bg-muted/50 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+            <tr>
+              <th className="px-3 py-3">Student</th>
+              <th className="px-3 py-3">Receipt No.</th>
+              <th className="px-3 py-3">Previous (₹)</th>
+              <th className="px-3 py-3">Current Month (₹)</th>
+              <th className="px-3 py-3">Total (₹)</th>
+              <th className="px-3 py-3">Status</th>
+              <th className="px-3 py-3">Remarks</th>
+              <th className="px-3 py-3 text-right">Save &amp; Receipt</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border tabular-nums">
+            {studentRows.map((row) => (
+              <tr key={row.student.id} className="hover:bg-muted/25">
+                <td className="px-3 py-2.5">
+                  <p className="font-semibold text-foreground">{row.student.name}</p>
+                  <p className="font-mono text-[11px] text-muted-foreground">
+                    {row.student.admissionNo}
+                  </p>
+                </td>
+                <td className="px-3 py-2.5">
+                  <Input
+                    value={row.receiptNo}
+                    onChange={(e) =>
+                      setZkEdits((prev) => ({
+                        ...prev,
+                        [row.student.id]: {
+                          paidAmount: row.rawAmountStr,
+                          receiptNo: e.target.value,
+                          remarks: row.remarks,
+                        },
+                      }))
+                    }
+                    className="h-8 w-32 font-mono text-xs"
+                  />
+                </td>
+                <td className="px-3 py-2.5 font-mono text-muted-foreground">
+                  ₹{row.previousAmount.toLocaleString('en-IN')}
+                </td>
+                <td className="px-3 py-2.5">
+                  <Input
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={row.rawAmountStr}
+                    onChange={(e) =>
+                      setZkEdits((prev) => ({
+                        ...prev,
+                        [row.student.id]: {
+                          paidAmount: e.target.value,
+                          receiptNo: row.receiptNo,
+                          remarks: row.remarks,
+                        },
+                      }))
+                    }
+                    className="h-8 w-24 font-mono text-xs font-bold"
+                  />
+                </td>
+                <td className="px-3 py-2.5 font-mono font-bold text-foreground">
+                  ₹{row.totalAmount.toLocaleString('en-IN')}
+                </td>
+                <td className="px-3 py-2.5">
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold',
+                      row.isRecorded
+                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-lime'
+                        : 'bg-muted text-muted-foreground',
+                    )}
+                  >
+                    {row.isRecorded ? 'Received' : 'Not Recorded'}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5">
+                  <Input
+                    value={row.remarks}
+                    onChange={(e) =>
+                      setZkEdits((prev) => ({
+                        ...prev,
+                        [row.student.id]: {
+                          paidAmount: row.rawAmountStr,
+                          receiptNo: row.receiptNo,
+                          remarks: e.target.value,
+                        },
+                      }))
+                    }
+                    placeholder="Optional gratitude note..."
+                    className="h-8 w-40 text-xs"
+                  />
+                </td>
+                <td className="px-3 py-2.5 text-right">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={savingStudentId === row.student.id}
+                      onClick={() => handleSaveStudentContribution(row)}
+                      className="h-8 rounded-lg bg-lime px-2.5 text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                    >
+                      {savingStudentId === row.student.id ? 'Saving...' : 'Save'}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={pdfBusyKey !== null}
+                      onClick={() => handleExportSingleStudentReceipt(row, 'download')}
+                      className="h-8 rounded-lg px-2.5 text-xs"
+                      title="Download Student Zadul Khair Receipt PDF"
+                    >
+                      <Download className="size-3.5" aria-hidden="true" />
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 export function StudentAcademicHub({
   student,
   isClassLeader = false,
@@ -549,8 +1003,9 @@ export function StudentAcademicHub({
   const [isSavingHoliday, setIsSavingHoliday] = useState(false)
   const photoInputRef = useRef<HTMLInputElement | null>(null)
 
-  // PDF Export loading state
+  // PDF Export & Class Leader Zadul Khair view state
   const [pdfBusyId, setPdfBusyId] = useState<string | null>(null)
+  const [zkLeaderView, setZkLeaderView] = useState<'personal' | 'class'>('personal')
 
   useEffect(() => {
     setRecords(loadCampusAcademicRecords())
@@ -795,10 +1250,13 @@ export function StudentAcademicHub({
     [records, student.id],
   )
 
+  const myZadulKhairSummary = useMemo(
+    () => computeStudentZadulKhairSummary(student.id, selectedMonth, myZadulKhairRecords),
+    [student.id, selectedMonth, myZadulKhairRecords],
+  )
+
   const currentMonthZadulKhair: CampusAcademicRecord = useMemo(() => {
-    const found = myZadulKhairRecords.find((r) => r.month === selectedMonth)
-    if (found) return found
-    const mMeta = MONTHS_META.find((m) => m.id === selectedMonth)
+    if (myZadulKhairSummary.currentMonthRecord) return myZadulKhairSummary.currentMonthRecord
     return {
       id: `zk_${selectedMonth}_${student.id}`,
       campusId: 'ics-academy',
@@ -808,19 +1266,18 @@ export function StudentAcademicHub({
       studentName: student.name,
       admissionNo: student.admissionNo,
       month: selectedMonth,
-      title: 'Zadul Khair (زاد الخير) Monthly Household Contribution',
-      subjectOrCategory: mMeta ? `${mMeta.month} ${mMeta.year}` : selectedMonth,
-      status: 'unpaid',
+      title: 'Zadul Khair (زاد الخير) Voluntary Household Contribution',
+      subjectOrCategory: myZadulKhairSummary.selectedMonthLabel,
+      status: 'not_recorded',
       actorId: student.id,
-      actorName: 'Class Usthad',
-      dateString: formatTodayDateDisplay(),
-      receiptNo: `ZK-${selectedMonth.replace('-', '')}-${student.admissionNo.slice(-4)}`,
-      fixedAmount: ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT,
+      actorName: 'Class Usthad / Leader',
+      dateString: '',
+      receiptNo: '',
       paidAmount: 0,
       isDeleted: false,
       updatedAtMs: Date.now(),
     }
-  }, [myZadulKhairRecords, selectedMonth, student])
+  }, [myZadulKhairSummary, selectedMonth, student])
 
   async function handleSubmitUnitTest() {
     if (!currentTest) return
@@ -976,6 +1433,7 @@ export function StudentAcademicHub({
     try {
       await exportStudentZadulKhairReceiptPdf({
         student,
+        selectedMonth,
         record: currentMonthZadulKhair,
         historyRecords: myZadulKhairRecords,
         mode,
@@ -2055,149 +2513,250 @@ export function StudentAcademicHub({
           </div>
         )}
 
-        {/* TAB 3: ZADUL KHAIR (زاد الخير) PERSONAL HOUSEHOLD LEDGER & OFFICIAL PDF */}
+        {/* TAB 3: ZADUL KHAIR (زاد الخير) VOLUNTARY HOUSEHOLD LEDGER & CLASS LEADER ENTRY */}
         {activeTab === 'zadul_khair' && (
           <div className="mt-5 space-y-5">
-            <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-background/60 p-4 sm:flex-row sm:items-center sm:p-5">
-              <div>
-                <p className="text-xs font-semibold tracking-wider text-emerald-700 uppercase dark:text-lime">
-                  زاد الخير · Zadul Khair Household Contribution
-                </p>
-                <h4 className="mt-1 font-display text-lg font-bold text-foreground sm:text-xl">
-                  {student.name} ({student.admissionNo})
-                </h4>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Private household monthly contribution statement & official computerized receipt PDF.
-                </p>
+            {isClassLeader && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+                <div className="flex items-center gap-2 text-xs text-foreground">
+                  <Crown className="size-4 shrink-0 text-emerald-700 dark:text-lime" aria-hidden="true" />
+                  <span>
+                    <strong>Class Leader Access ({normClass}):</strong> Switch to Class Entry to record voluntary monthly Zadul Khair contributions directly for your class.
+                  </span>
+                </div>
+                <div className="inline-flex rounded-xl border border-border bg-background p-1">
+                  <button
+                    type="button"
+                    onClick={() => setZkLeaderView('personal')}
+                    className={cn(
+                      'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+                      zkLeaderView === 'personal'
+                        ? 'bg-emerald-950 text-lime dark:bg-lime dark:text-slate-950'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    My Contribution
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setZkLeaderView('class')}
+                    className={cn(
+                      'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+                      zkLeaderView === 'class'
+                        ? 'bg-emerald-950 text-lime dark:bg-lime dark:text-slate-950'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    Class Entry ({normClass})
+                  </button>
+                </div>
               </div>
+            )}
 
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={pdfBusyId !== null}
-                  onClick={() => handleExportMyZadulKhairPdf('download')}
-                  className="rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
-                >
-                  <Download className="mr-1.5 size-3.5" aria-hidden="true" />
-                  {pdfBusyId?.endsWith('_download')
-                    ? 'Preparing PDF...'
-                    : 'Download Official Receipt PDF'}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={pdfBusyId !== null}
-                  onClick={() => handleExportMyZadulKhairPdf('print')}
-                  className="rounded-xl text-xs"
-                >
-                  <Printer className="mr-1.5 size-3.5" aria-hidden="true" />
-                  Print Receipt
-                </Button>
-              </div>
-            </div>
+            {isClassLeader && zkLeaderView === 'class' ? (
+              <ClassZadulKhairManager
+                className={normClass}
+                selectedMonth={selectedMonth}
+                onSelectMonth={setSelectedMonth}
+                records={records}
+                actorId={student.id}
+                actorName={`${student.name} (Class Leader)`}
+                actorRoleLabel="Class Leader"
+                onNotify={setStatusBanner}
+              />
+            ) : (
+              <>
+                <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-background/60 p-4 sm:flex-row sm:items-center sm:p-5">
+                  <div>
+                    <p className="text-xs font-semibold tracking-wider text-emerald-700 uppercase dark:text-lime">
+                      زاد الخير · Zadul Khair Voluntary Household Contribution
+                    </p>
+                    <h4 className="mt-1 font-display text-lg font-bold text-foreground sm:text-xl">
+                      {student.name} ({student.admissionNo})
+                    </h4>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Voluntary household charity contribution statement &amp; official computerized receipt PDF (2026–27).
+                    </p>
+                  </div>
 
-            {/* 3 Financial KPI Cards */}
-            <div className="grid gap-3.5 sm:grid-cols-3">
-              <div className="rounded-xl border border-border bg-background/60 p-4">
-                <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                  Monthly Fixed Contribution
-                </p>
-                <p className="mt-1 font-display text-2xl font-bold text-foreground tabular-nums">
-                  ₹{(currentMonthZadulKhair.fixedAmount ?? ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT).toLocaleString('en-IN')}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Receipt No: {currentMonthZadulKhair.receiptNo || '-'}
-                </p>
-              </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="w-44">
+                      <ThemeSelect
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        aria-label="Select Zadul Khair Statement Month"
+                      >
+                        {MONTHS_META.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.month} {m.year}
+                          </option>
+                        ))}
+                      </ThemeSelect>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={pdfBusyId !== null}
+                      onClick={() => handleExportMyZadulKhairPdf('download')}
+                      className="rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                    >
+                      <Download className="mr-1.5 size-3.5" aria-hidden="true" />
+                      {pdfBusyId?.endsWith('_download')
+                        ? 'Preparing PDF...'
+                        : 'Download Official Receipt PDF'}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={pdfBusyId !== null}
+                      onClick={() => handleExportMyZadulKhairPdf('print')}
+                      className="rounded-xl text-xs"
+                    >
+                      <Printer className="mr-1.5 size-3.5" aria-hidden="true" />
+                      Print Receipt
+                    </Button>
+                  </div>
+                </div>
 
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-                <p className="text-[11px] font-semibold tracking-wider text-emerald-700 uppercase dark:text-lime">
-                  Paid Amount ({currentMonthZadulKhair.month})
-                </p>
-                <p className="mt-1 font-display text-2xl font-bold text-emerald-700 tabular-nums dark:text-lime">
-                  ₹{(currentMonthZadulKhair.paidAmount ?? 0).toLocaleString('en-IN')}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Status:{' '}
-                  <strong className="uppercase">{currentMonthZadulKhair.status}</strong> ·{' '}
-                  {currentMonthZadulKhair.dateString}
-                </p>
-              </div>
+                {/* 3 Voluntary Contribution KPI Shapes: PREVIOUS / CURRENT MONTHLY / TOTAL */}
+                <div className="grid gap-3.5 sm:grid-cols-3">
+                  <div className="rounded-xl border border-border bg-background/60 p-4">
+                    <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                      Previous Contribution
+                    </p>
+                    <p className="mt-1 font-display text-2xl font-bold text-foreground tabular-nums">
+                      ₹{myZadulKhairSummary.previousContribution.toLocaleString('en-IN')}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Prior months before {myZadulKhairSummary.selectedMonthLabel}
+                    </p>
+                  </div>
 
-              <div className="rounded-xl border border-border bg-background/60 p-4">
-                <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                  Remaining Balance
-                </p>
-                <p className="mt-1 font-display text-2xl font-bold text-foreground tabular-nums">
-                  ₹
-                  {Math.max(
-                    0,
-                    (currentMonthZadulKhair.fixedAmount ?? ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT) -
-                      (currentMonthZadulKhair.paidAmount ?? 0),
-                  ).toLocaleString('en-IN')}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Updated by {currentMonthZadulKhair.actorName}
-                </p>
-              </div>
-            </div>
+                  <div
+                    className={cn(
+                      'rounded-xl border p-4',
+                      myZadulKhairSummary.currentMonthlyContribution > 0
+                        ? 'border-emerald-500/30 bg-emerald-500/10'
+                        : 'border-border bg-background/60',
+                    )}
+                  >
+                    <p
+                      className={cn(
+                        'text-[11px] font-semibold tracking-wider uppercase',
+                        myZadulKhairSummary.currentMonthlyContribution > 0
+                          ? 'text-emerald-700 dark:text-lime'
+                          : 'text-muted-foreground',
+                      )}
+                    >
+                      Current Monthly Contribution
+                    </p>
+                    <p
+                      className={cn(
+                        'mt-1 font-display text-2xl font-bold tabular-nums',
+                        myZadulKhairSummary.currentMonthlyContribution > 0
+                          ? 'text-emerald-700 dark:text-lime'
+                          : 'text-foreground',
+                      )}
+                    >
+                      ₹{myZadulKhairSummary.currentMonthlyContribution.toLocaleString('en-IN')}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {myZadulKhairSummary.selectedMonthLabel} ·{' '}
+                      <strong>
+                        {myZadulKhairSummary.currentMonthlyContribution > 0
+                          ? 'Received'
+                          : 'Not Recorded'}
+                      </strong>
+                      {currentMonthZadulKhair.dateString ? ` · ${currentMonthZadulKhair.dateString}` : ''}
+                    </p>
+                  </div>
 
-            {/* Personal Ledger Table */}
-            <div className="overflow-x-auto rounded-2xl border border-border bg-background/60">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-border bg-muted/50 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                  <tr>
-                    <th className="px-4 py-3">Month</th>
-                    <th className="px-4 py-3">Receipt No.</th>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Fixed (₹)</th>
-                    <th className="px-4 py-3">Paid (₹)</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Remarks</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border tabular-nums">
-                  {(myZadulKhairRecords.length > 0
-                    ? myZadulKhairRecords
-                    : [currentMonthZadulKhair]
-                  ).map((row) => {
-                    const mMeta = MONTHS_META.find((m) => m.id === row.month)
-                    const mLabel = mMeta ? `${mMeta.month} ${mMeta.year}` : row.month
-                    return (
-                      <tr key={row.id} className="hover:bg-muted/30">
-                        <td className="px-4 py-3 font-semibold text-foreground">{mLabel}</td>
-                        <td className="px-4 py-3 font-mono text-muted-foreground">
-                          {row.receiptNo || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">{row.dateString || '-'}</td>
-                        <td className="px-4 py-3 font-mono">
-                          ₹{(row.fixedAmount ?? ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT).toLocaleString('en-IN')}
-                        </td>
-                        <td className="px-4 py-3 font-mono font-bold text-foreground">
-                          ₹{(row.paidAmount ?? 0).toLocaleString('en-IN')}
-                        </td>
-                        <td className="px-4 py-3 font-semibold uppercase">
-                          <span
-                            className={cn(
-                              row.status === 'paid'
-                                ? 'text-emerald-700 dark:text-lime'
-                                : row.status === 'partial'
-                                  ? 'text-amber-700 dark:text-amber-400'
-                                  : 'text-red-600 dark:text-red-400',
-                            )}
-                          >
-                            {row.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">{row.remarks || '-'}</td>
+                  <div className="rounded-xl border border-emerald-700/30 bg-background/80 p-4 dark:border-lime/30">
+                    <p className="text-[11px] font-semibold tracking-wider text-foreground uppercase">
+                      Total Contribution
+                    </p>
+                    <p className="mt-1 font-display text-2xl font-bold text-foreground tabular-nums">
+                      ₹{myZadulKhairSummary.totalContribution.toLocaleString('en-IN')}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Previous + Current Total
+                      {myZadulKhairSummary.currentMonthRecord?.actorName
+                        ? ` · Recorded by ${myZadulKhairSummary.currentMonthRecord.actorName}`
+                        : ''}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Full Academic-Year Monthly Contribution Ledger Table */}
+                <div className="overflow-x-auto rounded-2xl border border-border bg-background/60">
+                  <table className="w-full text-left text-xs">
+                    <thead className="border-b border-border bg-muted/50 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                      <tr>
+                        <th className="px-4 py-3">Month</th>
+                        <th className="px-4 py-3">Receipt No.</th>
+                        <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3">Contribution (₹)</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Remarks</th>
                       </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody className="divide-y divide-border tabular-nums">
+                      {myZadulKhairSummary.monthlyRows.map((row) => (
+                        <tr
+                          key={row.monthId}
+                          onClick={() => setSelectedMonth(row.monthId)}
+                          className={cn(
+                            'cursor-pointer transition-colors hover:bg-muted/30',
+                            row.isSelectedMonth && 'bg-emerald-500/10',
+                          )}
+                        >
+                          <td className="px-4 py-3 font-semibold text-foreground">
+                            {row.monthLabel}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-muted-foreground">
+                            {row.receiptNo}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">{row.dateString}</td>
+                          <td className="px-4 py-3 font-mono font-bold text-foreground">
+                            {row.isRecorded ? `₹${row.amount.toLocaleString('en-IN')}` : '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={cn(
+                                'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold',
+                                row.isRecorded
+                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-lime'
+                                  : 'bg-muted text-muted-foreground',
+                              )}
+                            >
+                              {row.statusLabel}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {row.remarks || '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="border-t border-emerald-500/30 bg-emerald-500/10 font-semibold tabular-nums">
+                      <tr>
+                        <td className="px-4 py-3 text-foreground" colSpan={3}>
+                          Total Contribution (2026–27)
+                        </td>
+                        <td className="px-4 py-3 font-mono font-bold text-emerald-800 dark:text-lime">
+                          ₹{myZadulKhairSummary.fullAcademicYearTotal.toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-emerald-700 dark:text-lime" colSpan={2}>
+                          {myZadulKhairSummary.recordedMonthsCount}{' '}
+                          {myZadulKhairSummary.recordedMonthsCount === 1 ? 'Month' : 'Months'} Recorded
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -2497,39 +3056,7 @@ export function UsthadAcademicHub({
     [records, normClass],
   )
 
-  // --- 4. Zadul Khair Class Roster & PDF State ---
-  const [defaultClassFixedAmount, setDefaultClassFixedAmount] = useState<number>(
-    ZADUL_KHAIR_DEFAULT_FIXED_AMOUNT,
-  )
-  const [zkEdits, setZkEdits] = useState<
-    Record<
-      string,
-      {
-        fixedAmount: number
-        paidAmount: number
-        status: AcademicRecordStatus
-        receiptNo: string
-        remarks: string
-      }
-    >
-  >({})
-  const [pdfBusyKey, setPdfBusyKey] = useState<string | null>(null)
-
-  const classZadulKhairByStudentId = useMemo(() => {
-    const map = new Map<string, CampusAcademicRecord>()
-    for (const r of records) {
-      if (
-        r.recordKind === 'zadul_khair' &&
-        !r.isDeleted &&
-        normalizeClassName(r.className) === normClass &&
-        r.month === selectedMonth &&
-        r.studentId
-      ) {
-        map.set(r.studentId, r)
-      }
-    }
-    return map
-  }, [records, normClass, selectedMonth])
+  // --- 4. Zadul Khair handled by shared voluntary ClassZadulKhairManager ---
 
   function addQuestionRow(type: UnitTestQuestionType) {
     setNewTestQuestions((prev) => [
@@ -2728,187 +3255,7 @@ export function UsthadAcademicHub({
     setToastMessage(`Removed discipline note for ${note.studentName}.`)
   }
 
-  async function handleSaveStudentZadulKhair(student: Student) {
-    const existing = classZadulKhairByStudentId.get(student.id)
-    const draft = zkEdits[student.id]
-    const fixedAmount = Number(
-      draft?.fixedAmount ?? existing?.fixedAmount ?? defaultClassFixedAmount,
-    )
-    const paidAmount = Number(draft?.paidAmount ?? existing?.paidAmount ?? fixedAmount)
-    const status: AcademicRecordStatus =
-      paidAmount >= fixedAmount && fixedAmount > 0
-        ? 'paid'
-        : paidAmount > 0
-          ? 'partial'
-          : 'unpaid'
-    const receiptNo =
-      (draft?.receiptNo ?? existing?.receiptNo ?? '').trim() ||
-      `ZK-${selectedMonth.replace('-', '')}-${student.admissionNo.slice(-4)}`
-    const remarks =
-      (draft?.remarks ?? existing?.remarks ?? '').trim() ||
-      (status === 'paid'
-        ? 'Full monthly Zadul Khair contribution received.'
-        : status === 'partial'
-          ? 'Partial contribution recorded.'
-          : 'Pending monthly contribution.')
-
-    const mMeta = MONTHS_META.find((m) => m.id === selectedMonth)
-
-    const record: CampusAcademicRecord = {
-      id: `zk_${selectedMonth}_${student.id}`,
-      campusId: 'ics-academy',
-      recordKind: 'zadul_khair',
-      className: normClass,
-      studentId: student.id,
-      studentName: student.name,
-      admissionNo: student.admissionNo,
-      month: selectedMonth,
-      title: 'Zadul Khair (زاد الخير) Monthly Household Contribution',
-      subjectOrCategory: mMeta ? `${mMeta.month} ${mMeta.year}` : selectedMonth,
-      remarks,
-      status,
-      actorId,
-      actorName,
-      dateString: formatTodayDateDisplay(),
-      receiptNo,
-      fixedAmount,
-      paidAmount,
-      isDeleted: false,
-      updatedAtMs: Date.now(),
-    }
-
-    await upsertCampusAcademicRecord(record)
-
-    publishCampusNotification({
-      type: 'notice',
-      title: `Zadul Khair Receipt Updated (${mMeta?.shortMonth || selectedMonth})`,
-      message: `${actorName} updated your Zadul Khair record: Paid ₹${paidAmount} / ₹${fixedAmount} (${status.toUpperCase()}). Receipt PDF is ready.`,
-      targetClass: normClass,
-      targetStudentId: student.id,
-      actorId,
-      actorName,
-      href: '#academic-hub',
-    })
-
-    setToastMessage(`Saved Zadul Khair record for ${student.name} (₹${paidAmount}).`)
-  }
-
-  async function handleMarkEntireClassPaid() {
-    for (const stu of classStudents) {
-      const existing = classZadulKhairByStudentId.get(stu.id)
-      const fixedAmount = Number(existing?.fixedAmount ?? defaultClassFixedAmount)
-      const mMeta = MONTHS_META.find((m) => m.id === selectedMonth)
-      await upsertCampusAcademicRecord({
-        id: `zk_${selectedMonth}_${stu.id}`,
-        campusId: 'ics-academy',
-        recordKind: 'zadul_khair',
-        className: normClass,
-        studentId: stu.id,
-        studentName: stu.name,
-        admissionNo: stu.admissionNo,
-        month: selectedMonth,
-        title: 'Zadul Khair (زاد الخير) Monthly Household Contribution',
-        subjectOrCategory: mMeta ? `${mMeta.month} ${mMeta.year}` : selectedMonth,
-        remarks: 'Full monthly Zadul Khair contribution received.',
-        status: 'paid',
-        actorId,
-        actorName,
-        dateString: formatTodayDateDisplay(),
-        receiptNo: `ZK-${selectedMonth.replace('-', '')}-${stu.admissionNo.slice(-4)}`,
-        fixedAmount,
-        paidAmount: fixedAmount,
-        isDeleted: false,
-        updatedAtMs: Date.now(),
-      })
-    }
-    setToastMessage(`Marked all ${classStudents.length} students in Class ${normClass} as PAID for ${selectedMonth}.`)
-  }
-
-  async function handleExportFullClassZadulKhairPdf(mode: 'download' | 'print') {
-    setPdfBusyKey(`class_${mode}`)
-    try {
-      const rows = classStudents.map((stu) => {
-        const existing = classZadulKhairByStudentId.get(stu.id)
-        const draft = zkEdits[stu.id]
-        const fixedAmount = Number(
-          draft?.fixedAmount ?? existing?.fixedAmount ?? defaultClassFixedAmount,
-        )
-        const paidAmount = Number(draft?.paidAmount ?? existing?.paidAmount ?? 0)
-        const status: AcademicRecordStatus =
-          paidAmount >= fixedAmount && fixedAmount > 0
-            ? 'paid'
-            : paidAmount > 0
-              ? 'partial'
-              : 'unpaid'
-        return {
-          student: stu,
-          fixedAmount,
-          paidAmount,
-          status,
-          receiptNo:
-            draft?.receiptNo ??
-            existing?.receiptNo ??
-            `ZK-${selectedMonth.replace('-', '')}-${stu.admissionNo.slice(-4)}`,
-          dateString: existing?.dateString || formatTodayDateDisplay(),
-          remarks: draft?.remarks ?? existing?.remarks ?? '',
-        }
-      })
-
-      await exportClassZadulKhairReportPdf({
-        className: normClass,
-        monthId: selectedMonth,
-        rows,
-        preparedByName: actorName,
-        preparedByRole: role === 'principal' ? 'Principal' : 'Usthad',
-        mode,
-      })
-    } finally {
-      setPdfBusyKey(null)
-    }
-  }
-
-  async function handleExportSingleStudentReceiptFromUsthad(
-    stu: Student,
-    mode: 'download' | 'print',
-  ) {
-    setPdfBusyKey(`${stu.id}_${mode}`)
-    try {
-      const existing = classZadulKhairByStudentId.get(stu.id)
-      const mMeta = MONTHS_META.find((m) => m.id === selectedMonth)
-      const record: CampusAcademicRecord = existing || {
-        id: `zk_${selectedMonth}_${stu.id}`,
-        campusId: 'ics-academy',
-        recordKind: 'zadul_khair',
-        className: normClass,
-        studentId: stu.id,
-        studentName: stu.name,
-        admissionNo: stu.admissionNo,
-        month: selectedMonth,
-        title: 'Zadul Khair (زاد الخير) Monthly Household Contribution',
-        subjectOrCategory: mMeta ? `${mMeta.month} ${mMeta.year}` : selectedMonth,
-        status: 'unpaid',
-        actorId,
-        actorName,
-        dateString: formatTodayDateDisplay(),
-        receiptNo: `ZK-${selectedMonth.replace('-', '')}-${stu.admissionNo.slice(-4)}`,
-        fixedAmount: defaultClassFixedAmount,
-        paidAmount: 0,
-        isDeleted: false,
-        updatedAtMs: Date.now(),
-      }
-      const historyRecords = records.filter(
-        (r) => r.recordKind === 'zadul_khair' && !r.isDeleted && r.studentId === stu.id,
-      )
-      await exportStudentZadulKhairReceiptPdf({
-        student: stu,
-        record,
-        historyRecords,
-        mode,
-      })
-    } finally {
-      setPdfBusyKey(null)
-    }
-  }
+  // Zadul Khair save & PDF export actions are encapsulated in ClassZadulKhairManager.
 
   return (
     <section id="academic-hub" className="scroll-mt-24 space-y-6">
@@ -4018,234 +4365,19 @@ export function UsthadAcademicHub({
           </div>
         )}
 
-        {/* USTHAD TAB 4: ZADUL KHAIR (زاد الخير) CLASS LEDGER & OFFICIAL PDF GENERATOR */}
+        {/* USTHAD / PRINCIPAL TAB 4: ZADUL KHAIR (زاد الخير) VOLUNTARY CLASS LEDGER & PDF GENERATOR */}
         {activeTab === 'zadul_khair' && (
-          <div className="mt-5 space-y-5">
-            <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-background/60 p-4 sm:flex-row sm:items-center sm:p-5">
-              <div>
-                <p className="text-xs font-semibold tracking-wider text-emerald-700 uppercase dark:text-lime">
-                  زاد الخير · Zadul Khair Class Collection Ledger
-                </p>
-                <h4 className="mt-1 font-display text-lg font-bold text-foreground">
-                  Class {normClass} Monthly Household Contributions ({selectedMonth})
-                </h4>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Update monthly fixed and paid amounts per student and export official ICS Academy Manhappatta PDF statements & receipts.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="w-44">
-                  <ThemeSelect
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
-                    aria-label="Select Zadul Khair Month"
-                  >
-                    {MONTHS_META.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.month} {m.year}
-                      </option>
-                    ))}
-                  </ThemeSelect>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleMarkEntireClassPaid}
-                  variant="outline"
-                  className="rounded-xl text-xs"
-                >
-                  <CheckCircle2
-                    className="mr-1.5 size-3.5 text-emerald-700 dark:text-lime"
-                    aria-hidden="true"
-                  />
-                  Mark All Paid
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={pdfBusyKey !== null}
-                  onClick={() => handleExportFullClassZadulKhairPdf('download')}
-                  className="rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
-                >
-                  <Download className="mr-1.5 size-3.5" aria-hidden="true" />
-                  {pdfBusyKey === 'class_download' ? 'Generating PDF...' : 'Class Statement PDF'}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={pdfBusyKey !== null}
-                  onClick={() => handleExportFullClassZadulKhairPdf('print')}
-                  className="rounded-xl text-xs"
-                >
-                  <Printer className="mr-1.5 size-3.5" aria-hidden="true" />
-                  Print Class List
-                </Button>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto rounded-2xl border border-border bg-background/60">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-border bg-muted/50 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                  <tr>
-                    <th className="px-3 py-3">Student</th>
-                    <th className="px-3 py-3">Receipt No.</th>
-                    <th className="px-3 py-3">Fixed (₹)</th>
-                    <th className="px-3 py-3">Paid (₹)</th>
-                    <th className="px-3 py-3">Status</th>
-                    <th className="px-3 py-3">Remarks</th>
-                    <th className="px-3 py-3 text-right">Actions & Receipt PDF</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border tabular-nums">
-                  {classStudents.map((stu) => {
-                    const saved = classZadulKhairByStudentId.get(stu.id)
-                    const draft = zkEdits[stu.id]
-                    const fixedVal =
-                      draft?.fixedAmount ?? saved?.fixedAmount ?? defaultClassFixedAmount
-                    const paidVal = draft?.paidAmount ?? saved?.paidAmount ?? 0
-                    const statusVal: AcademicRecordStatus =
-                      paidVal >= fixedVal && fixedVal > 0
-                        ? 'paid'
-                        : paidVal > 0
-                          ? 'partial'
-                          : 'unpaid'
-                    const receiptVal =
-                      draft?.receiptNo ??
-                      saved?.receiptNo ??
-                      `ZK-${selectedMonth.replace('-', '')}-${stu.admissionNo.slice(-4)}`
-                    const remarksVal = draft?.remarks ?? saved?.remarks ?? ''
-
-                    return (
-                      <tr key={stu.id} className="hover:bg-muted/25">
-                        <td className="px-3 py-2.5">
-                          <p className="font-semibold text-foreground">{stu.name}</p>
-                          <p className="font-mono text-[11px] text-muted-foreground">
-                            {stu.admissionNo}
-                          </p>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <Input
-                            value={receiptVal}
-                            onChange={(e) =>
-                              setZkEdits((prev) => ({
-                                ...prev,
-                                [stu.id]: {
-                                  fixedAmount: fixedVal,
-                                  paidAmount: paidVal,
-                                  status: statusVal,
-                                  receiptNo: e.target.value,
-                                  remarks: remarksVal,
-                                },
-                              }))
-                            }
-                            className="h-8 w-32 font-mono text-xs"
-                          />
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <Input
-                            type="number"
-                            min={0}
-                            value={fixedVal}
-                            onChange={(e) =>
-                              setZkEdits((prev) => ({
-                                ...prev,
-                                [stu.id]: {
-                                  fixedAmount: Number(e.target.value) || 0,
-                                  paidAmount: paidVal,
-                                  status: statusVal,
-                                  receiptNo: receiptVal,
-                                  remarks: remarksVal,
-                                },
-                              }))
-                            }
-                            className="h-8 w-24 font-mono text-xs"
-                          />
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <Input
-                            type="number"
-                            min={0}
-                            value={paidVal}
-                            onChange={(e) =>
-                              setZkEdits((prev) => ({
-                                ...prev,
-                                [stu.id]: {
-                                  fixedAmount: fixedVal,
-                                  paidAmount: Number(e.target.value) || 0,
-                                  status: statusVal,
-                                  receiptNo: receiptVal,
-                                  remarks: remarksVal,
-                                },
-                              }))
-                            }
-                            className="h-8 w-24 font-mono text-xs font-bold"
-                          />
-                        </td>
-                        <td className="px-3 py-2.5 font-semibold uppercase">
-                          <span
-                            className={cn(
-                              statusVal === 'paid'
-                                ? 'text-emerald-700 dark:text-lime'
-                                : statusVal === 'partial'
-                                  ? 'text-amber-700 dark:text-amber-400'
-                                  : 'text-red-600 dark:text-red-400',
-                            )}
-                          >
-                            {statusVal}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <Input
-                            value={remarksVal}
-                            onChange={(e) =>
-                              setZkEdits((prev) => ({
-                                ...prev,
-                                [stu.id]: {
-                                  fixedAmount: fixedVal,
-                                  paidAmount: paidVal,
-                                  status: statusVal,
-                                  receiptNo: receiptVal,
-                                  remarks: e.target.value,
-                                },
-                              }))
-                            }
-                            placeholder="Optional note..."
-                            className="h-8 w-40 text-xs"
-                          />
-                        </td>
-                        <td className="px-3 py-2.5 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => handleSaveStudentZadulKhair(stu)}
-                              className="h-8 rounded-lg bg-lime px-2.5 text-xs font-semibold text-slate-950 hover:bg-lime/90"
-                            >
-                              Save
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              disabled={pdfBusyKey !== null}
-                              onClick={() =>
-                                handleExportSingleStudentReceiptFromUsthad(stu, 'download')
-                              }
-                              className="h-8 rounded-lg px-2.5 text-xs"
-                              title="Download Student Zadul Khair Receipt PDF"
-                            >
-                              <Download className="size-3.5" aria-hidden="true" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+          <div className="mt-5">
+            <ClassZadulKhairManager
+              className={normClass}
+              selectedMonth={selectedMonth}
+              onSelectMonth={setSelectedMonth}
+              records={records}
+              actorId={actorId}
+              actorName={actorName}
+              actorRoleLabel={role === 'principal' ? 'Principal' : 'Usthad'}
+              onNotify={setToastMessage}
+            />
           </div>
         )}
       </Panel>

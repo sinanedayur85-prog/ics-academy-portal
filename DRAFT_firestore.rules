@@ -678,6 +678,8 @@ service cloud.firestore {
           || data.status == 'paid'
           || data.status == 'partial'
           || data.status == 'unpaid'
+          || data.status == 'received'
+          || data.status == 'not_recorded'
           || data.status == 'deleted'
         )
         && data.isDeleted is bool

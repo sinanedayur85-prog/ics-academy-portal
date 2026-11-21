@@ -750,7 +750,7 @@
         },
         "status": {
           "type": "string",
-          "description": "Current workflow or payment status of the record.",
+          "description": "Current workflow or voluntary contribution status of the record.",
           "enum": [
             "active",
             "submitted",
@@ -763,6 +763,8 @@
             "paid",
             "partial",
             "unpaid",
+            "received",
+            "not_recorded",
             "deleted"
           ],
           "minLength": 4,
@@ -817,7 +819,7 @@
         },
         "remarks": {
           "type": "string",
-          "description": "Optional Usthad remarks, corrective guidance, or payment note.",
+          "description": "Optional Usthad, Class Leader, or office remarks and gratitude note.",
           "minLength": 0,
           "maxLength": 2000
         },
@@ -853,13 +855,13 @@
         },
         "fixedAmount": {
           "type": "number",
-          "description": "Optional monthly fixed household contribution amount in INR.",
+          "description": "Deprecated optional legacy field retained for backward compatibility.",
           "minimum": 0,
           "maximum": 1000000
         },
         "paidAmount": {
           "type": "number",
-          "description": "Optional paid household contribution amount in INR.",
+          "description": "Optional voluntary household Zadul Khair contribution amount in INR.",
           "minimum": 0,
           "maximum": 1000000
         },
