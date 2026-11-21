@@ -305,13 +305,25 @@
         "mediaType": {
           "type": "string",
           "description": "Attached media category.",
-          "enum": ["none", "voice", "image", "pdf", "call"],
+          "enum": ["none", "voice", "image", "pdf", "call", "location", "contact", "poll"],
           "minLength": 3,
           "maxLength": 10
         },
         "callMeta": {
           "type": "object",
           "description": "Optional structured metadata for in-chat Voice/Video call log cards (callId, callType, callStatus, durationSec, callerId, calleeId)."
+        },
+        "locationMeta": {
+          "type": "object",
+          "description": "Optional structured metadata for shared Location cards (label, address, latitude, longitude)."
+        },
+        "contactMeta": {
+          "type": "object",
+          "description": "Optional structured metadata for shared Contact cards (actorId, name, role, subtitle, avatarUrl)."
+        },
+        "pollMeta": {
+          "type": "object",
+          "description": "Optional structured metadata for live interactive Poll cards (question, options, allowMultiple, votes)."
         },
         "mediaUrl": {
           "type": "string",

@@ -266,6 +266,9 @@ service cloud.firestore {
           'text',
           'mediaType',
           'callMeta',
+          'locationMeta',
+          'contactMeta',
+          'pollMeta',
           'mediaUrl',
           'mediaName',
           'mediaSizeLabel',
@@ -302,8 +305,20 @@ service cloud.firestore {
         && data.text is string
         && data.text.size() <= 8000
         && data.mediaType is string
-        && (data.mediaType == 'none' || data.mediaType == 'voice' || data.mediaType == 'image' || data.mediaType == 'pdf' || data.mediaType == 'call')
+        && (
+          data.mediaType == 'none'
+          || data.mediaType == 'voice'
+          || data.mediaType == 'image'
+          || data.mediaType == 'pdf'
+          || data.mediaType == 'call'
+          || data.mediaType == 'location'
+          || data.mediaType == 'contact'
+          || data.mediaType == 'poll'
+        )
         && (!('callMeta' in data) || (data.callMeta is map && data.callMeta.size() <= 8))
+        && (!('locationMeta' in data) || (data.locationMeta is map && data.locationMeta.size() <= 6))
+        && (!('contactMeta' in data) || (data.contactMeta is map && data.contactMeta.size() <= 6))
+        && (!('pollMeta' in data) || (data.pollMeta is map && data.pollMeta.size() <= 6))
         && (!('mediaUrl' in data) || (data.mediaUrl is string && data.mediaUrl.size() <= 750000))
         && (!('mediaName' in data) || (data.mediaName is string && data.mediaName.size() <= 200))
         && (!('mediaSizeLabel' in data) || (data.mediaSizeLabel is string && data.mediaSizeLabel.size() <= 64))
@@ -565,6 +580,7 @@ service cloud.firestore {
         && (
           incoming().diff(existing()).affectedKeys().hasOnly(['deliveredTo', 'readBy', 'deliveredAtMap', 'readAtMap'])
           || incoming().diff(existing()).affectedKeys().hasOnly(['reactions'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['pollMeta'])
           || incoming().diff(existing()).affectedKeys().hasOnly(['starredBy'])
           || incoming().diff(existing()).affectedKeys().hasOnly(['deletedFor'])
           || (!existing().isDeleted && incoming().isDeleted == true && incoming().diff(existing()).affectedKeys().hasOnly(['isDeleted', 'deletedBy', 'deletedById', 'text', 'mediaType', 'mediaUrl']))

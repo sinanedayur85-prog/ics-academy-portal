@@ -17,21 +17,27 @@ import {
 } from 'firebase/firestore'
 import {
   ArrowLeft,
-  BookOpen,
+  BarChart3,
+  BookmarkPlus,
+  Camera,
   Check,
   CheckCheck,
   Copy,
   Crown,
   Download,
+  ExternalLink,
   FileText,
   Forward,
   Image as ImageIcon,
   Info,
+  ListPlus,
   Lock,
+  MapPin,
   MessageSquarePlus,
   MessageSquareText,
   Mic,
   MoreVertical,
+  Navigation,
   Paperclip,
   Pause,
   Phone,
@@ -40,6 +46,7 @@ import {
   PhoneOutgoing,
   Pin,
   Play,
+  Plus,
   Reply,
   Search,
   Send,
@@ -51,6 +58,7 @@ import {
   Star,
   Trash2,
   Unlock,
+  User,
   Users,
   Video,
   Volume2,
@@ -100,6 +108,39 @@ export interface ChatCallMeta {
   calleeId: string
 }
 
+export interface ChatLocationMeta {
+  label: string
+  address?: string
+  latitude: number
+  longitude: number
+}
+
+export interface ChatContactMeta {
+  actorId: string
+  name: string
+  role: MessengerRole
+  subtitle?: string
+  avatarUrl?: string
+}
+
+export interface ChatPollOption {
+  id: string
+  text: string
+}
+
+export interface ChatPollMeta {
+  question: string
+  options: ChatPollOption[]
+  allowMultiple: boolean
+  votes: Record<string, string[]>
+}
+
+export interface ChatCustomList {
+  id: string
+  name: string
+  roomIds: string[]
+}
+
 export interface ChatMessage {
   id: string
   roomId: string
@@ -108,8 +149,11 @@ export interface ChatMessage {
   senderRole: MessengerRole
   senderBadge?: string
   text: string
-  mediaType: 'none' | 'voice' | 'image' | 'pdf' | 'call'
+  mediaType: 'none' | 'voice' | 'image' | 'pdf' | 'call' | 'location' | 'contact' | 'poll'
   callMeta?: ChatCallMeta
+  locationMeta?: ChatLocationMeta
+  contactMeta?: ChatContactMeta
+  pollMeta?: ChatPollMeta
   mediaUrl?: string
   mediaName?: string
   mediaSizeLabel?: string
@@ -386,6 +430,43 @@ function buildFirestoreChatMessagePayload(msg: ChatMessage, safeMediaUrl?: strin
       messageId: String(msg.replyTo.messageId).slice(0, 128),
       senderName: String(msg.replyTo.senderName).slice(0, 120),
       previewText: String(msg.replyTo.previewText).slice(0, 200),
+    }
+  }
+  if (msg.callMeta) {
+    payload.callMeta = msg.callMeta
+  }
+  if (msg.locationMeta) {
+    payload.locationMeta = {
+      label: String(msg.locationMeta.label || 'Shared Location').slice(0, 140),
+      ...(msg.locationMeta.address
+        ? { address: String(msg.locationMeta.address).slice(0, 220) }
+        : {}),
+      latitude: Number(msg.locationMeta.latitude) || 0,
+      longitude: Number(msg.locationMeta.longitude) || 0,
+    }
+  }
+  if (msg.contactMeta) {
+    payload.contactMeta = {
+      actorId: String(msg.contactMeta.actorId || '').slice(0, 64),
+      name: String(msg.contactMeta.name || 'Campus Member').slice(0, 120),
+      role: msg.contactMeta.role,
+      ...(msg.contactMeta.subtitle
+        ? { subtitle: String(msg.contactMeta.subtitle).slice(0, 120) }
+        : {}),
+      ...(msg.contactMeta.avatarUrl
+        ? { avatarUrl: String(msg.contactMeta.avatarUrl).slice(0, 500) }
+        : {}),
+    }
+  }
+  if (msg.pollMeta) {
+    payload.pollMeta = {
+      question: String(msg.pollMeta.question || '').slice(0, 240),
+      options: msg.pollMeta.options.slice(0, 8).map((o) => ({
+        id: String(o.id),
+        text: String(o.text).slice(0, 120),
+      })),
+      allowMultiple: Boolean(msg.pollMeta.allowMultiple),
+      votes: msg.pollMeta.votes || {},
     }
   }
   return payload
@@ -953,26 +1034,135 @@ export function CampusMessenger({
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const imageInputRef = useRef<HTMLInputElement | null>(null)
+  const cameraInputRef = useRef<HTMLInputElement | null>(null)
   const pdfInputRef = useRef<HTMLInputElement | null>(null)
   const attachMenuRef = useRef<HTMLDivElement | null>(null)
   const attachButtonRef = useRef<HTMLButtonElement | null>(null)
+  const chatMoreMenuRef = useRef<HTMLDivElement | null>(null)
+  const chatMoreButtonRef = useRef<HTMLButtonElement | null>(null)
   const lastTypingSentMsRef = useRef<number>(0)
 
-  // Automatically close Attachment Menu when tapping any other icon or anywhere outside
+  // Chat Header 3-dots Menu (Clear chat, Add shortcut, Add to list, Starred messages)
+  const [showChatMoreMenu, setShowChatMoreMenu] = useState(false)
+  const [showClearChatConfirm, setShowClearChatConfirm] = useState(false)
+  const [shortcutRoomIds, setShortcutRoomIds] = useState<string[]>([])
+  const [customLists, setCustomLists] = useState<ChatCustomList[]>([
+    { id: 'favorites', name: 'Favorites', roomIds: [] },
+    { id: 'important', name: 'Important', roomIds: [] },
+  ])
+  const [activeCustomListId, setActiveCustomListId] = useState<string | null>(null)
+  const [showAddToListModal, setShowAddToListModal] = useState(false)
+  const [newListName, setNewListName] = useState('')
+
+  // WhatsApp Attachment Sheet Modals: Location, Contact, Poll
+  const [showLocationModal, setShowLocationModal] = useState(false)
+  const [locLoading, setLocLoading] = useState(false)
+  const [locError, setLocError] = useState<string | null>(null)
+  const [locLabel, setLocLabel] = useState('ICS Academy Manhappatta')
+  const [locAddress, setLocAddress] = useState("Manhappatta, Da'wa College Campus, Kerala")
+  const [locCoords, setLocCoords] = useState<{ lat: number; lng: number } | null>(null)
+
+  const [showContactModal, setShowContactModal] = useState(false)
+  const [contactSearchQuery, setContactSearchQuery] = useState('')
+
+  const [showPollModal, setShowPollModal] = useState(false)
+  const [pollQuestion, setPollQuestion] = useState('')
+  const [pollOptions, setPollOptions] = useState<string[]>(['', ''])
+  const [pollAllowMultiple, setPollAllowMultiple] = useState(false)
+  const [pollVotesViewerMsgId, setPollVotesViewerMsgId] = useState<string | null>(null)
+
+  // Load persisted per-actor shortcuts & custom lists
   useEffect(() => {
-    if (!showAttachMenu) return
+    if (typeof window === 'undefined' || !actor.id) return
+    try {
+      const savedShortcuts = window.localStorage.getItem(`ics_messenger_shortcuts_v1_${actor.id}`)
+      if (savedShortcuts) {
+        const parsed = JSON.parse(savedShortcuts)
+        if (Array.isArray(parsed)) setShortcutRoomIds(parsed.map(String))
+      } else {
+        setShortcutRoomIds([])
+      }
+    } catch {
+      setShortcutRoomIds([])
+    }
+    try {
+      const savedLists = window.localStorage.getItem(`ics_messenger_lists_v1_${actor.id}`)
+      if (savedLists) {
+        const parsed = JSON.parse(savedLists)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCustomLists(parsed as ChatCustomList[])
+          return
+        }
+      }
+      setCustomLists([
+        { id: 'favorites', name: 'Favorites', roomIds: [] },
+        { id: 'important', name: 'Important', roomIds: [] },
+      ])
+    } catch {
+      // Ignore parse error
+    }
+  }, [actor.id])
+
+  const persistShortcuts = useCallback(
+    (next: string[]) => {
+      setShortcutRoomIds(next)
+      if (typeof window !== 'undefined' && actor.id) {
+        try {
+          window.localStorage.setItem(
+            `ics_messenger_shortcuts_v1_${actor.id}`,
+            JSON.stringify(next),
+          )
+        } catch {
+          // Ignore quota error
+        }
+      }
+    },
+    [actor.id],
+  )
+
+  const persistCustomLists = useCallback(
+    (next: ChatCustomList[]) => {
+      setCustomLists(next)
+      if (typeof window !== 'undefined' && actor.id) {
+        try {
+          window.localStorage.setItem(
+            `ics_messenger_lists_v1_${actor.id}`,
+            JSON.stringify(next),
+          )
+        } catch {
+          // Ignore quota error
+        }
+      }
+    },
+    [actor.id],
+  )
+
+  // Automatically close Attachment Menu & Chat More Menu when tapping anywhere outside
+  useEffect(() => {
+    if (!showAttachMenu && !showChatMoreMenu) return
     const handleGlobalPointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null
       if (!target) return
-      if (attachMenuRef.current?.contains(target)) return
-      if (attachButtonRef.current?.contains(target)) return
-      setShowAttachMenu(false)
+      if (
+        showAttachMenu &&
+        !attachMenuRef.current?.contains(target) &&
+        !attachButtonRef.current?.contains(target)
+      ) {
+        setShowAttachMenu(false)
+      }
+      if (
+        showChatMoreMenu &&
+        !chatMoreMenuRef.current?.contains(target) &&
+        !chatMoreButtonRef.current?.contains(target)
+      ) {
+        setShowChatMoreMenu(false)
+      }
     }
     document.addEventListener('pointerdown', handleGlobalPointerDown, true)
     return () => {
       document.removeEventListener('pointerdown', handleGlobalPointerDown, true)
     }
-  }, [showAttachMenu])
+  }, [showAttachMenu, showChatMoreMenu])
 
   // Build available rooms for this user
   const allRooms = useMemo<ChatRoomDescriptor[]>(() => {
@@ -1427,7 +1617,9 @@ export function CampusMessenger({
                   JSON.stringify(mergedMsg.starredBy ?? []) ||
                 JSON.stringify(existing.deletedFor ?? []) !==
                   JSON.stringify(mergedMsg.deletedFor ?? []) ||
-                JSON.stringify(existing.reactions) !== JSON.stringify(mergedMsg.reactions)
+                JSON.stringify(existing.reactions) !== JSON.stringify(mergedMsg.reactions) ||
+                JSON.stringify(existing.pollMeta ?? null) !==
+                  JSON.stringify(mergedMsg.pollMeta ?? null)
               ) {
                 byId.set(sm.id, mergedMsg)
                 roomChanged = true
@@ -1714,6 +1906,70 @@ export function CampusMessenger({
                           : undefined,
                       callerId: String((raw.callMeta as Record<string, unknown>).callerId || ''),
                       calleeId: String((raw.callMeta as Record<string, unknown>).calleeId || ''),
+                    }
+                  : undefined,
+              locationMeta:
+                raw.locationMeta && typeof raw.locationMeta === 'object'
+                  ? {
+                      label: String(
+                        (raw.locationMeta as Record<string, unknown>).label || 'Shared Location',
+                      ),
+                      address:
+                        typeof (raw.locationMeta as Record<string, unknown>).address === 'string'
+                          ? String((raw.locationMeta as Record<string, unknown>).address)
+                          : undefined,
+                      latitude: Number((raw.locationMeta as Record<string, unknown>).latitude) || 0,
+                      longitude:
+                        Number((raw.locationMeta as Record<string, unknown>).longitude) || 0,
+                    }
+                  : undefined,
+              contactMeta:
+                raw.contactMeta && typeof raw.contactMeta === 'object'
+                  ? {
+                      actorId: String((raw.contactMeta as Record<string, unknown>).actorId || ''),
+                      name: String(
+                        (raw.contactMeta as Record<string, unknown>).name || 'Campus Member',
+                      ),
+                      role: ((raw.contactMeta as Record<string, unknown>).role === 'principal' ||
+                      (raw.contactMeta as Record<string, unknown>).role === 'usthad'
+                        ? (raw.contactMeta as Record<string, unknown>).role
+                        : 'student') as MessengerRole,
+                      subtitle:
+                        typeof (raw.contactMeta as Record<string, unknown>).subtitle === 'string'
+                          ? String((raw.contactMeta as Record<string, unknown>).subtitle)
+                          : undefined,
+                      avatarUrl:
+                        typeof (raw.contactMeta as Record<string, unknown>).avatarUrl === 'string'
+                          ? String((raw.contactMeta as Record<string, unknown>).avatarUrl)
+                          : undefined,
+                    }
+                  : undefined,
+              pollMeta:
+                raw.pollMeta && typeof raw.pollMeta === 'object'
+                  ? {
+                      question: String((raw.pollMeta as Record<string, unknown>).question || ''),
+                      options: Array.isArray((raw.pollMeta as Record<string, unknown>).options)
+                        ? (
+                            (raw.pollMeta as Record<string, unknown>).options as Array<{
+                              id?: string
+                              text?: string
+                            }>
+                          ).map((o, idx) => ({
+                            id: String(o?.id || `opt_${idx}`),
+                            text: String(o?.text || ''),
+                          }))
+                        : [],
+                      allowMultiple: Boolean(
+                        (raw.pollMeta as Record<string, unknown>).allowMultiple,
+                      ),
+                      votes:
+                        (raw.pollMeta as Record<string, unknown>).votes &&
+                        typeof (raw.pollMeta as Record<string, unknown>).votes === 'object'
+                          ? ((raw.pollMeta as Record<string, unknown>).votes as Record<
+                              string,
+                              string[]
+                            >)
+                          : {},
                     }
                   : undefined,
               mediaUrl: typeof raw.mediaUrl === 'string' && raw.mediaUrl ? raw.mediaUrl : undefined,
@@ -2127,12 +2383,19 @@ export function CampusMessenger({
   // Filtered & sorted room list for left sidebar / mobile roster
   const filteredRooms = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
+    const activeList = activeCustomListId
+      ? customLists.find((l) => l.id === activeCustomListId)
+      : null
     return allRooms
       .filter((r) => {
-        if (categoryFilter === 'groups' && r.type !== 'batch_group') return false
-        if (categoryFilter === 'staff' && r.type !== 'staff_group') return false
-        if (categoryFilter === 'usthads' && r.type !== 'direct_usthad') return false
-        if (categoryFilter === 'students' && r.type !== 'direct_student') return false
+        if (activeList) {
+          if (!activeList.roomIds.includes(r.roomId)) return false
+        } else {
+          if (categoryFilter === 'groups' && r.type !== 'batch_group') return false
+          if (categoryFilter === 'staff' && r.type !== 'staff_group') return false
+          if (categoryFilter === 'usthads' && r.type !== 'direct_usthad') return false
+          if (categoryFilter === 'students' && r.type !== 'direct_student') return false
+        }
         if (!q) return true
         return (
           r.title.toLowerCase().includes(q) ||
@@ -2155,7 +2418,15 @@ export function CampusMessenger({
         const bLast = bMsgs[bMsgs.length - 1]?.createdAtMs ?? 0
         return bLast - aLast
       })
-  }, [allRooms, categoryFilter, searchQuery, actor.className, messagesByRoom])
+  }, [
+    allRooms,
+    categoryFilter,
+    activeCustomListId,
+    customLists,
+    searchQuery,
+    actor.className,
+    messagesByRoom,
+  ])
 
   // Strictly check if a specific peer is actively using the app right now (within last 15 seconds)
   const isPeerOnline = useCallback(
@@ -2235,13 +2506,16 @@ export function CampusMessenger({
   const dispatchMessage = useCallback(
     (params: {
       text: string
-      mediaType?: 'none' | 'voice' | 'image' | 'pdf'
+      mediaType?: 'none' | 'voice' | 'image' | 'pdf' | 'location' | 'contact' | 'poll'
       mediaUrl?: string
       mediaName?: string
       mediaSizeLabel?: string
       mediaDurationSec?: number
       imageQuality?: 'standard' | 'hd'
       imageDimensions?: string
+      locationMeta?: ChatLocationMeta
+      contactMeta?: ChatContactMeta
+      pollMeta?: ChatPollMeta
     }) => {
       if (activeRoomMeta.onlyAdminsCanPost && !actor.isStaff) return
       unlockNotificationAudio()
@@ -2263,6 +2537,9 @@ export function CampusMessenger({
         mediaDurationSec: params.mediaDurationSec,
         imageQuality: params.imageQuality,
         imageDimensions: params.imageDimensions,
+        locationMeta: params.locationMeta,
+        contactMeta: params.contactMeta,
+        pollMeta: params.pollMeta,
         replyTo: replyingTo ?? undefined,
         reactions: {},
         deliveredTo: [actor.id],
@@ -2322,12 +2599,18 @@ export function CampusMessenger({
       // Build notification preview text for the message
       const preview =
         newMsg.mediaType === 'pdf'
-          ? `📄 Shared PDF Note: ${newMsg.mediaName || 'Document'}`
+          ? `📄 Shared Document: ${newMsg.mediaName || 'Document'}`
           : newMsg.mediaType === 'voice'
             ? `🎤 Sent a Voice Note (${formatVoiceDuration(newMsg.mediaDurationSec || 4)})`
             : newMsg.mediaType === 'image'
               ? `📷 Shared ${newMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo${newMsg.text ? `: ${newMsg.text.slice(0, 80)}` : ''}`
-              : newMsg.text.slice(0, 120)
+              : newMsg.mediaType === 'location'
+                ? `📍 Shared Location: ${newMsg.locationMeta?.label || 'Location'}`
+                : newMsg.mediaType === 'contact'
+                  ? `👤 Shared Contact: ${newMsg.contactMeta?.name || 'Contact'}`
+                  : newMsg.mediaType === 'poll'
+                    ? `📊 Poll: ${newMsg.pollMeta?.question || 'Campus Poll'}`
+                    : newMsg.text.slice(0, 120)
 
       const deterministicNotifId = `notif_chat_${msgId}`
 
@@ -2734,18 +3017,191 @@ export function CampusMessenger({
     e.target.value = ''
   }
 
-  const handleQuickShareSampleKitabPdf = () => {
-    const kitab = CURATED_KITABS[0]
-    const pdfBlob = buildKitabPdfBlob(kitab)
-    const url = URL.createObjectURL(pdfBlob)
-    dispatchMessage({
-      text: `📚 ${kitab.title} (${kitab.arabicTitle}) — Syllabus Study Note (PDF).`,
-      mediaType: 'pdf',
-      mediaUrl: url,
-      mediaName: `${kitab.title.replace(/\s+/g, '_')}_Notes.pdf`,
-      mediaSizeLabel: '1.2 MB • Kitab PDF',
+  const handleClearCurrentChat = useCallback(() => {
+    const roomId = activeRoom.roomId
+    const roomMsgs = messagesByRoom[roomId] ?? []
+    setMessagesByRoom((prev) => ({
+      ...prev,
+      [roomId]: (prev[roomId] ?? []).map((m) => {
+        const cur = Array.isArray(m.deletedFor) ? m.deletedFor : []
+        return cur.includes(actor.id) ? m : { ...m, deletedFor: [...cur, actor.id] }
+      }),
+    }))
+    for (const m of roomMsgs) {
+      if (!(m.deletedFor ?? []).includes(actor.id)) {
+        updateDoc(doc(db, 'campusChatMessages', m.id), {
+          deletedFor: arrayUnion(actor.id),
+        }).catch(() => {})
+      }
+    }
+    void sendChatActionToServer({
+      action: 'clear_chat_for_me',
+      roomId,
     })
-  }
+    setShowClearChatConfirm(false)
+    showToast(`Cleared chat with "${activeRoom.title}"`)
+  }, [activeRoom.roomId, activeRoom.title, actor.id, messagesByRoom, sendChatActionToServer, showToast])
+
+  const handleToggleShortcut = useCallback(
+    (roomId: string, roomTitle: string) => {
+      const exists = shortcutRoomIds.includes(roomId)
+      const next = exists
+        ? shortcutRoomIds.filter((id) => id !== roomId)
+        : [roomId, ...shortcutRoomIds].slice(0, 12)
+      persistShortcuts(next)
+      showToast(
+        exists ? `Removed "${roomTitle}" from shortcuts` : `Added "${roomTitle}" shortcut`,
+      )
+    },
+    [persistShortcuts, shortcutRoomIds, showToast],
+  )
+
+  const handleToggleRoomInList = useCallback(
+    (listId: string, roomId: string) => {
+      const next = customLists.map((list) => {
+        if (list.id !== listId) return list
+        const has = list.roomIds.includes(roomId)
+        return {
+          ...list,
+          roomIds: has ? list.roomIds.filter((id) => id !== roomId) : [...list.roomIds, roomId],
+        }
+      })
+      persistCustomLists(next)
+    },
+    [customLists, persistCustomLists],
+  )
+
+  const handleCreateCustomList = useCallback(() => {
+    const clean = newListName.trim().slice(0, 32)
+    if (!clean) return
+    const newId = `list_${Date.now()}`
+    const next: ChatCustomList[] = [
+      ...customLists,
+      { id: newId, name: clean, roomIds: [activeRoom.roomId] },
+    ]
+    persistCustomLists(next)
+    setNewListName('')
+    showToast(`Added to "${clean}" list`)
+  }, [activeRoom.roomId, customLists, newListName, persistCustomLists, showToast])
+
+  const handleDetectCurrentLocation = useCallback(() => {
+    setLocError(null)
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setLocError('GPS is not supported in this browser. You can share the campus location below.')
+      return
+    }
+    setLocLoading(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocLoading(false)
+        const lat = Number(pos.coords.latitude.toFixed(6))
+        const lng = Number(pos.coords.longitude.toFixed(6))
+        setLocCoords({ lat, lng })
+        setLocLabel('Current Location')
+        setLocAddress(`${lat.toFixed(5)}° N, ${lng.toFixed(5)}° E`)
+      },
+      () => {
+        setLocLoading(false)
+        setLocError(
+          'Location permission denied or unavailable. You can still share ICS Academy Campus location below.',
+        )
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
+    )
+  }, [])
+
+  const handleSendLocationMessage = useCallback(
+    (meta: ChatLocationMeta) => {
+      dispatchMessage({
+        text: `📍 ${meta.label}`,
+        mediaType: 'location',
+        locationMeta: meta,
+      })
+      setShowLocationModal(false)
+    },
+    [dispatchMessage],
+  )
+
+  const handleSendContactMessage = useCallback(
+    (contact: ChatContactMeta) => {
+      dispatchMessage({
+        text: `👤 ${contact.name}`,
+        mediaType: 'contact',
+        contactMeta: contact,
+      })
+      setShowContactModal(false)
+      setContactSearchQuery('')
+    },
+    [dispatchMessage],
+  )
+
+  const handleSendPollMessage = useCallback(() => {
+    const q = pollQuestion.trim()
+    const cleanOpts = pollOptions.map((o) => o.trim()).filter(Boolean)
+    if (!q || cleanOpts.length < 2) return
+    const pollMeta: ChatPollMeta = {
+      question: q.slice(0, 240),
+      options: cleanOpts.slice(0, 6).map((text, idx) => ({
+        id: `opt_${idx + 1}`,
+        text: text.slice(0, 120),
+      })),
+      allowMultiple: pollAllowMultiple,
+      votes: {},
+    }
+    dispatchMessage({
+      text: `📊 ${pollMeta.question}`,
+      mediaType: 'poll',
+      pollMeta,
+    })
+    setPollQuestion('')
+    setPollOptions(['', ''])
+    setPollAllowMultiple(false)
+    setShowPollModal(false)
+  }, [dispatchMessage, pollAllowMultiple, pollOptions, pollQuestion])
+
+  const handleVotePoll = useCallback(
+    (msg: ChatMessage, optionId: string) => {
+      if (!msg.pollMeta) return
+      const votes: Record<string, string[]> = { ...(msg.pollMeta.votes || {}) }
+      const currentVoters = Array.isArray(votes[optionId]) ? [...votes[optionId]] : []
+      const alreadyVoted = currentVoters.includes(actor.id)
+
+      if (!msg.pollMeta.allowMultiple) {
+        for (const key of Object.keys(votes)) {
+          votes[key] = (votes[key] || []).filter((id) => id !== actor.id)
+        }
+      }
+      if (alreadyVoted) {
+        votes[optionId] = (votes[optionId] || []).filter((id) => id !== actor.id)
+      } else {
+        votes[optionId] = Array.from(new Set([...(votes[optionId] || []), actor.id]))
+      }
+
+      const nextPollMeta: ChatPollMeta = {
+        ...msg.pollMeta,
+        votes,
+      }
+
+      setMessagesByRoom((prev) => ({
+        ...prev,
+        [msg.roomId]: (prev[msg.roomId] ?? []).map((m) =>
+          m.id === msg.id ? { ...m, pollMeta: nextPollMeta } : m,
+        ),
+      }))
+
+      updateDoc(doc(db, 'campusChatMessages', msg.id), {
+        pollMeta: nextPollMeta,
+      }).catch(() => {})
+
+      void sendChatActionToServer({
+        action: 'vote_poll',
+        roomId: msg.roomId,
+        messageId: msg.id,
+        optionId,
+      })
+    },
+    [actor.id, sendChatActionToServer],
+  )
 
   const handleOpenOrDownloadPdf = (msg: ChatMessage) => {
     if (msg.mediaUrl) {
@@ -3523,13 +3979,14 @@ export function CampusMessenger({
                   { id: 'calls', label: 'Calls' },
                 ] as const
               ).map((tab) => {
-                const active = categoryFilter === tab.id
+                const active = !activeCustomListId && categoryFilter === tab.id
                 const showMissedBadge = tab.id === 'calls' && unreadMissedCallsCount > 0
                 return (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => {
+                      setActiveCustomListId(null)
                       setCategoryFilter(tab.id)
                       if (tab.id === 'calls') {
                         markMissedCallsSeen()
@@ -3552,10 +4009,73 @@ export function CampusMessenger({
                   </button>
                 )
               })}
+
+              {/* User's Custom Chat Lists (created via "Add to list") */}
+              {customLists
+                .filter((l) => l.roomIds.length > 0)
+                .map((list) => {
+                  const active = activeCustomListId === list.id
+                  return (
+                    <button
+                      key={list.id}
+                      type="button"
+                      onClick={() => {
+                        setCategoryFilter('all')
+                        setActiveCustomListId(active ? null : list.id)
+                      }}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors whitespace-nowrap shrink-0 border',
+                        active
+                          ? 'border-emerald-600 bg-emerald-600 text-white dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100'
+                          : 'border-transparent bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
+                      )}
+                    >
+                      <span>{list.name}</span>
+                      <span className="text-[10px] opacity-75 tabular-nums">
+                        {list.roomIds.length}
+                      </span>
+                    </button>
+                  )
+                })}
             </div>
 
+            {/* Quick-Access Pinned Chat Shortcuts Strip (Added via "Add shortcut") */}
+            {shortcutRoomIds.length > 0 && categoryFilter !== 'calls' && (
+              <div className="flex items-center gap-2 overflow-x-auto pt-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {shortcutRoomIds
+                  .map((id) => allRooms.find((r) => r.roomId === id))
+                  .filter((r): r is ChatRoomDescriptor => Boolean(r))
+                  .map((sRoom) => (
+                    <button
+                      key={sRoom.roomId}
+                      type="button"
+                      onClick={() => {
+                        setSelectedRoomId(sRoom.roomId)
+                        setMobileShowChatPane(true)
+                      }}
+                      className="flex shrink-0 flex-col items-center gap-1 rounded-xl px-1.5 py-1 transition-colors hover:bg-muted/70"
+                    >
+                      <div className="relative flex size-10 items-center justify-center overflow-hidden rounded-full border-2 border-emerald-500/50 bg-emerald-500/12 font-poppins text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                        {sRoom.avatarUrl ? (
+                          <img
+                            src={sRoom.avatarUrl}
+                            alt={sRoom.title}
+                            className="size-full object-cover object-top"
+                          />
+                        ) : (
+                          sRoom.avatarText
+                        )}
+                      </div>
+                      <span className="max-w-[54px] truncate text-[10px] font-medium text-foreground/85">
+                        {sRoom.title.split(' ')[0]}
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            )}
+
             {/* Class selector when viewing Students tab (Available for ALL students & staff) */}
-            {categoryFilter === 'students' && (
+            {!activeCustomListId && categoryFilter === 'students' && (
               <div className="flex items-center justify-between gap-2 pt-0.5">
                 <span className="text-[11px] font-medium text-muted-foreground">
                   Class:
@@ -3900,12 +4420,18 @@ export function CampusMessenger({
                                 {lastMsg.mediaType === 'voice'
                                   ? `🎤 ${formatVoiceDuration(lastMsg.mediaDurationSec || 4)}`
                                   : lastMsg.mediaType === 'pdf'
-                                    ? `📄 ${lastMsg.mediaName || 'PDF Note'}`
+                                    ? `📄 ${lastMsg.mediaName || 'Document'}`
                                     : lastMsg.mediaType === 'image'
                                       ? `📷 ${lastMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo`
                                       : lastMsg.mediaType === 'call'
                                         ? `${lastMsg.callMeta?.callType === 'video' ? '📹' : '📞'} ${lastMsg.text || 'Call'}`
-                                        : lastMsg.text}
+                                        : lastMsg.mediaType === 'location'
+                                          ? `📍 ${lastMsg.locationMeta?.label || 'Location'}`
+                                          : lastMsg.mediaType === 'contact'
+                                            ? `👤 ${lastMsg.contactMeta?.name || 'Contact'}`
+                                            : lastMsg.mediaType === 'poll'
+                                              ? `📊 ${lastMsg.pollMeta?.question || 'Poll'}`
+                                              : lastMsg.text}
                               </span>
                             </>
                           )}
@@ -4647,23 +5173,91 @@ export function CampusMessenger({
                       </button>
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAttachMenu(false)
-                        setSelectedMessageIds([])
-                        setShowSelectionMoreMenu(false)
-                        setShowNewChatModal(false)
-                        setShowSettingsModal(false)
-                        if (isRecordingVoice) cancelVoiceRecording()
-                        setShowStarredModal(true)
-                      }}
-                      title="Starred Messages"
-                      aria-label="Open Starred Messages"
-                      className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-muted hover:text-amber-500 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-200 dark:hover:bg-[#222630]"
-                    >
-                      <Star className="size-4" aria-hidden="true" />
-                    </button>
+                    <div className="relative">
+                      <button
+                        ref={chatMoreButtonRef}
+                        type="button"
+                        onClick={() => {
+                          setShowAttachMenu(false)
+                          setSelectedMessageIds([])
+                          setShowSelectionMoreMenu(false)
+                          setShowNewChatModal(false)
+                          setShowSettingsModal(false)
+                          if (isRecordingVoice) cancelVoiceRecording()
+                          setShowChatMoreMenu((prev) => !prev)
+                        }}
+                        title="Chat Options"
+                        aria-label="Chat options menu"
+                        className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:size-9 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-200 dark:hover:bg-[#222630]"
+                      >
+                        <MoreVertical className="size-4.5 sm:size-4" aria-hidden="true" />
+                      </button>
+
+                      {showChatMoreMenu && (
+                        <div
+                          ref={chatMoreMenuRef}
+                          className="absolute right-0 top-11 z-40 w-52 overflow-hidden rounded-2xl border border-border bg-card py-1.5 text-sm text-foreground shadow-2xl dark:border-[#262a33] dark:bg-[#16191f]"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowChatMoreMenu(false)
+                              setShowStarredModal(true)
+                            }}
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors hover:bg-muted dark:hover:bg-white/10"
+                          >
+                            <Star className="size-4 text-amber-500" aria-hidden="true" />
+                            <span>Starred messages</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowChatMoreMenu(false)
+                              setShowClearChatConfirm(true)
+                            }}
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors hover:bg-muted dark:hover:bg-white/10"
+                          >
+                            <Trash2 className="size-4 text-muted-foreground" aria-hidden="true" />
+                            <span>Clear chat</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowChatMoreMenu(false)
+                              handleToggleShortcut(activeRoom.roomId, activeRoom.title)
+                            }}
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors hover:bg-muted dark:hover:bg-white/10"
+                          >
+                            <BookmarkPlus
+                              className="size-4 text-muted-foreground"
+                              aria-hidden="true"
+                            />
+                            <span>
+                              {shortcutRoomIds.includes(activeRoom.roomId)
+                                ? 'Remove shortcut'
+                                : 'Add shortcut'}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowChatMoreMenu(false)
+                              setShowAddToListModal(true)
+                            }}
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors hover:bg-muted dark:hover:bg-white/10"
+                          >
+                            <ListPlus
+                              className="size-4 text-muted-foreground"
+                              aria-hidden="true"
+                            />
+                            <span>Add to list</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -5257,22 +5851,232 @@ export function CampusMessenger({
                           </div>
                         )}
 
-                        {/* Message Body Text (Never shown for voice notes or call log cards) */}
-                        {msg.mediaType !== 'voice' && msg.mediaType !== 'call' && msg.text && (
-                          <p
-                            className={cn(
-                              'whitespace-pre-wrap break-words pr-1 leading-relaxed',
-                              isImageMessage && 'px-2.5 pt-1.5',
-                              chatSettings.chatFontSize === 'small'
-                                ? 'text-[11.5px] sm:text-xs'
-                                : chatSettings.chatFontSize === 'large'
-                                  ? 'text-sm sm:text-[15px]'
-                                  : 'text-xs sm:text-[13.5px]',
-                            )}
+                        {/* Media Attachment: Shared Location Card */}
+                        {msg.mediaType === 'location' && msg.locationMeta && (
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="my-0.5 w-[240px] sm:w-[260px] overflow-hidden rounded-xl border border-border/70 bg-background/60 dark:border-[#262a33] dark:bg-[#0a0b0e]/70"
                           >
-                            {msg.text}
-                          </p>
+                            <div className="relative flex h-24 items-center justify-center bg-[radial-gradient(circle_at_50%_45%,rgba(16,185,129,0.28),rgba(15,23,42,0.12)_72%)] dark:bg-[radial-gradient(circle_at_50%_45%,rgba(16,185,129,0.32),rgba(10,15,22,0.92)_75%)]">
+                              <div className="flex size-11 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-900/30">
+                                <MapPin className="size-5" aria-hidden="true" />
+                              </div>
+                            </div>
+                            <div className="p-2.5">
+                              <p className="truncate text-xs font-bold">{msg.locationMeta.label}</p>
+                              {msg.locationMeta.address && (
+                                <p className="mt-0.5 line-clamp-2 text-[11px] opacity-75">
+                                  {msg.locationMeta.address}
+                                </p>
+                              )}
+                              <a
+                                href={`https://www.google.com/maps?q=${msg.locationMeta.latitude},${msg.locationMeta.longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600/15 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-600/25 dark:bg-emerald-500/20 dark:text-emerald-300"
+                              >
+                                <ExternalLink className="size-3.5" aria-hidden="true" />
+                                <span>Open in Maps</span>
+                              </a>
+                            </div>
+                          </div>
                         )}
+
+                        {/* Media Attachment: Shared ICS Academy Contact Card */}
+                        {msg.mediaType === 'contact' && msg.contactMeta && (() => {
+                          const cm = msg.contactMeta
+                          const initials = cm.name
+                            .split(/\s+/)
+                            .filter(Boolean)
+                            .slice(0, 2)
+                            .map((p) => p[0]?.toUpperCase() || '')
+                            .join('')
+                          const directRoomId = makeDirectRoomId(actor.id, cm.actorId)
+                          const isSelfContact = cm.actorId === actor.id
+                          return (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="my-0.5 w-[235px] sm:w-[255px] overflow-hidden rounded-xl border border-border/70 bg-background/60 dark:border-[#262a33] dark:bg-[#0a0b0e]/70"
+                            >
+                              <div className="flex items-center gap-2.5 p-2.5">
+                                <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-cyan/15 font-poppins text-xs font-bold text-cyan">
+                                  {cm.avatarUrl ? (
+                                    <img
+                                      src={cm.avatarUrl}
+                                      alt={cm.name}
+                                      className="size-full object-cover object-top"
+                                    />
+                                  ) : (
+                                    initials || 'IC'
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-xs font-bold">{cm.name}</p>
+                                  <p className="truncate text-[10.5px] opacity-75">
+                                    {cm.subtitle ||
+                                      (cm.role === 'principal'
+                                        ? 'Principal'
+                                        : cm.role === 'usthad'
+                                          ? 'Usthad'
+                                          : 'Student')}
+                                  </p>
+                                </div>
+                              </div>
+                              {!isSelfContact && cm.actorId && (
+                                <div className="grid grid-cols-2 divide-x divide-border/70 border-t border-border/70 dark:divide-[#262a33] dark:border-[#262a33]">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedRoomId(directRoomId)
+                                      setMobileShowChatPane(true)
+                                    }}
+                                    className="flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/10 dark:text-emerald-300"
+                                  >
+                                    <MessageSquareText className="size-3.5" aria-hidden="true" />
+                                    <span>Message</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={Boolean(activeCall)}
+                                    onClick={() => {
+                                      void startCall(
+                                        {
+                                          id: cm.actorId,
+                                          name: cm.name,
+                                          role: cm.role,
+                                          subtitle: cm.subtitle,
+                                          roomId: directRoomId,
+                                          avatarUrl: cm.avatarUrl,
+                                        },
+                                        'voice',
+                                      )
+                                    }}
+                                    className="flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/10 disabled:opacity-40 dark:text-emerald-300"
+                                  >
+                                    <Phone className="size-3.5" aria-hidden="true" />
+                                    <span>Call</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
+
+                        {/* Media Attachment: Live Interactive Poll Card */}
+                        {msg.mediaType === 'poll' && msg.pollMeta && (() => {
+                          const pm = msg.pollMeta
+                          const votesMap = pm.votes || {}
+                          const allUniqueVoters = new Set<string>()
+                          for (const voters of Object.values(votesMap)) {
+                            if (Array.isArray(voters)) {
+                              for (const v of voters) allUniqueVoters.add(v)
+                            }
+                          }
+                          const totalVoters = allUniqueVoters.size
+
+                          return (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="my-0.5 w-[245px] sm:w-[275px] rounded-xl border border-border/70 bg-background/55 p-3 dark:border-[#262a33] dark:bg-[#0a0b0e]/70"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-xs font-bold leading-snug sm:text-[13px]">
+                                  {pm.question}
+                                </p>
+                                <BarChart3
+                                  className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
+                                  aria-hidden="true"
+                                />
+                              </div>
+                              <p className="mt-0.5 text-[10px] opacity-70">
+                                {pm.allowMultiple ? 'Select one or more' : 'Select one'}
+                              </p>
+
+                              <div className="mt-2.5 flex flex-col gap-2">
+                                {pm.options.map((opt) => {
+                                  const optVoters = Array.isArray(votesMap[opt.id])
+                                    ? votesMap[opt.id]
+                                    : []
+                                  const votedByMe = optVoters.includes(actor.id)
+                                  const pct =
+                                    totalVoters > 0
+                                      ? Math.round((optVoters.length / totalVoters) * 100)
+                                      : 0
+                                  return (
+                                    <button
+                                      key={opt.id}
+                                      type="button"
+                                      onClick={() => handleVotePoll(msg, opt.id)}
+                                      className="group w-full text-left"
+                                    >
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="flex min-w-0 items-center gap-2">
+                                          <span
+                                            className={cn(
+                                              'flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors',
+                                              votedByMe
+                                                ? 'border-emerald-500 bg-emerald-500 text-white'
+                                                : 'border-foreground/35 group-hover:border-emerald-500',
+                                            )}
+                                          >
+                                            {votedByMe && (
+                                              <Check
+                                                className="size-2.5 stroke-[3]"
+                                                aria-hidden="true"
+                                              />
+                                            )}
+                                          </span>
+                                          <span className="truncate text-xs font-medium">
+                                            {opt.text}
+                                          </span>
+                                        </span>
+                                        <span className="shrink-0 font-poppins text-[10.5px] font-semibold tabular-nums opacity-80">
+                                          {optVoters.length}
+                                        </span>
+                                      </div>
+                                      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-foreground/12">
+                                        <div
+                                          className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                                          style={{ width: `${pct}%` }}
+                                        />
+                                      </div>
+                                    </button>
+                                  )
+                                })}
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => setPollVotesViewerMsgId(msg.id)}
+                                className="mt-2.5 w-full border-t border-border/60 pt-2 text-center text-[11px] font-semibold text-emerald-700 transition-colors hover:text-emerald-600 dark:border-[#262a33] dark:text-emerald-300"
+                              >
+                                View votes ({totalVoters})
+                              </button>
+                            </div>
+                          )
+                        })()}
+
+                        {/* Message Body Text (Never shown for voice notes, call cards, location, contact, or poll cards) */}
+                        {msg.mediaType !== 'voice' &&
+                          msg.mediaType !== 'call' &&
+                          msg.mediaType !== 'location' &&
+                          msg.mediaType !== 'contact' &&
+                          msg.mediaType !== 'poll' &&
+                          msg.text && (
+                            <p
+                              className={cn(
+                                'whitespace-pre-wrap break-words pr-1 leading-relaxed',
+                                isImageMessage && 'px-2.5 pt-1.5',
+                                chatSettings.chatFontSize === 'small'
+                                  ? 'text-[11.5px] sm:text-xs'
+                                  : chatSettings.chatFontSize === 'large'
+                                    ? 'text-sm sm:text-[15px]'
+                                    : 'text-xs sm:text-[13.5px]',
+                              )}
+                            >
+                              {msg.text}
+                            </p>
+                          )}
                       </>
                     )}
 
@@ -5484,7 +6288,7 @@ export function CampusMessenger({
             </div>
           ) : (
             <div className="relative border-t border-border bg-card/95 p-2.5 sm:px-4 sm:py-3 dark:border-[#262a33] dark:bg-[#121418]">
-              {/* Hidden file inputs */}
+              {/* Hidden file inputs (Gallery, Camera, Document) */}
               <input
                 ref={imageInputRef}
                 type="file"
@@ -5493,75 +6297,121 @@ export function CampusMessenger({
                 className="hidden"
               />
               <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => handleFileSelected(e, 'image')}
+                className="hidden"
+              />
+              <input
                 ref={pdfInputRef}
                 type="file"
-                accept="application/pdf,.pdf"
+                accept="application/pdf,.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx"
                 onChange={(e) => handleFileSelected(e, 'pdf')}
                 className="hidden"
               />
 
-              {/* Attachment Menu Popover */}
+              {/* WhatsApp-Style 6-Option Attachment Grid (Gallery, Camera, Document, Location, Contact, Poll) */}
               {showAttachMenu && (
                 <div
                   ref={attachMenuRef}
-                  className="absolute bottom-16 left-2.5 sm:left-4 z-30 flex flex-col gap-1 rounded-2xl border border-border bg-card p-2 shadow-xl w-64 dark:border-[#262a33] dark:bg-[#121418]"
+                  className="absolute bottom-16 left-2 right-2 sm:left-4 sm:right-auto sm:w-80 z-30 rounded-3xl border border-border bg-card/98 p-4 shadow-2xl backdrop-blur-xl dark:border-[#262a33] dark:bg-[#12161c]/98"
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAttachMenu(false)
-                      pdfInputRef.current?.click()
-                    }}
-                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted"
-                  >
-                    <span className="flex size-8 items-center justify-center rounded-lg bg-red-500/15 text-red-500">
-                      <FileText className="size-4" aria-hidden="true" />
-                    </span>
-                    <div>
-                      <p>Upload PDF Note / Kitab</p>
-                      <p className="text-[10px] font-normal text-muted-foreground">
-                        Share syllabus or study PDF
-                      </p>
-                    </div>
-                  </button>
+                  <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-border/90" />
+                  <div className="grid grid-cols-3 gap-x-2 gap-y-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAttachMenu(false)
+                        imageInputRef.current?.click()
+                      }}
+                      className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
+                    >
+                      <span className="flex size-12 items-center justify-center rounded-full bg-blue-500/15 text-blue-500 dark:bg-blue-500/20 dark:text-blue-400">
+                        <ImageIcon className="size-5" aria-hidden="true" />
+                      </span>
+                      <span className="text-[11px] font-medium text-foreground">Gallery</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAttachMenu(false)
-                      imageInputRef.current?.click()
-                    }}
-                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted"
-                  >
-                    <span className="flex size-8 items-center justify-center rounded-lg bg-cyan/15 text-cyan">
-                      <ImageIcon className="size-4" aria-hidden="true" />
-                    </span>
-                    <div>
-                      <p>Share Photo / Kitab Page</p>
-                      <p className="text-[10px] font-normal text-muted-foreground">
-                        JPG, PNG, or notebook photo
-                      </p>
-                    </div>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAttachMenu(false)
+                        cameraInputRef.current?.click()
+                      }}
+                      className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
+                    >
+                      <span className="flex size-12 items-center justify-center rounded-full bg-rose-500/15 text-rose-500 dark:bg-rose-500/20 dark:text-rose-400">
+                        <Camera className="size-5" aria-hidden="true" />
+                      </span>
+                      <span className="text-[11px] font-medium text-foreground">Camera</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAttachMenu(false)
-                      handleQuickShareSampleKitabPdf()
-                    }}
-                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted"
-                  >
-                    <span className="flex size-8 items-center justify-center rounded-lg border border-border bg-muted text-foreground dark:border-[#262a33] dark:bg-[#1a1d24]">
-                      <BookOpen className="size-4" aria-hidden="true" />
-                    </span>
-                    <div>
-                      <p>Quick-Share Kitab Summary PDF</p>
-                      <p className="text-[10px] font-normal text-muted-foreground">
-                        Send instant sample Kitab PDF
-                      </p>
-                    </div>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAttachMenu(false)
+                        pdfInputRef.current?.click()
+                      }}
+                      className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
+                    >
+                      <span className="flex size-12 items-center justify-center rounded-full bg-violet-500/15 text-violet-500 dark:bg-violet-500/20 dark:text-violet-400">
+                        <FileText className="size-5" aria-hidden="true" />
+                      </span>
+                      <span className="text-[11px] font-medium text-foreground">Document</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAttachMenu(false)
+                        setLocError(null)
+                        setLocCoords(null)
+                        setLocLabel('ICS Academy Manhappatta')
+                        setLocAddress("Manhappatta, Da'wa College Campus, Kerala")
+                        setShowLocationModal(true)
+                      }}
+                      className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
+                    >
+                      <span className="flex size-12 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-400">
+                        <MapPin className="size-5" aria-hidden="true" />
+                      </span>
+                      <span className="text-[11px] font-medium text-foreground">Location</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAttachMenu(false)
+                        setContactSearchQuery('')
+                        setShowContactModal(true)
+                      }}
+                      className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
+                    >
+                      <span className="flex size-12 items-center justify-center rounded-full bg-sky-500/15 text-sky-500 dark:bg-sky-500/20 dark:text-sky-400">
+                        <User className="size-5" aria-hidden="true" />
+                      </span>
+                      <span className="text-[11px] font-medium text-foreground">Contact</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAttachMenu(false)
+                        setPollQuestion('')
+                        setPollOptions(['', ''])
+                        setPollAllowMultiple(false)
+                        setShowPollModal(true)
+                      }}
+                      className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
+                    >
+                      <span className="flex size-12 items-center justify-center rounded-full bg-amber-500/15 text-amber-500 dark:bg-amber-500/20 dark:text-amber-400">
+                        <BarChart3 className="size-5" aria-hidden="true" />
+                      </span>
+                      <span className="text-[11px] font-medium text-foreground">Poll</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -6798,6 +7648,502 @@ export function CampusMessenger({
           </div>
         </div>
       )}
+      {/* CLEAR CHAT CONFIRMATION MODAL */}
+      {showClearChatConfirm && (
+        <div
+          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          onClick={() => setShowClearChatConfirm(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl border border-border bg-card p-5 shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-display text-base font-bold text-foreground">
+              Clear this chat?
+            </h3>
+            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+              Messages in &ldquo;{activeRoom.title}&rdquo; will be cleared from your view. Other
+              members will still keep their copy.
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowClearChatConfirm(false)}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleClearCurrentChat}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700"
+              >
+                Clear chat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD TO LIST MODAL */}
+      {showAddToListModal && (
+        <div
+          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          onClick={() => setShowAddToListModal(false)}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
+              <div>
+                <h3 className="font-display text-base font-bold text-foreground">Add to list</h3>
+                <p className="truncate text-xs text-muted-foreground">{activeRoom.title}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddToListModal(false)}
+                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="max-h-64 divide-y divide-border/50 overflow-y-auto px-4 py-2">
+              {customLists.map((list) => {
+                const included = list.roomIds.includes(activeRoom.roomId)
+                return (
+                  <button
+                    key={list.id}
+                    type="button"
+                    onClick={() => handleToggleRoomInList(list.id, activeRoom.roomId)}
+                    className="flex w-full items-center justify-between py-3 text-left"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{list.name}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {list.roomIds.length} {list.roomIds.length === 1 ? 'chat' : 'chats'}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        'flex size-5 items-center justify-center rounded-md border transition-colors',
+                        included
+                          ? 'border-emerald-600 bg-emerald-600 text-white'
+                          : 'border-border bg-background',
+                      )}
+                    >
+                      {included && <Check className="size-3.5 stroke-[3]" aria-hidden="true" />}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="border-t border-border p-4 dark:border-[#262a33]">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newListName}
+                  onChange={(e) => setNewListName(e.target.value)}
+                  placeholder="Create new list (e.g. Study)..."
+                  maxLength={32}
+                  className="h-9 flex-1 rounded-xl border border-input bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  disabled={!newListName.trim()}
+                  onClick={handleCreateCustomList}
+                  className="inline-flex h-9 items-center gap-1 rounded-xl bg-emerald-600 px-3 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-40"
+                >
+                  <Plus className="size-3.5" aria-hidden="true" />
+                  <span>Add</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SEND LOCATION MODAL */}
+      {showLocationModal && (
+        <div
+          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          onClick={() => setShowLocationModal(false)}
+        >
+          <div
+            className="w-full max-w-md overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
+              <div className="flex items-center gap-2">
+                <MapPin className="size-4 text-emerald-500" aria-hidden="true" />
+                <h3 className="font-display text-base font-bold text-foreground">Share Location</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLocationModal(false)}
+                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="space-y-3 p-4">
+              <button
+                type="button"
+                disabled={locLoading}
+                onClick={handleDetectCurrentLocation}
+                className="flex w-full items-center gap-3 rounded-2xl border border-emerald-500/35 bg-emerald-500/10 p-3 text-left transition-colors hover:bg-emerald-500/15"
+              >
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
+                  <Navigation className="size-4.5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-foreground">
+                    {locLoading ? 'Detecting GPS location...' : 'Detect my current GPS location'}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {locCoords
+                      ? `Locked: ${locCoords.lat.toFixed(5)}, ${locCoords.lng.toFixed(5)}`
+                      : 'Tap to capture exact coordinates from your phone'}
+                  </p>
+                </div>
+              </button>
+
+              {locError && (
+                <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-600 dark:text-amber-300">
+                  {locError}
+                </p>
+              )}
+
+              <div className="space-y-2">
+                <label className="block text-[11px] font-semibold text-muted-foreground">
+                  Place Name
+                </label>
+                <input
+                  type="text"
+                  value={locLabel}
+                  onChange={(e) => setLocLabel(e.target.value)}
+                  maxLength={120}
+                  className="h-9 w-full rounded-xl border border-input bg-background px-3 text-xs text-foreground focus:border-emerald-500 focus:outline-none"
+                />
+                <label className="block text-[11px] font-semibold text-muted-foreground">
+                  Address / Note
+                </label>
+                <input
+                  type="text"
+                  value={locAddress}
+                  onChange={(e) => setLocAddress(e.target.value)}
+                  maxLength={180}
+                  className="h-9 w-full rounded-xl border border-input bg-background px-3 text-xs text-foreground focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowLocationModal(false)}
+                  className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleSendLocationMessage({
+                      label: locLabel.trim() || 'ICS Academy Manhappatta',
+                      address: locAddress.trim() || undefined,
+                      latitude: locCoords?.lat ?? 11.1495,
+                      longitude: locCoords?.lng ?? 76.1225,
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+                >
+                  <Send className="size-3.5" aria-hidden="true" />
+                  <span>Send Location</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SHARE CONTACT MODAL */}
+      {showContactModal && (
+        <div
+          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          onClick={() => setShowContactModal(false)}
+        >
+          <div
+            className="flex max-h-[82vh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
+              <div className="flex items-center gap-2">
+                <User className="size-4 text-sky-500" aria-hidden="true" />
+                <h3 className="font-display text-base font-bold text-foreground">Share Contact</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowContactModal(false)}
+                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="border-b border-border/70 px-4 py-2.5 dark:border-[#262a33]">
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <input
+                  type="search"
+                  value={contactSearchQuery}
+                  onChange={(e) => setContactSearchQuery(e.target.value)}
+                  placeholder="Search Usthads or students..."
+                  className="h-9 w-full rounded-xl border border-input bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 divide-y divide-border/50 overflow-y-auto px-2 py-1">
+              {allRooms
+                .filter(
+                  (r) =>
+                    (r.type === 'direct_usthad' || r.type === 'direct_student') &&
+                    Boolean(r.peerId) &&
+                    (!contactSearchQuery.trim() ||
+                      r.title.toLowerCase().includes(contactSearchQuery.trim().toLowerCase()) ||
+                      r.subtitle.toLowerCase().includes(contactSearchQuery.trim().toLowerCase())),
+                )
+                .map((r) => (
+                  <button
+                    key={r.roomId}
+                    type="button"
+                    onClick={() =>
+                      handleSendContactMessage({
+                        actorId: r.peerId!,
+                        name: r.title,
+                        role: r.peerRole || 'student',
+                        subtitle: r.subtitle,
+                        avatarUrl: r.avatarUrl,
+                      })
+                    }
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-muted/70"
+                  >
+                    <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-cyan/15 font-poppins text-xs font-bold text-cyan">
+                      {r.avatarUrl ? (
+                        <img
+                          src={r.avatarUrl}
+                          alt={r.title}
+                          className="size-full object-cover object-top"
+                        />
+                      ) : (
+                        r.avatarText
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-bold text-foreground">{r.title}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">{r.subtitle}</p>
+                    </div>
+                    <Send className="size-3.5 shrink-0 text-emerald-500" aria-hidden="true" />
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE POLL MODAL */}
+      {showPollModal && (
+        <div
+          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          onClick={() => setShowPollModal(false)}
+        >
+          <div
+            className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="size-4 text-amber-500" aria-hidden="true" />
+                <h3 className="font-display text-base font-bold text-foreground">Create Poll</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPollModal(false)}
+                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="flex-1 space-y-3.5 overflow-y-auto p-4">
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                  Question
+                </label>
+                <input
+                  type="text"
+                  value={pollQuestion}
+                  onChange={(e) => setPollQuestion(e.target.value)}
+                  placeholder="Ask a question..."
+                  maxLength={220}
+                  className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-[11px] font-semibold text-muted-foreground">
+                  Options
+                </label>
+                {pollOptions.map((opt, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={opt}
+                      onChange={(e) => {
+                        const next = [...pollOptions]
+                        next[idx] = e.target.value
+                        setPollOptions(next)
+                      }}
+                      placeholder={`Option ${idx + 1}`}
+                      maxLength={100}
+                      className="h-9 flex-1 rounded-xl border border-input bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 focus:outline-none"
+                    />
+                    {pollOptions.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPollOptions((prev) => prev.filter((_, i) => i !== idx))
+                        }
+                        aria-label="Remove option"
+                        className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-rose-500"
+                      >
+                        <X className="size-3.5" aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {pollOptions.length < 6 && (
+                  <button
+                    type="button"
+                    onClick={() => setPollOptions((prev) => [...prev, ''])}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-border px-3 py-1.5 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
+                  >
+                    <Plus className="size-3.5" aria-hidden="true" />
+                    <span>Add option</span>
+                  </button>
+                )}
+              </div>
+
+              <label className="flex cursor-pointer items-center justify-between rounded-xl border border-border/80 bg-muted/30 px-3 py-2.5">
+                <span className="text-xs font-medium text-foreground">Allow multiple answers</span>
+                <input
+                  type="checkbox"
+                  checked={pollAllowMultiple}
+                  onChange={(e) => setPollAllowMultiple(e.target.checked)}
+                  className="size-4 accent-emerald-600"
+                />
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-border p-4 dark:border-[#262a33]">
+              <button
+                type="button"
+                onClick={() => setShowPollModal(false)}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={
+                  !pollQuestion.trim() || pollOptions.filter((o) => o.trim()).length < 2
+                }
+                onClick={handleSendPollMessage}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-40"
+              >
+                <Send className="size-3.5" aria-hidden="true" />
+                <span>Send Poll</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POLL VOTES VIEWER MODAL */}
+      {pollVotesViewerMsgId && (() => {
+        const pollMsg = activeMessages.find((m) => m.id === pollVotesViewerMsgId)
+        if (!pollMsg?.pollMeta) return null
+        const pm = pollMsg.pollMeta
+        return (
+          <div
+            className="fixed inset-0 z-[75] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+            onClick={() => setPollVotesViewerMsgId(null)}
+          >
+            <div
+              className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
+                <div className="min-w-0 pr-2">
+                  <h3 className="font-display text-base font-bold text-foreground">Poll votes</h3>
+                  <p className="truncate text-xs text-muted-foreground">{pm.question}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPollVotesViewerMsgId(null)}
+                  className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="flex-1 space-y-4 overflow-y-auto p-4">
+                {pm.options.map((opt) => {
+                  const voters = Array.isArray(pm.votes?.[opt.id]) ? pm.votes[opt.id] : []
+                  return (
+                    <div key={opt.id} className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-foreground">{opt.text}</p>
+                        <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                          {voters.length} {voters.length === 1 ? 'vote' : 'votes'}
+                        </span>
+                      </div>
+                      {voters.length === 0 ? (
+                        <p className="text-[11px] italic text-muted-foreground">No votes yet</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {voters.map((voterId) => {
+                            const profile = resolveActorDirectoryProfile(voterId)
+                            return (
+                              <div
+                                key={voterId}
+                                className="flex items-center gap-2 rounded-xl bg-muted/40 px-2.5 py-1.5"
+                              >
+                                <span className="flex size-6 items-center justify-center rounded-full bg-emerald-500/15 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                                  {profile.avatarText}
+                                </span>
+                                <span className="truncate text-xs font-medium text-foreground">
+                                  {voterId === actor.id ? `${profile.name} (You)` : profile.name}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </section>
   )
 }

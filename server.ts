@@ -1437,7 +1437,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     senderRole: 'student' | 'usthad' | 'principal'
     senderBadge?: string
     text: string
-    mediaType: 'none' | 'voice' | 'image' | 'pdf' | 'call'
+    mediaType: 'none' | 'voice' | 'image' | 'pdf' | 'call' | 'location' | 'contact' | 'poll'
     callMeta?: {
       callId: string
       callType: 'voice' | 'video'
@@ -1445,6 +1445,25 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
       durationSec?: number
       callerId: string
       calleeId: string
+    }
+    locationMeta?: {
+      label: string
+      address?: string
+      latitude: number
+      longitude: number
+    }
+    contactMeta?: {
+      actorId: string
+      name: string
+      role: 'student' | 'usthad' | 'principal'
+      subtitle?: string
+      avatarUrl?: string
+    }
+    pollMeta?: {
+      question: string
+      options: { id: string; text: string }[]
+      allowMultiple: boolean
+      votes: Record<string, string[]>
     }
     mediaUrl?: string
     mediaName?: string
@@ -1902,7 +1921,9 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
                 : 'student',
             senderBadge: message.senderBadge ? String(message.senderBadge).slice(0, 80) : undefined,
             text: String(message.text || '').slice(0, 4000),
-            mediaType: ['none', 'voice', 'image', 'pdf', 'call'].includes(message.mediaType)
+            mediaType: ['none', 'voice', 'image', 'pdf', 'call', 'location', 'contact', 'poll'].includes(
+              message.mediaType,
+            )
               ? message.mediaType
               : 'none',
             callMeta:
@@ -1930,6 +1951,52 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
                         : undefined,
                     callerId: String(message.callMeta.callerId || '').slice(0, 64),
                     calleeId: String(message.callMeta.calleeId || '').slice(0, 64),
+                  }
+                : undefined,
+            locationMeta:
+              message.locationMeta && typeof message.locationMeta === 'object'
+                ? {
+                    label: String(message.locationMeta.label || 'Shared Location').slice(0, 140),
+                    address: message.locationMeta.address
+                      ? String(message.locationMeta.address).slice(0, 220)
+                      : undefined,
+                    latitude: Number(message.locationMeta.latitude) || 0,
+                    longitude: Number(message.locationMeta.longitude) || 0,
+                  }
+                : undefined,
+            contactMeta:
+              message.contactMeta && typeof message.contactMeta === 'object'
+                ? {
+                    actorId: String(message.contactMeta.actorId || '').slice(0, 64),
+                    name: String(message.contactMeta.name || 'Campus Member').slice(0, 120),
+                    role:
+                      message.contactMeta.role === 'principal' ||
+                      message.contactMeta.role === 'usthad'
+                        ? message.contactMeta.role
+                        : 'student',
+                    subtitle: message.contactMeta.subtitle
+                      ? String(message.contactMeta.subtitle).slice(0, 120)
+                      : undefined,
+                    avatarUrl: message.contactMeta.avatarUrl
+                      ? String(message.contactMeta.avatarUrl).slice(0, 500)
+                      : undefined,
+                  }
+                : undefined,
+            pollMeta:
+              message.pollMeta && typeof message.pollMeta === 'object'
+                ? {
+                    question: String(message.pollMeta.question || '').slice(0, 240),
+                    options: Array.isArray(message.pollMeta.options)
+                      ? message.pollMeta.options.slice(0, 8).map((opt: { id?: string; text?: string }, idx: number) => ({
+                          id: String(opt?.id || `opt_${idx}`),
+                          text: String(opt?.text || '').slice(0, 120),
+                        }))
+                      : [],
+                    allowMultiple: Boolean(message.pollMeta.allowMultiple),
+                    votes:
+                      message.pollMeta.votes && typeof message.pollMeta.votes === 'object'
+                        ? (message.pollMeta.votes as Record<string, string[]>)
+                        : {},
                   }
                 : undefined,
             mediaUrl: message.mediaUrl ? String(message.mediaUrl) : undefined,
@@ -2169,6 +2236,36 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
             campusChatState.updatedAtMs = now
           }
         }
+      } else if (action === 'vote_poll' && messageId && actorId && req.body?.optionId) {
+        const optionId = String(req.body.optionId)
+        const list = campusChatState.messagesByRoom[roomId] || []
+        const target = list.find((m) => m.id === messageId)
+        if (target && target.pollMeta) {
+          const votes: Record<string, string[]> = { ...(target.pollMeta.votes || {}) }
+          const curForOption = Array.isArray(votes[optionId]) ? [...votes[optionId]] : []
+          const alreadyVoted = curForOption.includes(actorId)
+          if (!target.pollMeta.allowMultiple) {
+            for (const key of Object.keys(votes)) {
+              votes[key] = (votes[key] || []).filter((id) => id !== actorId)
+            }
+          }
+          if (alreadyVoted) {
+            votes[optionId] = (votes[optionId] || []).filter((id) => id !== actorId)
+          } else {
+            votes[optionId] = Array.from(new Set([...(votes[optionId] || []), actorId]))
+          }
+          target.pollMeta = { ...target.pollMeta, votes }
+          campusChatState.updatedAtMs = now
+        }
+      } else if (action === 'clear_chat_for_me' && actorId) {
+        const list = campusChatState.messagesByRoom[roomId] || []
+        for (const msg of list) {
+          const cur = Array.isArray(msg.deletedFor) ? msg.deletedFor : []
+          if (!cur.includes(actorId)) {
+            msg.deletedFor = [...cur, actorId]
+          }
+        }
+        campusChatState.updatedAtMs = now
       } else if (action === 'toggle_group_lock') {
         if (isStaffActor) {
           campusChatState.roomsMeta[roomId].onlyAdminsCanPost = Boolean(onlyAdminsCanPost)
