@@ -583,7 +583,7 @@ service cloud.firestore {
           || incoming().diff(existing()).affectedKeys().hasOnly(['pollMeta'])
           || incoming().diff(existing()).affectedKeys().hasOnly(['starredBy'])
           || incoming().diff(existing()).affectedKeys().hasOnly(['deletedFor'])
-          || (!existing().isDeleted && incoming().isDeleted == true && incoming().diff(existing()).affectedKeys().hasOnly(['isDeleted', 'deletedBy', 'deletedById', 'text', 'mediaType', 'mediaUrl']))
+          || (!existing().isDeleted && incoming().isDeleted == true && incoming().diff(existing()).affectedKeys().hasOnly(['isDeleted', 'deletedBy', 'deletedById', 'text', 'mediaType', 'mediaUrl', 'starredBy']))
         );
       allow delete: if false;
     }
@@ -924,6 +924,83 @@ service cloud.firestore {
           || incoming().diff(existing()).affectedKeys().hasOnly(['status', 'connectedAtMs', 'updatedAtMs'])
           || incoming().diff(existing()).affectedKeys().hasOnly(['status', 'endedAtMs', 'durationSec', 'updatedAtMs'])
         );
+      allow delete: if false;
+    }
+
+    // Validation Blueprint: CampusMessengerUserState
+    function isValidMessengerUserState(data) {
+      return data.keys().hasAll([
+          'campusId',
+          'actorId',
+          'deletedMessageIds',
+          'clearedRoomAtMs',
+          'starredMessageIds',
+          'shortcutRoomIds',
+          'customLists',
+          'chatSettings',
+          'createdAt',
+          'updatedAtMs'
+        ])
+        && data.keys().hasOnly([
+          'campusId',
+          'actorId',
+          'deletedMessageIds',
+          'clearedRoomAtMs',
+          'starredMessageIds',
+          'shortcutRoomIds',
+          'customLists',
+          'chatSettings',
+          'createdAt',
+          'updatedAtMs'
+        ])
+        && data.campusId == 'ics-academy'
+        && isPortalActorId(data.actorId)
+        && data.deletedMessageIds is list
+        && data.deletedMessageIds.size() <= 500
+        && (data.deletedMessageIds.size() == 0 || data.deletedMessageIds[0] is string)
+        && data.clearedRoomAtMs is map
+        && data.clearedRoomAtMs.size() <= 150
+        && data.starredMessageIds is list
+        && data.starredMessageIds.size() <= 300
+        && (data.starredMessageIds.size() == 0 || data.starredMessageIds[0] is string)
+        && data.shortcutRoomIds is list
+        && data.shortcutRoomIds.size() <= 20
+        && (data.shortcutRoomIds.size() == 0 || data.shortcutRoomIds[0] is string)
+        && data.customLists is list
+        && data.customLists.size() <= 15
+        && (data.customLists.size() == 0 || data.customLists[0] is map)
+        && data.chatSettings is map
+        && data.chatSettings.size() <= 20
+        && data.createdAt is timestamp
+        && data.updatedAtMs is int
+        && data.updatedAtMs > 0;
+    }
+
+    // Collection: /campusMessengerUserState/{actorId}
+    match /campusMessengerUserState/{actorId} {
+      allow get: if isValidId(actorId)
+        && isPortalActorId(actorId)
+        && (resource == null || (existing().campusId == 'ics-academy' && existing().actorId == actorId));
+      allow list: if false;
+      allow create: if isValidId(actorId)
+        && isValidMessengerUserState(incoming())
+        && incoming().actorId == actorId
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(actorId)
+        && resource != null
+        && isValidMessengerUserState(incoming())
+        && incoming().campusId == existing().campusId
+        && incoming().actorId == existing().actorId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'deletedMessageIds',
+          'clearedRoomAtMs',
+          'starredMessageIds',
+          'shortcutRoomIds',
+          'customLists',
+          'chatSettings',
+          'updatedAtMs'
+        ]);
       allow delete: if false;
     }
   }

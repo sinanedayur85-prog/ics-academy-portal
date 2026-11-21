@@ -1065,6 +1065,73 @@
         "createdAt",
         "updatedAtMs"
       ]
+    },
+    "CampusMessengerUserState": {
+      "title": "CampusMessengerUserState",
+      "description": "Per-actor personal Campus Messenger workspace state synced in real time across Web browser, PWA, and Mobile APK (deleted message IDs, per-room clear watermarks, starred message IDs, shortcuts, custom chat lists, and preferences).",
+      "type": "object",
+      "properties": {
+        "campusId": {
+          "type": "string",
+          "description": "Fixed campus tenant identifier (ics-academy).",
+          "enum": ["ics-academy"],
+          "minLength": 11,
+          "maxLength": 16
+        },
+        "actorId": {
+          "type": "string",
+          "description": "Canonical portal actor ID who owns this messenger state.",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^(st[d]?|usthad|principal)-[a-zA-Z0-9_\\-]+$"
+        },
+        "deletedMessageIds": {
+          "type": "array",
+          "description": "Bounded list of message IDs hidden/deleted for this actor across all devices."
+        },
+        "clearedRoomAtMs": {
+          "type": "object",
+          "description": "Bounded map of roomId to epoch ms watermark indicating all messages at or before that time are cleared for this actor."
+        },
+        "starredMessageIds": {
+          "type": "array",
+          "description": "Bounded list of message IDs starred by this actor."
+        },
+        "shortcutRoomIds": {
+          "type": "array",
+          "description": "Bounded list of room IDs pinned to the Messenger shortcuts strip."
+        },
+        "customLists": {
+          "type": "array",
+          "description": "Bounded list of user-organized custom chat lists (id, name, roomIds)."
+        },
+        "chatSettings": {
+          "type": "object",
+          "description": "Bounded map of personal Messenger preferences (read receipts, privacy, sound, enter-to-send, font size, wallpaper)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the user state document was initialized."
+        },
+        "updatedAtMs": {
+          "type": "integer",
+          "description": "Epoch milliseconds of the last preference or deletion sync.",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "campusId",
+        "actorId",
+        "deletedMessageIds",
+        "clearedRoomAtMs",
+        "starredMessageIds",
+        "shortcutRoomIds",
+        "customLists",
+        "chatSettings",
+        "createdAt",
+        "updatedAtMs"
+      ]
     }
   },
   "firestore": {
@@ -1091,6 +1158,10 @@
     "/campusChatPresence/{actorId}": {
       "schema": { "$ref": "#/entities/CampusChatPresence" },
       "description": "Stores real-time online heartbeat, last seen, and typing indicator for each portal actor."
+    },
+    "/campusMessengerUserState/{actorId}": {
+      "schema": { "$ref": "#/entities/CampusMessengerUserState" },
+      "description": "Stores per-actor synced Messenger deletes, clear-chat watermarks, starred IDs, shortcuts, custom lists, and settings across Web and Mobile App."
     },
     "/campusNotifications/{notifId}": {
       "schema": { "$ref": "#/entities/CampusNotification" },

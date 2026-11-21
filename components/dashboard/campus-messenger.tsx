@@ -213,6 +213,7 @@ export interface ChatRoomDescriptor {
   roomId: string
   type: 'batch_group' | 'staff_group' | 'direct_usthad' | 'direct_student'
   title: string
+  searchName?: string
   subtitle: string
   badgeLabel: string
   batchName?: string
@@ -606,6 +607,81 @@ function formatSidebarDateOrTime(ms: number, nowMs: number = Date.now()): string
   }
 }
 
+function formatInstagramDateDivider(ms: number, nowMs: number = Date.now()): string {
+  try {
+    const diffDays = getIstDayNumber(nowMs) - getIstDayNumber(ms)
+    if (diffDays <= 0) return 'TODAY'
+    if (diffDays === 1) return 'YESTERDAY'
+    const d = new Date(ms)
+    const day = d.toLocaleDateString('en-IN', { timeZone: IST_TIME_ZONE, day: '2-digit' })
+    const month = d
+      .toLocaleDateString('en-IN', { timeZone: IST_TIME_ZONE, month: 'short' })
+      .toUpperCase()
+    const year = d.toLocaleDateString('en-IN', { timeZone: IST_TIME_ZONE, year: 'numeric' })
+    return `${day}-${month}-${year}`
+  } catch {
+    return ''
+  }
+}
+
+const MUHAMMED_WORD_RE = /^m[ou]hamm?[ae]d\.?$/i
+const INITIAL_TOKEN_RE = /^[A-Z]{1,3}\.?$/
+
+/**
+ * Messenger-only student name formatter:
+ * Removes any occurrence of "Muhammed" / "Mohammed" / "Muhammad" and omits the first name word
+ * while preserving the rest of the name and initials (e.g. "Muhammed Sinan. KP" -> "Sinan. KP",
+ * "Ahmed Swalih. N" -> "Swalih. N", "Muhammed Jouhar Saheel. TK" -> "Jouhar Saheel. TK").
+ * Never strips single-word names or reduces a name to only initials.
+ * Usthads & Principal always retain their full official name.
+ */
+function formatMessengerStudentName(fullName: string): string {
+  const cleaned = (fullName || '').trim().replace(/\s+/g, ' ')
+  if (!cleaned) return 'Student'
+
+  const tokens = cleaned.split(' ').filter(Boolean)
+  if (tokens.length <= 1) return cleaned
+
+  const firstIsMuhammed = MUHAMMED_WORD_RE.test(tokens[0].replace(/\.+$/, ''))
+  let remaining = tokens.filter((t) => !MUHAMMED_WORD_RE.test(t.replace(/\.+$/, '')))
+  if (remaining.length === 0) return cleaned
+
+  const isRealNameWord = (token: string): boolean => {
+    const core = token.replace(/^\.+|\.+$/g, '')
+    if (!core) return false
+    const beforeDot = core.split('.')[0] || ''
+    if (beforeDot.length >= 3) return true
+    if (INITIAL_TOKEN_RE.test(core)) return false
+    return core.length >= 3
+  }
+
+  if (!firstIsMuhammed && remaining.length > 1) {
+    const afterFirst = remaining.slice(1)
+    if (afterFirst.some(isRealNameWord)) {
+      remaining = afterFirst
+    }
+  }
+
+  const formatted = remaining.join(' ').replace(/^\.+/, '').trim()
+  return formatted || cleaned
+}
+
+function formatMessengerDisplayName(name: string, role?: MessengerRole): string {
+  if (role === 'student') {
+    return formatMessengerStudentName(name)
+  }
+  return name
+}
+
+function getMessengerAvatarText(displayName: string): string {
+  const cleaned = (displayName || '').replace(/^Usthad\s+/i, '').trim()
+  const words = cleaned.split(/\s+/).filter(Boolean)
+  if (words.length >= 2) {
+    return `${words[0][0] || ''}${words[1][0] || ''}`.toUpperCase()
+  }
+  return cleaned.slice(0, 2).toUpperCase() || 'IC'
+}
+
 function formatReceiptTimestamp(ms?: number): string {
   if (!ms || !Number.isFinite(ms) || ms <= 0) return '—'
   try {
@@ -706,11 +782,12 @@ function resolveActorDirectoryProfile(actorId: string): {
   }
   const studentMatch = students.find((s) => s.id === actorId)
   if (studentMatch) {
+    const messengerName = formatMessengerStudentName(studentMatch.name)
     return {
       id: studentMatch.id,
-      name: studentMatch.name,
+      name: messengerName,
       subtitle: `Class ${studentMatch.className} • ${studentMatch.admissionNo}`,
-      avatarText: studentMatch.firstName.slice(0, 2).toUpperCase(),
+      avatarText: getMessengerAvatarText(messengerName),
       avatarUrl: studentMatch.avatarUrl,
       role: 'student',
     }
@@ -1045,6 +1122,17 @@ export function CampusMessenger({
   // Chat Header 3-dots Menu (Clear chat, Add shortcut, Add to list, Starred messages)
   const [showChatMoreMenu, setShowChatMoreMenu] = useState(false)
   const [showClearChatConfirm, setShowClearChatConfirm] = useState(false)
+  const [clearedRoomAtMs, setClearedRoomAtMs] = useState<Record<string, number>>(() => {
+    if (typeof window === 'undefined' || !actor.id) return {}
+    try {
+      const raw = window.localStorage.getItem(`ics_messenger_cleared_rooms_v1_${actor.id}`)
+      if (!raw) return {}
+      const parsed = JSON.parse(raw)
+      return parsed && typeof parsed === 'object' ? sanitizeTimestampMap(parsed) : {}
+    } catch {
+      return {}
+    }
+  })
   const [shortcutRoomIds, setShortcutRoomIds] = useState<string[]>([])
   const [customLists, setCustomLists] = useState<ChatCustomList[]>([
     { id: 'favorites', name: 'Favorites', roomIds: [] },
@@ -1053,6 +1141,124 @@ export function CampusMessenger({
   const [activeCustomListId, setActiveCustomListId] = useState<string | null>(null)
   const [showAddToListModal, setShowAddToListModal] = useState(false)
   const [newListName, setNewListName] = useState('')
+
+  // Cross-device Firestore sync refs for /campusMessengerUserState/{actorId}
+  const userStateDocExistsRef = useRef<boolean>(false)
+  const userStateUpdatedAtMsRef = useRef<number>(0)
+  const latestUserStateRef = useRef<{
+    deletedMessageIds: string[]
+    clearedRoomAtMs: Record<string, number>
+    starredMessageIds: string[]
+    shortcutRoomIds: string[]
+    customLists: ChatCustomList[]
+    chatSettings: ChatUserSettings
+  }>({
+    deletedMessageIds: deletedForMeIds,
+    clearedRoomAtMs,
+    starredMessageIds: localStarredIds,
+    shortcutRoomIds,
+    customLists,
+    chatSettings,
+  })
+
+  useEffect(() => {
+    latestUserStateRef.current = {
+      deletedMessageIds: deletedForMeIds,
+      clearedRoomAtMs,
+      starredMessageIds: localStarredIds,
+      shortcutRoomIds,
+      customLists,
+      chatSettings,
+    }
+  }, [deletedForMeIds, clearedRoomAtMs, localStarredIds, shortcutRoomIds, customLists, chatSettings])
+
+  const syncUserStateToFirestore = useCallback(
+    async (
+      overrides?: Partial<{
+        deletedMessageIds: string[]
+        clearedRoomAtMs: Record<string, number>
+        starredMessageIds: string[]
+        shortcutRoomIds: string[]
+        customLists: ChatCustomList[]
+        chatSettings: ChatUserSettings
+      }>,
+    ) => {
+      if (!actor.id) return
+      const merged = {
+        ...latestUserStateRef.current,
+        ...(overrides ?? {}),
+      }
+      latestUserStateRef.current = merged
+      const nowMs = Math.max(Date.now(), userStateUpdatedAtMsRef.current + 1)
+      userStateUpdatedAtMsRef.current = nowMs
+
+      const boundedDeleted = Array.from(new Set(merged.deletedMessageIds.map(String))).slice(-500)
+      const boundedStarred = Array.from(new Set(merged.starredMessageIds.map(String))).slice(-300)
+      const boundedShortcuts = Array.from(new Set(merged.shortcutRoomIds.map(String))).slice(0, 20)
+      const boundedClearedEntries = Object.entries(merged.clearedRoomAtMs || {})
+        .filter(([k, v]) => Boolean(k) && Number.isFinite(v) && v > 0)
+        .slice(-150)
+      const boundedCleared: Record<string, number> = {}
+      for (const [k, v] of boundedClearedEntries) {
+        boundedCleared[k] = Math.floor(v)
+      }
+      const boundedLists = (merged.customLists || []).slice(0, 15).map((list) => ({
+        id: String(list.id).slice(0, 64),
+        name: String(list.name).slice(0, 32),
+        roomIds: Array.isArray(list.roomIds)
+          ? Array.from(new Set(list.roomIds.map(String))).slice(0, 100)
+          : [],
+      }))
+      const cleanSettings: ChatUserSettings = {
+        showOnlineStatus: Boolean(merged.chatSettings.showOnlineStatus),
+        sendReadReceipts: Boolean(merged.chatSettings.sendReadReceipts),
+        enterToSend: Boolean(merged.chatSettings.enterToSend),
+        soundEffects: Boolean(merged.chatSettings.soundEffects),
+        chatFontSize: merged.chatSettings.chatFontSize || 'medium',
+        chatWallpaper: merged.chatSettings.chatWallpaper || 'default',
+        defaultImageQuality: merged.chatSettings.defaultImageQuality || 'standard',
+      }
+
+      const userStateDocRef = doc(db, 'campusMessengerUserState', sanitizeFirestoreDocId(actor.id))
+      const updatePayload = {
+        deletedMessageIds: boundedDeleted,
+        clearedRoomAtMs: boundedCleared,
+        starredMessageIds: boundedStarred,
+        shortcutRoomIds: boundedShortcuts,
+        customLists: boundedLists,
+        chatSettings: cleanSettings,
+        updatedAtMs: nowMs,
+      }
+
+      try {
+        if (userStateDocExistsRef.current) {
+          await updateDoc(userStateDocRef, updatePayload)
+          return
+        }
+      } catch {
+        // Fallback to create via setDoc below
+      }
+
+      try {
+        await setDoc(userStateDocRef, {
+          campusId: 'ics-academy',
+          actorId: actor.id,
+          ...updatePayload,
+          createdAt: serverTimestamp(),
+        })
+        userStateDocExistsRef.current = true
+      } catch {
+        // Retry update if document was created concurrently by another device
+        try {
+          await updateDoc(userStateDocRef, updatePayload)
+          userStateDocExistsRef.current = true
+        } catch {
+          // Ignore transient network errors; local cache remains intact
+        }
+      }
+    },
+    [actor.id],
+  )
 
   // WhatsApp Attachment Sheet Modals: Location, Contact, Poll
   const [showLocationModal, setShowLocationModal] = useState(false)
@@ -1071,37 +1277,164 @@ export function CampusMessenger({
   const [pollAllowMultiple, setPollAllowMultiple] = useState(false)
   const [pollVotesViewerMsgId, setPollVotesViewerMsgId] = useState<string | null>(null)
 
-  // Load persisted per-actor shortcuts & custom lists
+  // Load local hydration cache + subscribe to real-time Firestore cross-device user state
+  useEffect(() => {
+    if (!actor.id) return
+    userStateDocExistsRef.current = false
+    userStateUpdatedAtMsRef.current = 0
+
+    if (typeof window !== 'undefined') {
+      try {
+        const savedCleared = window.localStorage.getItem(
+          `ics_messenger_cleared_rooms_v1_${actor.id}`,
+        )
+        setClearedRoomAtMs(savedCleared ? sanitizeTimestampMap(JSON.parse(savedCleared)) : {})
+      } catch {
+        setClearedRoomAtMs({})
+      }
+      try {
+        const savedShortcuts = window.localStorage.getItem(`ics_messenger_shortcuts_v1_${actor.id}`)
+        if (savedShortcuts) {
+          const parsed = JSON.parse(savedShortcuts)
+          if (Array.isArray(parsed)) setShortcutRoomIds(parsed.map(String))
+        } else {
+          setShortcutRoomIds([])
+        }
+      } catch {
+        setShortcutRoomIds([])
+      }
+      try {
+        const savedLists = window.localStorage.getItem(`ics_messenger_lists_v1_${actor.id}`)
+        if (savedLists) {
+          const parsed = JSON.parse(savedLists)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setCustomLists(parsed as ChatCustomList[])
+          } else {
+            setCustomLists([
+              { id: 'favorites', name: 'Favorites', roomIds: [] },
+              { id: 'important', name: 'Important', roomIds: [] },
+            ])
+          }
+        } else {
+          setCustomLists([
+            { id: 'favorites', name: 'Favorites', roomIds: [] },
+            { id: 'important', name: 'Important', roomIds: [] },
+          ])
+        }
+      } catch {
+        // Ignore parse error
+      }
+    }
+
+    const userStateDocRef = doc(db, 'campusMessengerUserState', sanitizeFirestoreDocId(actor.id))
+    const unsubscribe = onSnapshot(
+      userStateDocRef,
+      (snap) => {
+        if (!snap.exists()) {
+          userStateDocExistsRef.current = false
+          return
+        }
+        userStateDocExistsRef.current = true
+        const data = snap.data() as Record<string, unknown>
+        const remoteUpdatedAtMs = Number(data.updatedAtMs) || 0
+
+        // Always merge deletions & clear-chat watermarks monotonically so deletes from App/Web never resurrect
+        const remoteDeleted = Array.isArray(data.deletedMessageIds)
+          ? data.deletedMessageIds.map(String)
+          : []
+        if (remoteDeleted.length > 0) {
+          setDeletedForMeIds((prev) => {
+            const mergedSet = new Set([...prev, ...remoteDeleted])
+            if (mergedSet.size === prev.length) return prev
+            return Array.from(mergedSet).slice(-500)
+          })
+        }
+
+        const remoteCleared = sanitizeTimestampMap(data.clearedRoomAtMs)
+        if (Object.keys(remoteCleared).length > 0) {
+          setClearedRoomAtMs((prev) => {
+            let changed = false
+            const next = { ...prev }
+            for (const [rId, ts] of Object.entries(remoteCleared)) {
+              if (!next[rId] || ts > next[rId]) {
+                next[rId] = ts
+                changed = true
+              }
+            }
+            return changed ? next : prev
+          })
+        }
+
+        if (remoteUpdatedAtMs >= userStateUpdatedAtMsRef.current) {
+          userStateUpdatedAtMsRef.current = remoteUpdatedAtMs
+
+          if (Array.isArray(data.starredMessageIds)) {
+            setLocalStarredIds(data.starredMessageIds.map(String).slice(-300))
+          }
+          if (Array.isArray(data.shortcutRoomIds)) {
+            setShortcutRoomIds(data.shortcutRoomIds.map(String).slice(0, 20))
+          }
+          if (Array.isArray(data.customLists) && data.customLists.length > 0) {
+            const parsedLists: ChatCustomList[] = data.customLists
+              .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+              .map((item) => ({
+                id: String(item.id || `list_${Date.now()}`),
+                name: String(item.name || 'List').slice(0, 32),
+                roomIds: Array.isArray(item.roomIds) ? item.roomIds.map(String) : [],
+              }))
+            if (parsedLists.length > 0) {
+              setCustomLists(parsedLists)
+            }
+          }
+          if (data.chatSettings && typeof data.chatSettings === 'object') {
+            const s = data.chatSettings as Partial<ChatUserSettings>
+            setChatSettings((prev) => ({
+              showOnlineStatus:
+                typeof s.showOnlineStatus === 'boolean' ? s.showOnlineStatus : prev.showOnlineStatus,
+              sendReadReceipts:
+                typeof s.sendReadReceipts === 'boolean' ? s.sendReadReceipts : prev.sendReadReceipts,
+              enterToSend: typeof s.enterToSend === 'boolean' ? s.enterToSend : prev.enterToSend,
+              soundEffects: typeof s.soundEffects === 'boolean' ? s.soundEffects : prev.soundEffects,
+              chatFontSize:
+                s.chatFontSize === 'small' || s.chatFontSize === 'medium' || s.chatFontSize === 'large'
+                  ? s.chatFontSize
+                  : prev.chatFontSize,
+              chatWallpaper:
+                s.chatWallpaper === 'default' ||
+                s.chatWallpaper === 'pitch_dark' ||
+                s.chatWallpaper === 'soft_mint' ||
+                s.chatWallpaper === 'warm_slate'
+                  ? s.chatWallpaper
+                  : prev.chatWallpaper,
+              defaultImageQuality:
+                s.defaultImageQuality === 'hd' || s.defaultImageQuality === 'standard'
+                  ? s.defaultImageQuality
+                  : prev.defaultImageQuality,
+            }))
+          }
+        }
+      },
+      () => {
+        // Ignore transient offline snapshot errors
+      },
+    )
+
+    return () => {
+      unsubscribe()
+    }
+  }, [actor.id])
+
   useEffect(() => {
     if (typeof window === 'undefined' || !actor.id) return
     try {
-      const savedShortcuts = window.localStorage.getItem(`ics_messenger_shortcuts_v1_${actor.id}`)
-      if (savedShortcuts) {
-        const parsed = JSON.parse(savedShortcuts)
-        if (Array.isArray(parsed)) setShortcutRoomIds(parsed.map(String))
-      } else {
-        setShortcutRoomIds([])
-      }
+      window.localStorage.setItem(
+        `ics_messenger_cleared_rooms_v1_${actor.id}`,
+        JSON.stringify(clearedRoomAtMs),
+      )
     } catch {
-      setShortcutRoomIds([])
+      // Ignore quota error
     }
-    try {
-      const savedLists = window.localStorage.getItem(`ics_messenger_lists_v1_${actor.id}`)
-      if (savedLists) {
-        const parsed = JSON.parse(savedLists)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setCustomLists(parsed as ChatCustomList[])
-          return
-        }
-      }
-      setCustomLists([
-        { id: 'favorites', name: 'Favorites', roomIds: [] },
-        { id: 'important', name: 'Important', roomIds: [] },
-      ])
-    } catch {
-      // Ignore parse error
-    }
-  }, [actor.id])
+  }, [clearedRoomAtMs, actor.id])
 
   const persistShortcuts = useCallback(
     (next: string[]) => {
@@ -1116,8 +1449,9 @@ export function CampusMessenger({
           // Ignore quota error
         }
       }
+      void syncUserStateToFirestore({ shortcutRoomIds: next })
     },
-    [actor.id],
+    [actor.id, syncUserStateToFirestore],
   )
 
   const persistCustomLists = useCallback(
@@ -1133,8 +1467,9 @@ export function CampusMessenger({
           // Ignore quota error
         }
       }
+      void syncUserStateToFirestore({ customLists: next })
     },
-    [actor.id],
+    [actor.id, syncUserStateToFirestore],
   )
 
   // Automatically close Attachment Menu & Chat More Menu when tapping anywhere outside
@@ -1256,16 +1591,18 @@ export function CampusMessenger({
     })
 
     for (const st of targetStudents) {
+      const displayName = formatMessengerStudentName(st.name)
       list.push({
         roomId: makeDirectRoomId(actor.id, st.id),
         type: 'direct_student',
-        title: st.name,
+        title: displayName,
+        searchName: `${displayName} ${st.name}`,
         subtitle: st.className !== actor.className ? `Class ${st.className}` : '',
         badgeLabel: st.className !== actor.className ? st.className : '',
         batchName: st.className,
         peerId: st.id,
         peerRole: 'student',
-        avatarText: st.firstName.slice(0, 2).toUpperCase(),
+        avatarText: getMessengerAvatarText(displayName),
         avatarUrl: st.avatarUrl,
       })
     }
@@ -1384,26 +1721,36 @@ export function CampusMessenger({
 
   const isMessageHiddenForMe = useCallback(
     (msg: ChatMessage) => {
+      // Never show "This message was deleted" boxes for anyone — vanish completely
+      if (msg.isDeleted) return true
+      if (deletedForEveryoneMap[msg.id]) return true
       if (deletedForMeIds.includes(msg.id)) return true
       if (Array.isArray(msg.deletedFor) && msg.deletedFor.includes(actor.id)) return true
+      const clearedAt = clearedRoomAtMs[msg.roomId]
+      if (clearedAt && msg.createdAtMs <= clearedAt) return true
       return false
     },
-    [deletedForMeIds, actor.id],
+    [deletedForEveryoneMap, deletedForMeIds, actor.id, clearedRoomAtMs],
   )
 
   const isMessageStarredByMe = useCallback(
     (msg: ChatMessage) => {
+      if (isMessageHiddenForMe(msg)) return false
       if (Array.isArray(msg.starredBy) && msg.starredBy.includes(actor.id)) return true
       return localStarredIds.includes(msg.id)
     },
-    [actor.id, localStarredIds],
+    [actor.id, localStarredIds, isMessageHiddenForMe],
   )
 
   const updateChatSetting = <K extends keyof ChatUserSettings>(
     key: K,
     value: ChatUserSettings[K],
   ) => {
-    setChatSettings((prev) => ({ ...prev, [key]: value }))
+    setChatSettings((prev) => {
+      const next = { ...prev, [key]: value }
+      void syncUserStateToFirestore({ chatSettings: next })
+      return next
+    })
   }
 
   // Real-Time Server Sync Helper
@@ -2399,12 +2746,13 @@ export function CampusMessenger({
         if (!q) return true
         return (
           r.title.toLowerCase().includes(q) ||
+          (r.searchName || '').toLowerCase().includes(q) ||
           r.subtitle.toLowerCase().includes(q) ||
           r.badgeLabel.toLowerCase().includes(q)
         )
       })
       .sort((a, b) => {
-        // Keep Staff Room and User's own Batch Group at the top, then sort by latest message timestamp
+        // Keep Staff Room and User's own Batch Group at the top, then sort by latest visible message timestamp
         const aIsPrimary =
           a.roomId === STAFF_ROOM_ID || a.roomId === makeBatchRoomId(actor.className)
         const bIsPrimary =
@@ -2412,8 +2760,8 @@ export function CampusMessenger({
         if (aIsPrimary && !bIsPrimary) return -1
         if (!aIsPrimary && bIsPrimary) return 1
 
-        const aMsgs = messagesByRoom[a.roomId] ?? []
-        const bMsgs = messagesByRoom[b.roomId] ?? []
+        const aMsgs = (messagesByRoom[a.roomId] ?? []).filter((m) => !isMessageHiddenForMe(m))
+        const bMsgs = (messagesByRoom[b.roomId] ?? []).filter((m) => !isMessageHiddenForMe(m))
         const aLast = aMsgs[aMsgs.length - 1]?.createdAtMs ?? 0
         const bLast = bMsgs[bMsgs.length - 1]?.createdAtMs ?? 0
         return bLast - aLast
@@ -2426,6 +2774,7 @@ export function CampusMessenger({
     searchQuery,
     actor.className,
     messagesByRoom,
+    isMessageHiddenForMe,
   ])
 
   // Strictly check if a specific peer is actively using the app right now (within last 15 seconds)
@@ -2475,10 +2824,12 @@ export function CampusMessenger({
       )
       if (activeEntries.length === 0) return null
       const first = activeEntries[0]
+      const typerProfile = resolveActorDirectoryProfile(first.actorId)
+      const typerDisplay = typerProfile?.name || first.actorName
       if (first.mode === 'recording') {
-        return `${first.actorName} is recording a voice note...`
+        return `${typerDisplay} is recording a voice note...`
       }
-      return `${first.actorName} is typing...`
+      return `${typerDisplay} is typing...`
     },
     [typingMap, actor.id],
   )
@@ -3020,6 +3371,12 @@ export function CampusMessenger({
   const handleClearCurrentChat = useCallback(() => {
     const roomId = activeRoom.roomId
     const roomMsgs = messagesByRoom[roomId] ?? []
+    const clearNowMs = Date.now()
+    const nextClearedMap = {
+      ...clearedRoomAtMs,
+      [roomId]: clearNowMs,
+    }
+    setClearedRoomAtMs(nextClearedMap)
     setMessagesByRoom((prev) => ({
       ...prev,
       [roomId]: (prev[roomId] ?? []).map((m) => {
@@ -3034,13 +3391,23 @@ export function CampusMessenger({
         }).catch(() => {})
       }
     }
+    void syncUserStateToFirestore({ clearedRoomAtMs: nextClearedMap })
     void sendChatActionToServer({
       action: 'clear_chat_for_me',
       roomId,
     })
     setShowClearChatConfirm(false)
     showToast(`Cleared chat with "${activeRoom.title}"`)
-  }, [activeRoom.roomId, activeRoom.title, actor.id, messagesByRoom, sendChatActionToServer, showToast])
+  }, [
+    activeRoom.roomId,
+    activeRoom.title,
+    actor.id,
+    clearedRoomAtMs,
+    messagesByRoom,
+    sendChatActionToServer,
+    showToast,
+    syncUserStateToFirestore,
+  ])
 
   const handleToggleShortcut = useCallback(
     (roomId: string, roomTitle: string) => {
@@ -3313,12 +3680,11 @@ export function CampusMessenger({
     const shouldStar = !allAlreadyStarred
     const targetIds = valid.map((m) => m.id)
 
-    setLocalStarredIds((prev) => {
-      if (shouldStar) {
-        return Array.from(new Set([...prev, ...targetIds]))
-      }
-      return prev.filter((id) => !targetIds.includes(id))
-    })
+    const nextStarredIds = shouldStar
+      ? Array.from(new Set([...localStarredIds, ...targetIds])).slice(-300)
+      : localStarredIds.filter((id) => !targetIds.includes(id))
+    setLocalStarredIds(nextStarredIds)
+    void syncUserStateToFirestore({ starredMessageIds: nextStarredIds })
 
     setMessagesByRoom((prev) => {
       const next = { ...prev }
@@ -3338,11 +3704,9 @@ export function CampusMessenger({
     })
 
     for (const m of valid) {
-      if (firestoreMessageIdsRef.current.has(m.id)) {
-        void updateDoc(doc(db, 'campusChatMessages', m.id), {
-          starredBy: shouldStar ? arrayUnion(actor.id) : arrayRemove(actor.id),
-        }).catch(() => {})
-      }
+      void updateDoc(doc(db, 'campusChatMessages', m.id), {
+        starredBy: shouldStar ? arrayUnion(actor.id) : arrayRemove(actor.id),
+      }).catch(() => {})
     }
 
     const byRoom = new Map<string, string[]>()
@@ -3490,17 +3854,24 @@ export function CampusMessenger({
     if (infoMessageId && messageIds.includes(infoMessageId)) {
       setInfoMessageId(null)
     }
+    const nextStarred = localStarredIds.filter((id) => !messageIds.includes(id))
+    setLocalStarredIds(nextStarred)
+    const nextDeleted = Array.from(new Set([...deletedForMeIds, ...messageIds])).slice(-500)
+    setDeletedForMeIds(nextDeleted)
+    void syncUserStateToFirestore({
+      deletedMessageIds: nextDeleted,
+      starredMessageIds: nextStarred,
+    })
     for (const messageId of messageIds) {
-      if (firestoreMessageIdsRef.current.has(messageId)) {
-        void updateDoc(doc(db, 'campusChatMessages', messageId), {
-          isDeleted: true,
-          deletedBy: actor.name.slice(0, 120),
-          deletedById: actor.id,
-          text: '',
-          mediaType: 'none',
-          mediaUrl: '',
-        }).catch(() => {})
-      }
+      void updateDoc(doc(db, 'campusChatMessages', messageId), {
+        isDeleted: true,
+        deletedBy: actor.name.slice(0, 120),
+        deletedById: actor.id,
+        text: '',
+        mediaType: 'none',
+        mediaUrl: '',
+        starredBy: [],
+      }).catch(() => {})
       void sendChatActionToServer({
         action: 'delete_message',
         deleteMode: 'everyone',
@@ -3518,8 +3889,10 @@ export function CampusMessenger({
   const handleDeleteForMe = (messageIds: string[]) => {
     if (messageIds.length === 0) return
     const rId = activeRoom.roomId
-    setDeletedForMeIds((prev) => Array.from(new Set([...prev, ...messageIds])))
-    setLocalStarredIds((prev) => prev.filter((id) => !messageIds.includes(id)))
+    const nextDeleted = Array.from(new Set([...deletedForMeIds, ...messageIds])).slice(-500)
+    const nextStarred = localStarredIds.filter((id) => !messageIds.includes(id))
+    setDeletedForMeIds(nextDeleted)
+    setLocalStarredIds(nextStarred)
     setMessagesByRoom((prev) => {
       const list = prev[rId] ?? []
       return {
@@ -3541,12 +3914,14 @@ export function CampusMessenger({
     if (infoMessageId && messageIds.includes(infoMessageId)) {
       setInfoMessageId(null)
     }
+    void syncUserStateToFirestore({
+      deletedMessageIds: nextDeleted,
+      starredMessageIds: nextStarred,
+    })
     for (const messageId of messageIds) {
-      if (firestoreMessageIdsRef.current.has(messageId)) {
-        void updateDoc(doc(db, 'campusChatMessages', messageId), {
-          deletedFor: arrayUnion(actor.id),
-        }).catch(() => {})
-      }
+      void updateDoc(doc(db, 'campusChatMessages', messageId), {
+        deletedFor: arrayUnion(actor.id),
+      }).catch(() => {})
       void sendChatActionToServer({
         action: 'delete_message',
         deleteMode: 'me',
@@ -3900,28 +4275,6 @@ export function CampusMessenger({
                   setSelectedMessageIds([])
                   setShowSelectionMoreMenu(false)
                   setShowSettingsModal(false)
-                  setShowNewChatModal(false)
-                  if (isRecordingVoice) cancelVoiceRecording()
-                  setShowStarredModal(true)
-                }}
-                title="Starred Messages"
-                aria-label="Open Starred Messages"
-                className="relative flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-muted hover:text-amber-500 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-200 dark:hover:bg-[#222630]"
-              >
-                <Star className="size-4" aria-hidden="true" />
-                {allStarredItems.length > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 font-poppins text-[9px] font-bold text-black">
-                    {allStarredItems.length > 99 ? '99+' : allStarredItems.length}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAttachMenu(false)
-                  setSelectedMessageIds([])
-                  setShowSelectionMoreMenu(false)
-                  setShowSettingsModal(false)
                   setShowStarredModal(false)
                   if (isRecordingVoice) cancelVoiceRecording()
                   setShowNewChatModal((prev) => !prev)
@@ -4131,8 +4484,9 @@ export function CampusMessenger({
                 return filteredCalls.map((rec) => {
                   const isOutgoing = rec.callerId === actor.id
                   const peerId = isOutgoing ? rec.calleeId : rec.callerId
-                  const peerName = isOutgoing ? rec.calleeName : rec.callerName
+                  const rawPeerName = isOutgoing ? rec.calleeName : rec.callerName
                   const peerRole = isOutgoing ? rec.calleeRole : rec.callerRole
+                  const peerName = formatMessengerDisplayName(rawPeerName, peerRole)
                   const peerSubtitle = isOutgoing ? rec.calleeSubtitle : rec.callerSubtitle
                   const isMissedIncoming =
                     !isOutgoing && (rec.status === 'missed' || rec.status === 'declined')
@@ -4141,12 +4495,7 @@ export function CampusMessenger({
                     (r) => r.roomId === directRoomId || r.peerId === peerId,
                   )
                   const avatarUrl = matchingRoom?.avatarUrl
-                  const initials = peerName
-                    .split(/\s+/)
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .map((p) => p[0]?.toUpperCase() || '')
-                    .join('')
+                  const initials = getMessengerAvatarText(peerName)
 
                   const statusText =
                     rec.status === 'missed'
@@ -4366,75 +4715,73 @@ export function CampusMessenger({
                         </p>
                       ) : lastMsg ? (
                         <p className="flex min-w-0 items-center truncate text-[11px] text-foreground/80">
-                          {lastMsg.isDeleted ? (
-                            <span className="truncate italic text-muted-foreground">
-                              🚫{' '}
-                              {lastMsg.deletedById === actor.id ||
-                              (!lastMsg.deletedById && lastMsg.senderId === actor.id)
-                                ? 'You deleted this message'
-                                : 'This message was deleted'}
-                            </span>
-                          ) : (
-                            <>
-                              {lastMsg.senderId === actor.id &&
-                                (() => {
-                                  const lastReadByOthers =
-                                    (lastMsg.readBy ?? []).some(
-                                      (id) => id && id !== lastMsg.senderId,
-                                    ) || (lastMsg.readBy?.length ?? 0) > 1
-                                  const lastDeliveredToOthers =
-                                    lastReadByOthers ||
-                                    (lastMsg.deliveredTo ?? []).some(
-                                      (id) => id && id !== lastMsg.senderId,
-                                    ) ||
-                                    (lastMsg.deliveredTo?.length ?? 0) > 1
-                                  if (lastReadByOthers) {
-                                    return (
-                                      <CheckCheck
-                                        className="mr-1 inline-block size-3.5 shrink-0 text-[#0095f6] dark:text-[#38bdf8] stroke-[2.5]"
-                                        aria-label="Read"
-                                      />
-                                    )
-                                  }
-                                  if (lastDeliveredToOthers) {
-                                    return (
-                                      <CheckCheck
-                                        className="mr-1 inline-block size-3.5 shrink-0 text-zinc-500 dark:text-zinc-300 stroke-[2.2]"
-                                        aria-label="Delivered"
-                                      />
-                                    )
-                                  }
-                                  return (
-                                    <Check
-                                      className="mr-1 inline-block size-3.5 shrink-0 text-zinc-400 dark:text-zinc-500 stroke-[2.2]"
-                                      aria-label="Sent"
-                                    />
-                                  )
-                                })()}
-                              <span className="font-semibold shrink-0 mr-1">
-                                {lastMsg.senderId === actor.id
-                                  ? 'You:'
-                                  : `${lastMsg.senderName.split(' ').slice(0, 2).join(' ')}:`}
-                              </span>
-                              <span className="truncate">
-                                {lastMsg.mediaType === 'voice'
-                                  ? `🎤 ${formatVoiceDuration(lastMsg.mediaDurationSec || 4)}`
-                                  : lastMsg.mediaType === 'pdf'
-                                    ? `📄 ${lastMsg.mediaName || 'Document'}`
-                                    : lastMsg.mediaType === 'image'
-                                      ? `📷 ${lastMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo`
-                                      : lastMsg.mediaType === 'call'
-                                        ? `${lastMsg.callMeta?.callType === 'video' ? '📹' : '📞'} ${lastMsg.text || 'Call'}`
-                                        : lastMsg.mediaType === 'location'
-                                          ? `📍 ${lastMsg.locationMeta?.label || 'Location'}`
-                                          : lastMsg.mediaType === 'contact'
-                                            ? `👤 ${lastMsg.contactMeta?.name || 'Contact'}`
-                                            : lastMsg.mediaType === 'poll'
-                                              ? `📊 ${lastMsg.pollMeta?.question || 'Poll'}`
-                                              : lastMsg.text}
-                              </span>
-                            </>
-                          )}
+                          {lastMsg.senderId === actor.id &&
+                            (() => {
+                              const lastReadByOthers =
+                                (lastMsg.readBy ?? []).some(
+                                  (id) => id && id !== lastMsg.senderId,
+                                ) || (lastMsg.readBy?.length ?? 0) > 1
+                              const lastDeliveredToOthers =
+                                lastReadByOthers ||
+                                (lastMsg.deliveredTo ?? []).some(
+                                  (id) => id && id !== lastMsg.senderId,
+                                ) ||
+                                (lastMsg.deliveredTo?.length ?? 0) > 1
+                              if (lastReadByOthers) {
+                                return (
+                                  <CheckCheck
+                                    className="mr-1 inline-block size-3.5 shrink-0 text-[#0095f6] dark:text-[#38bdf8] stroke-[2.5]"
+                                    aria-label="Read"
+                                  />
+                                )
+                              }
+                              if (lastDeliveredToOthers) {
+                                return (
+                                  <CheckCheck
+                                    className="mr-1 inline-block size-3.5 shrink-0 text-zinc-500 dark:text-zinc-300 stroke-[2.2]"
+                                    aria-label="Delivered"
+                                  />
+                                )
+                              }
+                              return (
+                                <Check
+                                  className="mr-1 inline-block size-3.5 shrink-0 text-zinc-400 dark:text-zinc-500 stroke-[2.2]"
+                                  aria-label="Sent"
+                                />
+                              )
+                            })()}
+                          <span className="font-semibold shrink-0 mr-1">
+                            {lastMsg.senderId === actor.id
+                              ? 'You:'
+                              : `${formatMessengerDisplayName(lastMsg.senderName, lastMsg.senderRole)
+                                  .split(' ')
+                                  .slice(0, 2)
+                                  .join(' ')}:`}
+                          </span>
+                          <span className="truncate">
+                            {lastMsg.mediaType === 'voice'
+                              ? `🎤 ${formatVoiceDuration(lastMsg.mediaDurationSec || 4)}`
+                              : lastMsg.mediaType === 'pdf'
+                                ? `📄 ${lastMsg.mediaName || 'Document'}`
+                                : lastMsg.mediaType === 'image'
+                                  ? `📷 ${lastMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo`
+                                  : lastMsg.mediaType === 'call'
+                                    ? `${lastMsg.callMeta?.callType === 'video' ? '📹' : '📞'} ${lastMsg.text || 'Call'}`
+                                    : lastMsg.mediaType === 'location'
+                                      ? `📍 ${lastMsg.locationMeta?.label || 'Location'}`
+                                      : lastMsg.mediaType === 'contact'
+                                        ? `👤 ${
+                                            lastMsg.contactMeta
+                                              ? formatMessengerDisplayName(
+                                                  lastMsg.contactMeta.name,
+                                                  lastMsg.contactMeta.role,
+                                                )
+                                              : 'Contact'
+                                          }`
+                                        : lastMsg.mediaType === 'poll'
+                                          ? `📊 ${lastMsg.pollMeta?.question || 'Poll'}`
+                                          : lastMsg.text}
+                          </span>
                         </p>
                       ) : (
                         <p className="truncate text-[11px] italic text-muted-foreground">
@@ -5020,11 +5367,11 @@ export function CampusMessenger({
                     <div className="relative shrink-0">
                       <div
                         className={cn(
-                          'flex size-10 items-center justify-center overflow-hidden rounded-2xl font-poppins text-xs font-bold border border-border dark:border-[#262a33]',
+                          'flex size-10 items-center justify-center overflow-hidden rounded-full font-poppins text-xs font-bold border border-border dark:border-white/15',
                           activeRoom.type === 'staff_group'
                             ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1a1d24] dark:text-amber-300'
                             : activeRoom.type === 'batch_group'
-                              ? 'bg-emerald-500/15 text-emerald-700 dark:bg-[#1a1d24] dark:text-zinc-100'
+                              ? 'bg-violet-500/15 text-violet-700 dark:bg-[#1a1d24] dark:text-zinc-100'
                               : 'bg-cyan/15 text-cyan dark:bg-[#1a1d24] dark:text-cyan',
                         )}
                       >
@@ -6648,44 +6995,47 @@ export function CampusMessenger({
                         </ThemeSelect>
                       </div>
                       <div className="grid gap-1.5">
-                        {matchingStudents.map((st) => (
-                          <button
-                            key={st.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedRoomId(makeDirectRoomId(actor.id, st.id))
-                              setMobileShowChatPane(true)
-                              setShowNewChatModal(false)
-                              setNewChatSearchQuery('')
-                            }}
-                            className="flex items-center justify-between rounded-2xl border border-border bg-background/70 px-3.5 py-2.5 text-left transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
-                          >
-                            <div className="flex min-w-0 items-center gap-2.5">
-                              {st.avatarUrl ? (
-                                <img
-                                  src={st.avatarUrl}
-                                  alt={st.name}
-                                  className="size-8 shrink-0 rounded-full border border-lime/40 object-cover object-top"
-                                />
-                              ) : (
-                                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-cyan/15 font-poppins text-[11px] font-bold text-cyan">
-                                  {st.firstName.slice(0, 2).toUpperCase()}
-                                </span>
-                              )}
-                              <div className="min-w-0">
-                                <p className="truncate text-xs font-bold text-foreground">
-                                  {st.name}
-                                </p>
-                                <p className="truncate text-[10px] text-muted-foreground">
-                                  Class {st.className} • {st.admissionNo}
-                                </p>
+                        {matchingStudents.map((st) => {
+                          const messengerStudentName = formatMessengerStudentName(st.name)
+                          return (
+                            <button
+                              key={st.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedRoomId(makeDirectRoomId(actor.id, st.id))
+                                setMobileShowChatPane(true)
+                                setShowNewChatModal(false)
+                                setNewChatSearchQuery('')
+                              }}
+                              className="flex items-center justify-between rounded-2xl border border-border bg-background/70 px-3.5 py-2.5 text-left transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                            >
+                              <div className="flex min-w-0 items-center gap-2.5">
+                                {st.avatarUrl ? (
+                                  <img
+                                    src={st.avatarUrl}
+                                    alt={messengerStudentName}
+                                    className="size-8 shrink-0 rounded-full border border-lime/40 object-cover object-top"
+                                  />
+                                ) : (
+                                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-cyan/15 font-poppins text-[11px] font-bold text-cyan">
+                                    {getMessengerAvatarText(messengerStudentName)}
+                                  </span>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="truncate text-xs font-bold text-foreground">
+                                    {messengerStudentName}
+                                  </p>
+                                  <p className="truncate text-[10px] text-muted-foreground">
+                                    Class {st.className} • {st.admissionNo}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                            <span className="rounded-lg border border-border bg-muted px-2 py-1 text-[10px] font-bold text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
-                              Chat
-                            </span>
-                          </button>
-                        ))}
+                              <span className="rounded-lg border border-border bg-muted px-2 py-1 text-[10px] font-bold text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
+                                Chat
+                              </span>
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
                   </>
@@ -6733,6 +7083,33 @@ export function CampusMessenger({
 
             {/* Settings Content */}
             <div className="flex-1 space-y-5 overflow-y-auto p-5">
+              {/* Saved / Starred Messages Quick Access */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSettingsModal(false)
+                  setShowStarredModal(true)
+                }}
+                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border bg-background/70 p-3.5 text-left transition-colors hover:bg-muted/60 dark:border-[#262a33] dark:bg-[#0a0b0e]"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex size-9 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500">
+                    <Star className="size-4" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-bold text-foreground">Starred Messages</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {allStarredItems.length === 0
+                        ? 'No saved messages yet'
+                        : `${allStarredItems.length} saved ${allStarredItems.length === 1 ? 'message' : 'messages'} synced across devices`}
+                    </p>
+                  </div>
+                </div>
+                <span className="rounded-lg bg-muted px-2.5 py-1 text-[11px] font-semibold text-foreground dark:bg-[#1a1d24]">
+                  View
+                </span>
+              </button>
+
               {/* 1. Privacy Settings */}
               <div className="space-y-2.5">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -7917,6 +8294,9 @@ export function CampusMessenger({
                     Boolean(r.peerId) &&
                     (!contactSearchQuery.trim() ||
                       r.title.toLowerCase().includes(contactSearchQuery.trim().toLowerCase()) ||
+                      (r.searchName || '')
+                        .toLowerCase()
+                        .includes(contactSearchQuery.trim().toLowerCase()) ||
                       r.subtitle.toLowerCase().includes(contactSearchQuery.trim().toLowerCase())),
                 )
                 .map((r) => (
