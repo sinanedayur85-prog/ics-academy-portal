@@ -10,7 +10,7 @@ function syncSystemStatusBar(dark: boolean) {
   if (typeof document !== 'undefined') {
     const metaTheme = document.querySelector('meta[name="theme-color"]')
     if (metaTheme) {
-      metaTheme.setAttribute('content', dark ? '#0A0B0E' : '#FFFFFF')
+      metaTheme.setAttribute('content', dark ? '#0B1014' : '#FFFFFF')
     }
   }
   if (typeof window !== 'undefined' && window.ICSNativeBridge?.setStatusBarTheme) {
@@ -29,20 +29,11 @@ export function ThemeToggle({ className }: { className?: string }) {
   useEffect(() => {
     const saved = window.localStorage.getItem(THEME_STORAGE_KEY)
     const root = document.documentElement
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const initialDark = saved ? saved === 'dark' : mediaQuery.matches
+    const initialDark = saved ? saved === 'dark' : true
     root.classList.toggle('dark', initialDark)
     setIsDark(initialDark)
     setMounted(true)
     syncSystemStatusBar(initialDark)
-
-    function handleSystemThemeChange(event: MediaQueryListEvent) {
-      if (!window.localStorage.getItem(THEME_STORAGE_KEY)) {
-        root.classList.toggle('dark', event.matches)
-        setIsDark(event.matches)
-        syncSystemStatusBar(event.matches)
-      }
-    }
 
     function handleThemeSync(e: Event) {
       const customEvent = e as CustomEvent<{ isDark: boolean }>
@@ -52,10 +43,8 @@ export function ThemeToggle({ className }: { className?: string }) {
       }
     }
 
-    mediaQuery.addEventListener('change', handleSystemThemeChange)
     window.addEventListener('ics-theme-change', handleThemeSync)
     return () => {
-      mediaQuery.removeEventListener('change', handleSystemThemeChange)
       window.removeEventListener('ics-theme-change', handleThemeSync)
     }
   }, [])
@@ -78,21 +67,21 @@ export function ThemeToggle({ className }: { className?: string }) {
       aria-label={showDark ? 'Switch to light mode' : 'Switch to dark mode'}
       onClick={toggleTheme}
       className={cn(
-        'relative inline-flex size-9 shrink-0 cursor-pointer items-center justify-center bg-transparent p-0 text-black transition-colors duration-200 outline-none hover:text-black/70 focus-visible:ring-2 focus-visible:ring-ring/50 dark:text-white/90 dark:hover:text-white',
+        'relative inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-[#0F1419] transition-all duration-200 outline-none hover:bg-muted active:scale-90 dark:text-[#F5F7FA] dark:hover:bg-white/10',
         className,
       )}
     >
       <span className="sr-only">{showDark ? 'Switch to light mode' : 'Switch to dark mode'}</span>
       <Sun
         className={cn(
-          'absolute size-5 transition-all duration-300 ease-out',
+          'absolute size-[21px] stroke-[1.9] transition-all duration-300 ease-out',
           showDark ? 'scale-0 -rotate-90 opacity-0' : 'scale-100 rotate-0 opacity-100',
         )}
         aria-hidden="true"
       />
       <Moon
         className={cn(
-          'absolute size-5 transition-all duration-300 ease-out',
+          'absolute size-[21px] stroke-[1.9] transition-all duration-300 ease-out',
           showDark ? 'scale-100 rotate-0 opacity-100' : 'scale-0 rotate-90 opacity-0',
         )}
         aria-hidden="true"

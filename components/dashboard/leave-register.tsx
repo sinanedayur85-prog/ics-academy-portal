@@ -597,27 +597,26 @@ export function LeaveRegister({
       eyebrow="Movement"
       title="Leave"
       icon={ClipboardList}
-      className="border-lime/20"
       action={
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold tracking-wide',
+              'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold tracking-wide',
               isOnLeave
-                ? 'border-red-500/40 bg-red-500/15 text-red-600 dark:border-red-400/40 dark:bg-red-500/20 dark:text-red-400'
-                : 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:border-lime/40 dark:bg-lime/15 dark:text-lime',
+                ? 'bg-red-500/15 text-red-600 dark:bg-red-500/20 dark:text-red-400'
+                : 'bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
             )}
           >
             <span
               className={cn(
                 'size-2 rounded-full',
-                isOnLeave ? 'bg-red-500 animate-pulse' : 'bg-emerald-500 dark:bg-lime',
+                isOnLeave ? 'bg-red-500 animate-pulse' : 'bg-emerald-500',
               )}
               aria-hidden="true"
             />
             {isOnLeave ? 'On Leave' : 'At Academy'}
           </span>
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-lime">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[#0077CC] dark:text-[#0095F6]">
             <Cloud className="size-3.5" aria-hidden="true" />
             Firebase Synced
           </span>
@@ -627,10 +626,10 @@ export function LeaveRegister({
       {/* 1. CURRENT ACTIVE LEAVE STATUS & REASON BANNER */}
       <div
         className={cn(
-          'mb-5 flex flex-col justify-between gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center',
+          'mb-5 flex flex-col justify-between gap-3 rounded-2xl p-4 sm:flex-row sm:items-center',
           isOnLeave && activeLeaveEntry
-            ? 'border-red-500/40 bg-red-500/10'
-            : 'border-emerald-500/35 bg-emerald-500/[0.07] dark:border-lime/30 dark:bg-lime/[0.06]',
+            ? 'bg-red-500/10'
+            : 'bg-emerald-500/10',
         )}
       >
         <div className="flex items-start gap-3">
@@ -639,7 +638,7 @@ export function LeaveRegister({
               'mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl',
               isOnLeave
                 ? 'bg-red-500/20 text-red-600 dark:text-red-400'
-                : 'bg-emerald-500/20 text-emerald-700 dark:bg-lime/20 dark:text-lime',
+                : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400',
             )}
           >
             <CalendarClock className="size-5" aria-hidden="true" />
@@ -654,7 +653,7 @@ export function LeaveRegister({
                   'rounded-full px-2 py-0.5 text-[11px] font-bold',
                   isOnLeave
                     ? 'bg-red-500/20 text-red-700 dark:text-red-300'
-                    : 'bg-emerald-500/20 text-emerald-800 dark:bg-lime/20 dark:text-lime',
+                    : 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-400',
                 )}
               >
                 {isOnLeave ? 'Currently On Leave' : 'Present At Academy'}
@@ -689,7 +688,7 @@ export function LeaveRegister({
       <div
         role="tablist"
         aria-label="Leave register"
-        className="mb-5 grid grid-cols-2 gap-1 rounded-xl border border-border bg-background/60 p-1"
+        className="mb-5 grid grid-cols-2 gap-1.5 rounded-2xl bg-muted p-1 dark:bg-[#1C2227]"
       >
         {tabs.map((tab) => {
           const selected = activeTab === tab.id
@@ -703,10 +702,10 @@ export function LeaveRegister({
               aria-controls={`leave-panel-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'flex h-10 min-w-0 items-center justify-center gap-1.5 sm:gap-2 rounded-lg px-2 sm:px-3 text-xs sm:text-sm font-medium transition-all duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                'flex h-10 min-w-0 items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-3 text-xs sm:text-sm font-semibold transition-all duration-150 outline-none active:scale-[0.98]',
                 selected
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  ? 'bg-[#0095F6] text-white'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
             >
               <tab.icon className="size-3.5 sm:size-4 shrink-0" aria-hidden="true" />
@@ -740,11 +739,11 @@ export function LeaveRegister({
       </div>
 
       {/* 3. SEARCH & FILTER LEAVE, RETURN & ABSENT HISTORY (No Delete Buttons) */}
-      <div className="mt-6 border-t border-border pt-5">
+      <div className="mt-6 border-t border-border/50 pt-5">
         <div className="mb-3 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
           <div>
             <h3 className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-foreground uppercase">
-              <Filter className="size-3.5 text-lime" aria-hidden="true" />
+              <Filter className="size-3.5 text-[#0095F6]" aria-hidden="true" />
               Search & Filter Leave / Absent Records
             </h3>
             <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -754,7 +753,7 @@ export function LeaveRegister({
           <button
             type="button"
             onClick={() => setShowAllMatchingRecords((prev) => !prev)}
-            className="self-start rounded-lg border border-border bg-background/70 px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-lime/50 hover:text-lime sm:self-auto"
+            className="self-start rounded-full bg-muted px-3.5 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-[#0095F6] hover:text-white active:scale-95 dark:bg-[#1C2227] sm:self-auto"
           >
             {showAllMatchingRecords || hasActiveSearchOrFilter
               ? `Showing ${filteredHistoryItems.length} Record${filteredHistoryItems.length === 1 ? '' : 's'}`
@@ -763,7 +762,7 @@ export function LeaveRegister({
         </div>
 
         {/* Search Input + Month / Year / Day / Time / Category Filters */}
-        <div className="grid gap-2.5 rounded-2xl border border-border bg-background/50 p-3.5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid gap-2.5 rounded-2xl bg-muted/60 p-3.5 dark:bg-[#1C2227]/60 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           <div className="relative sm:col-span-2 md:col-span-3 xl:col-span-2">
             <Search
               className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -777,7 +776,7 @@ export function LeaveRegister({
                 setShowAllMatchingRecords(true)
               }}
               placeholder="Search reason, subject, date, or time..."
-              className="h-9 w-full rounded-lg border border-input bg-background pr-3 pl-8 text-xs text-foreground placeholder:text-muted-foreground focus-visible:border-lime focus-visible:outline-none"
+              className="h-10 w-full rounded-xl border-0 bg-background pr-3 pl-8 text-xs text-foreground placeholder:text-muted-foreground outline-none dark:bg-[#151B20]"
             />
           </div>
 
@@ -799,7 +798,7 @@ export function LeaveRegister({
                 )
                 setShowAllMatchingRecords(true)
               }}
-              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none"
+              className="h-10 w-full rounded-xl border-0 bg-background px-2.5 text-xs text-foreground outline-none dark:bg-[#151B20]"
             >
               <option value="all">All Record Types</option>
               <option value="leave-departure">Leave Departures</option>
@@ -820,7 +819,7 @@ export function LeaveRegister({
                 setFilterMonth(e.target.value)
                 setShowAllMatchingRecords(true)
               }}
-              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none"
+              className="h-10 w-full rounded-xl border-0 bg-background px-2.5 text-xs text-foreground outline-none dark:bg-[#151B20]"
             >
               <option value="all">All Months (June – May)</option>
               {ACADEMIC_MONTHS.map((m) => (
@@ -842,7 +841,7 @@ export function LeaveRegister({
                 setFilterYear(e.target.value)
                 setShowAllMatchingRecords(true)
               }}
-              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none"
+              className="h-10 w-full rounded-xl border-0 bg-background px-2.5 text-xs text-foreground outline-none dark:bg-[#151B20]"
             >
               <option value="all">All Years</option>
               {BASE_YEARS.map((y) => (
@@ -865,7 +864,7 @@ export function LeaveRegister({
                   setFilterDay(e.target.value)
                   setShowAllMatchingRecords(true)
                 }}
-                className="h-9 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none"
+                className="h-10 w-full rounded-xl border-0 bg-background px-2 text-xs text-foreground outline-none dark:bg-[#151B20]"
               >
                 <option value="all">Any Day</option>
                 {DAYS.map((d) => (
@@ -887,7 +886,7 @@ export function LeaveRegister({
                   setFilterPeriodTime(e.target.value)
                   setShowAllMatchingRecords(true)
                 }}
-                className="h-9 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground focus-visible:border-lime focus-visible:outline-none"
+                className="h-10 w-full rounded-xl border-0 bg-background px-2 text-xs text-foreground outline-none dark:bg-[#151B20]"
               >
                 <option value="all">Any Time</option>
                 <option value="AM">Morning (AM)</option>
@@ -901,7 +900,7 @@ export function LeaveRegister({
         {showAllMatchingRecords || hasActiveSearchOrFilter ? (
           <div className="mt-3">
             {filteredHistoryItems.length === 0 ? (
-              <p className="rounded-xl border border-border/60 bg-background/40 p-4 text-center text-xs text-muted-foreground">
+              <p className="rounded-2xl bg-muted/50 p-4 text-center text-xs text-muted-foreground dark:bg-[#1C2227]/50">
                 No leave or absent records found matching your search filters.
               </p>
             ) : (
@@ -909,28 +908,28 @@ export function LeaveRegister({
                 {filteredHistoryItems.map((item) => (
                   <li
                     key={item.id}
-                    className="flex flex-col justify-between gap-2 rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-xs sm:flex-row sm:items-center"
+                    className="flex flex-col justify-between gap-2 rounded-2xl bg-muted/60 px-3.5 py-3 text-xs dark:bg-[#1C2227] sm:flex-row sm:items-center"
                   >
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <span
                           className={cn(
-                            'rounded-md px-2 py-0.5 text-[10px] font-bold uppercase',
+                            'rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase',
                             item.badgeTone === 'red' &&
                               'bg-red-500/15 text-red-600 dark:text-red-400',
                             item.badgeTone === 'emerald' &&
-                              'bg-emerald-500/15 text-emerald-700 dark:text-lime',
+                              'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
                             item.badgeTone === 'amber' &&
                               'bg-amber-500/15 text-amber-700 dark:text-amber-400',
                             item.badgeTone === 'cyan' &&
-                              'bg-cyan/15 text-sky-700 dark:text-cyan',
+                              'bg-[#0095F6]/15 text-[#0077CC] dark:text-[#38BDF8]',
                           )}
                         >
                           {item.badgeLabel}
                         </span>
                         <span className="font-semibold text-foreground">{item.title}</span>
                       </div>
-                      <p className="text-xs font-medium text-lime">{item.reason}</p>
+                      <p className="text-xs font-medium text-[#0077CC] dark:text-[#0095F6]">{item.reason}</p>
                       <p className="text-[11px] text-muted-foreground">{item.details}</p>
                     </div>
                     <div className="shrink-0 text-left font-mono text-[11px] tabular-nums text-muted-foreground sm:text-right">
@@ -952,7 +951,7 @@ function SuccessMessage({ message }: { message: string }) {
   return (
     <p
       role="status"
-      className="flex items-center gap-2 rounded-lg border border-lime/30 bg-lime/10 px-3 py-2.5 text-sm text-lime animate-in fade-in-0 duration-300"
+      className="flex items-center gap-2 rounded-2xl bg-[#0095F6]/15 px-3.5 py-2.5 text-sm font-medium text-[#0077CC] dark:text-[#0095F6] animate-in fade-in-0 duration-300"
     >
       <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
       {message}
@@ -961,7 +960,7 @@ function SuccessMessage({ message }: { message: string }) {
 }
 
 const selectTriggerClassName =
-  'h-11 w-full min-w-0 rounded-lg border border-input bg-background/90 px-2 sm:px-3 text-xs sm:text-sm font-medium tabular-nums cursor-pointer transition-all hover:border-lime/40 focus-visible:border-lime focus-visible:ring-3 focus-visible:ring-lime/30 text-foreground outline-none'
+  'h-11 w-full min-w-0 rounded-xl border-0 bg-muted px-2 sm:px-3 text-xs sm:text-sm font-medium tabular-nums cursor-pointer transition-colors hover:bg-muted/80 text-foreground outline-none dark:bg-[#1C2227]'
 
 type DateSelectGroupProps = {
   idPrefix: string

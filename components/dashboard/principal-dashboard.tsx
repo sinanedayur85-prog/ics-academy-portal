@@ -1442,12 +1442,12 @@ export function PrincipalDashboard() {
   ]
 
   return (
-    <div className="lg:min-h-svh bg-background text-foreground transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#0A0B0E] dark:to-[#060709] max-lg:fixed max-lg:inset-0 max-lg:flex max-lg:flex-col max-lg:overflow-hidden lg:pl-64">
+    <div className="lg:min-h-svh bg-background text-foreground transition-colors duration-300 max-lg:fixed max-lg:inset-0 max-lg:flex max-lg:flex-col max-lg:overflow-hidden lg:pl-64">
       {/* Desktop Sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-background pt-[var(--safe-top)] transition-colors duration-300 lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border/50 bg-background pt-[var(--safe-top)] transition-colors duration-300 lg:flex">
         <Link
           href="/"
-          className="flex h-20 items-center gap-3 border-b border-border px-6"
+          className="flex h-20 items-center gap-3 px-6"
           aria-label="ICS Academy Manhappatta home"
         >
           <BrandLogoMark className="h-10 w-auto" />
@@ -1455,7 +1455,7 @@ export function PrincipalDashboard() {
             className="pt-[2px]"
             gapClassName="gap-[1px]"
             topClassName="translate-y-[1px] text-lg font-bold text-foreground leading-none"
-            bottomClassName="text-[10px] font-semibold text-lime leading-none"
+            bottomClassName="text-[10px] font-semibold text-[#0077CC] dark:text-[#0095F6] leading-none"
           />
         </Link>
 
@@ -1471,18 +1471,19 @@ export function PrincipalDashboard() {
                 type="button"
                 onClick={() => setActiveTab(item.id)}
                 className={cn(
-                  'group flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-sm transition-all duration-200',
+                  'group flex items-center justify-between gap-2 rounded-2xl px-3.5 py-2.5 text-left text-sm transition-all duration-150 active:scale-[0.98]',
                   isActive
-                    ? 'bg-lime/15 font-semibold text-foreground'
+                    ? 'bg-[#0095F6]/15 font-semibold text-foreground dark:bg-[#1C2227]'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
               >
                 <span className="flex items-center gap-3">
                   <item.icon
                     className={cn(
-                      'size-4 transition-colors',
-                      isActive ? 'text-lime' : 'group-hover:text-lime',
+                      'size-4.5 transition-colors',
+                      isActive ? 'text-[#0077CC] dark:text-[#0095F6]' : 'group-hover:text-[#0095F6]',
                     )}
+                    strokeWidth={isActive ? 2.3 : 1.85}
                     aria-hidden="true"
                   />
                   <span>{item.label}</span>
@@ -1497,14 +1498,14 @@ export function PrincipalDashboard() {
           })}
         </nav>
 
-        <div className="border-t border-border p-4">
+        <div className="p-4">
           <Link
             href="/"
             onClick={(event) => {
               event.preventDefault()
               handleSignOut()
             }}
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-red-500/12 hover:text-red-500"
           >
             <LogOut className="size-4" aria-hidden="true" />
             Log out
@@ -1513,7 +1514,7 @@ export function PrincipalDashboard() {
       </aside>
 
       {/* Top Sticky Header (Matches Student & Usthad Header with Profile Switcher) */}
-      <header className="z-40 shrink-0 border-b border-border bg-background/95 pt-[var(--safe-top)] backdrop-blur-md transition-colors duration-300 lg:sticky lg:top-0">
+      <header className="z-40 shrink-0 border-b border-border/50 bg-background/95 pt-[var(--safe-top)] backdrop-blur-md transition-colors duration-300 lg:sticky lg:top-0">
         <div className="flex h-16 sm:h-20 items-center justify-between gap-2 px-3 sm:gap-4 sm:px-5 md:px-8">
           <Link
             href="/"
@@ -1525,7 +1526,7 @@ export function PrincipalDashboard() {
               className="pt-[2px]"
               gapClassName="gap-[1px]"
               topClassName="translate-y-[1px] text-[15px] sm:text-lg font-bold text-foreground leading-none"
-              bottomClassName="text-[8.5px] sm:text-[10px] font-semibold text-lime leading-none"
+              bottomClassName="text-[8.5px] sm:text-[10px] font-semibold text-[#0077CC] dark:text-[#0095F6] leading-none"
             />
           </Link>
 
@@ -1546,7 +1547,7 @@ export function PrincipalDashboard() {
         </div>
 
         {/* Executive Section Switcher Bar (Desktop Only — Replaced by Bottom Navigation Bar on Phone/Tablet) */}
-        <nav aria-label="Principal control sections" className="hidden border-t border-border lg:block">
+        <nav aria-label="Principal control sections" className="hidden border-t border-border/40 lg:block">
           <ul className="flex gap-1.5 overflow-x-auto px-3 py-2 md:px-8 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {principalNavItems.map((item) => (
               <li key={item.id} className="shrink-0">
@@ -1554,9 +1555,9 @@ export function PrincipalDashboard() {
                   type="button"
                   onClick={() => setActiveTab(item.id)}
                   className={cn(
-                    'flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0',
+                    'flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all whitespace-nowrap shrink-0 active:scale-95',
                     activeTab === item.id
-                      ? 'bg-lime text-background font-semibold shadow-sm'
+                      ? 'bg-[#0095F6] text-white font-semibold'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                 >
@@ -4602,12 +4603,12 @@ export function PrincipalDashboard() {
         </main>
       </div>
 
-      {/* PHONE & TABLET BOTTOM NAVIGATION MENU BAR FOR PRINCIPAL (Hidden on Desktop lg:) */}
+      {/* PHONE & TABLET INSTAGRAM-STYLE BOTTOM NAVIGATION MENU BAR FOR PRINCIPAL (Hidden on Desktop lg:) */}
       <nav
         aria-label="Principal Mobile & Tablet Bottom Navigation"
-        className="z-50 shrink-0 border-t border-border/85 bg-background/95 pb-[var(--safe-bottom)] backdrop-blur-xl lg:hidden"
+        className="z-50 shrink-0 border-t border-border/50 bg-background/95 pb-[var(--safe-bottom)] backdrop-blur-xl lg:hidden"
       >
-        <div className="mx-auto grid h-[58px] max-w-xl grid-cols-5 items-center px-1.5">
+        <div className="mx-auto grid h-[60px] max-w-xl grid-cols-5 items-center px-1.5">
           {(
             [
               {
@@ -4634,24 +4635,35 @@ export function PrincipalDashboard() {
                   }
                 }}
                 className={cn(
-                  'flex flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-colors',
-                  active ? 'text-lime' : 'text-muted-foreground hover:text-foreground',
+                  'flex flex-col items-center justify-center gap-1 py-1 transition-all duration-150 active:scale-95',
+                  active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
                 )}
               >
                 <span
                   className={cn(
-                    'relative flex h-7 w-12 items-center justify-center rounded-full transition-all',
-                    active && 'bg-lime/15',
+                    'relative flex h-8 w-12 items-center justify-center rounded-full transition-all duration-150',
+                    active && 'bg-foreground/10 dark:bg-white/12',
                   )}
                 >
-                  <tab.icon className="size-4" aria-hidden="true" />
+                  <tab.icon
+                    className="size-[20px]"
+                    strokeWidth={active ? 2.4 : 1.75}
+                    aria-hidden="true"
+                  />
                   {tab.badge > 0 ? (
-                    <span className="absolute -top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 font-mono text-[9.5px] font-bold text-white tabular-nums">
+                    <span className="absolute -top-0.5 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 font-mono text-[9.5px] font-bold text-white tabular-nums">
                       {tab.badge}
                     </span>
                   ) : null}
                 </span>
-                <span className="text-[10.5px] font-semibold leading-none">{tab.label}</span>
+                <span
+                  className={cn(
+                    'text-[10.5px] leading-none',
+                    active ? 'font-bold text-foreground' : 'font-medium',
+                  )}
+                >
+                  {tab.label}
+                </span>
               </button>
             )
           })}

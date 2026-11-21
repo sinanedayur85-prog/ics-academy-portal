@@ -421,18 +421,18 @@ export function AppUpdateBanner() {
         aria-label="Install ICS Academy on iPhone"
         className="fixed inset-x-3 bottom-4 z-[95] mx-auto max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300"
       >
-        <div className="flex items-start justify-between gap-3 rounded-2xl border border-lime/50 bg-[#121418]/95 p-3.5 text-white shadow-2xl backdrop-blur-md">
+        <div className="flex items-start justify-between gap-3 rounded-3xl bg-[#1C2227]/96 p-4 text-white shadow-2xl backdrop-blur-xl">
           <div className="flex min-w-0 items-start gap-3">
             <img
               src="/icons/apple-touch-icon.png"
               alt="ICS Academy App Icon"
-              className="size-11 shrink-0 rounded-xl border border-white/15 bg-white object-contain shadow-sm"
+              className="size-11 shrink-0 rounded-2xl bg-white object-contain shadow-sm"
             />
             <div className="min-w-0">
-              <p className="text-xs font-bold text-lime sm:text-sm">
+              <p className="text-sm font-bold text-[#0095F6]">
                 Install ICS Academy on iPhone
               </p>
-              <p className="mt-0.5 text-[11px] leading-snug text-white/85">
+              <p className="mt-0.5 text-xs leading-snug text-white/85">
                 Tap the Safari <strong>Share</strong> button below and select{' '}
                 <strong>&ldquo;Add to Home Screen&rdquo;</strong> to install the
                 app.
@@ -447,7 +447,7 @@ export function AppUpdateBanner() {
                 window.sessionStorage.setItem('ics_ios_install_dismissed', 'true')
               }
             }}
-            className="flex size-7 shrink-0 items-center justify-center rounded-lg text-white/70 transition hover:bg-white/10 hover:text-white"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full text-white/70 transition hover:bg-white/10 hover:text-white"
             aria-label="Close iPhone install guide"
           >
             <X className="size-4" />
@@ -467,17 +467,17 @@ export function AppUpdateBanner() {
       aria-label="App Update Available"
       className="fixed inset-x-3 bottom-4 z-[95] mx-auto max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300 sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-full"
     >
-      <div className="flex flex-col gap-2.5 rounded-2xl border border-lime/50 bg-[#121418]/95 p-3.5 text-white shadow-2xl backdrop-blur-md">
+      <div className="flex flex-col gap-3 rounded-3xl bg-[#1C2227]/96 p-4 text-white shadow-2xl backdrop-blur-xl">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-lime/20 text-lime">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-[#0095F6]/20 text-[#0095F6]">
               <Sparkles className="size-4" />
             </span>
             <div className="min-w-0">
-              <p className="truncate text-xs font-bold text-lime sm:text-sm">
+              <p className="truncate text-sm font-bold text-white">
                 New App Update (v{remote?.version || installed.version})
               </p>
-              <p className="line-clamp-1 text-[11px] text-white/80">
+              <p className="line-clamp-1 text-xs text-[#8E9AA4]">
                 {isUpdating
                   ? `Updating inside app (${updateProgress}%)...`
                   : 'Tap Update Now to apply directly inside the app.'}
@@ -490,10 +490,10 @@ export function AppUpdateBanner() {
               type="button"
               onClick={triggerAppUpdate}
               disabled={isUpdating}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-lime px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-lime/90 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#0095F6] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-[#1877F2] active:scale-95 disabled:opacity-60"
             >
               <Download className="size-3.5 shrink-0" />
-              <span>{isUpdating ? `${updateProgress}%` : 'Update Now'}</span>
+              <span>{isUpdating ? `${updateProgress}%` : 'Update'}</span>
             </button>
             <button
               type="button"
@@ -506,7 +506,7 @@ export function AppUpdateBanner() {
                   )
                 }
               }}
-              className="flex size-8 items-center justify-center rounded-xl text-white/70 transition hover:bg-white/10 hover:text-white"
+              className="flex size-8 items-center justify-center rounded-full text-white/70 transition hover:bg-white/10 hover:text-white"
               aria-label="Dismiss update notification"
             >
               <X className="size-4" />
@@ -517,7 +517,7 @@ export function AppUpdateBanner() {
         {isUpdating && (
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
             <div
-              className="h-full rounded-full bg-lime transition-all duration-300"
+              className="h-full rounded-full bg-[#0095F6] transition-all duration-300"
               style={{ width: `${updateProgress}%` }}
             />
           </div>
@@ -558,8 +558,8 @@ export function AppUpdateButton({ className }: { className?: string }) {
         }}
         title="App Update & Version Check"
         className={cn(
-          'relative inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-border bg-card/80 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-lime/50 hover:bg-muted',
-          updateAvailable && 'border-lime/60 bg-lime/15 text-lime',
+          'relative inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-foreground transition-all hover:bg-accent active:scale-95',
+          updateAvailable && 'bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]',
           className,
         )}
       >
@@ -571,7 +571,7 @@ export function AppUpdateButton({ className }: { className?: string }) {
           {updateAvailable ? 'Update Available' : 'Update App'}
         </span>
         {updateAvailable && (
-          <span className="flex size-2 shrink-0 rounded-full bg-lime" />
+          <span className="flex size-2 shrink-0 rounded-full bg-[#0095F6]" />
         )}
       </button>
 
@@ -582,16 +582,17 @@ export function AppUpdateButton({ className }: { className?: string }) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="app-update-center-title"
-            className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/75 p-4 pt-[max(1rem,var(--safe-top))] pb-6 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex items-end justify-center overflow-y-auto bg-black/75 p-0 sm:items-center sm:p-4 backdrop-blur-md"
             onClick={() => setOpen(false)}
           >
             <div
-              className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-5 text-foreground shadow-2xl sm:p-6"
+              className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-[28px] sm:rounded-[28px] bg-popover p-5 pb-[max(1.5rem,var(--safe-bottom))] text-popover-foreground shadow-2xl sm:p-6"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-start justify-between gap-3 border-b border-border pb-4">
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-foreground/20 sm:hidden" />
+              <div className="flex items-start justify-between gap-3 pb-4">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lime/15 text-lime">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-[#0095F6]/15 text-[#0095F6]">
                     <Smartphone className="size-5" />
                   </div>
                   <div className="min-w-0">
@@ -609,24 +610,24 @@ export function AppUpdateButton({ className }: { className?: string }) {
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition hover:bg-accent hover:text-foreground"
                   aria-label="Close modal"
                 >
                   <X className="size-4" />
                 </button>
               </div>
 
-              <div className="mt-4 space-y-3.5 sm:space-y-4">
-                <div className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-muted/40 p-3.5 text-xs">
+              <div className="space-y-3.5 sm:space-y-4">
+                <div className="grid grid-cols-2 gap-3 rounded-2xl bg-card p-4 text-xs dark:bg-[#151B20]">
                   <div className="min-w-0">
                     <p className="text-muted-foreground">Installed Version</p>
-                    <p className="mt-0.5 truncate font-bold text-foreground">
+                    <p className="mt-1 truncate font-bold tabular-nums text-foreground">
                       v{installed.version} (Build #{installed.buildNumber})
                     </p>
                   </div>
                   <div className="min-w-0">
                     <p className="text-muted-foreground">Latest Release</p>
-                    <p className="mt-0.5 truncate font-bold text-lime">
+                    <p className="mt-1 truncate font-bold tabular-nums text-[#0077CC] dark:text-[#0095F6]">
                       {remote
                         ? `v${remote.version} (Build #${remote.buildNumber})`
                         : `v${installed.version} (Build #${installed.buildNumber})`}
@@ -634,12 +635,12 @@ export function AppUpdateButton({ className }: { className?: string }) {
                   </div>
                 </div>
 
-                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 px-3.5 py-3 text-xs">
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl bg-card px-4 py-3.5 text-xs dark:bg-[#151B20]">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-foreground">
                       Auto-Check for Updates
                     </p>
-                    <p className="text-[11px] leading-snug text-muted-foreground">
+                    <p className="text-xs leading-snug text-muted-foreground">
                       Automatically update &amp; notify inside the app
                     </p>
                   </div>
@@ -647,19 +648,19 @@ export function AppUpdateButton({ className }: { className?: string }) {
                     type="checkbox"
                     checked={autoCheckEnabled}
                     onChange={(e) => toggleAutoCheck(e.target.checked)}
-                    className="size-4 shrink-0 accent-lime"
+                    className="size-4 shrink-0 accent-[#0095F6]"
                   />
                 </label>
 
                 {isUpdating && (
-                  <div className="space-y-1.5 rounded-xl border border-lime/40 bg-lime/10 p-3">
-                    <div className="flex items-center justify-between text-xs font-semibold text-lime">
+                  <div className="space-y-2 rounded-2xl bg-[#0095F6]/12 p-3.5">
+                    <div className="flex items-center justify-between text-xs font-semibold text-[#0095F6]">
                       <span>Updating inside app...</span>
-                      <span>{updateProgress}%</span>
+                      <span className="tabular-nums">{updateProgress}%</span>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-black/30">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-foreground/10">
                       <div
-                        className="h-full rounded-full bg-lime transition-all duration-300"
+                        className="h-full rounded-full bg-[#0095F6] transition-all duration-300"
                         style={{ width: `${updateProgress}%` }}
                       />
                     </div>
@@ -669,13 +670,13 @@ export function AppUpdateButton({ className }: { className?: string }) {
                 {statusMessage && (
                   <div
                     className={cn(
-                      'flex items-start gap-2 rounded-xl border p-3 text-xs leading-relaxed',
+                      'flex items-start gap-2.5 rounded-2xl p-3.5 text-xs leading-relaxed',
                       updateAvailable
-                        ? 'border-lime/40 bg-lime/10 text-lime'
-                        : 'border-border bg-muted/40 text-muted-foreground',
+                        ? 'bg-[#0095F6]/12 text-[#0077CC] dark:text-[#0095F6]'
+                        : 'bg-card text-muted-foreground dark:bg-[#151B20]',
                     )}
                   >
-                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-lime" />
+                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[#0095F6]" />
                     <span className="min-w-0 flex-1 break-words">{statusMessage}</span>
                   </div>
                 )}
@@ -685,7 +686,7 @@ export function AppUpdateButton({ className }: { className?: string }) {
                     type="button"
                     onClick={triggerAppUpdate}
                     disabled={isUpdating}
-                    className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-lime px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-lime/90 disabled:opacity-60"
+                    className="inline-flex min-h-[46px] w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#0095F6] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#1877F2] active:scale-[0.98] disabled:opacity-60"
                   >
                     <Download className="size-4 shrink-0" />
                     <span>
@@ -701,7 +702,7 @@ export function AppUpdateButton({ className }: { className?: string }) {
                     type="button"
                     onClick={() => checkForUpdates(true)}
                     disabled={isChecking || isUpdating}
-                    className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-xl border border-border bg-muted/50 px-4 py-2.5 text-xs font-semibold text-foreground transition hover:bg-muted disabled:opacity-60"
+                    className="inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-card px-4 py-2.5 text-xs font-semibold text-foreground transition hover:bg-accent active:scale-[0.98] disabled:opacity-60 dark:bg-[#151B20]"
                   >
                     <RefreshCw
                       className={cn('size-3.5 shrink-0', isChecking && 'animate-spin')}

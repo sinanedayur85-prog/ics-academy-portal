@@ -1003,11 +1003,11 @@ export function ParentReportModal({
       aria-labelledby="parent-report-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 backdrop-blur-sm sm:p-5 print:static print:bg-white print:p-0"
     >
-      <div className="flex h-[94vh] max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl print:h-auto print:max-h-none print:max-w-none print:rounded-none print:border-0 print:bg-white print:shadow-none">
+      <div className="flex h-[94vh] max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] bg-popover shadow-2xl print:h-auto print:max-h-none print:max-w-none print:rounded-none print:border-0 print:bg-white print:shadow-none">
         {/* Top Action Bar (Hidden when printing) */}
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-background/95 px-5 py-3.5 print:hidden no-print">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border/40 bg-popover px-5 py-3.5 print:hidden no-print">
           <div className="flex items-center gap-2.5">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-lime/15 text-lime">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]">
               <FileText className="size-5" aria-hidden="true" />
             </span>
             <div>
@@ -1036,16 +1036,16 @@ export function ParentReportModal({
                 type="date"
                 value={reportDate}
                 onChange={(e) => setReportDate(e.target.value || getTodayDateString())}
-                className="h-9 w-38 rounded-xl text-xs tabular-nums"
+                className="h-9 w-38 rounded-full text-xs tabular-nums"
               />
             </div>
 
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={handlePrintReport}
-              className="h-9 rounded-xl px-3.5 text-xs font-semibold"
+              className="h-9 rounded-full px-3.5 text-xs font-semibold"
             >
               <Printer className="mr-1.5 size-3.5" aria-hidden="true" />
               Print Report
@@ -1056,7 +1056,7 @@ export function ParentReportModal({
               size="sm"
               disabled={downloading}
               onClick={() => void handleDownloadPdf()}
-              className="h-9 rounded-xl px-4 text-xs font-semibold"
+              className="h-9 rounded-full bg-[#0095F6] px-4 text-xs font-semibold text-white hover:bg-[#0077CC]"
             >
               {downloading ? (
                 <Loader2 className="mr-1.5 size-3.5 animate-spin" aria-hidden="true" />
@@ -1070,7 +1070,7 @@ export function ParentReportModal({
               type="button"
               onClick={onClose}
               aria-label="Close report preview"
-              className="flex size-9 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="flex size-9 items-center justify-center rounded-full bg-muted/75 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <X className="size-4" aria-hidden="true" />
             </button>
@@ -1078,7 +1078,7 @@ export function ParentReportModal({
         </div>
 
         {downloadedToast ? (
-          <div className="flex shrink-0 items-center gap-2 border-b border-lime/30 bg-lime/10 px-5 py-2 text-xs font-semibold text-emerald-700 dark:text-lime print:hidden no-print">
+          <div className="flex shrink-0 items-center gap-2 bg-emerald-500/15 px-5 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400 print:hidden no-print">
             <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
             <span>{downloadedToast}</span>
           </div>

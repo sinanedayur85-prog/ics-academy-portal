@@ -154,35 +154,35 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
   }
 
   return (
-    <div className="lg:min-h-svh bg-background transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#0A0B0E] dark:to-[#060709] max-lg:fixed max-lg:inset-0 max-lg:flex max-lg:flex-col max-lg:overflow-hidden lg:pl-64">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-background pt-[var(--safe-top)] transition-colors duration-300 lg:flex">
-        <Link href="/" className="flex h-20 items-center gap-3 border-b border-border px-6" aria-label="ICS Academy Manhappatta home">
+    <div className="lg:min-h-svh bg-background transition-colors duration-200 max-lg:fixed max-lg:inset-0 max-lg:flex max-lg:flex-col max-lg:overflow-hidden lg:pl-64">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-background pt-[var(--safe-top)] transition-colors duration-200 lg:flex dark:bg-[#0B1014]">
+        <Link href="/" className="flex h-20 items-center gap-3 px-6 active:opacity-80" aria-label="ICS Academy Manhappatta home">
           <BrandLogoMark className="h-10 w-auto" />
           <BrandWordmark
             className="pt-[2px]"
             gapClassName="gap-[1px]"
             topClassName="translate-y-[1px] text-lg font-bold text-foreground leading-none"
-            bottomClassName="text-[10px] font-semibold text-lime leading-none"
+            bottomClassName="text-[10px] font-semibold text-[#0077CC] dark:text-[#0095F6] leading-none"
           />
         </Link>
 
-        <nav aria-label="Dashboard" className="flex flex-1 flex-col gap-1 p-4">
-          <p className="px-3 pb-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        <nav aria-label="Dashboard" className="flex flex-1 flex-col gap-1 px-3 py-2">
+          <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             {isClassLeader ? "Da'wa College • Class Leader" : "Da'wa College"}
           </p>
           {navItems.map((item) => (
             <a
               key={item.href}
               href={item.href}
-              className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground"
+              className="group flex items-center gap-3.5 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-muted-foreground transition-all duration-150 hover:bg-card hover:text-foreground active:scale-[0.98]"
             >
-              <item.icon className="size-4 transition-colors group-hover:text-lime" aria-hidden="true" />
+              <item.icon className="size-[19px] stroke-[1.85] transition-colors group-hover:text-[#0095F6]" aria-hidden="true" />
               {item.label}
             </a>
           ))}
         </nav>
 
-        <div className="border-t border-border p-4">
+        <div className="p-3">
           <Link
             href="/"
             onClick={(event) => {
@@ -194,34 +194,34 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
               window.localStorage.removeItem('authRole')
               window.dispatchEvent(new CustomEvent('ics-logout'))
             }}
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex items-center gap-3.5 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
           >
-            <LogOut className="size-4" aria-hidden="true" />
+            <LogOut className="size-[19px] stroke-[1.85]" aria-hidden="true" />
             Log out
           </Link>
         </div>
       </aside>
 
-      <header className="z-40 shrink-0 border-b border-border bg-background/95 pt-[var(--safe-top)] backdrop-blur-md transition-colors duration-300 lg:sticky lg:top-0">
-        <div className="flex h-16 sm:h-20 items-center justify-between gap-2 px-3 sm:gap-4 sm:px-5 md:px-8">
-          <Link href="/" className="flex shrink-0 items-center gap-2 sm:gap-3 lg:hidden" aria-label="ICS Academy Manhappatta home">
+      <header className="z-40 shrink-0 bg-background/95 pt-[var(--safe-top)] backdrop-blur-xl transition-colors duration-200 lg:sticky lg:top-0">
+        <div className="flex h-16 sm:h-20 items-center justify-between gap-2 px-3.5 sm:gap-4 sm:px-5 md:px-8">
+          <Link href="/" className="flex shrink-0 items-center gap-2.5 sm:gap-3 lg:hidden active:opacity-80" aria-label="ICS Academy Manhappatta home">
             <BrandLogoMark className="h-8 sm:h-10 w-auto shrink-0" />
             <BrandWordmark
               className="pt-[2px]"
               gapClassName="gap-[1px]"
               topClassName="translate-y-[1px] text-[15px] sm:text-lg font-bold text-foreground leading-none"
-              bottomClassName="text-[8.5px] sm:text-[10px] font-semibold text-lime leading-none"
+              bottomClassName="text-[8.5px] sm:text-[10px] font-semibold text-[#0077CC] dark:text-[#0095F6] leading-none"
             />
           </Link>
           <div className="hidden lg:block">
-            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               {isClassLeader ? 'Class Leader Dashboard' : 'Student Dashboard'}
             </p>
-            <p className="text-sm text-foreground">Academic year 2026–27</p>
+            <p className="text-sm font-medium text-foreground">Academic year 2026–27</p>
           </div>
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
             <AppUpdateButton />
-            <ThemeToggle className="text-foreground/85 hover:text-foreground dark:text-white/90 dark:hover:text-white" />
+            <ThemeToggle />
             <StudentSwitcher student={student} />
           </div>
         </div>
@@ -259,7 +259,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
         >
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-lime">
+              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#0077CC] dark:text-[#0095F6]">
                 {isClassLeader ? 'Class Leader' : 'Student'}
               </p>
               {isClassLeader && (
@@ -272,7 +272,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
                       setMobileAttendanceSubTab('class-leader')
                     }
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-xs font-bold tracking-wide text-cyan transition-colors hover:bg-cyan/25"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#0095F6]/14 px-3 py-0.5 text-xs font-semibold tracking-wide text-[#0077CC] dark:text-[#0095F6] transition-colors hover:bg-[#0095F6]/22"
                 >
                   <UserCheck className="size-3.5" aria-hidden="true" />
                   {leaderId}
@@ -289,16 +289,16 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
                 role="status"
                 aria-live="polite"
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold tracking-wide transition-colors duration-300',
+                  'inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-xs font-semibold tracking-wide transition-colors duration-200',
                   isOnLeave
-                    ? 'border-red-500/40 bg-red-500/15 text-red-600 dark:border-red-400/40 dark:bg-red-500/20 dark:text-red-400'
-                    : 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:border-lime/40 dark:bg-lime/15 dark:text-lime',
+                    ? 'bg-red-500/15 text-red-600 dark:bg-red-500/20 dark:text-red-400'
+                    : 'bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
                 )}
               >
                 <span
                   className={cn(
                     'size-2 rounded-full',
-                    isOnLeave ? 'bg-red-500 animate-pulse' : 'bg-emerald-500 dark:bg-lime',
+                    isOnLeave ? 'bg-red-500 animate-pulse' : 'bg-emerald-500',
                   )}
                   aria-hidden="true"
                 />
@@ -309,7 +309,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
               {student.avatarUrl && (
                 <StudentAvatar
                   student={student}
-                  className="size-14 sm:size-16 ring-2 ring-lime/45 shadow-md"
+                  className="size-14 sm:size-16"
                 />
               )}
               <h1 className="flex flex-col font-display leading-tight text-foreground">
@@ -321,15 +321,15 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-sans text-xs text-muted-foreground sm:text-sm">
             <p>
-              Class <span className="font-medium text-foreground">{student.className}</span>
+              Class <span className="font-semibold text-foreground">{student.className}</span>
             </p>
             <p>
-              ID <span className="font-mono font-medium tabular-nums text-foreground">{student.admissionNo}</span>
+              ID <span className="font-mono font-semibold tabular-nums text-foreground">{student.admissionNo}</span>
             </p>
             {classLeaders.length > 0 && (
               <p>
                 Leaders:{' '}
-                <span className="font-medium text-cyan">
+                <span className="font-semibold text-[#0077CC] dark:text-[#0095F6]">
                   {classLeaders
                     .map((cl) => cl.studentName)
                     .join(' & ')}
@@ -339,22 +339,22 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
           </div>
         </div>
 
-        {/* 1. HOME / NOTICE BOARD & STUDENT ACADEMIC HUB (Monthly Tests, Star of the Month, Jamiathul Hind Syllabus, Holiday Da'wa, Private Conduct & Zadul Khair PDF) */}
-        <div className={cn(mobileTab === 'home' ? 'space-y-6 block' : 'hidden lg:block lg:space-y-6')}>
+        {/* 1. HOME / NOTICE BOARD & STUDENT ACADEMIC HUB */}
+        <div className={cn(mobileTab === 'home' ? 'space-y-5 block' : 'hidden lg:block lg:space-y-6')}>
           <NoticeBoard studentClass={student.className} />
           <StudentAcademicHub student={student} isClassLeader={isClassLeader} />
         </div>
 
         {/* 2. ATTENDANCE TAB (With Class Leader Sub-Switcher on Phone/Tablet) */}
         {isClassLeader && mobileTab === 'attendance' ? (
-          <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-border bg-card/85 p-1.5 shadow-xs lg:hidden">
+          <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-card p-1.5 lg:hidden">
             <button
               type="button"
               onClick={() => setMobileAttendanceSubTab('personal')}
               className={cn(
-                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all',
+                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all active:scale-[0.98]',
                 mobileAttendanceSubTab === 'personal'
-                  ? 'bg-lime text-primary-foreground shadow-xs'
+                  ? 'bg-[#0095F6] text-white'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
@@ -365,9 +365,9 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
               type="button"
               onClick={() => setMobileAttendanceSubTab('class-leader')}
               className={cn(
-                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all',
+                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all active:scale-[0.98]',
                 mobileAttendanceSubTab === 'class-leader'
-                  ? 'bg-cyan text-[#062023] shadow-xs'
+                  ? 'bg-[#0095F6] text-white'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
@@ -434,7 +434,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
 
         {/* 5. LIBRARY, TIMETABLE & UNIVERSITY PORTAL TAB */}
         {mobileTab === 'library' ? (
-          <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-border bg-card/85 p-1.5 shadow-xs sm:grid-cols-4 lg:hidden">
+          <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-card p-1.5 sm:grid-cols-4 lg:hidden">
             {(
               [
                 { id: 'digital-library', label: 'Digital Kitabs', icon: Library },
@@ -450,9 +450,9 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
                   type="button"
                   onClick={() => setMobileResourceSubTab(sub.id)}
                   className={cn(
-                    'flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-semibold transition-all',
+                    'flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2.5 text-xs font-semibold transition-all active:scale-[0.98]',
                     active
-                      ? 'bg-lime text-primary-foreground shadow-xs'
+                      ? 'bg-[#0095F6] text-white'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                 >
@@ -506,105 +506,105 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
         </main>
       </div>
 
-      {/* PHONE & TABLET BOTTOM NAVIGATION MENU BAR (Hidden on Desktop lg:) */}
+      {/* INSTAGRAM-STYLE PHONE & TABLET BOTTOM NAVIGATION BAR */}
       <nav
         aria-label="Mobile & Tablet Bottom Navigation"
-        className="z-50 shrink-0 border-t border-border/85 bg-background/95 pb-[var(--safe-bottom)] backdrop-blur-xl lg:hidden"
+        className="z-50 shrink-0 bg-background/96 pb-[var(--safe-bottom)] backdrop-blur-xl lg:hidden dark:bg-[#0B1014]/96"
       >
-        <div className="mx-auto grid h-[58px] max-w-xl grid-cols-6 items-center px-1">
+        <div className="mx-auto grid h-[62px] max-w-xl grid-cols-6 items-center px-1.5">
           <button
             type="button"
             onClick={() => selectMobileTab('home')}
             className={cn(
-              'flex flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-colors',
+              'flex flex-col items-center justify-center gap-1 rounded-2xl py-1 transition-all active:scale-90',
               mobileTab === 'home'
-                ? 'text-lime'
+                ? 'text-foreground'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
             <span
               className={cn(
-                'flex h-7 w-10 items-center justify-center rounded-full transition-all',
-                mobileTab === 'home' && 'bg-lime/15',
+                'flex h-8 w-12 items-center justify-center rounded-full transition-all',
+                mobileTab === 'home' && 'bg-foreground/10 dark:bg-white/12',
               )}
             >
-              <Megaphone className="size-4" aria-hidden="true" />
+              <Megaphone className={cn('size-[20px]', mobileTab === 'home' ? 'stroke-[2.4]' : 'stroke-[1.85]')} aria-hidden="true" />
             </span>
-            <span className="text-[10px] font-semibold leading-none">Notices</span>
+            <span className={cn('text-[10.5px] leading-none', mobileTab === 'home' ? 'font-bold' : 'font-medium')}>Notices</span>
           </button>
 
           <button
             type="button"
             onClick={() => selectMobileTab('attendance')}
             className={cn(
-              'flex flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-colors',
+              'flex flex-col items-center justify-center gap-1 rounded-2xl py-1 transition-all active:scale-90',
               mobileTab === 'attendance'
-                ? 'text-lime'
+                ? 'text-foreground'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
             <span
               className={cn(
-                'relative flex h-7 w-10 items-center justify-center rounded-full transition-all',
-                mobileTab === 'attendance' && 'bg-lime/15',
+                'relative flex h-8 w-12 items-center justify-center rounded-full transition-all',
+                mobileTab === 'attendance' && 'bg-foreground/10 dark:bg-white/12',
               )}
             >
-              <CalendarCheck className="size-4" aria-hidden="true" />
+              <CalendarCheck className={cn('size-[20px]', mobileTab === 'attendance' ? 'stroke-[2.4]' : 'stroke-[1.85]')} aria-hidden="true" />
               {isClassLeader ? (
-                <span className="absolute -top-0.5 right-1 size-2 rounded-full bg-cyan" />
+                <span className="absolute top-1 right-2 size-2 rounded-full bg-[#0095F6]" />
               ) : null}
             </span>
-            <span className="text-[10px] font-semibold leading-none">Attendance</span>
+            <span className={cn('text-[10.5px] leading-none', mobileTab === 'attendance' ? 'font-bold' : 'font-medium')}>Attendance</span>
           </button>
 
-          {/* Campus Chat (WhatsApp-Style Messenger for Usthads & Students) */}
+          {/* Campus Messenger */}
           <button
             type="button"
             onClick={() => selectMobileTab('campus-chat')}
             className={cn(
-              'flex flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-colors',
+              'flex flex-col items-center justify-center gap-1 rounded-2xl py-1 transition-all active:scale-90',
               mobileTab === 'campus-chat'
-                ? 'text-lime'
+                ? 'text-foreground'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
             <span
               className={cn(
-                'relative flex h-7 w-10 items-center justify-center rounded-full transition-all',
-                mobileTab === 'campus-chat' && 'bg-lime/15',
+                'relative flex h-8 w-12 items-center justify-center rounded-full transition-all',
+                mobileTab === 'campus-chat' && 'bg-foreground/10 dark:bg-white/12',
               )}
             >
-              <MessageCircle className="size-4" aria-hidden="true" />
-              <span className="absolute -top-0.5 right-1 size-2 rounded-full bg-emerald-500" />
+              <MessageCircle className={cn('size-[20px]', mobileTab === 'campus-chat' ? 'stroke-[2.4]' : 'stroke-[1.85]')} aria-hidden="true" />
+              <span className="absolute top-1 right-2 size-2 rounded-full bg-[#0095F6]" />
             </span>
-            <span className="text-[10px] font-semibold leading-none">Chat</span>
+            <span className={cn('text-[10.5px] leading-none', mobileTab === 'campus-chat' ? 'font-bold' : 'font-medium')}>Chat</span>
           </button>
 
-          {/* Gemini AI Chatbot Tab */}
+          {/* AI Chat Tab (Instagram Purple-Blue Gradient) */}
           <button
             type="button"
             onClick={() => selectMobileTab('chatbot')}
             className={cn(
-              'flex flex-col items-center justify-center gap-1 py-1 transition-all',
+              'flex flex-col items-center justify-center gap-1 py-1 transition-all active:scale-90',
               mobileTab === 'chatbot'
-                ? 'text-lime'
+                ? 'text-[#0095F6]'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
             <span
               className={cn(
-                'flex h-8 w-11 items-center justify-center rounded-2xl border transition-all duration-200',
+                'flex h-8 w-12 items-center justify-center rounded-full transition-all duration-200',
                 mobileTab === 'chatbot'
-                  ? 'border-lime/60 bg-lime text-primary-foreground shadow-md shadow-lime/25 scale-105'
-                  : 'border-lime/35 bg-lime/10 text-lime hover:bg-lime/20',
+                  ? 'bg-gradient-to-tr from-[#7C3AED] via-[#4F46E5] to-[#0095F6] text-white scale-105'
+                  : 'bg-[#0095F6]/12 text-[#0077CC] dark:text-[#0095F6]',
               )}
             >
-              <Sparkles className="size-4" aria-hidden="true" />
+              <Sparkles className="size-[19px] stroke-[2.1]" aria-hidden="true" />
             </span>
             <span
               className={cn(
-                'text-[10px] font-bold leading-none',
-                mobileTab === 'chatbot' ? 'text-lime' : 'text-foreground/90',
+                'text-[10.5px] leading-none',
+                mobileTab === 'chatbot' ? 'font-bold text-[#0095F6]' : 'font-medium text-foreground/85',
               )}
             >
               AI Chat
@@ -615,48 +615,48 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
             type="button"
             onClick={() => selectMobileTab('leave')}
             className={cn(
-              'flex flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-colors',
+              'flex flex-col items-center justify-center gap-1 rounded-2xl py-1 transition-all active:scale-90',
               mobileTab === 'leave'
-                ? 'text-lime'
+                ? 'text-foreground'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
             <span
               className={cn(
-                'relative flex h-7 w-12 items-center justify-center rounded-full transition-all',
-                mobileTab === 'leave' && 'bg-lime/15',
+                'relative flex h-8 w-12 items-center justify-center rounded-full transition-all',
+                mobileTab === 'leave' && 'bg-foreground/10 dark:bg-white/12',
               )}
             >
-              <ClipboardList className="size-4" aria-hidden="true" />
+              <ClipboardList className={cn('size-[20px]', mobileTab === 'leave' ? 'stroke-[2.4]' : 'stroke-[1.85]')} aria-hidden="true" />
               <span
                 className={cn(
-                  'absolute -top-0.5 right-1.5 size-2 rounded-full',
-                  isOnLeave ? 'bg-red-500 animate-pulse' : 'bg-emerald-500 dark:bg-lime',
+                  'absolute top-1 right-2 size-2 rounded-full',
+                  isOnLeave ? 'bg-red-500 animate-pulse' : 'bg-emerald-500',
                 )}
               />
             </span>
-            <span className="text-[10.5px] font-semibold leading-none">Leave</span>
+            <span className={cn('text-[10.5px] leading-none', mobileTab === 'leave' ? 'font-bold' : 'font-medium')}>Leave</span>
           </button>
 
           <button
             type="button"
             onClick={() => selectMobileTab('library')}
             className={cn(
-              'flex flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-colors',
+              'flex flex-col items-center justify-center gap-1 rounded-2xl py-1 transition-all active:scale-90',
               mobileTab === 'library'
-                ? 'text-lime'
+                ? 'text-foreground'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
             <span
               className={cn(
-                'flex h-7 w-12 items-center justify-center rounded-full transition-all',
-                mobileTab === 'library' && 'bg-lime/15',
+                'flex h-8 w-12 items-center justify-center rounded-full transition-all',
+                mobileTab === 'library' && 'bg-foreground/10 dark:bg-white/12',
               )}
             >
-              <Library className="size-4" aria-hidden="true" />
+              <Library className={cn('size-[20px]', mobileTab === 'library' ? 'stroke-[2.4]' : 'stroke-[1.85]')} aria-hidden="true" />
             </span>
-            <span className="text-[10.5px] font-semibold leading-none">Library</span>
+            <span className={cn('text-[10.5px] leading-none', mobileTab === 'library' ? 'font-bold' : 'font-medium')}>Library</span>
           </button>
         </div>
       </nav>

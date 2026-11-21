@@ -17,18 +17,18 @@ export function Panel({ id, title, eyebrow, icon: Icon, action, className, child
       id={id}
       aria-labelledby={`${id}-title`}
       className={cn(
-        'scroll-mt-24 overflow-hidden rounded-2xl border border-border bg-card p-4 transition-colors duration-300 hover:border-foreground/15 sm:p-5 md:p-6',
+        'scroll-mt-24 overflow-hidden rounded-3xl bg-card p-4 transition-colors duration-200 sm:p-5 md:p-6',
         className,
       )}
     >
       <header className="mb-5 flex flex-wrap items-start justify-between gap-3 sm:items-center sm:gap-4">
-        <div className="flex min-w-0 max-w-full items-center gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-lime">
-            <Icon className="size-5" aria-hidden="true" />
+        <div className="flex min-w-0 max-w-full items-center gap-3.5">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-[#0095F6]/12 text-[#0077CC] dark:text-[#0095F6]">
+            <Icon className="size-5 stroke-[1.9]" aria-hidden="true" />
           </span>
           <div className="min-w-0">
             {eyebrow ? (
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground sm:text-[0.7rem] sm:tracking-[0.18em]">
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground sm:text-xs">
                 {eyebrow}
               </p>
             ) : null}
@@ -48,4 +48,4 @@ export function Panel({ id, title, eyebrow, icon: Icon, action, className, child
 }
 
 export const fieldClassName =
-  'h-11 w-full min-w-0 rounded-lg border border-input bg-input/30 px-3 text-sm text-foreground transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive dark:[color-scheme:dark]'
+  'h-11 w-full min-w-0 rounded-xl border-0 bg-muted px-3.5 text-sm text-foreground transition-colors outline-none placeholder:text-muted-foreground focus-visible:bg-accent dark:bg-[#1C2227] dark:focus-visible:bg-[#242C33] dark:[color-scheme:dark]'

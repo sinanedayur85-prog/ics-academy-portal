@@ -1350,7 +1350,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
           <button
             type="button"
             onClick={() => setShowUploadForm((prev) => !prev)}
-            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-background/80 px-3 text-xs font-medium text-foreground transition-colors hover:border-lime/40 hover:bg-muted whitespace-nowrap shrink-0 sm:w-auto"
+            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full bg-muted/75 px-3.5 text-xs font-semibold text-foreground transition-all hover:bg-muted active:scale-[0.98] whitespace-nowrap shrink-0 sm:w-auto"
           >
             {showUploadForm ? (
               <>
@@ -1359,7 +1359,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
               </>
             ) : (
               <>
-                <Plus className="size-3.5 text-lime" aria-hidden="true" />
+                <Plus className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                 Add PDF
               </>
             )}
@@ -1369,7 +1369,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
     >
       {/* Top Summary & Search Bar */}
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col justify-between gap-2.5 border-b border-border/70 pb-4 lg:flex-row lg:items-center">
+        <div className="flex flex-col justify-between gap-2.5 border-b border-border/40 pb-4 lg:flex-row lg:items-center">
           <p className="text-sm leading-relaxed text-muted-foreground">
             Read and download Kitab PDFs.
           </p>
@@ -1380,7 +1380,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
             {storageBucketFiles.length > 0 ? (
               <>
                 {' · '}
-                <span className="font-semibold text-lime">{storageBucketFiles.length}</span> cloud
+                <span className="font-semibold text-[#0077CC] dark:text-[#0095F6]">{storageBucketFiles.length}</span> cloud
               </>
             ) : null}
           </p>
@@ -1390,7 +1390,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
         {showUploadForm ? (
           <form
             onSubmit={handleUploadCustomKitab}
-            className="rounded-xl border border-border bg-background/60 p-4 md:p-5"
+            className="rounded-2xl bg-muted/40 p-4 md:p-5"
           >
             <div className="mb-4 flex items-center justify-between gap-2">
               <div>
@@ -1531,14 +1531,14 @@ export function DigitalLibrary({ student }: { student: Student }) {
                       })
                     }
                   }}
-                  className="flex h-11 w-full items-center rounded-lg border border-input bg-input/30 px-3 py-2 text-xs text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-foreground"
+                  className="flex h-11 w-full items-center rounded-xl border-0 bg-muted/70 px-3 py-2 text-xs text-muted-foreground file:mr-3 file:rounded-full file:border-0 file:bg-card file:px-3 file:py-1 file:text-xs file:font-semibold file:text-foreground"
                 />
               </div>
             </div>
 
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               {uploadStatusMsg ? (
-                <p className="text-xs font-medium text-lime">{uploadStatusMsg}</p>
+                <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{uploadStatusMsg}</p>
               ) : (
                 <p className="break-all text-xs text-muted-foreground">
                   Destination bucket: <span className="font-mono">pelagic-seeker-f01dl.firebasestorage.app</span>
@@ -1547,7 +1547,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
               <Button
                 type="submit"
                 disabled={uploading}
-                className="h-9 w-full rounded-lg px-4 text-xs font-semibold whitespace-nowrap shrink-0 sm:w-auto"
+                className="h-9 w-full rounded-full bg-[#0095F6] px-4 text-xs font-semibold text-white hover:bg-[#0077CC] whitespace-nowrap shrink-0 sm:w-auto"
               >
                 {uploading ? (
                   <>
@@ -1593,7 +1593,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
                   setSearchQuery('')
                   searchInputRef.current?.focus()
                 }}
-                className="absolute top-1/2 right-2.5 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="absolute top-1/2 right-2.5 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <X className="size-4" aria-hidden="true" />
                 <span className="sr-only">Clear search</span>
@@ -1602,22 +1602,21 @@ export function DigitalLibrary({ student }: { student: Student }) {
           </div>
 
           <div className="flex items-center gap-2">
-
             <button
               type="button"
               aria-pressed={bookmarkedOnly}
               onClick={() => setBookmarkedOnly((prev) => !prev)}
               className={cn(
-                'inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border px-4 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 sm:flex-initial',
+                'inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full px-4 text-xs font-semibold transition-all active:scale-[0.98] whitespace-nowrap shrink-0 sm:flex-initial',
                 bookmarkedOnly
-                  ? 'border-lime/50 bg-lime/15 text-foreground'
-                  : 'border-border bg-background/60 text-muted-foreground hover:bg-muted hover:text-foreground',
+                  ? 'bg-[#0095F6] text-white'
+                  : 'bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground',
               )}
             >
               {bookmarkedOnly ? (
-                <BookmarkCheck className="size-4 text-lime" aria-hidden="true" />
+                <BookmarkCheck className="size-4 text-white" aria-hidden="true" />
               ) : (
-                <Bookmark className="size-4 text-lime" aria-hidden="true" />
+                <Bookmark className="size-4 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
               )}
               Saved ({bookmarkedIds.length})
             </button>
@@ -1629,7 +1628,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
           <div
             role="tablist"
             aria-label="Kitab subject categories"
-            className="flex gap-1.5 overflow-x-auto rounded-xl border border-border bg-background/60 p-1.5"
+            className="flex gap-1.5 overflow-x-auto rounded-2xl bg-muted/45 p-1.5"
           >
             {KITAB_CATEGORIES.map((category) => {
               const selected = activeCategory === category.id
@@ -1642,9 +1641,9 @@ export function DigitalLibrary({ student }: { student: Student }) {
                   aria-selected={selected}
                   onClick={() => setActiveCategory(category.id)}
                   className={cn(
-                    'flex h-9 items-center gap-2 rounded-lg px-3.5 text-xs font-medium transition-all duration-150 outline-none whitespace-nowrap shrink-0 focus-visible:ring-3 focus-visible:ring-ring/50',
+                    'flex h-9 items-center gap-2 rounded-full px-3.5 text-xs font-semibold transition-all duration-150 outline-none whitespace-nowrap shrink-0 active:scale-[0.98]',
                     selected
-                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      ? 'bg-[#0095F6] text-white shadow-xs'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                 >
@@ -1653,7 +1652,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
                     dir="rtl"
                     className={cn(
                       'font-arabic text-xs',
-                      selected ? 'text-primary-foreground/90' : 'text-muted-foreground',
+                      selected ? 'text-white/90' : 'text-muted-foreground',
                     )}
                   >
                     ({category.arabicLabel})
@@ -1661,7 +1660,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
                   <span
                     className={cn(
                       'text-[0.7rem] tabular-nums',
-                      selected ? 'text-primary-foreground/85' : 'text-muted-foreground',
+                      selected ? 'text-white/85' : 'text-muted-foreground',
                     )}
                   >
                     {count}
@@ -1677,9 +1676,9 @@ export function DigitalLibrary({ student }: { student: Student }) {
         /* Search-First Prompt — no Kitab names shown until student searches, opens Saved, or uploads a Kitab */
         <div
           id={searchResultsId}
-          className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-background/40 px-4 py-8 text-center"
+          className="mt-4 flex flex-col items-center gap-2 rounded-2xl bg-muted/40 px-4 py-8 text-center"
         >
-          <Search className="size-6 text-lime" aria-hidden="true" />
+          <Search className="size-6 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
           <p className="text-sm font-semibold text-foreground">
             Search to view & download Kitab PDF
           </p>
@@ -1688,7 +1687,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
             <button
               type="button"
               onClick={() => setBookmarkedOnly(true)}
-              className="font-semibold text-lime underline underline-offset-2"
+              className="font-semibold text-[#0077CC] dark:text-[#0095F6] underline underline-offset-2"
             >
               Saved ({bookmarkedIds.length})
             </button>{' '}
@@ -1722,7 +1721,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
                 setActiveCategory('all')
                 setBookmarkedOnly(false)
               }}
-              className="text-xs font-medium text-lime hover:underline whitespace-nowrap shrink-0"
+              className="text-xs font-semibold text-[#0077CC] dark:text-[#0095F6] hover:underline whitespace-nowrap shrink-0"
             >
               {bookmarkedOnly && !normalisedQuery ? 'Close Saved' : 'Clear search'}
             </button>
@@ -1746,13 +1745,13 @@ export function DigitalLibrary({ student }: { student: Student }) {
                 return (
                   <article
                     key={kitab.id}
-                    className="group flex min-w-0 flex-col justify-between overflow-hidden rounded-xl border border-border bg-background/50 p-4 transition-colors duration-200 hover:border-foreground/20 md:p-5"
+                    className="group flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl bg-muted/40 p-4 transition-colors duration-200 hover:bg-muted/65 md:p-5"
                   >
                     <div className="min-w-0">
                       {/* Unboxed Typographic Metadata Line */}
                       <div className="flex items-start justify-between gap-2">
                         <p className="min-w-0 flex-1 break-words text-xs font-medium leading-relaxed text-muted-foreground">
-                          <span className="font-semibold text-lime">{CATEGORY_LABELS[kitab.category]}</span>
+                          <span className="font-semibold text-[#0077CC] dark:text-[#0095F6]">{CATEGORY_LABELS[kitab.category]}</span>
                           {' · '}
                           <span className="tabular-nums">{kitab.pages} pp.</span>
                           {' · '}
@@ -1764,12 +1763,12 @@ export function DigitalLibrary({ student }: { student: Student }) {
                             type="button"
                             onClick={() => toggleBookmark(kitab.id)}
                             aria-label={isBookmarked ? `Remove ${kitab.title} from saved Kitabs` : `Save ${kitab.title}`}
-                            className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            className="inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                           >
                             {isBookmarked ? (
                               <>
-                                <BookmarkCheck className="size-4 text-lime" aria-hidden="true" />
-                                <span className="text-[0.7rem] font-semibold text-lime">Saved</span>
+                                <BookmarkCheck className="size-4 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
+                                <span className="text-[0.7rem] font-semibold text-[#0077CC] dark:text-[#0095F6]">Saved</span>
                               </>
                             ) : (
                               <Bookmark className="size-4" aria-hidden="true" />
@@ -1780,7 +1779,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
                               type="button"
                               onClick={() => void handleDeleteCustomKitab(kitab)}
                               aria-label={`Remove ${kitab.title}`}
-                              className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                              className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                             >
                               <Trash2 className="size-3.5" aria-hidden="true" />
                             </button>
@@ -1811,12 +1810,12 @@ export function DigitalLibrary({ student }: { student: Student }) {
                     </div>
 
                     {/* Footer: PDF Download & Preview Actions */}
-                    <div className="mt-4 flex flex-col gap-3 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="mt-4 flex flex-col gap-3 border-t border-border/40 pt-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex w-full min-w-0 items-center gap-1.5 text-[0.7rem] text-muted-foreground sm:w-auto">
-                        <FolderOpen className="size-3.5 shrink-0 text-lime" aria-hidden="true" />
+                        <FolderOpen className="size-3.5 shrink-0 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                         <span className="truncate font-mono">{kitab.storagePath}</span>
                         {isStorageVerified ? (
-                          <Check className="size-3.5 shrink-0 text-lime" aria-label="Synced with Firebase Storage" />
+                          <Check className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-label="Synced with Firebase Storage" />
                         ) : null}
                       </div>
 
@@ -1824,7 +1823,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
                         <button
                           type="button"
                           onClick={() => handleDownloadKitabPdf(kitab)}
-                          className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 whitespace-nowrap sm:h-8 sm:w-auto"
+                          className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full bg-[#0095F6] px-3.5 text-xs font-semibold text-white transition-all hover:bg-[#0077CC] active:scale-[0.98] whitespace-nowrap sm:h-8 sm:w-auto"
                         >
                           <Download className="size-3.5" aria-hidden="true" />
                           Download PDF
@@ -1833,9 +1832,9 @@ export function DigitalLibrary({ student }: { student: Student }) {
                         <button
                           type="button"
                           onClick={() => handleOpenReader(kitab, 'pdf')}
-                          className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:border-lime/40 hover:bg-muted whitespace-nowrap sm:h-8 sm:w-auto sm:px-2.5"
+                          className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full bg-card/90 px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted whitespace-nowrap sm:h-8 sm:w-auto sm:px-3"
                         >
-                          <BookOpen className="size-3.5 text-lime" aria-hidden="true" />
+                          <BookOpen className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                           View PDF
                         </button>
 
@@ -1844,10 +1843,10 @@ export function DigitalLibrary({ student }: { student: Student }) {
                           disabled={isSyncing}
                           onClick={() => void handleSyncKitabToStorage(kitab)}
                           title="Sync PDF & metadata with Firebase Storage and Firestore"
-                          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:border-lime/40 hover:text-foreground disabled:opacity-50 whitespace-nowrap sm:h-8 sm:px-2.5"
+                          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-card/90 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 whitespace-nowrap sm:h-8 sm:px-3"
                         >
                           {isSyncing ? (
-                            <Loader2 className="size-3.5 animate-spin text-lime" aria-hidden="true" />
+                            <Loader2 className="size-3.5 animate-spin text-[#0095F6]" aria-hidden="true" />
                           ) : (
                             <CloudUpload className="size-3.5" aria-hidden="true" />
                           )}
@@ -1863,7 +1862,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
             /* Empty Search / Empty Saved Result State */
             <div
               id={searchResultsId}
-              className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-background/40 px-4 py-10 text-center"
+              className="mt-4 flex flex-col items-center gap-2 rounded-2xl bg-muted/40 px-4 py-10 text-center"
             >
               <SearchX className="size-7 text-muted-foreground" aria-hidden="true" />
               <p className="text-sm font-semibold text-foreground">
@@ -1885,14 +1884,14 @@ export function DigitalLibrary({ student }: { student: Student }) {
                     setBookmarkedOnly(false)
                     searchInputRef.current?.focus()
                   }}
-                  className="inline-flex h-9 items-center rounded-lg border border-border bg-background px-3.5 text-xs font-medium text-foreground transition-colors hover:border-lime/40 hover:bg-muted whitespace-nowrap shrink-0"
+                  className="inline-flex h-9 items-center rounded-full bg-card px-4 text-xs font-semibold text-foreground transition-colors hover:bg-muted whitespace-nowrap shrink-0"
                 >
                   {bookmarkedOnly && !normalisedQuery ? 'Search Kitabs' : 'Clear search'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowUploadForm(true)}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-xs font-medium text-primary-foreground whitespace-nowrap shrink-0"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#0095F6] px-4 text-xs font-semibold text-white hover:bg-[#0077CC] whitespace-nowrap shrink-0"
                 >
                   <Plus className="size-3.5" aria-hidden="true" />
                   Add Kitab PDF
@@ -1916,17 +1915,17 @@ export function DigitalLibrary({ student }: { student: Student }) {
         >
           <div
             className={cn(
-              'flex w-full flex-col overflow-hidden border border-border bg-card shadow-2xl transition-all',
+              'flex w-full flex-col overflow-hidden bg-popover shadow-2xl transition-all',
               isReaderFullScreen
-                ? 'h-svh max-h-svh max-w-none rounded-none border-0'
-                : 'max-h-[92svh] max-w-4xl rounded-2xl',
+                ? 'h-svh max-h-svh max-w-none rounded-none'
+                : 'max-h-[92svh] max-w-4xl rounded-[28px]',
             )}
           >
             {/* Modal Header */}
-            <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3.5 sm:px-5 sm:py-4 md:px-6">
+            <div className="flex items-start justify-between gap-3 border-b border-border/40 px-4 py-3.5 sm:px-5 sm:py-4 md:px-6">
               <div className="min-w-0 flex-1">
                 <p className="break-words text-xs leading-relaxed text-muted-foreground">
-                  <span className="font-semibold text-lime">
+                  <span className="font-semibold text-[#0077CC] dark:text-[#0095F6]">
                     {CATEGORY_LABELS[activeReaderKitab.category]}
                   </span>
                   {' · '}
@@ -1953,7 +1952,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
                   setIsReaderFullScreen(false)
                   setActiveReaderKitab(null)
                 }}
-                className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted/75 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <X className="size-4" aria-hidden="true" />
                 <span className="sr-only">Close Kitab reader</span>
@@ -1961,16 +1960,16 @@ export function DigitalLibrary({ student }: { student: Student }) {
             </div>
 
             {/* Modal View Switcher & Actions */}
-            <div className="flex flex-col gap-2 border-b border-border bg-background/60 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-5 md:px-6">
+            <div className="flex flex-col gap-2 border-b border-border/40 bg-muted/30 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-5 md:px-6">
               <div className="grid w-full grid-cols-2 gap-1.5 sm:flex sm:w-auto sm:items-center">
                 {activeReaderKitab.excerpt ? (
                   <button
                     type="button"
                     onClick={() => setReaderTab('study')}
                     className={cn(
-                      'inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors whitespace-nowrap sm:w-auto sm:px-3',
+                      'inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors whitespace-nowrap sm:w-auto',
                       readerTab === 'study'
-                        ? 'bg-primary text-primary-foreground'
+                        ? 'bg-[#0095F6] text-white'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                     )}
                   >
@@ -1982,10 +1981,10 @@ export function DigitalLibrary({ student }: { student: Student }) {
                   type="button"
                   onClick={() => setReaderTab('pdf')}
                   className={cn(
-                    'inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors whitespace-nowrap sm:w-auto sm:px-3',
+                    'inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors whitespace-nowrap sm:w-auto',
                     !activeReaderKitab.excerpt ? 'col-span-2' : '',
                     readerTab === 'pdf'
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-[#0095F6] text-white'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                 >
@@ -2001,16 +2000,16 @@ export function DigitalLibrary({ student }: { student: Student }) {
                     setReaderTab('pdf')
                     setIsReaderFullScreen((prev) => !prev)
                   }}
-                  className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:border-lime/40 hover:bg-muted whitespace-nowrap sm:flex-initial"
+                  className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-full bg-card px-3.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted whitespace-nowrap sm:flex-initial"
                 >
                   {isReaderFullScreen ? (
                     <>
-                      <Minimize2 className="size-3.5 shrink-0 text-lime" aria-hidden="true" />
+                      <Minimize2 className="size-3.5 shrink-0 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                       <span>Exit Full Screen</span>
                     </>
                   ) : (
                     <>
-                      <Maximize2 className="size-3.5 shrink-0 text-lime" aria-hidden="true" />
+                      <Maximize2 className="size-3.5 shrink-0 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                       <span>Full Screen View</span>
                     </>
                   )}
@@ -2018,7 +2017,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
                 <button
                   type="button"
                   onClick={() => void handleDownloadKitabPdf(activeReaderKitab)}
-                  className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 whitespace-nowrap sm:flex-initial"
+                  className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-full bg-[#0095F6] px-3.5 text-xs font-semibold text-white transition-colors hover:bg-[#0077CC] whitespace-nowrap sm:flex-initial"
                 >
                   <Download className="size-3.5 shrink-0" aria-hidden="true" />
                   Download PDF
@@ -2030,8 +2029,8 @@ export function DigitalLibrary({ student }: { student: Student }) {
             <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 md:p-6">
               {readerTab === 'study' && activeReaderKitab.excerpt ? (
                 <div className="flex flex-col gap-5">
-                  <div className="rounded-xl border border-border bg-background/60 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-lime">
+                  <div className="rounded-2xl bg-muted/45 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[#0077CC] dark:text-[#0095F6]">
                       {activeReaderKitab.excerpt.chapterTitle}
                     </p>
                     <p
@@ -2043,7 +2042,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-xl border border-border bg-background/40 p-4">
+                    <div className="rounded-2xl bg-muted/40 p-4">
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         Transliteration (Ibarat Reading)
                       </p>
@@ -2052,7 +2051,7 @@ export function DigitalLibrary({ student }: { student: Student }) {
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-border bg-background/40 p-4">
+                    <div className="rounded-2xl bg-muted/40 p-4">
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         Malayalam Meaning
                       </p>
@@ -2062,14 +2061,14 @@ export function DigitalLibrary({ student }: { student: Student }) {
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-border bg-background/40 p-4">
+                  <div className="rounded-2xl bg-muted/40 p-4">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Scholarly Commentary & Syllabus Context
                     </p>
                     <p className="mt-2 text-sm leading-relaxed text-foreground/90">
                       {activeReaderKitab.excerpt.englishCommentary}
                     </p>
-                    <p className="mt-3 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+                    <p className="mt-3 border-t border-border/40 pt-3 text-xs text-muted-foreground">
                       {activeReaderKitab.summary}
                     </p>
                   </div>

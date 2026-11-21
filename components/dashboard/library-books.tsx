@@ -72,7 +72,7 @@ export function LibraryBooks() {
       icon={BookMarked}
       action={
         <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium tabular-nums">
-          <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[0.7rem] font-semibold text-emerald-600 dark:text-lime">
+          <span className="rounded-full bg-[#0095F6]/15 px-2.5 py-0.5 text-[0.7rem] font-semibold text-[#0077CC] dark:text-[#0095F6]">
             {libraryBooks.length} Kitabs
           </span>
         </div>
@@ -109,7 +109,7 @@ export function LibraryBooks() {
                 type="button"
                 onClick={clearSearch}
                 aria-label="Clear search"
-                className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:bg-background/60 hover:text-foreground"
               >
                 <X className="size-4" aria-hidden="true" />
               </button>
@@ -117,7 +117,7 @@ export function LibraryBooks() {
           </div>
 
           {/* Category horizontal scroll pills */}
-          <div className="flex gap-1 overflow-x-auto pb-0.5 text-xs">
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5 text-xs [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {CATEGORIES.map((cat) => {
               const active = categoryFilter === cat
               return (
@@ -129,10 +129,10 @@ export function LibraryBooks() {
                     setShowAllCatalogue(true)
                   }}
                   className={cn(
-                    'rounded-lg px-2.5 py-1 text-[0.7rem] sm:text-xs font-medium whitespace-nowrap transition-colors shrink-0',
+                    'rounded-full px-3 py-1.5 text-[0.7rem] sm:text-xs font-semibold whitespace-nowrap transition-all shrink-0 active:scale-95',
                     active
-                      ? 'border border-lime/40 bg-lime/15 text-foreground'
-                      : 'border border-border/50 text-muted-foreground hover:bg-muted hover:text-foreground',
+                      ? 'bg-[#0095F6] text-white'
+                      : 'bg-muted text-muted-foreground hover:text-foreground dark:bg-[#1C2227]',
                   )}
                 >
                   {cat}
@@ -146,9 +146,9 @@ export function LibraryBooks() {
         {!hasActiveSearch && !showAllCatalogue ? (
           <div
             id={resultsId}
-            className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-background/40 px-4 py-6 text-center"
+            className="flex flex-col items-center gap-2 rounded-2xl bg-muted/60 px-4 py-6 text-center dark:bg-[#1C2227]/60"
           >
-            <Search className="size-5 text-lime" aria-hidden="true" />
+            <Search className="size-5 text-[#0095F6]" aria-hidden="true" />
             <p className="text-xs font-semibold text-foreground">
               Search Books & Kitabs in the Library
             </p>
@@ -158,16 +158,16 @@ export function LibraryBooks() {
             <button
               type="button"
               onClick={() => setShowAllCatalogue(true)}
-              className="mt-1 inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-[11px] font-medium text-foreground transition-colors hover:border-lime/40 hover:bg-muted"
+              className="mt-1 inline-flex h-9 items-center gap-1.5 rounded-full bg-[#0095F6] px-4 text-xs font-semibold text-white transition-colors hover:bg-[#0084DC] active:scale-95"
             >
-              <BookOpen className="size-3.5 text-lime" aria-hidden="true" />
+              <BookOpen className="size-3.5" aria-hidden="true" />
               Browse Full Catalogue ({libraryBooks.length} Kitabs)
             </button>
           </div>
         ) : (
           <>
             {/* Results Info & Count */}
-            <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-2.5">
+            <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-2.5">
               <p id={`${resultsId}-status`} role="status" aria-live="polite" className="text-xs text-muted-foreground">
                 Found <span className="font-semibold tabular-nums text-foreground">{results.length}</span>{' '}
                 {results.length === 1 ? 'Kitab' : 'Kitabs'}
@@ -177,7 +177,7 @@ export function LibraryBooks() {
               <button
                 type="button"
                 onClick={clearSearch}
-                className="text-xs font-medium text-lime hover:underline whitespace-nowrap shrink-0"
+                className="text-xs font-semibold text-[#0077CC] dark:text-[#0095F6] hover:underline whitespace-nowrap shrink-0"
               >
                 Clear
               </button>
@@ -188,7 +188,7 @@ export function LibraryBooks() {
               <ul
                 id={resultsId}
                 aria-describedby={`${resultsId}-status`}
-                className="flex max-h-[460px] flex-col divide-y divide-border/60 overflow-y-auto pr-1"
+                className="flex max-h-[460px] flex-col divide-y divide-border/40 overflow-y-auto pr-1"
               >
                 {results.map((book) => (
                   <li key={book.id}>
@@ -199,7 +199,7 @@ export function LibraryBooks() {
             ) : (
               <div
                 id={resultsId}
-                className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-background/40 px-4 py-8 text-center"
+                className="flex flex-col items-center gap-2 rounded-2xl bg-muted/60 px-4 py-8 text-center dark:bg-[#1C2227]/60"
               >
                 <SearchX className="size-6 text-muted-foreground" aria-hidden="true" />
                 <p className="text-xs font-semibold text-foreground">No matching Kitabs found</p>
@@ -209,7 +209,7 @@ export function LibraryBooks() {
                 <button
                   type="button"
                   onClick={clearSearch}
-                  className="mt-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-lime/40 hover:bg-muted"
+                  className="mt-1 rounded-full bg-muted px-4 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-[#0095F6] hover:text-white dark:bg-[#232A30]"
                 >
                   Reset filters
                 </button>
@@ -224,18 +224,18 @@ export function LibraryBooks() {
 
 function BookRow({ book }: { book: LibraryBook }) {
   return (
-    <article className="group flex min-w-0 items-start gap-2.5 py-3 first:pt-1 last:pb-1">
+    <article className="group flex min-w-0 items-start gap-3 py-3 first:pt-1 last:pb-1">
       <span
         aria-hidden="true"
-        className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-background/60 text-lime transition-colors group-hover:border-lime/40"
+        className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]"
       >
-        <BookOpen className="size-3.5" />
+        <BookOpen className="size-4" />
       </span>
 
       <div className="min-w-0 flex-1">
         {/* Category Tag */}
         <div className="mb-1 flex flex-wrap items-center gap-1.5">
-          <span className="rounded-full border border-border/70 bg-background/60 px-2 py-0.5 text-[0.65rem] font-medium text-muted-foreground">
+          <span className="rounded-full bg-muted px-2.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground dark:bg-[#1C2227]">
             {book.category}
           </span>
         </div>
@@ -259,7 +259,7 @@ function BookRow({ book }: { book: LibraryBook }) {
 
         {/* Shelf location & Call Number */}
         <div className="mt-2 flex flex-wrap items-center gap-2 text-[0.7rem]">
-          <span className="inline-flex items-center gap-1 rounded-md border border-lime/30 bg-lime/10 px-2 py-0.5 font-semibold text-emerald-700 dark:text-lime">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#0095F6]/12 px-2.5 py-0.5 font-semibold text-[#0077CC] dark:text-[#0095F6]">
             <MapPin className="size-3 shrink-0" aria-hidden="true" />
             {book.shelf}
           </span>

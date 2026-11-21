@@ -207,16 +207,14 @@ export function ThemeSelect({
         onClick={() => {
           if (!disabled) setIsOpen((prev) => !prev)
         }}
-        className={`inline-flex items-center justify-between gap-2 text-left transition-all select-none ${cleanedClassName} ${
-          isOpen
-            ? "ring-2 ring-lime/40 border-lime/60 dark:border-lime/60"
-            : ""
-        } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+        className={`inline-flex items-center justify-between gap-2 text-left transition-all select-none outline-none border-0 ${cleanedClassName} ${
+          isOpen ? "bg-accent dark:bg-[#242C33]" : ""
+        } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer active:scale-[0.985]"}`}
       >
         <span className="truncate flex-1">{selectedOption?.label ?? ""}</span>
         <ChevronDown
-          className={`h-3.5 w-3.5 shrink-0 opacity-70 transition-transform duration-200 ${
-            isOpen ? "rotate-180 text-emerald-600 dark:text-lime" : ""
+          className={`h-4 w-4 shrink-0 opacity-70 transition-transform duration-200 ${
+            isOpen ? "rotate-180 text-[#0077CC] dark:text-[#0095F6]" : ""
           }`}
         />
       </button>
@@ -235,30 +233,30 @@ export function ThemeSelect({
               width: `${menuStyle.width}px`,
               zIndex: 9999,
             }}
-            className="overflow-hidden rounded-2xl border border-slate-200/90 dark:border-[#252a34] bg-white/98 dark:bg-[#111318]/98 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.35)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.75)] animate-in fade-in zoom-in-95 duration-150"
+            className="overflow-hidden rounded-3xl bg-white/98 dark:bg-[#1C2227]/98 backdrop-blur-xl shadow-[0_20px_55px_rgba(0,0,0,0.28)] dark:shadow-[0_24px_65px_rgba(0,0,0,0.78)] animate-in fade-in zoom-in-95 duration-150"
           >
             {showSearch && (
-              <div className="p-2 border-b border-slate-100 dark:border-[#1e222b] bg-slate-50/60 dark:bg-[#151820]">
+              <div className="p-2.5 bg-[#F3F5F7] dark:bg-[#151B20]">
                 <div className="relative flex items-center">
-                  <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-2.5 pointer-events-none" />
+                  <Search className="w-4 h-4 text-[#657786] dark:text-[#8E9AA4] absolute left-3 pointer-events-none" />
                   <input
                     ref={searchInputRef}
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search..."
-                    className="w-full rounded-xl bg-white dark:bg-[#0c0e12] border border-slate-200 dark:border-[#252a34] pl-8 pr-3 py-1.5 text-xs font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 dark:focus:border-lime"
+                    className="w-full rounded-full bg-white dark:bg-[#1C2227] border-0 pl-9 pr-3.5 py-2 text-xs font-medium text-[#0F1419] dark:text-[#F5F7FA] placeholder:text-[#657786] dark:placeholder:text-[#8E9AA4] focus:outline-none"
                   />
                 </div>
               </div>
             )}
 
             <div
-              style={{ maxHeight: `${menuStyle.maxHeight - (showSearch ? 48 : 0)}px` }}
-              className="overflow-y-auto overscroll-contain p-1.5 space-y-0.5 custom-scrollbar"
+              style={{ maxHeight: `${menuStyle.maxHeight - (showSearch ? 52 : 0)}px` }}
+              className="overflow-y-auto overscroll-contain p-2 space-y-1 custom-scrollbar"
             >
               {filteredOptions.length === 0 ? (
-                <div className="px-3 py-4 text-center text-xs text-slate-400 dark:text-slate-500">
+                <div className="px-3 py-4 text-center text-xs text-[#657786] dark:text-[#8E9AA4]">
                   No matching options
                 </div>
               ) : (
@@ -274,18 +272,18 @@ export function ThemeSelect({
                       onClick={() => {
                         if (!opt.disabled) handleSelect(opt.value)
                       }}
-                      className={`w-full flex items-center justify-between gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors ${
+                      className={`w-full flex items-center justify-between gap-2.5 rounded-2xl px-3.5 py-2.5 text-left text-xs font-semibold transition-colors ${
                         opt.disabled
-                          ? "opacity-40 cursor-not-allowed text-slate-400 dark:text-slate-600"
+                          ? "opacity-40 cursor-not-allowed text-muted-foreground"
                           : isSelected
-                            ? "bg-emerald-500/12 dark:bg-lime/15 text-emerald-700 dark:text-lime border border-emerald-500/25 dark:border-lime/30"
-                            : "text-slate-700 dark:text-slate-200 hover:bg-slate-100/90 dark:hover:bg-[#1b1f28] active:bg-slate-200/70 dark:active:bg-[#232834]"
+                            ? "bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]"
+                            : "text-[#0F1419] dark:text-[#F5F7FA] hover:bg-[#F3F5F7] dark:hover:bg-[#242C33] active:bg-[#E8ECEF] dark:active:bg-[#2C353D]"
                       }`}
                     >
                       <span className="leading-snug break-words pr-1">{opt.label}</span>
                       {isSelected && (
-                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 dark:bg-lime text-white dark:text-[#09120e]">
-                          <Check className="h-2.5 w-2.5 stroke-[3]" />
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0095F6] text-white">
+                          <Check className="h-3 w-3 stroke-[3]" />
                         </span>
                       )}
                     </button>

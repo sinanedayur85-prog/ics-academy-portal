@@ -10,10 +10,10 @@ export function ExamResultCard() {
         href={EXAM_RESULTS_URL}
         target="_blank"
         rel="noopener noreferrer"
-        className="group relative flex flex-col gap-6 overflow-hidden rounded-2xl border border-lime/30 bg-gradient-to-br from-lime/15 via-card to-cyan/15 p-6 transition-all duration-300 outline-none hover:-translate-y-0.5 hover:border-lime/60 hover:shadow-[0_20px_60px_-25px] hover:shadow-lime/40 focus-visible:ring-3 focus-visible:ring-ring/50 md:flex-row md:items-center md:justify-between md:p-8"
+        className="group relative flex flex-col gap-6 overflow-hidden rounded-3xl bg-gradient-to-br from-[#7C3AED]/12 via-card to-[#0095F6]/12 p-6 transition-all duration-200 outline-none hover:from-[#7C3AED]/18 hover:to-[#0095F6]/18 active:scale-[0.99] md:flex-row md:items-center md:justify-between md:p-8"
       >
         <div className="flex items-center gap-4 sm:gap-4.5">
-          <span className="flex size-16 shrink-0 items-center justify-center rounded-2xl border border-border/80 bg-white p-2.5 shadow-sm transition-colors duration-300 dark:border-lime/30 dark:bg-[#121418]/90 md:size-[4.5rem]">
+          <span className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-white p-2.5 transition-colors duration-200 dark:bg-[#1C2227] md:size-[4.5rem]">
             <img
               src="/images/jamiathul-hind-logo.svg"
               alt="Jamiathul Hind Al Islamiyya Logo"
@@ -21,7 +21,7 @@ export function ExamResultCard() {
             />
           </span>
           <div className="flex flex-col justify-center">
-            <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-lime leading-tight">
+            <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#0077CC] dark:text-[#0095F6] leading-tight">
               Results
             </p>
             <h2
@@ -35,10 +35,10 @@ export function ExamResultCard() {
             </p>
           </div>
         </div>
-        <span className="inline-flex h-11 shrink-0 items-center justify-center gap-2 self-start rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground transition-transform duration-300 md:self-auto">
+        <span className="inline-flex h-11 shrink-0 items-center justify-center gap-2 self-start rounded-full bg-[#0095F6] px-6 text-sm font-semibold text-white transition-all duration-150 group-hover:bg-[#0084DC] md:self-auto">
           Open Portal
           <ArrowUpRight
-            className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+            className="size-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
             aria-hidden="true"
           />
           <span className="sr-only">(opens in a new tab)</span>

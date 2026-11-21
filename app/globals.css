@@ -71,53 +71,53 @@
 :root {
   color-scheme: light;
   --background: #ffffff;
-  --foreground: #081e21;
-  --card: #f4f8f7;
-  --card-foreground: #081e21;
+  --foreground: #0f1419;
+  --card: #f3f5f7;
+  --card-foreground: #0f1419;
   --popover: #ffffff;
-  --popover-foreground: #081e21;
-  --primary: #8cc63f;
-  --primary-foreground: #081e21;
-  --secondary: #00aeef;
-  --secondary-foreground: #ffffff;
-  --muted: #eaf2f0;
-  --muted-foreground: #466360;
-  --accent: #eaf2f0;
-  --accent-foreground: #081e21;
-  --destructive: #dc2626;
-  --border: rgb(8 30 33 / 0.12);
-  --input: rgb(8 30 33 / 0.16);
-  --ring: #00aeef;
-  --lime: #8cc63f;
-  --cyan: #00aeef;
-  --radius: 0.75rem;
+  --popover-foreground: #0f1419;
+  --primary: #0095f6;
+  --primary-foreground: #ffffff;
+  --secondary: #e8ecef;
+  --secondary-foreground: #0f1419;
+  --muted: #eef1f4;
+  --muted-foreground: #657786;
+  --accent: #eef1f4;
+  --accent-foreground: #0f1419;
+  --destructive: #ef4444;
+  --border: rgb(15 20 25 / 0.08);
+  --input: #eef1f4;
+  --ring: transparent;
+  --lime: #0077cc;
+  --cyan: #0095f6;
+  --radius: 0.875rem;
   --safe-top: max(env(safe-area-inset-top, 0px), var(--android-status-bar-height, 0px));
   --safe-bottom: max(4px, min(env(safe-area-inset-bottom, 0px), 16px));
 }
 
 .dark {
   color-scheme: dark;
-  --background: #0a0b0e;
-  --foreground: #f3f4f6;
-  --card: #121418;
-  --card-foreground: #f3f4f6;
-  --popover: #121418;
-  --popover-foreground: #f3f4f6;
-  --muted: #1a1d24;
-  --muted-foreground: #9ca3af;
-  --accent: #1a1d24;
-  --accent-foreground: #f3f4f6;
-  --primary: #8cc63f;
-  --primary-foreground: #0a0b0e;
-  --secondary: #00aeef;
-  --secondary-foreground: #0a0b0e;
-  --destructive: #f06a5f;
-  --border: #262a33;
-  --input: #262a33;
-  --ring: #00aeef;
-  --lime: #8cc63f;
-  --cyan: #00aeef;
-  --radius: 0.75rem;
+  --background: #0b1014;
+  --foreground: #f5f7fa;
+  --card: #151b20;
+  --card-foreground: #f5f7fa;
+  --popover: #1c2227;
+  --popover-foreground: #f5f7fa;
+  --muted: #1c2227;
+  --muted-foreground: #8e9aa4;
+  --accent: #222930;
+  --accent-foreground: #f5f7fa;
+  --primary: #0095f6;
+  --primary-foreground: #ffffff;
+  --secondary: #1c2227;
+  --secondary-foreground: #f5f7fa;
+  --destructive: #f87171;
+  --border: rgb(255 255 255 / 0.06);
+  --input: #1c2227;
+  --ring: transparent;
+  --lime: #0095f6;
+  --cyan: #38bdf8;
+  --radius: 0.875rem;
   --safe-top: max(env(safe-area-inset-top, 0px), var(--android-status-bar-height, 0px));
   --safe-bottom: max(4px, min(env(safe-area-inset-bottom, 0px), 16px));
 }
@@ -166,15 +166,19 @@ pre {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
-    font-size: 100%;
+    font-size: 106.25%;
     overscroll-behavior-y: none;
     background-color: var(--background);
   }
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
+    -webkit-tap-highlight-color: transparent;
+  }
+  *:focus {
+    outline: none;
   }
   body {
-    @apply bg-background text-foreground font-sans transition-colors duration-300;
+    @apply bg-background text-foreground font-sans transition-colors duration-200;
     min-height: 100%;
     margin: 0;
     padding: 0;

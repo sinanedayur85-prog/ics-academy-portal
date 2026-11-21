@@ -47,7 +47,7 @@ export function ProfileInitialsAvatar({
     return (
       <span
         className={cn(
-          'relative inline-flex size-9 shrink-0 overflow-hidden rounded-full border border-lime/40 bg-muted shadow-xs',
+          'relative inline-flex size-9 shrink-0 overflow-hidden rounded-full bg-muted',
           className,
         )}
       >
@@ -63,7 +63,7 @@ export function ProfileInitialsAvatar({
     <span
       aria-hidden="true"
       className={cn(
-        'flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-lime to-cyan text-xs font-bold text-primary-foreground',
+        'flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#7C3AED] via-[#4F46E5] to-[#0095F6] text-xs font-bold text-white',
         className,
       )}
     >
@@ -130,11 +130,11 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
         aria-controls={popoverId}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          'flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-full border bg-card p-0.5 transition-all duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-          open ? 'border-lime ring-2 ring-lime/30' : 'border-border hover:border-lime/50',
+          'flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-full bg-muted p-0.5 transition-transform duration-150 outline-none active:scale-95',
+          open && 'scale-95',
         )}
       >
-        <StudentAvatar student={student} className="size-full border-0" />
+        <StudentAvatar student={student} className="size-full" />
         <span className="sr-only">My Profile</span>
       </button>
 
@@ -143,16 +143,16 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
           id={popoverId}
           role="dialog"
           aria-label="Logged-in student profile"
-          className="absolute right-0 z-50 mt-2 w-[min(20rem,calc(100vw-1.5rem))] origin-top-right rounded-2xl border border-border bg-popover p-4 shadow-2xl shadow-black/50 animate-in fade-in-0 zoom-in-95 duration-150"
+          className="absolute right-0 z-50 mt-2.5 w-[min(20rem,calc(100vw-1.5rem))] origin-top-right rounded-3xl bg-popover p-4 shadow-[0_20px_50px_rgba(0,0,0,0.45)] animate-in fade-in-0 zoom-in-95 duration-150"
         >
-          <div className="flex items-center gap-3.5 border-b border-border pb-4">
+          <div className="flex items-center gap-3.5 pb-4">
             <StudentAvatar
               student={student}
-              className="size-14 text-sm shadow-md ring-2 ring-lime/40"
+              className="size-14 text-sm"
             />
             <div className="min-w-0 flex-1">
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-lime">
-                Logged-in Student (Private)
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#0077CC] dark:text-[#0095F6]">
+                Logged-in Student
               </p>
               <p className="mt-0.5 truncate font-display text-lg font-semibold text-foreground">
                 {student.name}
@@ -160,32 +160,32 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
             </div>
           </div>
 
-          <dl className="my-3.5 flex flex-col gap-2.5 rounded-xl border border-border bg-background/60 p-3.5 text-sm">
+          <dl className="mb-3.5 flex flex-col gap-2.5 rounded-2xl bg-card p-3.5 text-sm dark:bg-[#151B20]">
             <div className="flex items-start justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                <User className="size-3.5 text-lime" aria-hidden="true" />
+                <User className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                 Full Name
               </dt>
               <dd className="text-right text-xs font-medium text-foreground">{student.name}</dd>
             </div>
 
-            <div className="h-px bg-border/60" aria-hidden="true" />
+            <div className="h-px bg-border/40" aria-hidden="true" />
 
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Hash className="size-3.5 text-lime" aria-hidden="true" />
+                <Hash className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                 My Admission ID
               </dt>
-              <dd className="font-mono text-xs font-semibold tabular-nums text-lime">
+              <dd className="font-mono text-xs font-semibold tabular-nums text-[#0077CC] dark:text-[#0095F6]">
                 {student.admissionNo}
               </dd>
             </div>
 
-            <div className="h-px bg-border/60" aria-hidden="true" />
+            <div className="h-px bg-border/40" aria-hidden="true" />
 
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                <KeyRound className="size-3.5 text-lime" aria-hidden="true" />
+                <KeyRound className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                 My Password
               </dt>
               <dd className="flex items-center gap-1.5 font-mono text-xs font-semibold text-foreground">
@@ -194,7 +194,7 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
                   type="button"
                   onClick={() => setShowOwnPassword((v) => !v)}
                   aria-label={showOwnPassword ? 'Hide password' : 'Show password'}
-                  className="rounded p-0.5 text-muted-foreground hover:text-lime"
+                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-[#0095F6]"
                 >
                   {showOwnPassword ? (
                     <EyeOff className="size-3.5" aria-hidden="true" />
@@ -205,11 +205,11 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
               </dd>
             </div>
 
-            <div className="h-px bg-border/60" aria-hidden="true" />
+            <div className="h-px bg-border/40" aria-hidden="true" />
 
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                <GraduationCap className="size-3.5 text-lime" aria-hidden="true" />
+                <GraduationCap className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                 Class
               </dt>
               <dd className="text-right text-xs font-medium text-foreground">
@@ -225,22 +225,22 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
               setOpen(false)
               setGuideOpen(true)
             }}
-            className="mb-2 flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-lime/40 bg-gradient-to-r from-lime/15 via-cyan/10 to-lime/15 px-3.5 text-left transition-all duration-200 outline-none hover:border-lime hover:from-lime/25 hover:to-cyan/20 focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="mb-2 flex h-12 w-full items-center justify-between gap-2 rounded-2xl bg-gradient-to-r from-[#7C3AED]/15 via-[#4F46E5]/15 to-[#0095F6]/15 px-3.5 text-left transition-all duration-150 outline-none hover:from-[#7C3AED]/25 hover:to-[#0095F6]/25 active:scale-[0.98]"
           >
             <span className="flex items-center gap-2.5 min-w-0">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-lime/20 text-lime">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-[#7C3AED] to-[#0095F6] text-white">
                 <PlayCircle className="size-4" aria-hidden="true" />
               </span>
               <span className="flex flex-col leading-tight min-w-0">
                 <span className="truncate text-xs font-bold text-foreground">
                   App Video Guide
                 </span>
-                <span className="truncate text-[10px] font-medium text-lime">
+                <span className="truncate text-[10.5px] font-medium text-[#0077CC] dark:text-[#38BDF8]">
                   മലയാളം ശബ്ദ സഹായി • Screen Demo
                 </span>
               </span>
             </span>
-            <Volume2 className="size-4 shrink-0 text-lime animate-pulse" aria-hidden="true" />
+            <Volume2 className="size-4 shrink-0 text-[#0095F6] animate-pulse" aria-hidden="true" />
           </button>
 
           <Link
@@ -253,7 +253,7 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
               window.localStorage.removeItem(`ics_own_password_${student.id}`)
               window.dispatchEvent(new CustomEvent('ics-logout'))
             }}
-            className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-lime/30 bg-lime/10 px-4 text-xs font-semibold text-lime transition-colors duration-200 outline-none hover:border-lime hover:bg-lime hover:text-primary-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-2xl bg-muted px-4 text-xs font-semibold text-foreground transition-colors duration-150 outline-none hover:bg-red-500/15 hover:text-red-500 active:scale-[0.98] dark:bg-[#232A30]"
           >
             <LogOut className="size-4" aria-hidden="true" />
             Log out
@@ -303,14 +303,14 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
         aria-controls={popoverId}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          'flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-full border bg-card p-0.5 transition-all duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-          open ? 'border-lime ring-2 ring-lime/30' : 'border-border hover:border-lime/50',
+          'flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-full bg-muted p-0.5 transition-transform duration-150 outline-none active:scale-95',
+          open && 'scale-95',
         )}
       >
         <ProfileInitialsAvatar
           name={usthad.name}
           avatarUrl={usthad.avatarUrl}
-          className="size-full border-0"
+          className="size-full"
         />
         <span className="sr-only">Usthad account profile</span>
       </button>
@@ -320,16 +320,16 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
           id={popoverId}
           role="dialog"
           aria-label="Logged-in Class Usthad profile"
-          className="absolute right-0 z-50 mt-2 w-[min(21rem,calc(100vw-1.5rem))] origin-top-right rounded-2xl border border-border bg-popover p-4 shadow-2xl shadow-black/50 animate-in fade-in-0 zoom-in-95 duration-150"
+          className="absolute right-0 z-50 mt-2.5 w-[min(21rem,calc(100vw-1.5rem))] origin-top-right rounded-3xl bg-popover p-4 shadow-[0_20px_50px_rgba(0,0,0,0.45)] animate-in fade-in-0 zoom-in-95 duration-150"
         >
-          <div className="flex items-center gap-3.5 border-b border-border pb-4">
+          <div className="flex items-center gap-3.5 pb-4">
             <ProfileInitialsAvatar
               name={usthad.name}
               avatarUrl={usthad.avatarUrl}
-              className="size-14 text-sm shadow-md ring-2 ring-lime/40"
+              className="size-14 text-sm"
             />
             <div className="min-w-0 flex-1">
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-lime">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#0077CC] dark:text-[#0095F6]">
                 {usthad.designation}
               </p>
               <p className="mt-0.5 truncate font-display text-lg font-semibold text-foreground">
@@ -338,32 +338,32 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
             </div>
           </div>
 
-          <dl className="my-3.5 flex flex-col gap-2.5 rounded-xl border border-border bg-background/60 p-3.5 text-sm">
+          <dl className="mb-3.5 flex flex-col gap-2.5 rounded-2xl bg-card p-3.5 text-sm dark:bg-[#151B20]">
             <div className="flex items-start justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                <User className="size-3.5 text-lime" aria-hidden="true" />
+                <User className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                 Full Name
               </dt>
               <dd className="text-right text-xs font-medium text-foreground">{usthad.name}</dd>
             </div>
 
-            <div className="h-px bg-border/60" aria-hidden="true" />
+            <div className="h-px bg-border/40" aria-hidden="true" />
 
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Hash className="size-3.5 text-lime" aria-hidden="true" />
+                <Hash className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                 Staff ID
               </dt>
-              <dd className="font-mono text-xs font-semibold tabular-nums text-lime">
+              <dd className="font-mono text-xs font-semibold tabular-nums text-[#0077CC] dark:text-[#0095F6]">
                 {usthad.staffId}
               </dd>
             </div>
 
-            <div className="h-px bg-border/60" aria-hidden="true" />
+            <div className="h-px bg-border/40" aria-hidden="true" />
 
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                <GraduationCap className="size-3.5 text-lime" aria-hidden="true" />
+                <GraduationCap className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                 {usthad.teachingBatches && usthad.teachingBatches.length > 1
                   ? 'Assigned Classes'
                   : 'Class'}
@@ -375,11 +375,11 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
               </dd>
             </div>
 
-            <div className="h-px bg-border/60" aria-hidden="true" />
+            <div className="h-px bg-border/40" aria-hidden="true" />
 
             <div className="flex items-start justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                <BookOpen className="size-3.5 text-lime" aria-hidden="true" />
+                <BookOpen className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                 Department
               </dt>
               <dd className="text-right text-xs font-medium text-foreground">
@@ -395,22 +395,22 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
               setOpen(false)
               setGuideOpen(true)
             }}
-            className="mb-2 flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-lime/40 bg-gradient-to-r from-lime/15 via-cyan/10 to-lime/15 px-3.5 text-left transition-all duration-200 outline-none hover:border-lime hover:from-lime/25 hover:to-cyan/20 focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="mb-2 flex h-12 w-full items-center justify-between gap-2 rounded-2xl bg-gradient-to-r from-[#7C3AED]/15 via-[#4F46E5]/15 to-[#0095F6]/15 px-3.5 text-left transition-all duration-150 outline-none hover:from-[#7C3AED]/25 hover:to-[#0095F6]/25 active:scale-[0.98]"
           >
             <span className="flex items-center gap-2.5 min-w-0">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-lime/20 text-lime">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-[#7C3AED] to-[#0095F6] text-white">
                 <PlayCircle className="size-4" aria-hidden="true" />
               </span>
               <span className="flex flex-col leading-tight min-w-0">
                 <span className="truncate text-xs font-bold text-foreground">
                   App Video Guide
                 </span>
-                <span className="truncate text-[10px] font-medium text-lime">
+                <span className="truncate text-[10.5px] font-medium text-[#0077CC] dark:text-[#38BDF8]">
                   മലയാളം ശബ്ദ സഹായി • Screen Demo
                 </span>
               </span>
             </span>
-            <Volume2 className="size-4 shrink-0 text-lime animate-pulse" aria-hidden="true" />
+            <Volume2 className="size-4 shrink-0 text-[#0095F6] animate-pulse" aria-hidden="true" />
           </button>
 
           {usthad.isPrincipalRole ? (
@@ -424,7 +424,7 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
                   }),
                 )
               }}
-              className="mb-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-cyan/40 bg-cyan/15 px-4 text-xs font-semibold text-cyan transition-colors duration-200 outline-none hover:border-cyan hover:bg-cyan hover:text-slate-950 focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="mb-2 flex h-10 w-full items-center justify-center gap-2 rounded-2xl bg-[#0095F6] px-4 text-xs font-semibold text-white transition-all duration-150 outline-none hover:bg-[#0084DC] active:scale-[0.98]"
             >
               <ShieldCheck className="size-4" aria-hidden="true" />
               Switch to Principal Command Center
@@ -441,7 +441,7 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
               window.localStorage.removeItem('loggedInUsthadId')
               window.dispatchEvent(new CustomEvent('ics-logout'))
             }}
-            className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-lime/30 bg-lime/10 px-4 text-xs font-semibold text-lime transition-colors duration-200 outline-none hover:border-lime hover:bg-lime hover:text-primary-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-2xl bg-muted px-4 text-xs font-semibold text-foreground transition-colors duration-150 outline-none hover:bg-red-500/15 hover:text-red-500 active:scale-[0.98] dark:bg-[#232A30]"
           >
             <LogOut className="size-4" aria-hidden="true" />
             Log out
@@ -491,14 +491,14 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
         aria-controls={popoverId}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          'flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-full border bg-card p-0.5 transition-all duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-          open ? 'border-lime ring-2 ring-lime/30' : 'border-border hover:border-lime/50',
+          'flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-full bg-muted p-0.5 transition-transform duration-150 outline-none active:scale-95',
+          open && 'scale-95',
         )}
       >
         <ProfileInitialsAvatar
           name={principal.name}
           avatarUrl={principal.avatarUrl}
-          className="size-full border-0"
+          className="size-full"
         />
         <span className="sr-only">Principal account profile</span>
       </button>
@@ -508,16 +508,16 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
           id={popoverId}
           role="dialog"
           aria-label="Logged-in Principal profile"
-          className="absolute right-0 z-50 mt-2 w-[min(21rem,calc(100vw-1.5rem))] origin-top-right rounded-2xl border border-border bg-popover p-4 shadow-2xl shadow-black/50 animate-in fade-in-0 zoom-in-95 duration-150"
+          className="absolute right-0 z-50 mt-2.5 w-[min(21rem,calc(100vw-1.5rem))] origin-top-right rounded-3xl bg-popover p-4 shadow-[0_20px_50px_rgba(0,0,0,0.45)] animate-in fade-in-0 zoom-in-95 duration-150"
         >
-          <div className="flex items-center gap-3.5 border-b border-border pb-4">
+          <div className="flex items-center gap-3.5 pb-4">
             <ProfileInitialsAvatar
               name={principal.name}
               avatarUrl={principal.avatarUrl}
-              className="size-14 text-sm shadow-md ring-2 ring-lime/40"
+              className="size-14 text-sm"
             />
             <div className="min-w-0 flex-1">
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-lime">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#0077CC] dark:text-[#0095F6]">
                 Principal
               </p>
               <p className="mt-0.5 truncate font-display text-lg font-semibold text-foreground">
@@ -526,32 +526,32 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
             </div>
           </div>
 
-          <dl className="my-3.5 flex flex-col gap-2.5 rounded-xl border border-border bg-background/60 p-3.5 text-sm">
+          <dl className="mb-3.5 flex flex-col gap-2.5 rounded-2xl bg-card p-3.5 text-sm dark:bg-[#151B20]">
             <div className="flex items-start justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                <User className="size-3.5 text-lime" aria-hidden="true" />
+                <User className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                 Full Name
               </dt>
               <dd className="text-right text-xs font-medium text-foreground">{principal.name}</dd>
             </div>
 
-            <div className="h-px bg-border/60" aria-hidden="true" />
+            <div className="h-px bg-border/40" aria-hidden="true" />
 
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Hash className="size-3.5 text-lime" aria-hidden="true" />
+                <Hash className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                 Principal / Usthad ID
               </dt>
-              <dd className="font-mono text-xs font-semibold tabular-nums text-lime">
+              <dd className="font-mono text-xs font-semibold tabular-nums text-[#0077CC] dark:text-[#0095F6]">
                 {principal.staffId} / {principal.usthadStaffId}
               </dd>
             </div>
 
-            <div className="h-px bg-border/60" aria-hidden="true" />
+            <div className="h-px bg-border/40" aria-hidden="true" />
 
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                <ShieldCheck className="size-3.5 text-lime" aria-hidden="true" />
+                <ShieldCheck className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                 Role
               </dt>
               <dd className="text-right text-xs font-medium text-foreground">
@@ -559,23 +559,23 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
               </dd>
             </div>
 
-            <div className="h-px bg-border/60" aria-hidden="true" />
+            <div className="h-px bg-border/40" aria-hidden="true" />
 
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                <GraduationCap className="size-3.5 text-cyan" aria-hidden="true" />
+                <GraduationCap className="size-3.5 text-[#0077CC] dark:text-[#38BDF8]" aria-hidden="true" />
                 Assigned Classes
               </dt>
-              <dd className="text-right text-xs font-semibold text-cyan">
+              <dd className="text-right text-xs font-semibold text-[#0077CC] dark:text-[#38BDF8]">
                 Class {principal.assignedClassesLabel} ({principal.assignedBatch})
               </dd>
             </div>
 
-            <div className="h-px bg-border/60" aria-hidden="true" />
+            <div className="h-px bg-border/40" aria-hidden="true" />
 
             <div className="flex items-start justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Award className="size-3.5 text-lime" aria-hidden="true" />
+                <Award className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                 Institution
               </dt>
               <dd className="text-right text-xs font-medium text-foreground">
@@ -591,22 +591,22 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
               setOpen(false)
               setGuideOpen(true)
             }}
-            className="mb-2 flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-lime/40 bg-gradient-to-r from-lime/15 via-cyan/10 to-lime/15 px-3.5 text-left transition-all duration-200 outline-none hover:border-lime hover:from-lime/25 hover:to-cyan/20 focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="mb-2 flex h-12 w-full items-center justify-between gap-2 rounded-2xl bg-gradient-to-r from-[#7C3AED]/15 via-[#4F46E5]/15 to-[#0095F6]/15 px-3.5 text-left transition-all duration-150 outline-none hover:from-[#7C3AED]/25 hover:to-[#0095F6]/25 active:scale-[0.98]"
           >
             <span className="flex items-center gap-2.5 min-w-0">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-lime/20 text-lime">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-[#7C3AED] to-[#0095F6] text-white">
                 <PlayCircle className="size-4" aria-hidden="true" />
               </span>
               <span className="flex flex-col leading-tight min-w-0">
                 <span className="truncate text-xs font-bold text-foreground">
                   App Video Guide
                 </span>
-                <span className="truncate text-[10px] font-medium text-lime">
+                <span className="truncate text-[10.5px] font-medium text-[#0077CC] dark:text-[#38BDF8]">
                   മലയാളം ശബ്ദ സഹായി • Screen Demo
                 </span>
               </span>
             </span>
-            <Volume2 className="size-4 shrink-0 text-lime animate-pulse" aria-hidden="true" />
+            <Volume2 className="size-4 shrink-0 text-[#0095F6] animate-pulse" aria-hidden="true" />
           </button>
 
           <button
@@ -619,7 +619,7 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
                 }),
               )
             }}
-            className="mb-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-cyan/40 bg-cyan/15 px-4 text-xs font-semibold text-cyan transition-colors duration-200 outline-none hover:border-cyan hover:bg-cyan hover:text-slate-950 focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="mb-2 flex h-10 w-full items-center justify-center gap-2 rounded-2xl bg-[#0095F6] px-4 text-xs font-semibold text-white transition-all duration-150 outline-none hover:bg-[#0084DC] active:scale-[0.98]"
           >
             <BookOpen className="size-4" aria-hidden="true" />
             Switch to My Class Usthad Workspace
@@ -634,7 +634,7 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
               window.localStorage.removeItem('authRole')
               window.dispatchEvent(new CustomEvent('ics-logout'))
             }}
-            className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-lime/30 bg-lime/10 px-4 text-xs font-semibold text-lime transition-colors duration-200 outline-none hover:border-lime hover:bg-lime hover:text-primary-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-2xl bg-muted px-4 text-xs font-semibold text-foreground transition-colors duration-150 outline-none hover:bg-red-500/15 hover:text-red-500 active:scale-[0.98] dark:bg-[#232A30]"
           >
             <LogOut className="size-4" aria-hidden="true" />
             Log out
@@ -651,4 +651,5 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
     </div>
   )
 }
+
 

@@ -117,7 +117,7 @@ export default function Page() {
 
   // Wait for client mount before rendering persistent auth state to prevent hydration mismatch
   if (!hasMounted) {
-    return <div className="min-h-svh bg-[#0a0b0e]" aria-hidden="true" />
+    return <div className="min-h-svh bg-[#0B1014]" aria-hidden="true" />
   }
 
   if (isLoggedIn) {
@@ -159,11 +159,7 @@ export default function Page() {
         />
 
         {/* Toggle Divider Section between Da'wa College Portal and ICS English School Portal */}
-        <div className="relative border-t border-border bg-background py-10 md:py-14">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-1/2 mx-auto h-px max-w-5xl -translate-y-1/2 bg-gradient-to-r from-transparent via-cyan/30 to-transparent"
-          />
+        <div className="relative bg-background py-10 md:py-14">
           <div className="relative mx-auto flex max-w-7xl flex-col items-center justify-center px-6">
             <button
               type="button"
@@ -171,10 +167,10 @@ export default function Page() {
               aria-controls="english-school-portal-region"
               onClick={() => setShowEnglishPortal((prev) => !prev)}
               className={cn(
-                'group inline-flex items-center gap-3 rounded-full border px-6 py-3.5 text-sm font-semibold transition-all duration-300 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                'group inline-flex items-center gap-3 rounded-full px-6 py-3.5 text-sm font-semibold transition-all duration-200 outline-none active:scale-[0.98]',
                 showEnglishPortal
-                  ? 'border-cyan bg-card text-cyan shadow-[0_0_30px_-8px_var(--cyan)]'
-                  : 'border-cyan/40 bg-card/90 text-foreground shadow-lg shadow-black/10 dark:shadow-black/25 hover:-translate-y-0.5 hover:border-cyan hover:text-cyan hover:shadow-[0_0_25px_-8px_var(--cyan)]',
+                  ? 'bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]'
+                  : 'bg-card text-foreground hover:bg-muted',
               )}
             >
               <span className="tracking-wide">
@@ -182,8 +178,8 @@ export default function Page() {
               </span>
               <span
                 className={cn(
-                  'flex size-6 items-center justify-center rounded-full bg-cyan/15 text-cyan transition-transform duration-300',
-                  showEnglishPortal && 'rotate-180 bg-cyan text-background',
+                  'flex size-6 items-center justify-center rounded-full bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6] transition-transform duration-300',
+                  showEnglishPortal && 'rotate-180 bg-[#0095F6] text-white dark:text-white',
                 )}
               >
                 <ChevronDown className="size-4" aria-hidden="true" />

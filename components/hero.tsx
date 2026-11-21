@@ -62,12 +62,12 @@ export function Hero() {
   return (
     <section
       id="about"
-      className="relative isolate flex min-h-[90vh] items-center justify-center overflow-hidden border-b border-black/15 px-6 pt-36 pb-36 transition-colors duration-300 md:min-h-svh md:pt-44 md:pb-44 dark:border-white/20"
+      className="relative isolate flex min-h-[90vh] items-center justify-center overflow-hidden px-6 pt-36 pb-36 transition-colors duration-300 md:min-h-svh md:pt-44 md:pb-44"
     >
       {/* Full-bleed Background Image Slider with Ken Burns Zoom & Crossfade */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-0 bg-white transition-colors duration-300 dark:bg-[#0a0b0e]"
+        className="pointer-events-none absolute inset-0 z-0 bg-white transition-colors duration-300 dark:bg-[#0B1014]"
       >
         {HERO_SLIDES.map((slide, index) => {
           const isActive = index === activeIndex
@@ -95,10 +95,10 @@ export function Hero() {
         })}
 
         {/* Dynamic Theme Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/55 via-white/50 to-white/60 transition-colors duration-300 dark:from-[#0a0b0e]/85 dark:via-[#121418]/80 dark:to-[#0a0b0e]/90" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/60 via-white/55 to-white/75 transition-colors duration-300 dark:from-[#0B1014]/82 dark:via-[#0B1014]/78 dark:to-[#0B1014]/95" />
 
         {/* Seamless Bottom Blending Gradient */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white via-white/65 to-white/0 transition-colors duration-300 md:h-40 dark:from-[#0a0b0e] dark:via-[#0a0b0e]/75 dark:to-[#0a0b0e]/0" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-white via-white/75 to-white/0 transition-colors duration-300 md:h-44 dark:from-[#0B1014] dark:via-[#0B1014]/80 dark:to-[#0B1014]/0" />
       </div>
 
       {/* Centered Hero Content with Repeatable Scroll Animations */}
@@ -107,19 +107,19 @@ export function Hero() {
         className="relative z-10 mx-auto flex max-w-4xl flex-col items-center text-center"
       >
         <div className="flex flex-col items-center">
-          {/* Eyebrow Pill with gentle scroll reveal */}
+          {/* Eyebrow Chip */}
           <motion.span
             initial={{ opacity: 0, y: 14 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.2 }}
             transition={{ duration: 1.15, ease: [0.22, 1, 0.36, 1] }}
-            className="inline-flex items-center gap-2 rounded-full border border-emerald-800/35 bg-white/80 px-4 py-1.5 text-xs font-semibold tracking-wider text-emerald-900 uppercase backdrop-blur-xs transition-colors duration-300 dark:border-lime/40 dark:bg-[#121418]/75 dark:text-lime"
+            className="inline-flex items-center gap-2 rounded-full bg-white/85 px-4 py-1.5 text-xs font-semibold tracking-wider text-[#0077CC] uppercase backdrop-blur-md transition-colors duration-300 dark:bg-[#151B20]/85 dark:text-[#0095F6]"
           >
             <BrandLogoMark className="h-4 w-auto" />
             Digital Campus • 2026
           </motion.span>
 
-          {/* Main Wordmark + Felizia-style Glowing Underline Sweep */}
+          {/* Main Wordmark + Underline Sweep */}
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -130,24 +130,24 @@ export function Hero() {
             <BrandWordmark
               as="h1"
               gapClassName="gap-1 sm:gap-1.5"
-              topClassName="text-5xl font-bold text-black transition-colors duration-300 dark:text-white sm:text-6xl lg:text-7xl leading-none"
-              bottomClassName="text-2xl font-semibold text-emerald-900 transition-colors duration-300 dark:text-emerald-400 sm:text-3xl lg:text-[2.1rem] leading-none"
+              topClassName="text-5xl font-bold text-[#0F1419] transition-colors duration-300 dark:text-white sm:text-6xl lg:text-7xl leading-none"
+              bottomClassName="text-2xl font-semibold text-[#0077CC] transition-colors duration-300 dark:text-[#0095F6] sm:text-3xl lg:text-[2.1rem] leading-none"
             />
 
-            {/* Animated glowing line under ICS ACADEMY MANHAPPATTA */}
-            <div className="relative mt-4 h-[2px] w-44 overflow-hidden rounded-full bg-emerald-950/15 sm:w-64 dark:bg-white/15">
+            {/* Animated underline under ICS ACADEMY MANHAPPATTA */}
+            <div className="relative mt-4 h-[2px] w-44 overflow-hidden rounded-full bg-[#0F1419]/10 sm:w-64 dark:bg-white/15">
               <motion.div
                 initial={{ x: '-100%' }}
                 whileInView={{ x: '0%' }}
                 viewport={{ once: false, amount: 0.2 }}
                 transition={{ duration: 1.5, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                className="h-full w-full rounded-full bg-gradient-to-r from-transparent via-lime to-cyan"
+                className="h-full w-full rounded-full bg-gradient-to-r from-transparent via-[#0095F6] to-[#7C3AED]"
               />
             </div>
           </motion.div>
 
-          {/* Moving Words Description — animates word-by-word gently on every scroll */}
-          <p className="mt-7 max-w-2xl text-pretty font-sans text-base font-normal tracking-wide leading-relaxed text-black transition-colors duration-300 dark:font-light dark:text-white/90 sm:text-lg md:text-xl md:leading-loose">
+          {/* Moving Words Description */}
+          <p className="mt-7 max-w-2xl text-pretty font-sans text-base font-normal tracking-wide leading-relaxed text-[#0F1419] transition-colors duration-300 dark:font-light dark:text-white/90 sm:text-lg md:text-xl md:leading-loose">
             <AnimatedWords
               text="One unified digital campus bringing students, class leaders, Usthads, and the Principal together — attendance, leave, notices, Kitabs, and messenger in one place."
               stagger={0.035}
@@ -161,56 +161,56 @@ export function Hero() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.2 }}
             transition={{ duration: 1.2, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-9 flex flex-wrap items-center justify-center gap-4"
+            className="mt-9 flex flex-wrap items-center justify-center gap-3.5"
           >
             <Button
               nativeButton={false}
               render={<a href="#portal" />}
-              className="h-12 rounded-full px-7 text-base font-semibold shadow-lg shadow-lime/20"
+              className="h-12 rounded-full px-7 text-base font-semibold"
             >
               Open Portal
               <ArrowRight data-icon="inline-end" />
             </Button>
             <a
               href="#contact"
-              className="rounded-full border border-black/25 bg-white/75 px-6 py-3 text-sm font-semibold tracking-wide text-black backdrop-blur-xs transition-colors duration-300 hover:border-cyan hover:bg-white hover:underline dark:border-white/25 dark:bg-[#121418]/65 dark:text-cyan dark:hover:bg-[#1a1d24]/85"
+              className="rounded-full bg-white/85 px-6 py-3 text-sm font-semibold tracking-wide text-[#0F1419] backdrop-blur-md transition-all duration-200 hover:bg-white active:scale-[0.98] dark:bg-[#1C2227]/85 dark:text-[#F5F7FA] dark:hover:bg-[#242C33]"
             >
               Contact Office
             </a>
           </motion.div>
 
-          {/* Centered CountUp Stat Blocks — re-animates gently on every scroll */}
+          {/* Centered CountUp Stat Blocks */}
           <motion.dl
             key={animCycle}
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.2 }}
             transition={{ duration: 1.25, delay: 0.32, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-12 grid w-full max-w-md grid-cols-2 gap-8 border-t border-black/25 pt-8 transition-colors duration-300 dark:border-white/25"
+            className="mt-12 grid w-full max-w-md grid-cols-2 gap-8 pt-8 transition-colors duration-300"
           >
             <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-center sm:gap-3.5 sm:text-left">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-black/15 bg-white/75 text-cyan backdrop-blur-xs transition-colors duration-300 dark:border-white/15 dark:bg-[#121418]/65">
-                <Users className="size-5 text-cyan" aria-hidden="true" />
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/85 text-[#0095F6] backdrop-blur-md transition-colors duration-300 dark:bg-[#151B20]/85">
+                <Users className="size-5 stroke-[1.9]" aria-hidden="true" />
               </span>
               <div>
-                <dt className="text-xs font-semibold tracking-wider text-black uppercase transition-colors duration-300 dark:font-medium dark:text-white/80">
+                <dt className="text-xs font-semibold tracking-wider text-[#0F1419]/80 uppercase transition-colors duration-300 dark:font-medium dark:text-[#8E9AA4]">
                   Students
                 </dt>
-                <dd className="font-display text-3xl font-bold tabular-nums text-black transition-colors duration-300 dark:text-white sm:text-4xl">
+                <dd className="font-display text-3xl font-bold tabular-nums text-[#0F1419] transition-colors duration-300 dark:text-white sm:text-4xl">
                   <CountUp end={1200} suffix="+" duration={4000} />
                 </dd>
               </div>
             </div>
 
             <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-center sm:gap-3.5 sm:text-left">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-black/15 bg-white/75 text-emerald-800 backdrop-blur-xs transition-colors duration-300 dark:border-white/15 dark:bg-[#121418]/65 dark:text-lime">
-                <BookOpen className="size-5 text-emerald-800 dark:text-lime" aria-hidden="true" />
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/85 text-[#0077CC] backdrop-blur-md transition-colors duration-300 dark:bg-[#151B20]/85 dark:text-[#38BDF8]">
+                <BookOpen className="size-5 stroke-[1.9]" aria-hidden="true" />
               </span>
               <div>
-                <dt className="text-xs font-semibold tracking-wider text-black uppercase transition-colors duration-300 dark:font-medium dark:text-white/80">
+                <dt className="text-xs font-semibold tracking-wider text-[#0F1419]/80 uppercase transition-colors duration-300 dark:font-medium dark:text-[#8E9AA4]">
                   Faculty
                 </dt>
-                <dd className="font-display text-3xl font-bold tabular-nums text-black transition-colors duration-300 dark:text-white sm:text-4xl">
+                <dd className="font-display text-3xl font-bold tabular-nums text-[#0F1419] transition-colors duration-300 dark:text-white sm:text-4xl">
                   <CountUp end={60} suffix="+" duration={4000} />
                 </dd>
               </div>

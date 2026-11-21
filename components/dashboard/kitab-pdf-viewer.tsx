@@ -388,7 +388,7 @@ export function KitabPdfCanvasViewer({
               type="button"
               onClick={() => setZoom(1)}
               aria-label="Reset zoom"
-              className="flex size-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground"
+              className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground hover:text-foreground dark:bg-[#1C2227]"
             >
               <RotateCcw className="size-3.5" aria-hidden="true" />
             </button>
@@ -398,16 +398,16 @@ export function KitabPdfCanvasViewer({
             <button
               type="button"
               onClick={onToggleFullScreen}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[11px] font-medium text-foreground transition-colors hover:border-lime/40 hover:bg-muted"
+              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-muted px-3 text-[11px] font-medium text-foreground transition-colors hover:bg-muted/80 dark:bg-[#1C2227]"
             >
               {isFullScreen ? (
                 <>
-                  <Minimize2 className="size-3.5 text-lime" aria-hidden="true" />
+                  <Minimize2 className="size-3.5 text-[#0095F6]" aria-hidden="true" />
                   <span className="hidden sm:inline">Exit Full Screen</span>
                 </>
               ) : (
                 <>
-                  <Maximize2 className="size-3.5 text-lime" aria-hidden="true" />
+                  <Maximize2 className="size-3.5 text-[#0095F6]" aria-hidden="true" />
                   <span className="hidden sm:inline">Full Screen</span>
                 </>
               )}
@@ -418,9 +418,9 @@ export function KitabPdfCanvasViewer({
             type="button"
             onClick={() => void handlePrintPdf()}
             title="Print Kitab PDF"
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[11px] font-medium text-foreground transition-colors hover:border-lime/40 hover:bg-muted"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-muted px-3 text-[11px] font-medium text-foreground transition-colors hover:bg-muted/80 dark:bg-[#1C2227]"
           >
-            <Printer className="size-3.5 text-lime" aria-hidden="true" />
+            <Printer className="size-3.5 text-[#0095F6]" aria-hidden="true" />
             <span className="hidden sm:inline">Print</span>
           </button>
 
@@ -428,9 +428,9 @@ export function KitabPdfCanvasViewer({
             type="button"
             onClick={() => void handleShareOrDownloadPdf()}
             title="Download or Open in External PDF App"
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[11px] font-medium text-foreground transition-colors hover:border-lime/40 hover:bg-muted"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#0095F6] px-3 text-[11px] font-semibold text-white transition-colors hover:bg-[#0084DC]"
           >
-            <Share2 className="size-3.5 text-lime" aria-hidden="true" />
+            <Share2 className="size-3.5" aria-hidden="true" />
             <span className="hidden sm:inline">Save / Open</span>
           </button>
         </div>
@@ -440,13 +440,13 @@ export function KitabPdfCanvasViewer({
       <div
         ref={containerRef}
         className={cn(
-          'w-full overflow-auto rounded-xl border border-border bg-slate-900/45 p-3 sm:p-4',
+          'w-full overflow-auto rounded-2xl bg-slate-900/45 p-3 sm:p-4',
           isFullScreen ? 'h-[calc(100svh-13.5rem)]' : 'h-[58svh]',
         )}
       >
         {loadingDoc ? (
           <div className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-3 text-center">
-            <Loader2 className="size-7 animate-spin text-lime" aria-hidden="true" />
+            <Loader2 className="size-7 animate-spin text-[#0095F6]" aria-hidden="true" />
             <div>
               <p className="text-sm font-semibold text-foreground">
                 Loading PDF Preview...
@@ -481,7 +481,7 @@ export function KitabPdfCanvasViewer({
                   <button
                     type="button"
                     onClick={() => setMaxRenderedScrollPages((prev) => prev + 12)}
-                    className="my-2 inline-flex h-10 items-center gap-2 rounded-xl border border-lime/40 bg-lime/15 px-5 text-xs font-semibold text-foreground transition-colors hover:bg-lime/25"
+                    className="my-2 inline-flex h-10 items-center gap-2 rounded-full bg-[#0095F6] px-5 text-xs font-semibold text-white transition-colors hover:bg-[#0084DC]"
                   >
                     Load More Pages ({pagesToRenderInScroll} of {numPages} shown)
                   </button>

@@ -68,9 +68,9 @@ export function AttendanceCard({ student }: { student: Student }) {
     {
       label: 'Present',
       value: present,
-      dot: 'bg-lime',
-      bar: 'bg-lime',
-      text: 'text-lime',
+      dot: 'bg-emerald-500',
+      bar: 'bg-emerald-500',
+      text: 'text-emerald-600 dark:text-emerald-400',
     },
     {
       label: 'Absent',
@@ -82,9 +82,9 @@ export function AttendanceCard({ student }: { student: Student }) {
     {
       label: 'Leave',
       value: leave,
-      dot: 'bg-cyan',
-      bar: 'bg-cyan',
-      text: 'text-cyan',
+      dot: 'bg-[#0095F6]',
+      bar: 'bg-[#0095F6]',
+      text: 'text-[#0077CC] dark:text-[#0095F6]',
     },
   ]
 
@@ -123,7 +123,7 @@ export function AttendanceCard({ student }: { student: Student }) {
             id="attendance-month-select"
             value={selectedPeriodId}
             onChange={(e) => setSelectedPeriodId(e.target.value)}
-            className="h-9 rounded-xl border border-input bg-muted/60 px-3 text-xs font-semibold text-foreground transition-colors outline-none hover:border-foreground/25 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="h-9 rounded-xl border-0 bg-muted/70 px-3 text-xs font-semibold text-foreground transition-colors outline-none hover:bg-muted"
           >
             {months.map((m) => (
               <option key={m.id} value={m.id}>
@@ -149,7 +149,7 @@ export function AttendanceCard({ student }: { student: Student }) {
               fill="none"
               strokeWidth="10"
               strokeLinecap="round"
-              className="stroke-lime transition-[stroke-dashoffset] duration-700 ease-out"
+              className="stroke-[#0095F6] transition-[stroke-dashoffset] duration-700 ease-out"
               strokeDasharray={CIRCUMFERENCE}
               strokeDashoffset={CIRCUMFERENCE * (1 - rate / 100)}
             />
@@ -166,7 +166,7 @@ export function AttendanceCard({ student }: { student: Student }) {
 
         <dl className="flex w-full flex-col gap-3.5">
           {/* Summary Pills: Total Working Days vs Official Academy Holidays Excluded */}
-          <div className="grid grid-cols-2 gap-2.5 rounded-xl border border-border bg-background/60 p-2.5 text-xs">
+          <div className="grid grid-cols-2 gap-3 rounded-2xl bg-muted/45 p-3 text-xs">
             <div className="flex flex-col">
               <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                 Total Working Days
@@ -178,11 +178,11 @@ export function AttendanceCard({ student }: { student: Student }) {
                 Present + Absent + Personal Leave
               </span>
             </div>
-            <div className="flex flex-col border-l border-border pl-2.5">
-              <span className="text-[10px] font-semibold tracking-wider text-emerald-700 uppercase dark:text-lime">
+            <div className="flex flex-col border-l border-border/40 pl-3">
+              <span className="text-[10px] font-semibold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
                 Official Academy Holidays
               </span>
-              <span className="mt-0.5 font-display text-base font-bold text-emerald-700 tabular-nums dark:text-lime">
+              <span className="mt-0.5 font-display text-base font-bold text-[#0077CC] tabular-nums dark:text-[#0095F6]">
                 {officialHolidayDays} Days (Excluded)
               </span>
               <span className="text-[10px] text-muted-foreground">
@@ -222,7 +222,7 @@ export function AttendanceCard({ student }: { student: Student }) {
               <span className="font-medium text-foreground">{periodLabel}</span>
             </p>
             {selectedMonth ? (
-              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-lime">
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#0077CC] dark:text-[#0095F6]">
                 <CalendarClock className="size-3" aria-hidden="true" />
                 {selectedMonth.officialHolidayNote}
               </span>
@@ -232,7 +232,7 @@ export function AttendanceCard({ student }: { student: Student }) {
       </div>
 
       {/* Month-by-Month Breakdown Table for the Logged-in Student */}
-      <div className="mt-6 border-t border-border pt-4">
+      <div className="mt-6 border-t border-border/40 pt-4">
         <div className="mb-3 flex flex-col justify-between gap-2.5 sm:flex-row sm:items-center">
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -246,10 +246,10 @@ export function AttendanceCard({ student }: { student: Student }) {
             type="button"
             onClick={() => setSelectedPeriodId('overall')}
             className={cn(
-              'shrink-0 self-start whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors sm:self-auto',
+              'shrink-0 self-start whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-semibold transition-colors sm:self-auto',
               selectedPeriodId === 'overall'
-                ? 'bg-lime/15 text-lime'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                ? 'bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]'
+                : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
             Overall:{' '}
@@ -264,7 +264,7 @@ export function AttendanceCard({ student }: { student: Student }) {
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search
-              className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground"
+              className="pointer-events-none absolute top-1/2 left-3.5 size-3.5 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
             <input
@@ -272,10 +272,10 @@ export function AttendanceCard({ student }: { student: Student }) {
               value={monthSearch}
               onChange={(e) => setMonthSearch(e.target.value)}
               placeholder="Search month, year, reason, or holiday (e.g. May, Eid, Medical)..."
-              className="h-8 w-full rounded-lg border border-input bg-background/60 pr-3 pl-8 text-xs text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none"
+              className="h-9 w-full rounded-full border-0 bg-muted/70 pr-3.5 pl-9 text-xs text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:bg-muted"
             />
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             {(
               [
                 { id: 'all', label: 'All Months' },
@@ -288,9 +288,9 @@ export function AttendanceCard({ student }: { student: Student }) {
                 type="button"
                 onClick={() => setMonthFilterType(tab.id)}
                 className={cn(
-                  'rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors',
+                  'rounded-full px-3 py-1.5 text-[11px] font-semibold transition-all active:scale-[0.98]',
                   monthFilterType === tab.id
-                    ? 'bg-lime text-primary-foreground'
+                    ? 'bg-[#0095F6] text-white'
                     : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
               >
@@ -302,7 +302,7 @@ export function AttendanceCard({ student }: { student: Student }) {
 
         <div className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
           {filteredMonths.length === 0 ? (
-            <p className="rounded-xl border border-border/60 bg-muted/20 p-4 text-center text-xs text-muted-foreground">
+            <p className="rounded-2xl bg-muted/35 p-4 text-center text-xs text-muted-foreground">
               No monthly records match your filter.
             </p>
           ) : (
@@ -318,10 +318,10 @@ export function AttendanceCard({ student }: { student: Student }) {
                   type="button"
                   onClick={() => setSelectedPeriodId(m.id)}
                   className={cn(
-                    'group flex w-full flex-col justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition-all duration-200 sm:flex-row sm:items-center',
+                    'group flex w-full flex-col justify-between gap-2 rounded-2xl px-3.5 py-2.5 text-left transition-all duration-150 outline-none active:scale-[0.99] sm:flex-row sm:items-center',
                     isSelected
-                      ? 'border-lime/50 bg-lime/10 shadow-xs'
-                      : 'border-border/60 bg-muted/30 hover:border-foreground/20 hover:bg-muted/60',
+                      ? 'bg-[#0095F6]/12'
+                      : 'bg-muted/35 hover:bg-muted/65',
                   )}
                 >
                   <div className="min-w-0">
@@ -329,10 +329,10 @@ export function AttendanceCard({ student }: { student: Student }) {
                       <p className="text-xs font-semibold text-foreground">
                         {m.month} {m.year}
                       </p>
-                      <span className="rounded bg-background/80 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground tabular-nums">
+                      <span className="rounded-full bg-background/70 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground tabular-nums">
                         {monthTotal} Working Days
                       </span>
-                      <span className="text-[10px] font-medium text-emerald-700 tabular-nums dark:text-lime">
+                      <span className="text-[10px] font-medium text-[#0077CC] tabular-nums dark:text-[#0095F6]">
                         • {m.officialHolidayDays}d Official Holiday Excluded
                       </span>
                     </div>
@@ -344,30 +344,30 @@ export function AttendanceCard({ student }: { student: Student }) {
                   <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2">
                     <span
                       title="Present days (on working days)"
-                      className="inline-flex items-center gap-1 rounded-md bg-lime/15 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-800 dark:text-lime"
+                      className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-400"
                     >
-                      <span className="size-1.5 rounded-full bg-lime" aria-hidden="true" />
+                      <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
                       P: {m.present}
                     </span>
                     <span
                       title="Absent days (on working days)"
-                      className="inline-flex items-center gap-1 rounded-md bg-destructive/15 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-destructive"
+                      className="inline-flex items-center gap-1 rounded-full bg-destructive/15 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-destructive"
                     >
                       <span className="size-1.5 rounded-full bg-destructive" aria-hidden="true" />
                       A: {m.absent}
                     </span>
                     <span
                       title="Student personal leave days (on working days)"
-                      className="inline-flex items-center gap-1 rounded-md bg-cyan/15 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-sky-700 dark:text-cyan"
+                      className="inline-flex items-center gap-1 rounded-full bg-[#0095F6]/15 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-[#0077CC] dark:text-[#0095F6]"
                     >
-                      <span className="size-1.5 rounded-full bg-cyan" aria-hidden="true" />
+                      <span className="size-1.5 rounded-full bg-[#0095F6]" aria-hidden="true" />
                       L: {m.leave}
                     </span>
                     <span
                       className={cn(
-                        'min-w-[48px] rounded-lg px-2 py-0.5 text-right text-xs font-bold tabular-nums',
+                        'min-w-[48px] rounded-full px-2.5 py-0.5 text-right text-xs font-bold tabular-nums',
                         isSelected
-                          ? 'bg-lime text-primary-foreground'
+                          ? 'bg-[#0095F6] text-white'
                           : 'bg-background/80 text-foreground',
                       )}
                     >

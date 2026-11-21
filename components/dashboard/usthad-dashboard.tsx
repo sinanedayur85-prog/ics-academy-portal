@@ -922,12 +922,12 @@ export function UsthadDashboard() {
       : 0
 
   return (
-    <div className="lg:min-h-svh bg-background transition-colors duration-300 dark:bg-gradient-to-br dark:from-[#0A0B0E] dark:to-[#060709] max-lg:fixed max-lg:inset-0 max-lg:flex max-lg:flex-col max-lg:overflow-hidden lg:pl-64">
+    <div className="lg:min-h-svh bg-background text-foreground transition-colors duration-300 max-lg:fixed max-lg:inset-0 max-lg:flex max-lg:flex-col max-lg:overflow-hidden lg:pl-64">
       {/* Desktop Sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-background pt-[var(--safe-top)] transition-colors duration-300 lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border/50 bg-background pt-[var(--safe-top)] transition-colors duration-300 lg:flex">
         <Link
           href="/"
-          className="flex h-20 items-center gap-3 border-b border-border px-6"
+          className="flex h-20 items-center gap-3 px-6"
           aria-label="ICS Academy Manhappatta home"
         >
           <BrandLogoMark className="h-10 w-auto" />
@@ -935,7 +935,7 @@ export function UsthadDashboard() {
             className="pt-[2px]"
             gapClassName="gap-[1px]"
             topClassName="translate-y-[1px] text-lg font-bold text-foreground leading-none"
-            bottomClassName="text-[10px] font-semibold text-lime leading-none"
+            bottomClassName="text-[10px] font-semibold text-[#0077CC] dark:text-[#0095F6] leading-none"
           />
         </Link>
 
@@ -947,15 +947,15 @@ export function UsthadDashboard() {
             <a
               key={item.href}
               href={item.href}
-              className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground"
+              className="group flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-muted-foreground transition-all duration-150 hover:bg-muted hover:text-foreground active:scale-[0.98]"
             >
-              <item.icon className="size-4 transition-colors group-hover:text-lime" aria-hidden="true" />
+              <item.icon className="size-4.5 transition-colors group-hover:text-[#0095F6]" strokeWidth={1.85} aria-hidden="true" />
               {item.label}
             </a>
           ))}
         </nav>
 
-        <div className="border-t border-border p-4">
+        <div className="p-4">
           <Link
             href="/"
             onClick={(event) => {
@@ -965,7 +965,7 @@ export function UsthadDashboard() {
               window.localStorage.removeItem('loggedInUsthadId')
               window.dispatchEvent(new CustomEvent('ics-logout'))
             }}
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-red-500/12 hover:text-red-500"
           >
             <LogOut className="size-4" aria-hidden="true" />
             Log out
@@ -974,7 +974,7 @@ export function UsthadDashboard() {
       </aside>
 
       {/* Top Sticky Header */}
-      <header className="z-40 shrink-0 border-b border-border bg-background/95 pt-[var(--safe-top)] backdrop-blur-md transition-colors duration-300 lg:sticky lg:top-0">
+      <header className="z-40 shrink-0 border-b border-border/50 bg-background/95 pt-[var(--safe-top)] backdrop-blur-md transition-colors duration-300 lg:sticky lg:top-0">
         <div className="flex h-16 sm:h-20 items-center justify-between gap-2 px-3 sm:gap-4 sm:px-5 md:px-8">
           <Link
             href="/"
@@ -986,7 +986,7 @@ export function UsthadDashboard() {
               className="pt-[2px]"
               gapClassName="gap-[1px]"
               topClassName="translate-y-[1px] text-[15px] sm:text-lg font-bold text-foreground leading-none"
-              bottomClassName="text-[8.5px] sm:text-[10px] font-semibold text-lime leading-none"
+              bottomClassName="text-[8.5px] sm:text-[10px] font-semibold text-[#0077CC] dark:text-[#0095F6] leading-none"
             />
           </Link>
 
@@ -1037,14 +1037,14 @@ export function UsthadDashboard() {
         >
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-lime">
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-[#0077CC] dark:text-[#0095F6]">
                 Usthad ·{' '}
                 {isAssignedClassUsthadForActiveClass
                   ? `Class Usthad (${activeClassName})`
                   : `Subject Usthad (${activeClassName})`}
               </p>
               {usthad.isPrincipalRole && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-cyan/40 bg-cyan/15 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-cyan uppercase">
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#0095F6]/15 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-[#0077CC] dark:text-[#38BDF8] uppercase">
                   Principal
                 </span>
               )}
@@ -1054,7 +1054,7 @@ export function UsthadDashboard() {
                 <ProfileInitialsAvatar
                   name={usthad.name}
                   avatarUrl={usthad.avatarUrl}
-                  className="size-14 sm:size-16 ring-2 ring-lime/45 shadow-md"
+                  className="size-14 sm:size-16"
                 />
               )}
               <h1 className="flex flex-col font-display leading-tight text-foreground">
@@ -1080,15 +1080,15 @@ export function UsthadDashboard() {
                     }),
                   )
                 }}
-                className="rounded-xl border border-cyan/50 bg-cyan text-xs font-bold text-slate-950 hover:bg-cyan/90"
+                className="rounded-full bg-[#0095F6] px-4 text-xs font-bold text-white hover:bg-[#0084DC]"
               >
                 Switch to Principal Command Center (All 11 Classes)
               </Button>
             )}
 
             {allTeachingClasses.length > 1 && (
-              <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-lime/35 bg-lime/10 p-1.5">
-                <span className="px-2 text-[11px] font-bold text-emerald-700 uppercase dark:text-lime">
+              <div className="flex flex-wrap items-center gap-1.5 rounded-2xl bg-card p-1.5 dark:bg-[#151B20]">
+                <span className="px-2 text-[11px] font-bold text-[#0077CC] uppercase dark:text-[#0095F6]">
                   My Classes ({allTeachingClasses.length}):
                 </span>
                 {allTeachingClasses.map((batch) => {
@@ -1112,10 +1112,10 @@ export function UsthadDashboard() {
                         }
                       }}
                       className={cn(
-                        'rounded-lg px-2.5 py-1 text-xs font-semibold transition-all',
+                        'rounded-xl px-2.5 py-1 text-xs font-semibold transition-all active:scale-95',
                         activeClassName === batch
-                          ? 'bg-lime text-slate-950 shadow-2xs'
-                          : 'bg-background/80 text-foreground hover:bg-background',
+                          ? 'bg-[#0095F6] text-white'
+                          : 'bg-muted/70 text-foreground hover:bg-muted dark:bg-[#1C2227]',
                       )}
                       title={
                         isOwnClass
@@ -3136,16 +3136,16 @@ export function UsthadDashboard() {
         </main>
       </div>
 
-      {/* PHONE & TABLET BOTTOM NAVIGATION MENU BAR FOR CLASS USTHAD (Hidden on Desktop lg:) */}
+      {/* PHONE & TABLET INSTAGRAM-STYLE BOTTOM NAVIGATION MENU BAR FOR CLASS USTHAD (Hidden on Desktop lg:) */}
       <nav
         aria-label="Usthad Mobile & Tablet Bottom Navigation"
-        className="z-50 shrink-0 border-t border-border/85 bg-background/95 pb-[var(--safe-bottom)] backdrop-blur-xl lg:hidden"
+        className="z-50 shrink-0 border-t border-border/50 bg-background/95 pb-[var(--safe-bottom)] backdrop-blur-xl lg:hidden"
       >
-        <div className="mx-auto grid h-[58px] max-w-xl grid-cols-6 items-center px-1">
+        <div className="mx-auto grid h-[60px] max-w-xl grid-cols-6 items-center px-1">
           {(
             [
               { id: 'roster', label: 'Students', icon: Users, badge: 0 },
-              { id: 'attendance', label: 'Attendance', icon: CalendarCheck, badge: 0 },
+              { id: 'attendance', label: 'Attend', icon: CalendarCheck, badge: 0 },
               {
                 id: 'leave',
                 label: 'Leave',
@@ -3169,24 +3169,35 @@ export function UsthadDashboard() {
                   }
                 }}
                 className={cn(
-                  'flex flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-colors',
-                  active ? 'text-lime' : 'text-muted-foreground hover:text-foreground',
+                  'flex flex-col items-center justify-center gap-1 py-1 transition-all duration-150 active:scale-95',
+                  active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
                 )}
               >
                 <span
                   className={cn(
-                    'relative flex h-7 w-10 items-center justify-center rounded-full transition-all',
-                    active && 'bg-lime/15',
+                    'relative flex h-8 w-11 items-center justify-center rounded-full transition-all duration-150',
+                    active && 'bg-foreground/10 dark:bg-white/12',
                   )}
                 >
-                  <tab.icon className="size-4" aria-hidden="true" />
+                  <tab.icon
+                    className="size-[20px]"
+                    strokeWidth={active ? 2.4 : 1.75}
+                    aria-hidden="true"
+                  />
                   {tab.badge > 0 ? (
-                    <span className="absolute -top-1 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 font-mono text-[9.5px] font-bold text-white tabular-nums">
+                    <span className="absolute -top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 font-mono text-[9.5px] font-bold text-white tabular-nums">
                       {tab.badge}
                     </span>
                   ) : null}
                 </span>
-                <span className="text-[10px] font-semibold leading-none">{tab.label}</span>
+                <span
+                  className={cn(
+                    'text-[10px] leading-none',
+                    active ? 'font-bold text-foreground' : 'font-medium',
+                  )}
+                >
+                  {tab.label}
+                </span>
               </button>
             )
           })}

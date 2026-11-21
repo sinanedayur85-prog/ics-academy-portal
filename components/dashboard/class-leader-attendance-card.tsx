@@ -645,12 +645,12 @@ export function ClassLeaderAttendanceCard({
       action={
         <div className="flex flex-wrap items-center gap-2">
           {periodStatusCountsForDate.notHeld > 0 && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/15 px-3 py-1 text-xs font-semibold text-red-600 dark:text-red-400 tabular-nums">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/15 px-3 py-1 text-xs font-semibold text-red-600 dark:text-red-400 tabular-nums">
               <Ban className="size-3.5" aria-hidden="true" />
               {periodStatusCountsForDate.notHeld} Not Held
             </span>
           )}
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-700 dark:border-lime/40 dark:bg-lime/15 dark:text-lime tabular-nums">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#0095F6]/15 px-3 py-1 text-xs font-semibold text-[#0077CC] dark:text-[#0095F6] tabular-nums">
             <UserCheck className="size-3.5" aria-hidden="true" />
             {periodStatusCountsForDate.totalSubmitted}/{teachingPeriodsCount} Periods
           </span>
@@ -659,7 +659,7 @@ export function ClassLeaderAttendanceCard({
     >
       <div className="flex flex-col gap-6">
         {/* Top Bar: Date Picker & Leader Info */}
-        <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-background/50 p-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col justify-between gap-4 rounded-2xl bg-muted/45 p-4 sm:flex-row sm:items-center">
           <div className="flex flex-col gap-1">
             <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
               {isStaffViewer ? `Class ${leader.className} Periods` : 'Daily Periods'}
@@ -670,7 +670,7 @@ export function ClassLeaderAttendanceCard({
                 {classLeaders.map((cl, idx) => (
                   <span key={cl.leaderId}>
                     {idx > 0 ? '  ·  ' : ''}
-                    <strong className="text-cyan">
+                    <strong className="text-[#0077CC] dark:text-[#0095F6]">
                       {cl.studentName}
                       {isStaffViewer || cl.studentId === leader.id
                         ? ` (${cl.leaderId})`
@@ -693,7 +693,7 @@ export function ClassLeaderAttendanceCard({
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value || getTodayDateString())}
-              className="h-10 w-44 rounded-xl tabular-nums"
+              className="h-10 w-44 rounded-full tabular-nums"
             />
           </div>
         </div>
@@ -735,20 +735,20 @@ export function ClassLeaderAttendanceCard({
                   aria-selected={isSelected}
                   onClick={() => setSelectedPeriodIndex(period.index)}
                   className={cn(
-                    'flex flex-col justify-between gap-2 rounded-2xl border p-3.5 text-left transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    'flex flex-col justify-between gap-2 rounded-2xl p-3.5 text-left transition-all duration-150 outline-none active:scale-[0.98]',
                     period.isNonTeaching
                       ? isSelected
-                        ? 'border-foreground/40 bg-muted/60 shadow-2xs'
-                        : 'border-border/60 bg-muted/25 text-muted-foreground hover:bg-muted/40'
+                        ? 'bg-muted/80 shadow-xs'
+                        : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
                       : isSelected
                         ? sessionState === 'not-held'
-                          ? 'border-red-500 bg-red-500/10 shadow-[0_0_0_1px_rgba(239,68,68,0.6)]'
-                          : 'border-lime bg-lime/10 shadow-[0_0_0_1px_var(--lime)]'
+                          ? 'bg-red-500/15 shadow-xs'
+                          : 'bg-[#0095F6]/15 shadow-xs'
                         : sessionState === 'not-held'
-                          ? 'border-red-500/40 bg-red-500/[0.04] hover:border-red-500/70'
+                          ? 'bg-red-500/[0.06] hover:bg-red-500/12'
                           : !isOwnedByRestrictedUsthad
-                            ? 'border-border/70 bg-muted/25 opacity-80 hover:opacity-100'
-                            : 'border-border bg-background/60 hover:border-foreground/30 hover:bg-background',
+                            ? 'bg-muted/30 opacity-80 hover:opacity-100'
+                            : 'bg-muted/40 hover:bg-muted/70',
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -760,7 +760,7 @@ export function ClassLeaderAttendanceCard({
                           : isSelected
                             ? sessionState === 'not-held'
                               ? 'text-red-500 dark:text-red-400'
-                              : 'text-emerald-700 dark:text-lime'
+                              : 'text-[#0077CC] dark:text-[#0095F6]'
                             : 'text-foreground',
                       )}
                     >
@@ -777,7 +777,7 @@ export function ClassLeaderAttendanceCard({
                         Not Held
                       </span>
                     ) : isSubmitted ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-lime">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
                         <CheckCircle2 className="size-3.5" aria-hidden="true" />
                         Conducted
                       </span>
@@ -811,7 +811,7 @@ export function ClassLeaderAttendanceCard({
                         className={cn(
                           'inline-flex items-center gap-1 text-[10px] font-bold',
                           isOwnedByRestrictedUsthad
-                            ? 'text-emerald-700 dark:text-lime'
+                            ? 'text-[#0077CC] dark:text-[#0095F6]'
                             : 'text-muted-foreground',
                         )}
                       >
@@ -834,9 +834,9 @@ export function ClassLeaderAttendanceCard({
 
         {/* Break / Free Period Informational View (No Attendance Required) */}
         {isActivePeriodNonTeaching ? (
-          <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-muted/30 p-5 sm:flex-row sm:items-center">
+          <div className="flex flex-col justify-between gap-4 rounded-2xl bg-muted/40 p-5 sm:flex-row sm:items-center">
             <div className="flex items-start gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-card text-muted-foreground">
                 <Coffee className="size-5" aria-hidden="true" />
               </div>
               <div className="space-y-1">
@@ -860,7 +860,7 @@ export function ClassLeaderAttendanceCard({
                   type="button"
                   size="sm"
                   onClick={() => setSelectedPeriodIndex(nextTeaching.index)}
-                  className="shrink-0 rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                  className="shrink-0 rounded-full bg-[#0095F6] px-4 text-xs font-semibold text-white hover:bg-[#0077CC]"
                 >
                   {restrictedUsthad ? 'എൻ്റെ പിരീഡിലേക്ക് പോകുക' : `${nextTeaching.label}-ലേക്ക് പോകുക`}
                 </Button>
@@ -871,7 +871,7 @@ export function ClassLeaderAttendanceCard({
           <>
         {/* Strict Period Ownership Lock Notice when viewing another Usthad's period */}
         {isPeriodLockedForUsthad && restrictedUsthad && (
-          <div className="flex flex-col justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 sm:flex-row sm:items-center">
+          <div className="flex flex-col justify-between gap-3 rounded-2xl bg-amber-500/12 p-4 sm:flex-row sm:items-center">
             <div className="flex items-start gap-3">
               <Lock
                 className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-400"
@@ -897,7 +897,7 @@ export function ClassLeaderAttendanceCard({
                   )
                   if (myFirst) setSelectedPeriodIndex(myFirst.index)
                 }}
-                className="shrink-0 rounded-xl bg-lime text-xs font-semibold text-slate-950 hover:bg-lime/90"
+                className="shrink-0 rounded-full bg-[#0095F6] px-4 text-xs font-semibold text-white hover:bg-[#0077CC]"
               >
                 എൻ്റെ പിരീഡിലേക്ക് പോകുക
               </Button>
@@ -908,10 +908,10 @@ export function ClassLeaderAttendanceCard({
         {/* Period Session Status Control Bar (Conducted vs Class Not Held) */}
         <div
           className={cn(
-            'flex flex-col gap-4 rounded-2xl border p-4 transition-colors',
+            'flex flex-col gap-4 rounded-2xl p-4 transition-colors',
             isSessionNotHeld
-              ? 'border-red-500/50 bg-red-500/[0.06]'
-              : 'border-border bg-background/60',
+              ? 'bg-red-500/10'
+              : 'bg-muted/45',
             isPeriodLockedForUsthad && 'opacity-65',
           )}
         >
@@ -945,10 +945,10 @@ export function ClassLeaderAttendanceCard({
                   setJustSubmittedMessage(null)
                 }}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50',
+                  'inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50',
                   draftSessionStatus === 'conducted'
-                    ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:border-lime dark:bg-lime/20 dark:text-lime'
-                    : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                    ? 'bg-emerald-500/18 text-emerald-700 dark:text-emerald-400'
+                    : 'bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
               >
                 <CheckCircle2 className="size-4" aria-hidden="true" />
@@ -966,10 +966,10 @@ export function ClassLeaderAttendanceCard({
                   setJustSubmittedMessage(null)
                 }}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50',
+                  'inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50',
                   draftSessionStatus === 'not-held'
-                    ? 'border-red-500 bg-red-500/20 text-red-700 dark:border-red-400 dark:text-red-300'
-                    : 'border-border bg-background text-muted-foreground hover:border-red-500/40 hover:text-red-500',
+                    ? 'bg-red-500/20 text-red-700 dark:text-red-300'
+                    : 'bg-card text-muted-foreground hover:bg-red-500/10 hover:text-red-500',
                 )}
               >
                 <Ban className="size-4" aria-hidden="true" />
@@ -980,7 +980,7 @@ export function ClassLeaderAttendanceCard({
 
           {/* Reason Controls when Not Held */}
           {isSessionNotHeld && (
-            <div className="flex flex-col gap-3 border-t border-border/70 pt-3">
+            <div className="flex flex-col gap-3 border-t border-border/40 pt-3">
               <div className="flex flex-col gap-2">
                 <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                   Reason Why Regular Usthad Did Not Take Class:
@@ -999,16 +999,16 @@ export function ClassLeaderAttendanceCard({
                           setJustSubmittedMessage(null)
                         }}
                         className={cn(
-                          'flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs font-medium transition-all disabled:cursor-not-allowed',
+                          'flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium transition-all disabled:cursor-not-allowed',
                           isSelected
-                            ? 'border-red-500 bg-red-500/15 font-semibold text-red-700 dark:border-red-400 dark:text-red-200'
-                            : 'border-border bg-background/80 text-muted-foreground hover:text-foreground',
+                            ? 'bg-red-500/18 font-semibold text-red-700 dark:text-red-200'
+                            : 'bg-card/80 text-muted-foreground hover:bg-muted hover:text-foreground',
                         )}
                       >
                         {isSelected ? (
                           <Check className="size-3.5 shrink-0" aria-hidden="true" />
                         ) : (
-                          <span className="size-3.5 shrink-0 rounded-full border border-muted-foreground/40" />
+                          <span className="size-3.5 shrink-0 rounded-full bg-muted-foreground/25" />
                         )}
                         <span className="line-clamp-1">{reason}</span>
                       </button>
@@ -1018,7 +1018,7 @@ export function ClassLeaderAttendanceCard({
               </div>
 
               {isSessionNotHeld && (
-                <div className="flex flex-col justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 sm:flex-row sm:items-center">
+                <div className="flex flex-col justify-between gap-3 rounded-2xl bg-red-500/12 p-3.5 sm:flex-row sm:items-center">
                   <div className="flex items-start gap-2.5">
                     <Lock className="mt-0.5 size-4 shrink-0 text-red-600 dark:text-red-400" aria-hidden="true" />
                     <div className="flex flex-col gap-0.5">
@@ -1036,7 +1036,7 @@ export function ClassLeaderAttendanceCard({
                       isPeriodLockedForUsthad || Boolean(existingSubmission && !hasUnsavedChanges)
                     }
                     onClick={handleSaveClassNotHeld}
-                    className="h-10 rounded-xl bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50 whitespace-nowrap shrink-0"
+                    className="h-10 rounded-full bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50 whitespace-nowrap shrink-0"
                   >
                     <ShieldAlert className="mr-1.5 size-4" aria-hidden="true" />
                     {existingSubmission?.sessionStatus === 'not-held' && !hasUnsavedChanges
@@ -1050,10 +1050,10 @@ export function ClassLeaderAttendanceCard({
         </div>
 
         {/* Active Period Banner + Live Counters */}
-        <div className="grid gap-4 rounded-2xl border border-border bg-background/60 p-4 xl:grid-cols-[1.2fr_1fr] xl:items-center">
+        <div className="grid gap-4 rounded-2xl bg-muted/45 p-4 xl:grid-cols-[1.2fr_1fr] xl:items-center">
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-semibold text-emerald-700 uppercase dark:text-lime">
+              <span className="font-semibold text-[#0077CC] uppercase dark:text-[#0095F6]">
                 {activePeriod.label}
               </span>
               <span aria-hidden="true">•</span>
@@ -1066,13 +1066,13 @@ export function ClassLeaderAttendanceCard({
                 {activePeriod.subject}
               </h3>
               {isSessionNotHeld && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-red-500/40 bg-red-500/15 px-2.5 py-0.5 text-xs font-bold text-red-600 dark:text-red-400">
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2.5 py-0.5 text-xs font-bold text-red-600 dark:text-red-400">
                   <Ban className="size-3" aria-hidden="true" />
                   Class Not Held • Attendance Locked
                 </span>
               )}
               {isPeriodLockedForUsthad && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300">
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300">
                   <Lock className="size-3" aria-hidden="true" />
                   Read-Only ({activePeriod.teacher})
                 </span>
@@ -1085,7 +1085,7 @@ export function ClassLeaderAttendanceCard({
                     'text-xs tabular-nums',
                     existingSubmission.sessionStatus === 'not-held'
                       ? 'font-medium text-red-600 dark:text-red-400'
-                      : 'text-emerald-600 dark:text-lime',
+                      : 'text-emerald-600 dark:text-emerald-400',
                   )}
                 >
                   {existingSubmission.sessionStatus === 'not-held'
@@ -1103,7 +1103,7 @@ export function ClassLeaderAttendanceCard({
                 </p>
 
                 {existingSubmission.lastEditedAt && existingSubmission.lastEditedByName ? (
-                  <p className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-cyan tabular-nums">
+                  <p className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-[#0077CC] dark:text-[#0095F6] tabular-nums">
                     <History className="size-3.5 shrink-0" aria-hidden="true" />
                     <span>
                       തിരുത്തിയത് (Corrected by):{' '}
@@ -1135,25 +1135,25 @@ export function ClassLeaderAttendanceCard({
           </div>
 
           <div className="grid grid-cols-4 gap-2 text-center">
-            <div className="rounded-xl border border-border bg-card/70 px-2.5 py-2">
+            <div className="rounded-xl bg-card/85 px-2.5 py-2">
               <p className="text-[11px] font-medium text-muted-foreground">Total</p>
               <p className="mt-0.5 font-display text-lg font-bold text-foreground tabular-nums">
                 {summaryCounts.total}
               </p>
             </div>
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-2">
-              <p className="text-[11px] font-medium text-emerald-700 dark:text-lime">Present</p>
-              <p className="mt-0.5 font-display text-lg font-bold text-emerald-700 dark:text-lime tabular-nums">
+            <div className="rounded-xl bg-emerald-500/12 px-2.5 py-2">
+              <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">Present</p>
+              <p className="mt-0.5 font-display text-lg font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
                 {isSessionNotHeld ? '—' : summaryCounts.present}
               </p>
             </div>
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-2.5 py-2">
+            <div className="rounded-xl bg-red-500/12 px-2.5 py-2">
               <p className="text-[11px] font-medium text-red-600 dark:text-red-400">Absent</p>
               <p className="mt-0.5 font-display text-lg font-bold text-red-600 dark:text-red-400 tabular-nums">
                 {isSessionNotHeld ? '—' : summaryCounts.absent}
               </p>
             </div>
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-2.5 py-2">
+            <div className="rounded-xl bg-amber-500/12 px-2.5 py-2">
               <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">Leave</p>
               <p className="mt-0.5 font-display text-lg font-bold text-amber-600 dark:text-amber-400 tabular-nums">
                 {isSessionNotHeld ? '—' : summaryCounts.leave}
@@ -1178,18 +1178,18 @@ export function ClassLeaderAttendanceCard({
                   ? 'Search student name or admission no...'
                   : 'Search student name...'
               }
-              className="h-10 rounded-xl pl-10 text-sm"
+              className="h-10 rounded-full pl-10 text-sm"
             />
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               disabled={isSessionNotHeld || isPeriodLockedForUsthad || isAllDefaultPresent}
               onClick={handleMarkAllPresent}
-              className="rounded-xl text-xs font-semibold"
+              className="rounded-full text-xs font-semibold"
             >
               <Users className="mr-1.5 size-3.5" aria-hidden="true" />
               Mark All Present
@@ -1205,7 +1205,7 @@ export function ClassLeaderAttendanceCard({
                   : draftSessionStatus === 'conducted' && isAllDefaultPresent)
               }
               onClick={handleResetPeriod}
-              className="rounded-xl text-xs font-medium text-muted-foreground hover:text-foreground"
+              className="rounded-full text-xs font-medium text-muted-foreground hover:text-foreground"
             >
               <RotateCcw className="mr-1.5 size-3.5" aria-hidden="true" />
               Reset
@@ -1214,9 +1214,9 @@ export function ClassLeaderAttendanceCard({
         </div>
 
         {/* Student Roster List for Selected Period */}
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-background/50">
+        <div className="relative overflow-hidden rounded-2xl bg-muted/35">
           {isSessionNotHeld && (
-            <div className="flex items-center justify-between gap-3 border-b border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-700 dark:text-red-300">
+            <div className="flex items-center justify-between gap-3 bg-red-500/12 px-4 py-3 text-xs text-red-700 dark:text-red-300">
               <div className="flex items-center gap-2 font-semibold">
                 <AlertTriangle className="size-4 shrink-0 text-red-600 dark:text-red-400" aria-hidden="true" />
                 <span>
@@ -1226,7 +1226,7 @@ export function ClassLeaderAttendanceCard({
             </div>
           )}
 
-          <div className="hidden grid-cols-[2.5rem_1.5fr_1fr_1.4fr] items-center gap-4 border-b border-border bg-muted/40 px-4 py-2.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase sm:grid">
+          <div className="hidden grid-cols-[2.5rem_1.5fr_1fr_1.4fr] items-center gap-4 bg-muted/60 px-4 py-2.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase sm:grid">
             <span>#</span>
             <span>Student Name</span>
             <span>{isStaffViewer ? 'Admission No.' : 'Class'}</span>
@@ -1235,7 +1235,7 @@ export function ClassLeaderAttendanceCard({
 
           <div
             className={cn(
-              'divide-y divide-border',
+              'divide-y divide-border/35',
               (isSessionNotHeld || isPeriodLockedForUsthad) && 'opacity-70',
             )}
           >
@@ -1260,9 +1260,9 @@ export function ClassLeaderAttendanceCard({
                 <div
                   key={student.id}
                   className={cn(
-                    'flex flex-col gap-2.5 px-4 py-3 transition-colors hover:bg-muted/25',
-                    !isSessionNotHeld && status === 'absent' && 'bg-red-500/[0.03]',
-                    !isSessionNotHeld && status === 'leave' && 'bg-amber-500/[0.03]',
+                    'flex flex-col gap-2.5 px-4 py-3 transition-colors hover:bg-muted/35',
+                    !isSessionNotHeld && status === 'absent' && 'bg-red-500/[0.05]',
+                    !isSessionNotHeld && status === 'leave' && 'bg-amber-500/[0.05]',
                   )}
                 >
                   <div className="flex flex-col justify-between gap-3 sm:grid sm:grid-cols-[2.5rem_1.5fr_1fr_1.4fr] sm:items-center sm:gap-4">
@@ -1278,7 +1278,7 @@ export function ClassLeaderAttendanceCard({
                           if (!clMatch) return null
                           const isCurrent = highlightLeaderBadge && student.id === leader.id
                           return (
-                            <span className="rounded-md bg-cyan/15 px-1.5 py-0.5 text-[10px] font-bold text-cyan">
+                            <span className="rounded-full bg-[#0095F6]/15 px-2 py-0.5 text-[10px] font-bold text-[#0077CC] dark:text-[#0095F6]">
                               {clMatch.roleTitle}
                               {isCurrent ? ' • You' : ''}
                             </span>
@@ -1309,19 +1309,19 @@ export function ClassLeaderAttendanceCard({
                       className="flex flex-wrap items-center justify-start gap-1.5 sm:justify-end"
                     >
                       {isSessionNotHeld ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/15 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400">
                           <Lock className="size-3.5" aria-hidden="true" />
                           Class Not Held (Locked)
                         </span>
                       ) : isPeriodLockedForUsthad ? (
                         <span
                           className={cn(
-                            'inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold uppercase',
+                            'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase',
                             status === 'present'
-                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-lime'
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
                               : status === 'absent'
-                                ? 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400'
-                                : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
+                                ? 'bg-red-500/15 text-red-600 dark:text-red-400'
+                                : 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
                           )}
                         >
                           <Lock className="size-3" aria-hidden="true" />
@@ -1335,10 +1335,10 @@ export function ClassLeaderAttendanceCard({
                             aria-checked={status === 'present'}
                             onClick={() => handleStatusChange(student.id, 'present')}
                             className={cn(
-                              'inline-flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold whitespace-nowrap transition-all sm:px-2.5 sm:text-xs',
+                              'inline-flex items-center justify-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold whitespace-nowrap transition-all active:scale-[0.97] sm:px-3 sm:text-xs',
                               status === 'present'
-                                ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:border-lime dark:bg-lime/20 dark:text-lime'
-                                : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                                ? 'bg-emerald-500/18 text-emerald-700 dark:text-emerald-400'
+                                : 'bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
                             )}
                           >
                             <UserCheck className="size-3.5 shrink-0" aria-hidden="true" />
@@ -1351,10 +1351,10 @@ export function ClassLeaderAttendanceCard({
                             aria-checked={status === 'absent'}
                             onClick={() => handleStatusChange(student.id, 'absent')}
                             className={cn(
-                              'inline-flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold whitespace-nowrap transition-all sm:px-2.5 sm:text-xs',
+                              'inline-flex items-center justify-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold whitespace-nowrap transition-all active:scale-[0.97] sm:px-3 sm:text-xs',
                               status === 'absent'
-                                ? 'border-red-500 bg-red-500/15 text-red-600 dark:border-red-400 dark:bg-red-500/20 dark:text-red-400'
-                                : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                                ? 'bg-red-500/18 text-red-600 dark:text-red-400'
+                                : 'bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
                             )}
                           >
                             <UserX className="size-3.5 shrink-0" aria-hidden="true" />
@@ -1367,10 +1367,10 @@ export function ClassLeaderAttendanceCard({
                             aria-checked={status === 'leave'}
                             onClick={() => handleStatusChange(student.id, 'leave')}
                             className={cn(
-                              'inline-flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold whitespace-nowrap transition-all sm:px-2.5 sm:text-xs',
+                              'inline-flex items-center justify-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold whitespace-nowrap transition-all active:scale-[0.97] sm:px-3 sm:text-xs',
                               status === 'leave'
-                                ? 'border-amber-500 bg-amber-500/15 text-amber-700 dark:border-amber-400 dark:bg-amber-500/20 dark:text-amber-300'
-                                : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                                ? 'bg-amber-500/18 text-amber-700 dark:text-amber-300'
+                                : 'bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
                             )}
                           >
                             <UserMinus className="size-3.5 shrink-0" aria-hidden="true" />
@@ -1384,7 +1384,7 @@ export function ClassLeaderAttendanceCard({
                           type="button"
                           onClick={() => setReportStudent(student)}
                           title={`Generate Parent PDF Report for ${student.name}`}
-                          className="inline-flex items-center justify-center gap-1 rounded-lg border border-cyan/40 bg-cyan/10 px-2 py-1.5 text-[11px] font-semibold text-cyan transition-all hover:bg-cyan/20 whitespace-nowrap shrink-0 sm:px-2.5 sm:text-xs"
+                          className="inline-flex items-center justify-center gap-1 rounded-full bg-[#0095F6]/15 px-2.5 py-1.5 text-[11px] font-semibold text-[#0077CC] dark:text-[#0095F6] transition-all hover:bg-[#0095F6]/25 whitespace-nowrap shrink-0 sm:px-3 sm:text-xs"
                         >
                           <FileText className="size-3.5 shrink-0" aria-hidden="true" />
                           Parent PDF
@@ -1397,10 +1397,10 @@ export function ClassLeaderAttendanceCard({
                   {reasonOptions ? (
                     <div
                       className={cn(
-                        'flex flex-col gap-2 rounded-xl border p-2.5 sm:ml-10 sm:flex-row sm:items-center sm:justify-between',
+                        'flex flex-col gap-2 rounded-2xl p-2.5 sm:ml-10 sm:flex-row sm:items-center sm:justify-between',
                         status === 'absent'
-                          ? 'border-red-500/30 bg-red-500/5'
-                          : 'border-amber-500/30 bg-amber-500/5',
+                          ? 'bg-red-500/8'
+                          : 'bg-amber-500/8',
                       )}
                     >
                       <span
@@ -1429,12 +1429,12 @@ export function ClassLeaderAttendanceCard({
                               aria-checked={isReasonSelected}
                               onClick={() => handleReasonChange(student.id, reason)}
                               className={cn(
-                                'flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all',
+                                'flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all',
                                 isReasonSelected
                                   ? status === 'absent'
-                                    ? 'border-red-500 bg-red-500/20 font-semibold text-red-700 dark:border-red-400 dark:text-red-300'
-                                    : 'border-amber-500 bg-amber-500/20 font-semibold text-amber-800 dark:border-amber-400 dark:text-amber-200'
-                                  : 'border-border bg-background/80 text-muted-foreground hover:text-foreground',
+                                    ? 'bg-red-500/20 font-semibold text-red-700 dark:text-red-300'
+                                    : 'bg-amber-500/20 font-semibold text-amber-800 dark:text-amber-200'
+                                  : 'bg-card/80 text-muted-foreground hover:bg-muted hover:text-foreground',
                               )}
                             >
                               {isReasonSelected ? (
@@ -1454,10 +1454,10 @@ export function ClassLeaderAttendanceCard({
         </div>
 
         {/* Submit Footer & Confirmation Message */}
-        <div className="flex flex-col justify-between gap-4 border-t border-border pt-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col justify-between gap-4 border-t border-border/40 pt-4 sm:flex-row sm:items-center">
           <div role="status" aria-live="polite" className="text-sm">
             {justSubmittedMessage ? (
-              <p className="flex items-center gap-2 font-medium text-emerald-600 dark:text-lime">
+              <p className="flex items-center gap-2 font-medium text-emerald-600 dark:text-emerald-400">
                 <Check className="size-4 shrink-0" aria-hidden="true" />
                 {justSubmittedMessage}
               </p>
@@ -1479,14 +1479,14 @@ export function ClassLeaderAttendanceCard({
           <div className="flex flex-wrap items-center gap-2.5 sm:justify-end">
             {existingSubmission && !isPeriodLockedForUsthad ? (
               confirmDeleteOpen ? (
-                <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-red-500/40 bg-red-500/10 px-3 py-1.5">
+                <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-red-500/12 px-3 py-1.5">
                   <span className="text-xs font-semibold text-red-600 dark:text-red-300">
                     ഈ പീരീഡ് ഹാജർ പൂർണ്ണമായി ഡിലീറ്റ് ചെയ്യണോ?
                   </span>
                   <button
                     type="button"
                     onClick={handleDeletePeriodSubmission}
-                    className="inline-flex h-8 items-center gap-1 rounded-xl bg-red-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-red-700 whitespace-nowrap"
+                    className="inline-flex h-8 items-center gap-1 rounded-full bg-red-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-red-700 whitespace-nowrap"
                   >
                     <Trash2 className="size-3.5" aria-hidden="true" />
                     Confirm Delete
@@ -1494,7 +1494,7 @@ export function ClassLeaderAttendanceCard({
                   <button
                     type="button"
                     onClick={() => setConfirmDeleteOpen(false)}
-                    className="inline-flex h-8 items-center rounded-xl border border-border bg-background px-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground whitespace-nowrap"
+                    className="inline-flex h-8 items-center rounded-full bg-card px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground whitespace-nowrap"
                   >
                     Cancel
                   </button>
@@ -1502,12 +1502,12 @@ export function ClassLeaderAttendanceCard({
               ) : (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   onClick={() => {
                     setConfirmDeleteOpen(true)
                     setJustSubmittedMessage(null)
                   }}
-                  className="h-11 rounded-full border-red-500/40 bg-red-500/10 px-4 text-xs font-semibold text-red-600 hover:bg-red-500/20 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 whitespace-nowrap shrink-0"
+                  className="h-11 rounded-full bg-red-500/12 px-4 text-xs font-semibold text-red-600 hover:bg-red-500/20 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 whitespace-nowrap shrink-0"
                 >
                   <Trash2 className="mr-1.5 size-4" aria-hidden="true" />
                   Delete Submitted Attendance
@@ -1521,7 +1521,9 @@ export function ClassLeaderAttendanceCard({
               onClick={handleSubmitPeriodAttendance}
               className={cn(
                 'h-11 rounded-full px-6 text-sm font-semibold whitespace-nowrap shrink-0 disabled:opacity-55',
-                isSessionNotHeld && 'bg-red-600 text-white hover:bg-red-700',
+                isSessionNotHeld
+                  ? 'bg-red-600 text-white hover:bg-red-700'
+                  : 'bg-[#0095F6] text-white hover:bg-[#0077CC]',
               )}
             >
               {isPeriodLockedForUsthad ? (

@@ -1714,23 +1714,23 @@ export function AppVideoGuideModal({
         aria-modal="true"
         aria-label="ICS Academy Interactive Malayalam Video Guide"
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[94dvh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-border bg-card text-foreground shadow-2xl dark:border-[#262a33] dark:bg-[#0d0f14]"
+        className="flex max-h-[94dvh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] bg-popover text-foreground shadow-2xl"
       >
         {/* Top Modal Header + Role Switcher */}
-        <div className="flex flex-col gap-3 border-b border-border bg-background/90 px-4 py-3.5 sm:px-6 sm:py-4 dark:border-[#262a33] dark:bg-[#12141b]">
+        <div className="flex flex-col gap-3 border-b border-border/40 bg-popover px-4 py-3.5 sm:px-6 sm:py-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2.5">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-lime/40 bg-lime/15 text-lime">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#7C3AED] via-[#4F46E5] to-[#0095F6] text-white">
                 <PlayCircle className="size-5" aria-hidden="true" />
               </span>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-lime">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#0077CC] dark:text-[#0095F6]">
                     Interactive Video &amp; Audio Guide
                   </span>
                   {isPlaying && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-lime">
-                      <span className="size-1.5 rounded-full bg-emerald-500 dark:bg-lime animate-ping" />
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                      <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" />
                       ശബ്ദത്തോടെ പ്ലേ ചെയ്യുന്നു
                     </span>
                   )}
@@ -1748,7 +1748,7 @@ export function AppVideoGuideModal({
                 onClose()
               }}
               aria-label="Close Video Guide"
-              className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted/75 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <X className="size-4" aria-hidden="true" />
             </button>
@@ -1769,14 +1769,14 @@ export function AppVideoGuideModal({
                       void startChapterNarration(r, 0)
                     }}
                     className={cn(
-                      'inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0 transition-all',
+                      'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0 transition-all active:scale-[0.98]',
                       isSelected
-                        ? 'border-lime bg-lime text-slate-950 shadow-xs'
-                        : 'border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
+                        ? 'bg-[#0095F6] text-white shadow-xs'
+                        : 'bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground',
                     )}
                   >
                     <span>{ROLE_LABELS[r].titleMl}</span>
-                    <span className="text-[10px] opacity-75">
+                    <span className="text-[10px] opacity-80">
                       ({ROLE_LABELS[r].titleEn})
                     </span>
                   </button>
@@ -1802,10 +1802,10 @@ export function AppVideoGuideModal({
                     void startChapterNarration(activeRole, idx)
                   }}
                   className={cn(
-                    'inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold whitespace-nowrap shrink-0 transition-all',
+                    'inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold whitespace-nowrap shrink-0 transition-all active:scale-[0.98]',
                     active
-                      ? 'border-cyan bg-cyan/15 text-cyan shadow-xs'
-                      : 'border-border bg-background/60 text-muted-foreground hover:bg-muted hover:text-foreground',
+                      ? 'bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]'
+                      : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                 >
                   <ChIcon className="size-3.5 shrink-0" aria-hidden="true" />
@@ -1819,15 +1819,15 @@ export function AppVideoGuideModal({
           </div>
 
           {/* VIDEO SCREEN SIMULATOR ("സ്ക്രീനിൽ ഓരോന്നും തൊട്ട് കാണിക്കുന്ന വീഡിയോ ഫ്രെയിം") */}
-          <div className="relative overflow-hidden rounded-2xl border-2 border-border bg-gradient-to-br from-slate-950 via-[#0d1218] to-slate-900 p-4 text-white shadow-xl sm:p-5">
+          <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#0B1014] via-[#121820] to-[#151B20] p-4 text-white shadow-xl sm:p-5">
             {/* Top Simulated App Bar & Audio Waveform */}
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
               <div className="flex items-center gap-2.5">
-                <span className="flex size-8 items-center justify-center rounded-xl bg-lime/20 text-lime">
+                <span className="flex size-8 items-center justify-center rounded-xl bg-[#0095F6]/20 text-[#0095F6]">
                   <Icon className="size-4" aria-hidden="true" />
                 </span>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-lime">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#0095F6]">
                     {currentChapter.badge}
                   </p>
                   <h3 className="text-sm font-bold text-white sm:text-base">
@@ -1841,13 +1841,13 @@ export function AppVideoGuideModal({
                 {isPlaying && (
                   <div
                     aria-hidden="true"
-                    className="hidden sm:flex h-6 items-center gap-0.5 rounded-lg border border-lime/30 bg-lime/10 px-2.5"
+                    className="hidden sm:flex h-6 items-center gap-0.5 rounded-full bg-[#0095F6]/15 px-2.5"
                   >
                     {[40, 85, 55, 95, 60, 80, 45, 90, 65, 50].map((h, i) => (
                       <span
                         key={i}
                         style={{ height: `${h}%` }}
-                        className="w-1 rounded-full bg-lime animate-pulse"
+                        className="w-1 rounded-full bg-[#0095F6] animate-pulse"
                       />
                     ))}
                   </div>
@@ -1862,7 +1862,7 @@ export function AppVideoGuideModal({
                       void startChapterNarration(activeRole, chapterIndex)
                     }
                   }}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-xl bg-lime px-3 text-xs font-bold text-slate-950 transition-transform active:scale-95"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#0095F6] px-3.5 text-xs font-bold text-white transition-transform hover:bg-[#0077CC] active:scale-95"
                 >
                   {isLoadingAudio ? (
                     <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
@@ -1878,7 +1878,7 @@ export function AppVideoGuideModal({
                   type="button"
                   onClick={() => void startChapterNarration(activeRole, chapterIndex)}
                   title="Replay Malayalam Voice"
-                  className="flex size-8 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white hover:bg-white/20"
+                  className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
                 >
                   <RotateCcw className="size-3.5" aria-hidden="true" />
                 </button>
@@ -1893,12 +1893,12 @@ export function AppVideoGuideModal({
                     }
                   }}
                   title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
-                  className="flex size-8 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white hover:bg-white/20"
+                  className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
                 >
                   {isMuted ? (
                     <VolumeX className="size-3.5 text-red-400" aria-hidden="true" />
                   ) : (
-                    <Volume2 className="size-3.5 text-lime" aria-hidden="true" />
+                    <Volume2 className="size-3.5 text-[#0095F6]" aria-hidden="true" />
                   )}
                 </button>
               </div>
@@ -1911,19 +1911,19 @@ export function AppVideoGuideModal({
                 const toneClasses =
                   spot.tone === 'red'
                     ? isFocused
-                      ? 'border-red-400 bg-red-500/25 ring-2 ring-red-400/60'
-                      : 'border-white/10 bg-white/5 hover:border-red-400/40'
+                      ? 'bg-red-500/25 shadow-md'
+                      : 'bg-white/[0.05] hover:bg-white/[0.09]'
                     : spot.tone === 'cyan'
                       ? isFocused
-                        ? 'border-cyan bg-cyan/20 ring-2 ring-cyan/60'
-                        : 'border-white/10 bg-white/5 hover:border-cyan/40'
+                        ? 'bg-[#4F46E5]/25 shadow-md'
+                        : 'bg-white/[0.05] hover:bg-white/[0.09]'
                       : spot.tone === 'amber'
                         ? isFocused
-                          ? 'border-amber-400 bg-amber-500/20 ring-2 ring-amber-400/60'
-                          : 'border-white/10 bg-white/5 hover:border-amber-400/40'
+                          ? 'bg-amber-500/22 shadow-md'
+                          : 'bg-white/[0.05] hover:bg-white/[0.09]'
                         : isFocused
-                          ? 'border-lime bg-lime/20 ring-2 ring-lime/60'
-                          : 'border-white/10 bg-white/5 hover:border-lime/40'
+                          ? 'bg-[#0095F6]/22 shadow-md'
+                          : 'bg-white/[0.05] hover:bg-white/[0.09]'
 
                 return (
                   <button
@@ -1931,21 +1931,21 @@ export function AppVideoGuideModal({
                     type="button"
                     onClick={() => setActiveHotspotIndex(idx)}
                     className={cn(
-                      'relative flex flex-col justify-between gap-2 rounded-2xl border p-3.5 text-left transition-all duration-300',
+                      'relative flex flex-col justify-between gap-2 rounded-2xl p-3.5 text-left transition-all duration-200 outline-none active:scale-[0.99]',
                       toneClasses,
                     )}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span
                         className={cn(
-                          'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold',
+                          'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold text-white',
                           spot.tone === 'red'
-                            ? 'bg-red-500 text-white'
+                            ? 'bg-red-500'
                             : spot.tone === 'cyan'
-                              ? 'bg-cyan text-slate-950'
+                              ? 'bg-[#4F46E5]'
                               : spot.tone === 'amber'
-                                ? 'bg-amber-400 text-slate-950'
-                                : 'bg-lime text-slate-950',
+                                ? 'bg-amber-500'
+                                : 'bg-[#0095F6]',
                         )}
                       >
                         <span>Step {spot.stepNumber}:</span>
@@ -1953,7 +1953,7 @@ export function AppVideoGuideModal({
                       </span>
 
                       {isFocused && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-bold text-lime animate-bounce">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-bold text-[#60B6FF] animate-bounce">
                           <span>👆 ഇവിടെ തൊടുക</span>
                         </span>
                       )}
@@ -1977,13 +1977,13 @@ export function AppVideoGuideModal({
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
                 <div
                   style={{ width: `${progressPercent}%` }}
-                  className="h-full rounded-full bg-gradient-to-r from-lime to-cyan transition-all duration-300"
+                  className="h-full rounded-full bg-gradient-to-r from-[#7C3AED] via-[#4F46E5] to-[#0095F6] transition-all duration-300"
                 />
               </div>
               <div className="flex items-center justify-between text-[11px] text-slate-300">
                 <span>
                   ഇപ്പോൾ കാണിക്കുന്നത്:{' '}
-                  <strong className="text-lime">
+                  <strong className="text-[#60B6FF]">
                     Step {currentHotspot.stepNumber} — {currentHotspot.malayalamTitle}
                   </strong>
                 </span>
@@ -1995,10 +1995,10 @@ export function AppVideoGuideModal({
           </div>
 
           {/* Detailed Malayalam Explanation Card (Subtitles / Full Voice Transcript) */}
-          <div className="rounded-2xl border border-border bg-background/80 p-4 sm:p-5 dark:border-[#262a33] dark:bg-[#12141b]">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-3">
+          <div className="rounded-2xl bg-muted/45 p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-3">
               <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-cyan">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#0077CC] dark:text-[#0095F6]">
                   മലയാളം വിശദീകരണം (Audio Transcript &amp; Purpose)
                 </span>
                 <h4 className="mt-0.5 text-base font-bold text-foreground">
@@ -2011,22 +2011,22 @@ export function AppVideoGuideModal({
                   type="checkbox"
                   checked={autoAdvanceChapters}
                   onChange={(e) => setAutoAdvanceChapters(e.target.checked)}
-                  className="size-4 accent-emerald-600"
+                  className="size-4 accent-[#0095F6]"
                 />
                 <span>അടുത്ത അധ്യായം തനിയെ പ്ലേ ചെയ്യുക (Auto-Play)</span>
               </label>
             </div>
 
             <div className="mt-3 space-y-2.5 text-xs leading-relaxed sm:text-sm">
-              <p className="rounded-xl border border-lime/30 bg-lime/10 p-3 font-medium text-foreground">
-                <strong className="text-emerald-700 dark:text-lime">
+              <p className="rounded-2xl bg-[#0095F6]/10 p-3 font-medium text-foreground">
+                <strong className="text-[#0077CC] dark:text-[#0095F6]">
                   എന്തിനാണ് ഈ ഭാഗം ഉപയോഗിക്കുന്നത്?{' '}
                 </strong>
                 {currentChapter.purposeMl}
               </p>
 
-              <p className="rounded-xl border border-border bg-card/70 p-3.5 leading-7 text-foreground/90">
-                <strong className="text-cyan">🔊 ശബ്ദ വിവരണം: </strong>
+              <p className="rounded-2xl bg-card/80 p-3.5 leading-7 text-foreground/90">
+                <strong className="text-[#7C3AED] dark:text-[#A78BFA]">🔊 ശബ്ദ വിവരണം: </strong>
                 {currentChapter.voiceScriptMl}
               </p>
             </div>
@@ -2034,7 +2034,7 @@ export function AppVideoGuideModal({
         </div>
 
         {/* Bottom Navigation Footer (Previous / Play-Pause / Next Chapter) */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 px-4 py-3.5 sm:px-6 dark:border-[#262a33] dark:bg-[#12141b]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/40 bg-popover px-4 py-3.5 sm:px-6">
           <button
             type="button"
             disabled={chapterIndex === 0}
@@ -2043,7 +2043,7 @@ export function AppVideoGuideModal({
               setChapterIndex(prevIdx)
               void startChapterNarration(activeRole, prevIdx)
             }}
-            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-muted/75 px-4 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-40"
           >
             <ChevronLeft className="size-4" aria-hidden="true" />
             <span>മുമ്പത്തെ ഭാഗം (Prev)</span>
@@ -2059,7 +2059,7 @@ export function AppVideoGuideModal({
                   void startChapterNarration(activeRole, chapterIndex)
                 }
               }}
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-lime px-4 text-xs font-bold text-slate-950 shadow-sm transition-transform active:scale-95"
+              className="inline-flex h-10 items-center gap-2 rounded-full bg-gradient-to-r from-[#7C3AED] via-[#4F46E5] to-[#0095F6] px-4 text-xs font-bold text-white shadow-sm transition-transform active:scale-95"
             >
               {isPlaying ? (
                 <>
@@ -2082,7 +2082,7 @@ export function AppVideoGuideModal({
                   setChapterIndex(nextIdx)
                   void startChapterNarration(activeRole, nextIdx)
                 }}
-                className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-cyan/50 bg-cyan/15 px-3.5 text-xs font-bold text-cyan transition-colors hover:bg-cyan hover:text-slate-950"
+                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#0095F6]/15 px-4 text-xs font-bold text-[#0077CC] dark:text-[#0095F6] transition-colors hover:bg-[#0095F6] hover:text-white"
               >
                 <span>അടുത്ത ഭാഗം (Next)</span>
                 <ChevronRight className="size-4" aria-hidden="true" />
@@ -2094,7 +2094,7 @@ export function AppVideoGuideModal({
                   stopAllAudioAndTimers()
                   onClose()
                 }}
-                className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white hover:bg-emerald-700"
+                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#0095F6] px-4 text-xs font-bold text-white hover:bg-[#0077CC]"
               >
                 <CheckCircle2 className="size-4" aria-hidden="true" />
                 <span>പൂർത്തിയായി (Done)</span>

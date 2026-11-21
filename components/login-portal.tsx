@@ -305,14 +305,10 @@ export function LoginPortal({
     <section
       id={id}
       className={cn(
-        'relative overflow-hidden border-t border-border bg-background transition-colors duration-300',
+        'relative overflow-hidden bg-background transition-colors duration-200',
         className,
       )}
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute right-0 bottom-0 size-[28rem] rounded-full bg-lime/10 blur-3xl"
-      />
       <div className="relative z-10 mx-auto flex max-w-7xl flex-col gap-10 px-6 py-20 md:py-28">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -321,13 +317,13 @@ export function LoginPortal({
           transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
           className="flex max-w-2xl flex-col gap-3"
         >
-          <p className="text-xs font-semibold tracking-[0.22em] text-cyan uppercase">
+          <p className="text-xs font-semibold tracking-[0.2em] text-[#0077CC] dark:text-[#0095F6] uppercase">
             {eyebrow}
           </p>
           <h2 className="text-balance font-display text-4xl font-bold md:text-5xl">
             <AnimatedWords text="Choose Your Role" stagger={0.08} />
           </h2>
-          <p className="text-pretty font-light tracking-wide text-base leading-relaxed text-muted-foreground md:text-lg">
+          <p className="text-pretty font-normal tracking-wide text-base leading-relaxed text-muted-foreground md:text-lg">
             {description}
           </p>
         </motion.div>
@@ -339,7 +335,6 @@ export function LoginPortal({
           {roles.map((role, index) => {
             const Icon = role.icon
             const isActive = role.id === selectedId
-            const isLime = role.tone === 'lime'
             const isInvalid = invalidRoleId === role.id
 
             return (
@@ -357,12 +352,10 @@ export function LoginPortal({
               >
                 <div
                   className={cn(
-                    'group relative flex flex-col rounded-3xl border bg-background/75 backdrop-blur-xs transition-[border-color,background-color,box-shadow,transform] duration-500 ease-out',
+                    'group relative flex flex-col rounded-3xl transition-all duration-200 ease-out',
                     isActive
-                      ? isLime
-                        ? 'border-lime bg-background/95 shadow-[0_0_0_1px_var(--lime)]'
-                        : 'border-cyan bg-background/95 shadow-[0_0_0_1px_var(--cyan)]'
-                      : 'border-border hover:-translate-y-0.5 hover:border-foreground/25 hover:shadow-lg hover:shadow-black/5',
+                      ? 'bg-[#E9EEF2] dark:bg-[#1C2227]'
+                      : 'bg-card hover:bg-[#EAEFF3] dark:hover:bg-[#1A2128]',
                   )}
                 >
                 <button
@@ -372,29 +365,24 @@ export function LoginPortal({
                     setSelectedId((prev) => (prev === role.id ? null : role.id))
                     setInvalidRoleId(null)
                   }}
-                  className="flex w-full flex-col gap-5 rounded-3xl p-6 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex w-full cursor-pointer flex-col gap-5 rounded-3xl p-6 text-left outline-none active:scale-[0.985] transition-transform duration-150"
                 >
                   <div className="flex items-center justify-between">
                     <span
                       className={cn(
-                        'flex size-12 items-center justify-center rounded-2xl',
-                        isLime
-                          ? 'bg-lime/15 text-lime'
-                          : 'bg-cyan/15 text-cyan',
+                        'flex size-12 items-center justify-center rounded-2xl transition-colors',
+                        isActive
+                          ? 'bg-[#0095F6] text-white'
+                          : 'bg-[#0095F6]/12 text-[#0077CC] dark:text-[#0095F6]',
                       )}
                     >
-                      <Icon className="size-6" aria-hidden="true" />
+                      <Icon className="size-6 stroke-[1.9]" aria-hidden="true" />
                     </span>
 
                     <div className="flex items-center gap-2">
                       {isActive ? (
-                        <span
-                          className={cn(
-                            'flex size-6 items-center justify-center rounded-full text-background',
-                            isLime ? 'bg-lime' : 'bg-cyan',
-                          )}
-                        >
-                          <Check className="size-3.5" aria-hidden="true" />
+                        <span className="flex size-6 items-center justify-center rounded-full bg-[#0095F6] text-white">
+                          <Check className="size-3.5 stroke-[2.5]" aria-hidden="true" />
                         </span>
                       ) : (
                         <span className="text-xs font-medium text-muted-foreground">
@@ -403,11 +391,8 @@ export function LoginPortal({
                       )}
                       <span
                         className={cn(
-                          'flex size-7 items-center justify-center rounded-full border border-border/70 bg-muted/40 text-muted-foreground transition-transform duration-300',
-                          isActive &&
-                            (isLime
-                              ? 'rotate-180 border-lime/40 bg-lime/15 text-lime'
-                              : 'rotate-180 border-cyan/40 bg-cyan/15 text-cyan'),
+                          'flex size-7 items-center justify-center rounded-full bg-background/70 text-muted-foreground transition-transform duration-300 dark:bg-white/8',
+                          isActive && 'rotate-180 bg-[#0095F6]/15 text-[#0095F6]',
                         )}
                       >
                         <ChevronDown className="size-4" aria-hidden="true" />
@@ -416,7 +401,7 @@ export function LoginPortal({
                   </div>
 
                   <div className="flex flex-col gap-2">
-                    <h3 className="font-display text-2xl font-semibold">
+                    <h3 className="font-display text-2xl font-semibold text-foreground">
                       {role.title}
                     </h3>
                     <p className="text-sm leading-relaxed text-muted-foreground">
@@ -425,12 +410,7 @@ export function LoginPortal({
                   </div>
 
                   {!isActive && (
-                    <span
-                      className={cn(
-                        'inline-flex items-center gap-1.5 text-xs font-semibold',
-                        isLime ? 'text-lime' : 'text-cyan',
-                      )}
-                    >
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0077CC] dark:text-[#0095F6]">
                       Tap to enter ID &amp; Password
                       <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
                     </span>
@@ -447,14 +427,9 @@ export function LoginPortal({
                       transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
                       className="overflow-hidden"
                     >
-                      <div className="border-t border-border/80 px-6 pt-5 pb-6">
+                      <div className="px-6 pt-2 pb-6">
                         <div className="mb-4 flex flex-col gap-1">
-                          <p
-                            className={cn(
-                              'text-xs font-bold tracking-wider uppercase',
-                              isLime ? 'text-lime' : 'text-cyan',
-                            )}
-                          >
+                          <p className="text-xs font-bold tracking-wider text-[#0077CC] dark:text-[#0095F6] uppercase">
                             {role.tier} access
                           </p>
                           <p className="text-sm font-semibold text-foreground">
@@ -481,7 +456,7 @@ export function LoginPortal({
                               onChange={() => {
                                 if (isInvalid) setInvalidRoleId(null)
                               }}
-                              className="h-11 rounded-xl"
+                              className="h-11 rounded-2xl bg-background dark:bg-[#0B1014]"
                             />
                           </div>
 
@@ -499,24 +474,24 @@ export function LoginPortal({
                               onChange={() => {
                                 if (isInvalid) setInvalidRoleId(null)
                               }}
-                              className="h-11 rounded-xl"
+                              className="h-11 rounded-2xl bg-background dark:bg-[#0B1014]"
                             />
                           </div>
 
                           {primaryOwner && (
-                            <div className="rounded-xl border border-border/80 bg-muted/35 p-3 text-xs">
+                            <div className="rounded-2xl bg-background/70 p-3.5 text-xs dark:bg-[#0B1014]/70">
                               <p className="font-semibold text-foreground">
                                 Phone Notification Owner: {primaryOwner.actorName} ({primaryOwner.className})
                               </p>
-                              <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                                 If a friend logs in temporarily on this phone, their notifications will NOT come after they log out.
                               </p>
-                              <label className="mt-2 flex cursor-pointer items-center gap-2 text-[11px] font-medium text-foreground">
+                              <label className="mt-2.5 flex cursor-pointer items-center gap-2 text-xs font-medium text-foreground">
                                 <input
                                   type="checkbox"
                                   checked={setAsPrimaryOwner}
                                   onChange={(e) => setSetAsPrimaryOwner(e.target.checked)}
-                                  className="size-3.5 rounded border-border accent-lime"
+                                  className="size-4 rounded accent-[#0095F6]"
                                 />
                                 <span>Set this new login ID as this phone&apos;s Primary Owner</span>
                               </label>
@@ -525,7 +500,7 @@ export function LoginPortal({
 
                           <Button
                             type="submit"
-                            className="mt-1 h-11 w-full rounded-full text-sm font-semibold"
+                            className="mt-1 h-12 w-full rounded-full text-sm font-semibold"
                           >
                             Log in to portal
                             <ArrowRight data-icon="inline-end" />
@@ -542,7 +517,7 @@ export function LoginPortal({
                             </p>
                           )}
 
-                          <p className="text-[11px] leading-relaxed text-muted-foreground">
+                          <p className="text-xs leading-relaxed text-muted-foreground">
                             Forgot your credentials? Contact the academy office
                             to reset your access.
                           </p>

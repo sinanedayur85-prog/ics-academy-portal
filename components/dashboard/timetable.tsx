@@ -53,7 +53,7 @@ export function Timetable({ student }: { student: Student }) {
       title="Timetable"
       icon={CalendarDays}
       action={
-        <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-lime/15 dark:text-lime">
+        <span className="inline-flex items-center rounded-full bg-[#0095F6]/15 px-3 py-1 text-xs font-semibold text-[#0077CC] dark:text-[#0095F6]">
           Semester {activeSemester}
         </span>
       }
@@ -77,17 +77,17 @@ export function Timetable({ student }: { student: Student }) {
             <div
               key={`${period.label}_${periodNum}`}
               className={cn(
-                'flex flex-col justify-between rounded-xl border p-3.5 transition-colors duration-200',
+                'flex flex-col justify-between rounded-2xl p-3.5 transition-colors duration-150',
                 isNonTeaching
-                  ? 'border-border/60 bg-muted/25'
+                  ? 'bg-muted/50 dark:bg-[#1C2227]/50'
                   : isNotHeld
-                    ? 'border-red-500/40 bg-red-500/[0.05]'
+                    ? 'bg-red-500/10'
                     : isSubstituted
-                      ? 'border-cyan/40 bg-cyan/[0.05]'
-                      : 'border-border bg-background/50 hover:border-lime/40 hover:bg-lime/5',
+                      ? 'bg-[#0095F6]/10'
+                      : 'bg-muted/70 hover:bg-muted dark:bg-[#1C2227] dark:hover:bg-[#232A30]',
               )}
             >
-              <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2">
+              <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2">
                 <span
                   className={cn(
                     'text-xs font-semibold uppercase tracking-wider',
@@ -95,7 +95,7 @@ export function Timetable({ student }: { student: Student }) {
                       ? 'text-muted-foreground'
                       : isNotHeld
                         ? 'text-red-500 dark:text-red-400'
-                        : 'text-lime',
+                        : 'text-[#0077CC] dark:text-[#0095F6]',
                   )}
                 >
                   {period.label}
@@ -125,12 +125,12 @@ export function Timetable({ student }: { student: Student }) {
                 </p>
 
                 {isNonTeaching ? (
-                  <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/50 px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                  <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-xl bg-background/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
                     <Coffee className="size-3 shrink-0" aria-hidden="true" />
                     {isRefreshment ? 'Refreshment Break' : 'No Class Scheduled'}
                   </div>
                 ) : isNotHeld ? (
-                  <div className="mt-1.5 flex flex-col gap-1 rounded-lg border border-red-500/30 bg-red-500/10 p-2">
+                  <div className="mt-1.5 flex flex-col gap-1 rounded-xl bg-red-500/15 p-2">
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 dark:text-red-400">
                       <Ban className="size-3 shrink-0" aria-hidden="true" />
                       Class Not Held
@@ -141,19 +141,19 @@ export function Timetable({ student }: { student: Student }) {
                     </span>
                   </div>
                 ) : isSubstituted ? (
-                  <div className="mt-1.5 inline-flex items-center gap-1 rounded-lg border border-cyan/30 bg-cyan/10 px-2 py-1 text-[11px] font-semibold text-cyan">
+                  <div className="mt-1.5 inline-flex items-center gap-1 rounded-xl bg-[#0095F6]/15 px-2.5 py-1 text-[11px] font-semibold text-[#0077CC] dark:text-[#38BDF8]">
                     <UserCog className="size-3 shrink-0" aria-hidden="true" />
                     Substitute Class Held
                   </div>
                 ) : studentRecord ? (
                   <div
                     className={cn(
-                      'mt-1.5 inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold',
+                      'mt-1.5 inline-flex items-center gap-1 rounded-xl px-2.5 py-1 text-[11px] font-semibold',
                       studentRecord === 'present'
-                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-lime'
+                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
                         : studentRecord === 'absent'
-                          ? 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400'
-                          : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+                          ? 'bg-red-500/15 text-red-600 dark:text-red-400'
+                          : 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
                     )}
                   >
                     <CheckCircle2 className="size-3 shrink-0" aria-hidden="true" />

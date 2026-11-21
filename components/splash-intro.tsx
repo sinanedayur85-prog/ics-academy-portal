@@ -106,7 +106,7 @@ export function SplashIntro() {
           onClick={() => setVisible(false)}
           role="status"
           aria-label="Loading ICS Academy Manhappatta"
-          className="fixed inset-0 z-[120] flex flex-col items-center justify-center overflow-hidden bg-[#0a0b0e] text-white select-none"
+          className="fixed inset-0 z-[120] flex flex-col items-center justify-center overflow-hidden bg-[#0B1014] text-white select-none"
         >
           <div className="relative z-10 flex flex-col items-center px-6">
             {/* 1. Model 4 (4.5s) Step-by-Step Petal Sketch & Fill (Zero background light / shadow) */}

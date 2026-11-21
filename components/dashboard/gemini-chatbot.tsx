@@ -2782,27 +2782,32 @@ export function GeminiChatbot({
                       setErrorMessage(null)
                     }}
                     className={cn(
-                      'flex min-w-0 flex-col items-start gap-1 rounded-xl border p-3.5 text-left transition-all duration-200',
+                      'flex min-w-0 flex-col items-start gap-1 rounded-2xl p-3.5 text-left transition-all duration-150 active:scale-[0.98]',
                       active
-                        ? 'border-lime/60 bg-lime/10 shadow-xs'
-                        : 'border-border bg-background/50 hover:border-lime/30 hover:bg-muted/50',
+                        ? 'bg-[#0095F6]/15 dark:bg-[#1C2227]'
+                        : 'bg-muted/60 hover:bg-muted dark:bg-[#151B20] dark:hover:bg-[#1C2227]/80',
                     )}
                   >
                     <div className="flex w-full min-w-0 items-center justify-between gap-2">
                       <span className="flex min-w-0 items-center gap-2 text-xs font-semibold text-foreground">
                         <persona.icon
-                          className={cn('size-4 shrink-0', active ? 'text-lime' : 'text-muted-foreground')}
+                          className={cn(
+                            'size-4 shrink-0',
+                            active ? 'text-[#0077CC] dark:text-[#0095F6]' : 'text-muted-foreground',
+                          )}
                           aria-hidden="true"
                         />
                         <span className="truncate">{persona.title}</span>
                       </span>
                       {msgCount > 0 ? (
-                        <span className="shrink-0 rounded-md bg-lime/15 px-1.5 py-0.5 font-poppins text-[10px] font-semibold text-lime">
+                        <span className="shrink-0 rounded-full bg-[#0095F6]/15 px-2 py-0.5 font-poppins text-[10px] font-semibold text-[#0077CC] dark:text-[#0095F6]">
                           {msgCount}
                         </span>
                       ) : null}
                     </div>
-                    <p className="w-full text-xs font-medium text-lime/90">{persona.subTitle}</p>
+                    <p className="w-full text-xs font-medium text-[#0077CC] dark:text-[#38BDF8]">
+                      {persona.subTitle}
+                    </p>
                     <p className="line-clamp-2 w-full text-[11px] leading-relaxed text-muted-foreground">
                       {persona.description}
                     </p>
@@ -2813,7 +2818,7 @@ export function GeminiChatbot({
           </div>
 
           {/* Language & Active System Instruction Summary */}
-          <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-background/50 p-3.5">
+          <div className="flex min-w-0 flex-col gap-3 rounded-2xl bg-muted/60 p-3.5 dark:bg-[#151B20]">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span
                 className={cn(
@@ -2828,15 +2833,15 @@ export function GeminiChatbot({
               <div
                 role="group"
                 aria-label="Chatbot output language"
-                className="inline-flex max-w-full flex-wrap rounded-lg border border-border bg-background p-0.5"
+                className="inline-flex max-w-full flex-wrap rounded-xl bg-background/80 p-1 dark:bg-[#0B1014]"
               >
                 <button
                   type="button"
                   onClick={() => handleSelectLanguage('auto')}
                   className={cn(
-                    'rounded-md px-2 py-1 text-xs font-medium transition-colors whitespace-nowrap',
+                    'rounded-lg px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap',
                     responseLanguagePreference === 'auto'
-                      ? 'bg-lime text-primary-foreground font-semibold'
+                      ? 'bg-[#0095F6] text-white font-semibold'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -2848,12 +2853,12 @@ export function GeminiChatbot({
                     type="button"
                     onClick={() => handleSelectLanguage(lang.id)}
                     className={cn(
-                      'rounded-md px-2 py-1 text-xs font-medium transition-colors whitespace-nowrap',
+                      'rounded-lg px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap',
                       lang.id === 'ml' && 'font-malayalam',
                       lang.id === 'ar' && 'font-arabic',
                       lang.id === 'ur' && 'font-urdu text-sm leading-none',
                       responseLanguagePreference === lang.id
-                        ? 'bg-primary text-primary-foreground font-semibold'
+                        ? 'bg-[#0095F6] text-white font-semibold'
                         : 'text-muted-foreground hover:text-foreground',
                     )}
                   >
@@ -2861,7 +2866,7 @@ export function GeminiChatbot({
                   </button>
                 ))}
               </div>
-              <p className="w-full text-[11px] text-lime/90">
+              <p className="w-full text-[11px] text-[#0077CC] dark:text-[#38BDF8]">
                 {responseLanguagePreference === 'auto'
                   ? '✓ Auto Mode: Replies automatically in the language you ask.'
                   : `✓ Selected Response Language (${LANGUAGES.find((l) => l.id === responseLanguagePreference)?.label}): Replies will be in this language regardless of question language.`}
@@ -2870,7 +2875,7 @@ export function GeminiChatbot({
 
             <div
               className={cn(
-                'border-t border-border/60 pt-2.5 text-[11px] leading-relaxed text-muted-foreground',
+                'border-t border-border/40 pt-2.5 text-[11px] leading-relaxed text-muted-foreground',
                 language === 'ur' && 'font-urdu text-xs',
               )}
             >
@@ -2885,25 +2890,25 @@ export function GeminiChatbot({
         {/* Right Column: Scrollable Conversation Thread & Composer */}
         <div
           className={cn(
-            'flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-background/60 xl:col-span-8',
+            'flex min-w-0 flex-col overflow-hidden rounded-3xl bg-background/70 dark:bg-[#0B1014] xl:col-span-8',
             mobileFullScreen &&
-              'max-lg:flex-1 max-lg:min-h-0 max-lg:h-full rounded-none border-0 bg-background/95 lg:h-auto lg:rounded-2xl lg:border lg:border-border lg:bg-background/60',
+              'max-lg:flex-1 max-lg:min-h-0 max-lg:h-full rounded-none bg-background lg:h-auto lg:rounded-3xl lg:bg-background/70 lg:dark:bg-[#0B1014]',
           )}
         >
           {/* Mobile & Tablet Clean Fixed Header: Mentor Title, Role Tabs & Language Bar (Never Scrolls) */}
           {mobileFullScreen ? (
-            <div className="flex shrink-0 flex-col gap-2 border-b border-border/80 bg-card/90 px-3.5 py-2.5 backdrop-blur-md lg:hidden">
+            <div className="flex shrink-0 flex-col gap-2 border-b border-border/50 bg-background/95 px-3.5 py-2.5 backdrop-blur-md lg:hidden">
               {/* Row 1: Full Mentor Title & Subtitle + Clear Button */}
               <div className="flex items-center justify-between gap-2.5">
                 <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-lime/25 bg-lime/15 text-lime">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#7C3AED] via-[#4F46E5] to-[#0095F6] text-white">
                     <currentPersona.icon className="size-4" aria-hidden="true" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <h2 className="truncate text-xs font-bold text-foreground sm:text-sm">
                       {currentPersona.title}
                     </h2>
-                    <p className="truncate text-[11px] font-medium text-lime/90">
+                    <p className="truncate text-[11px] font-medium text-[#0077CC] dark:text-[#38BDF8]">
                       {currentPersona.subTitle}
                     </p>
                   </div>
@@ -2914,7 +2919,7 @@ export function GeminiChatbot({
                   onClick={handleResetThread}
                   disabled={sending || currentMessages.length <= 1}
                   title="New Chat / Clear History"
-                  className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg border border-border bg-background/90 px-2.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive disabled:opacity-40"
+                  className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-muted px-3 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-500 active:scale-95 disabled:opacity-40 dark:bg-[#1C2227]"
                 >
                   <RotateCcw className="size-3" aria-hidden="true" />
                   <span>Clear</span>
@@ -2938,21 +2943,22 @@ export function GeminiChatbot({
                         setErrorMessage(null)
                       }}
                       className={cn(
-                        'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all',
+                        'inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold transition-all active:scale-95',
                         active
-                          ? 'border-lime/60 bg-lime/15 text-foreground shadow-xs'
-                          : 'border-border/80 bg-background/60 text-muted-foreground hover:text-foreground',
+                          ? 'bg-gradient-to-r from-[#7C3AED] via-[#4F46E5] to-[#0095F6] text-white'
+                          : 'bg-muted text-muted-foreground hover:text-foreground dark:bg-[#1C2227]',
                       )}
                     >
                       <persona.icon
-                        className={cn('size-3.5 shrink-0', active ? 'text-lime' : 'text-muted-foreground')}
+                        className={cn('size-3.5 shrink-0', active ? 'text-white' : 'text-muted-foreground')}
                         aria-hidden="true"
                       />
                       <span>{persona.title}</span>
                       {msgCount > 0 ? (
                         <span
                           className={cn(
-                            'rounded-full bg-lime/20 px-1.5 py-0.2 font-bold text-lime',
+                            'rounded-full px-1.5 py-0.2 font-bold',
+                            active ? 'bg-white/20 text-white' : 'bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]',
                             language === 'ar'
                               ? 'font-arabic text-xs leading-none'
                               : 'font-poppins text-[9.5px]',
@@ -2974,15 +2980,15 @@ export function GeminiChatbot({
                 <div
                   role="group"
                   aria-label="Select chat language"
-                  className="inline-flex shrink-0 items-center gap-0.5 rounded-lg border border-border/80 bg-background/80 p-0.5"
+                  className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-muted p-0.5 dark:bg-[#1C2227]"
                 >
                   <button
                     type="button"
                     onClick={() => handleSelectLanguage('auto')}
                     className={cn(
-                      'rounded-md px-2 py-0.5 text-[10.5px] font-semibold transition-colors whitespace-nowrap',
+                      'rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold transition-colors whitespace-nowrap',
                       responseLanguagePreference === 'auto'
-                        ? 'bg-lime text-primary-foreground'
+                        ? 'bg-[#0095F6] text-white'
                         : 'text-muted-foreground hover:text-foreground',
                     )}
                   >
@@ -2996,12 +3002,12 @@ export function GeminiChatbot({
                         type="button"
                         onClick={() => handleSelectLanguage(lang.id)}
                         className={cn(
-                          'rounded-md px-2 py-0.5 text-[10.5px] font-medium transition-colors whitespace-nowrap',
+                          'rounded-full px-2.5 py-0.5 text-[10.5px] font-medium transition-colors whitespace-nowrap',
                           lang.id === 'ml' && 'font-malayalam',
                           lang.id === 'ar' && 'font-arabic',
                           lang.id === 'ur' && 'font-urdu text-xs leading-none',
                           active
-                            ? 'bg-primary text-primary-foreground font-semibold'
+                            ? 'bg-[#0095F6] text-white font-semibold'
                             : 'text-muted-foreground hover:text-foreground',
                         )}
                       >
@@ -3017,12 +3023,12 @@ export function GeminiChatbot({
           {/* Thread Header (Desktop & Non-Fullscreen) */}
           <div
             className={cn(
-              'flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-3.5 py-3 sm:px-4',
+              'flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/50 px-3.5 py-3 sm:px-4',
               mobileFullScreen && 'hidden lg:flex',
             )}
           >
             <div className="flex min-w-0 max-w-full items-center gap-2.5">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-lime/15 text-lime">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#7C3AED] via-[#4F46E5] to-[#0095F6] text-white">
                 <currentPersona.icon className="size-4" aria-hidden="true" />
               </div>
               <div className="min-w-0">
@@ -3044,7 +3050,7 @@ export function GeminiChatbot({
                 onClick={handleResetThread}
                 disabled={sending || currentMessages.length <= 1}
                 title="Clear your chat history"
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card/90 px-2.5 text-xs font-semibold text-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive disabled:opacity-45"
+                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-muted px-3 text-xs font-semibold text-foreground transition-colors hover:bg-red-500/15 hover:text-red-500 active:scale-95 disabled:opacity-45 dark:bg-[#1C2227]"
               >
                 <Trash2 className="size-3.5 shrink-0" aria-hidden="true" />
                 <span>Clear Chat</span>
@@ -3064,12 +3070,12 @@ export function GeminiChatbot({
             aria-live="polite"
           >
             {mobileFullScreen && turnCount === 0 ? (
-              <div className="flex flex-col gap-1 rounded-2xl border border-lime/25 bg-gradient-to-br from-lime/10 via-cyan/5 to-transparent px-3.5 py-3 lg:hidden">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-lime">
+              <div className="flex flex-col gap-1 rounded-3xl bg-gradient-to-br from-[#7C3AED]/12 via-[#4F46E5]/8 to-[#0095F6]/12 px-4 py-3.5 lg:hidden">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#0077CC] dark:text-[#38BDF8]">
                   Da&apos;wa College · {currentPersona.badge}
                 </p>
                 <h3 className="font-display text-base font-bold tracking-tight text-foreground sm:text-lg">
-                  Assalamu Alaikum, <span className="text-lime">{student.firstName}</span>
+                  Assalamu Alaikum, <span className="text-[#0077CC] dark:text-[#0095F6]">{student.firstName}</span>
                 </h3>
                 <p className="text-[11.5px] leading-relaxed text-muted-foreground">
                   {currentPersona.description}
@@ -3086,16 +3092,16 @@ export function GeminiChatbot({
                   key={msg.id}
                   data-chat-turn={msg.role}
                   className={cn(
-                    'flex gap-3',
+                    'flex items-end gap-2.5',
                     isUser ? 'flex-row-reverse' : 'flex-row',
                   )}
                 >
                   <div
                     className={cn(
-                      'flex size-8 shrink-0 items-center justify-center rounded-xl border',
+                      'flex size-8 shrink-0 items-center justify-center rounded-full',
                       isUser
-                        ? 'border-[#bde6b4] bg-[#dcf8c6] text-[#081e21] dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-[#f3f4f6]'
-                        : 'border-border bg-muted text-foreground dark:border-[#262a33] dark:bg-[#121418] dark:text-zinc-200',
+                        ? 'bg-gradient-to-tr from-[#7C3AED] via-[#4F46E5] to-[#0095F6] text-white'
+                        : 'bg-muted text-foreground dark:bg-[#1C2227] dark:text-zinc-200',
                     )}
                     aria-hidden="true"
                   >
@@ -3105,15 +3111,15 @@ export function GeminiChatbot({
                   <div
                     dir={msgIsAr ? 'rtl' : 'ltr'}
                     className={cn(
-                      'flex max-w-[85%] flex-col gap-2 rounded-2xl border px-4 py-3 text-sm leading-relaxed',
+                      'flex max-w-[85%] flex-col gap-2 px-4 py-3 text-sm leading-relaxed',
                       msgIsAr
                         ? msgIsUr
                           ? 'text-right font-urdu'
                           : 'text-right font-arabic'
                         : 'text-left font-poppins',
                       isUser
-                        ? 'border-[#bde6b4] bg-[#dcf8c6] text-[#081e21] dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-[#f3f4f6]'
-                        : 'border-border bg-card/90 text-foreground dark:border-[#262a33] dark:bg-[#121418] dark:text-[#f3f4f6]',
+                        ? 'rounded-[22px] rounded-br-md bg-gradient-to-tr from-[#7C3AED] via-[#4F46E5] to-[#0095F6] text-white shadow-xs'
+                        : 'rounded-[22px] rounded-bl-md bg-[#F0F2F5] text-foreground dark:bg-[#1C2227] dark:text-[#F5F7FA]',
                     )}
                   >
                     {msg.attachments && msg.attachments.length > 0 ? (
@@ -3129,7 +3135,7 @@ export function GeminiChatbot({
                                   name: att.name || 'Study Image',
                                 })
                               }
-                              className="group relative overflow-hidden rounded-xl border border-border bg-black/20 shadow-xs transition-transform hover:scale-[1.02] dark:border-[#262a33]"
+                              className="group relative overflow-hidden rounded-2xl bg-black/20 transition-transform hover:scale-[1.02]"
                             >
                               <img
                                 src={att.previewUrl}
@@ -3143,7 +3149,7 @@ export function GeminiChatbot({
                           ) : (
                             <div
                               key={`${msg.id}-att-${attIdx}`}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-black/15 px-2.5 py-1.5 text-xs font-medium dark:border-[#262a33]"
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-black/15 px-2.5 py-1.5 text-xs font-medium"
                             >
                               <FileText className="size-3.5 shrink-0" aria-hidden="true" />
                               <span className="max-w-[180px] truncate">{att.name}</span>
@@ -3169,8 +3175,8 @@ export function GeminiChatbot({
                       className={cn(
                         'mt-1 flex flex-wrap items-center justify-between gap-3 pt-1 text-[10px]',
                         isUser
-                          ? 'text-emerald-950/65 dark:text-zinc-400'
-                          : 'border-t border-border/60 pt-2 text-muted-foreground dark:border-[#262a33]',
+                          ? 'text-white/75'
+                          : 'border-t border-border/40 pt-2 text-muted-foreground',
                       )}
                     >
                       <div className="flex items-center gap-2">
@@ -3187,11 +3193,11 @@ export function GeminiChatbot({
                           <button
                             type="button"
                             onClick={() => handleCopyMessage(msg)}
-                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-background/60 hover:text-foreground"
                           >
                             {copiedId === msg.id ? (
                               <>
-                                <Check className="size-3 text-lime" aria-hidden="true" />
+                                <Check className="size-3 text-[#0095F6]" aria-hidden="true" />
                                 Copied
                               </>
                             ) : (
@@ -3206,7 +3212,7 @@ export function GeminiChatbot({
                             <button
                               type="button"
                               onClick={() => void handleSaveTurnToNotebook(msg, idx)}
-                              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-lime transition-colors hover:bg-lime/15"
+                              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold text-[#0077CC] transition-colors hover:bg-[#0095F6]/15 dark:text-[#0095F6]"
                             >
                               {savedId === msg.id ? (
                                 <>
@@ -3230,11 +3236,11 @@ export function GeminiChatbot({
             })}
 
             {sending ? (
-              <div className="flex items-start gap-3">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-lime/30 bg-lime/15 text-lime">
+              <div className="flex items-end gap-2.5">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#7C3AED] to-[#0095F6] text-white">
                   <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                 </div>
-                <div className="flex flex-col gap-1.5 rounded-2xl border border-border bg-card/80 px-4 py-3 text-xs text-muted-foreground">
+                <div className="flex flex-col gap-1 rounded-[22px] rounded-bl-md bg-[#F0F2F5] px-4 py-3 text-xs text-muted-foreground dark:bg-[#1C2227]">
                   <span
                     className={cn(
                       'font-medium text-foreground',
@@ -3260,12 +3266,12 @@ export function GeminiChatbot({
           </div>
 
           {/* Pinned Bottom Composer Area (Starter Prompts + Attachments + Voice Banner + Input/Mic Bar — Never Scrolls) */}
-          <div className="shrink-0 bg-card/90 backdrop-blur-md">
+          <div className="shrink-0 bg-background/95 backdrop-blur-md">
             {/* Starter Prompts Bar (Hidden when photos are attached so Quick Study Actions take focus) */}
             {pendingAttachments.length === 0 ? (
               <div
                 dir="ltr"
-                className="border-t border-border/60 bg-background/30 px-3.5 py-1.5 text-left"
+                className="px-3.5 py-2 text-left"
               >
                 <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                   <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
@@ -3279,7 +3285,7 @@ export function GeminiChatbot({
                         disabled={sending}
                         onClick={() => void handleSendMessage(starter.prompt)}
                         className={cn(
-                          'shrink-0 rounded-full border border-border/80 bg-background/80 px-3 py-1 text-xs font-medium text-foreground/90 transition-colors hover:border-lime/50 hover:bg-lime/10 disabled:opacity-50',
+                          'shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-foreground/90 transition-colors hover:bg-[#0095F6]/15 hover:text-[#0077CC] active:scale-95 disabled:opacity-50 dark:bg-[#1C2227] dark:hover:text-[#0095F6]',
                           activeStarterLang === 'ml' && 'font-malayalam',
                           activeStarterLang === 'ar' && 'font-arabic',
                           activeStarterLang === 'ur' && 'font-urdu text-sm',
@@ -3297,22 +3303,22 @@ export function GeminiChatbot({
             {pendingAttachments.length > 0 || isProcessingAttachment ? (
               <div
                 dir="ltr"
-                className="flex flex-col gap-2 border-t border-lime/30 bg-lime/5 px-3.5 py-2.5 text-left"
+                className="flex flex-col gap-2 bg-[#0095F6]/[0.06] px-3.5 py-2.5 text-left dark:bg-[#151B20]"
               >
                 <div className="flex flex-wrap items-center gap-2.5">
                   {pendingAttachments.map((att) => (
                     <div
                       key={att.id}
-                      className="group relative flex items-center gap-2 rounded-xl border border-lime/40 bg-card/95 p-1.5 pr-7 shadow-xs"
+                      className="group relative flex items-center gap-2 rounded-2xl bg-card p-1.5 pr-7 dark:bg-[#1C2227]"
                     >
                       {att.previewUrl ? (
                         <img
                           src={att.previewUrl}
                           alt={att.name}
-                          className="size-11 rounded-lg object-cover border border-border/60"
+                          className="size-11 rounded-xl object-cover"
                         />
                       ) : (
-                        <div className="flex size-11 items-center justify-center rounded-lg bg-lime/15 text-lime">
+                        <div className="flex size-11 items-center justify-center rounded-xl bg-[#0095F6]/15 text-[#0095F6]">
                           <FileText className="size-5" aria-hidden="true" />
                         </div>
                       )}
@@ -3320,7 +3326,7 @@ export function GeminiChatbot({
                         <p className="truncate text-[11px] font-semibold text-foreground">
                           {att.name}
                         </p>
-                        <p className="text-[10px] text-lime">Ready for analysis</p>
+                        <p className="text-[10px] text-[#0077CC] dark:text-[#0095F6]">Ready for analysis</p>
                       </div>
                       <button
                         type="button"
@@ -3334,8 +3340,8 @@ export function GeminiChatbot({
                   ))}
 
                   {isProcessingAttachment ? (
-                    <div className="inline-flex items-center gap-2 rounded-xl border border-border bg-card/80 px-3 py-2 text-xs text-muted-foreground">
-                      <Loader2 className="size-3.5 animate-spin text-lime" aria-hidden="true" />
+                    <div className="inline-flex items-center gap-2 rounded-2xl bg-card px-3 py-2 text-xs text-muted-foreground dark:bg-[#1C2227]">
+                      <Loader2 className="size-3.5 animate-spin text-[#0095F6]" aria-hidden="true" />
                       <span>Preparing image...</span>
                     </div>
                   ) : null}
@@ -3343,7 +3349,7 @@ export function GeminiChatbot({
 
                 {/* Quick 1-Tap Multimodal Study Actions */}
                 <div className="flex items-center gap-1.5 overflow-x-auto pt-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                  <span className="shrink-0 text-[10.5px] font-semibold text-lime">
+                  <span className="shrink-0 text-[10.5px] font-semibold text-[#0077CC] dark:text-[#0095F6]">
                     Quick Action:
                   </span>
                   <button
@@ -3356,7 +3362,7 @@ export function GeminiChatbot({
                           : 'Transcribe the text in this image and translate it clearly into Malayalam and English with key vocabulary meanings.',
                       )
                     }
-                    className="shrink-0 rounded-full border border-lime/40 bg-lime/15 px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:bg-lime hover:text-primary-foreground"
+                    className="shrink-0 rounded-full bg-[#0095F6] px-3 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-[#0084DC] active:scale-95"
                   >
                     Translate Page
                   </button>
@@ -3370,7 +3376,7 @@ export function GeminiChatbot({
                           : "Read the Kitab Ibarat in this image, provide full vocalized Arabic text, word-by-word meaning, Nahw/Sarf I'rab analysis, and scholarly commentary.",
                       )
                     }
-                    className="shrink-0 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-lime/50 hover:bg-lime/10"
+                    className="shrink-0 rounded-full bg-card px-3 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-[#0095F6]/15 active:scale-95 dark:bg-[#1C2227]"
                   >
                     Explain Kitab &amp; I&apos;rab
                   </button>
@@ -3384,7 +3390,7 @@ export function GeminiChatbot({
                           : 'Extract the text from this page and organize it into structured, exam-ready study notes with key takeaways.',
                       )
                     }
-                    className="shrink-0 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-lime/50 hover:bg-lime/10"
+                    className="shrink-0 rounded-full bg-card px-3 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-[#0095F6]/15 active:scale-95 dark:bg-[#1C2227]"
                   >
                     Summarize Study Notes
                   </button>
@@ -3398,7 +3404,7 @@ export function GeminiChatbot({
                           : 'Read the academic or exam questions shown in this image and provide clear, step-by-step scholarly answers.',
                       )
                     }
-                    className="shrink-0 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-lime/50 hover:bg-lime/10"
+                    className="shrink-0 rounded-full bg-card px-3 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-[#0095F6]/15 active:scale-95 dark:bg-[#1C2227]"
                   >
                     Solve Questions
                   </button>
@@ -3411,7 +3417,7 @@ export function GeminiChatbot({
               <div
                 role="alert"
                 dir="ltr"
-                className="mx-3.5 mt-2 flex items-center justify-between gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-3.5 py-2 text-left text-xs text-destructive"
+                className="mx-3.5 mt-2 flex items-center justify-between gap-2 rounded-2xl bg-destructive/15 px-3.5 py-2 text-left text-xs text-destructive"
               >
                 <span>{errorMessage}</span>
                 <button
@@ -3430,15 +3436,15 @@ export function GeminiChatbot({
                 role="status"
                 aria-live="polite"
                 dir="ltr"
-                className="flex items-center justify-between gap-3 border-t border-cyan/35 bg-cyan/10 px-3.5 py-2 text-left text-xs text-cyan"
+                className="flex items-center justify-between gap-3 bg-[#0095F6]/12 px-3.5 py-2 text-left text-xs text-[#0077CC] dark:text-[#38BDF8]"
               >
                 <div className="flex min-w-0 flex-1 items-center gap-2.5">
                   {isTranscribingVoice ? (
-                    <Loader2 className="size-3.5 shrink-0 animate-spin text-cyan" aria-hidden="true" />
+                    <Loader2 className="size-3.5 shrink-0 animate-spin text-[#0095F6]" aria-hidden="true" />
                   ) : (
                     <span className="relative flex size-2.5 shrink-0">
-                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-cyan opacity-75" />
-                      <span className="relative inline-flex size-2.5 rounded-full bg-cyan" />
+                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#0095F6] opacity-75" />
+                      <span className="relative inline-flex size-2.5 rounded-full bg-[#0095F6]" />
                     </span>
                   )}
                   <span className="truncate font-medium">
@@ -3451,10 +3457,10 @@ export function GeminiChatbot({
                   {isListening ? (
                     <div
                       aria-hidden="true"
-                      className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-cyan/20 sm:block"
+                      className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-[#0095F6]/20 sm:block"
                     >
                       <div
-                        className="h-full rounded-full bg-cyan transition-all duration-100"
+                        className="h-full rounded-full bg-[#0095F6] transition-all duration-100"
                         style={{ width: `${Math.max(12, voiceLevel)}%` }}
                       />
                     </div>
@@ -3464,7 +3470,7 @@ export function GeminiChatbot({
                   <button
                     type="button"
                     onClick={() => void toggleVoiceInput()}
-                    className="shrink-0 rounded-full bg-cyan px-3 py-0.5 text-[11px] font-bold text-[#081e21] shadow-xs transition-colors hover:bg-cyan/90"
+                    className="shrink-0 rounded-full bg-[#0095F6] px-3 py-1 text-[11px] font-bold text-white transition-colors hover:bg-[#0084DC]"
                   >
                     Done ✓
                   </button>
@@ -3472,13 +3478,13 @@ export function GeminiChatbot({
               </div>
             ) : null}
 
-            {/* Unified Multimodal Message Input Composer */}
+            {/* Unified Multimodal Message Input Composer (Instagram Pill Style) */}
             <form
               onSubmit={(e) => {
                 e.preventDefault()
                 void handleSendMessage()
               }}
-              className="border-t border-border/70 bg-background/40 p-2 sm:p-3"
+              className="px-2.5 pb-2.5 pt-1.5 sm:px-3.5 sm:pb-3"
             >
               <label htmlFor="gemini-chatbot-input" className="sr-only">
                 Type your message to the Da&apos;wa College Chatbot
@@ -3504,36 +3510,29 @@ export function GeminiChatbot({
 
               <div
                 dir="ltr"
-                className={cn(
-                  'flex w-full items-end gap-1.5 rounded-[26px] border bg-card/95 pl-2 pr-2 py-1.5 shadow-sm transition-all duration-200 focus-within:bg-card sm:gap-2 sm:pl-2.5',
-                  isListening || isTranscribingVoice
-                    ? 'border-cyan/70 ring-2 ring-cyan/20'
-                    : pendingAttachments.length > 0
-                      ? 'border-lime/70 ring-2 ring-lime/15'
-                      : 'border-border/90 focus-within:border-lime/60 focus-within:ring-2 focus-within:ring-lime/15',
-                )}
+                className="flex w-full items-end gap-1.5 rounded-[28px] bg-muted pl-2 pr-2 py-1.5 transition-colors duration-150 dark:bg-[#1C2227] sm:gap-2 sm:pl-2.5"
               >
-                {/* Left Multimodal Attachment Cluster (Photo/PDF + Live Camera like Gemini App) */}
+                {/* Left Multimodal Attachment Cluster */}
                 <div className="flex shrink-0 items-center gap-0.5 self-end pb-0.5">
-                  <button
-                    type="button"
-                    disabled={sending || pendingAttachments.length >= 3}
-                    onClick={() => studyImageInputRef.current?.click()}
-                    title="Attach Kitab photo, textbook page, or PDF to translate/explain"
-                    aria-label="Attach photo or PDF"
-                    className="flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-lime/15 hover:text-lime disabled:opacity-40"
-                  >
-                    <ImagePlus className="size-4" aria-hidden="true" />
-                  </button>
                   <button
                     type="button"
                     disabled={sending || pendingAttachments.length >= 3}
                     onClick={() => void openLiveCameraModal()}
                     title="Open live camera to snap a photo of a Kitab or textbook page"
                     aria-label="Open live camera"
-                    className="flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-lime/15 hover:text-lime disabled:opacity-40"
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#0095F6] text-white transition-transform hover:bg-[#0084DC] active:scale-95 disabled:opacity-40"
                   >
                     <Camera className="size-4" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={sending || pendingAttachments.length >= 3}
+                    onClick={() => studyImageInputRef.current?.click()}
+                    title="Attach Kitab photo, textbook page, or PDF to translate/explain"
+                    aria-label="Attach photo or PDF"
+                    className="flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-background/60 hover:text-foreground disabled:opacity-40"
+                  >
+                    <ImagePlus className="size-4" aria-hidden="true" />
                   </button>
                 </div>
 
@@ -3580,7 +3579,7 @@ export function GeminiChatbot({
                       : UI_TEXT.en.placeholder(currentPersona.title)
                   }
                   className={cn(
-                    'min-h-[40px] max-h-36 min-w-0 flex-1 w-full resize-none border-0 bg-transparent py-2 text-sm sm:text-[15px] leading-relaxed text-foreground placeholder:text-left placeholder:font-poppins placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0 [scrollbar-width:thin]',
+                    'min-h-[40px] max-h-36 min-w-0 flex-1 w-full resize-none border-0 bg-transparent py-2 text-sm sm:text-[15px] leading-relaxed text-foreground placeholder:text-left placeholder:font-poppins placeholder:text-muted-foreground/75 focus:outline-none focus:ring-0 [scrollbar-width:thin]',
                     input.trim().length > 0 && isArabicText(input)
                       ? isUrduText(input)
                         ? 'text-right font-urdu leading-[2.1]'
@@ -3600,18 +3599,18 @@ export function GeminiChatbot({
                     title={isListening ? UI_TEXT.en.voiceStop : UI_TEXT.en.voiceTyping}
                     aria-label={isListening ? UI_TEXT.en.voiceStop : UI_TEXT.en.voiceTyping}
                     className={cn(
-                      'flex size-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan disabled:opacity-40',
+                      'flex size-9 shrink-0 items-center justify-center rounded-full transition-all duration-150 outline-none disabled:opacity-40',
                       isListening
-                        ? 'bg-cyan text-[#081e21] shadow-md shadow-cyan/35 ring-2 ring-cyan/40 animate-pulse hover:bg-cyan/90'
+                        ? 'bg-[#0095F6] text-white animate-pulse'
                         : isTranscribingVoice
-                          ? 'bg-cyan/20 text-cyan'
-                          : 'text-muted-foreground hover:bg-cyan/15 hover:text-cyan active:bg-cyan active:text-[#081e21]',
+                          ? 'bg-[#0095F6]/20 text-[#0095F6]'
+                          : 'text-muted-foreground hover:bg-background/60 hover:text-foreground',
                     )}
                   >
                     {isTranscribingVoice ? (
-                      <Loader2 className="size-4 animate-spin text-cyan" aria-hidden="true" />
+                      <Loader2 className="size-4 animate-spin text-[#0095F6]" aria-hidden="true" />
                     ) : isListening ? (
-                      <MicOff className="size-4 text-[#081e21]" aria-hidden="true" />
+                      <MicOff className="size-4 text-white" aria-hidden="true" />
                     ) : (
                       <Mic className="size-4" aria-hidden="true" />
                     )}
@@ -3624,10 +3623,10 @@ export function GeminiChatbot({
                     title={UI_TEXT[language].send}
                     aria-label={UI_TEXT[language].send}
                     className={cn(
-                      'flex size-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime',
+                      'flex size-9 shrink-0 items-center justify-center rounded-full transition-all duration-150 outline-none',
                       (input.trim() || pendingAttachments.length > 0) && !sending
-                        ? 'bg-lime text-primary-foreground shadow-xs hover:bg-lime/90 active:scale-95'
-                        : 'bg-muted/60 text-muted-foreground/40 cursor-not-allowed',
+                        ? 'bg-gradient-to-tr from-[#7C3AED] via-[#4F46E5] to-[#0095F6] text-white active:scale-95'
+                        : 'bg-background/40 text-muted-foreground/40 cursor-not-allowed dark:bg-[#232A30]',
                     )}
                   >
                     {sending ? (
@@ -3649,12 +3648,15 @@ export function GeminiChatbot({
             <div
               role="dialog"
               aria-modal="true"
-              className="fixed inset-0 z-[115] flex items-center justify-center bg-black/85 p-4 backdrop-blur-xs"
+              className="fixed inset-0 z-[115] flex items-end sm:items-center justify-center bg-black/80 p-0 sm:p-4 backdrop-blur-xs"
             >
-              <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
-                <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-t-[28px] sm:rounded-[28px] bg-popover shadow-2xl">
+                <div className="flex justify-center pt-2.5 sm:hidden">
+                  <span className="h-1 w-10 rounded-full bg-muted-foreground/35" />
+                </div>
+                <div className="flex items-center justify-between px-5 py-3.5">
                   <div className="flex items-center gap-2">
-                    <Camera className="size-4 text-lime" aria-hidden="true" />
+                    <Camera className="size-4 text-[#0095F6]" aria-hidden="true" />
                     <span className="text-sm font-semibold text-foreground">
                       Capture Kitab / Study Page
                     </span>
@@ -3662,13 +3664,13 @@ export function GeminiChatbot({
                   <button
                     type="button"
                     onClick={closeLiveCameraModal}
-                    className="flex size-7 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                    className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground hover:text-foreground"
                   >
                     <X className="size-4" aria-hidden="true" />
                   </button>
                 </div>
 
-                <div className="flex flex-col items-center justify-center bg-black/90 p-3">
+                <div className="flex flex-col items-center justify-center bg-black/95 p-3">
                   {cameraError ? (
                     <div className="flex flex-col items-center gap-3 py-8 text-center">
                       <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
@@ -3680,7 +3682,7 @@ export function GeminiChatbot({
                           closeLiveCameraModal()
                           studyImageInputRef.current?.click()
                         }}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-lime px-4 py-2 text-xs font-semibold text-primary-foreground"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-[#0095F6] px-5 py-2.5 text-xs font-semibold text-white"
                       >
                         <ImagePlus className="size-4" aria-hidden="true" />
                         <span>Select Image from Device Instead</span>
@@ -3692,24 +3694,24 @@ export function GeminiChatbot({
                       autoPlay
                       playsInline
                       muted
-                      className="max-h-[60dvh] w-full rounded-xl object-contain"
+                      className="max-h-[60dvh] w-full rounded-2xl object-contain"
                     />
                   )}
                 </div>
 
                 {!cameraError ? (
-                  <div className="flex items-center justify-between border-t border-border bg-card px-4 py-3">
+                  <div className="flex items-center justify-between bg-popover px-5 py-3.5 pb-[max(0.875rem,var(--safe-bottom))]">
                     <button
                       type="button"
                       onClick={closeLiveCameraModal}
-                      className="rounded-xl border border-border px-3.5 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      className="rounded-full bg-muted px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
                     >
                       Cancel
                     </button>
                     <button
                       type="button"
                       onClick={handleCapturePhotoFromVideo}
-                      className="inline-flex items-center gap-2 rounded-xl bg-lime px-5 py-2 text-xs font-bold text-primary-foreground shadow-sm transition-transform active:scale-95"
+                      className="inline-flex items-center gap-2 rounded-full bg-[#0095F6] px-5 py-2.5 text-xs font-bold text-white transition-transform active:scale-95"
                     >
                       <Camera className="size-4" aria-hidden="true" />
                       <span>Capture Page Photo</span>
@@ -3733,25 +3735,25 @@ export function GeminiChatbot({
             >
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="relative flex max-h-[90dvh] max-w-3xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+                className="relative flex max-h-[90dvh] max-w-3xl flex-col overflow-hidden rounded-[28px] bg-popover shadow-2xl"
               >
-                <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+                <div className="flex items-center justify-between px-4 py-3">
                   <span className="truncate text-xs font-semibold text-foreground">
                     {lightboxImage.name}
                   </span>
                   <button
                     type="button"
                     onClick={() => setLightboxImage(null)}
-                    className="flex size-7 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                    className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground hover:text-foreground"
                   >
                     <X className="size-4" aria-hidden="true" />
                   </button>
                 </div>
-                <div className="overflow-auto p-3">
+                <div className="overflow-auto p-3 pt-0">
                   <img
                     src={lightboxImage.url}
                     alt={lightboxImage.name}
-                    className="max-h-[78dvh] w-auto rounded-lg object-contain mx-auto"
+                    className="max-h-[78dvh] w-auto rounded-2xl object-contain mx-auto"
                   />
                 </div>
               </div>
@@ -3767,12 +3769,15 @@ export function GeminiChatbot({
               role="dialog"
               aria-modal="true"
               aria-labelledby="study-note-export-title"
-              className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/75 p-3 pt-[max(0.75rem,var(--safe-top))] backdrop-blur-xs sm:p-4"
+              className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center overflow-y-auto bg-black/75 p-0 sm:p-4 pt-[max(0.75rem,var(--safe-top))] backdrop-blur-xs"
             >
-              <div className="my-auto flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
-            <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+              <div className="my-auto flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[28px] sm:rounded-[28px] bg-popover shadow-2xl">
+            <div className="flex justify-center pt-2.5 sm:hidden">
+              <span className="h-1 w-10 rounded-full bg-muted-foreground/35" />
+            </div>
+            <div className="flex items-start justify-between gap-3 px-5 py-4">
               <div>
-                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-lime">
+                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-[#0077CC] dark:text-[#0095F6]">
                   ICS Academy · Study Note Export
                 </p>
                 <h3
@@ -3785,14 +3790,14 @@ export function GeminiChatbot({
               <button
                 type="button"
                 onClick={() => setActiveExportNote(null)}
-                className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:text-foreground"
               >
                 <X className="size-4" aria-hidden="true" />
                 <span className="sr-only">Close modal</span>
               </button>
             </div>
 
-            <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-5">
+            <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 pb-5">
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="study-note-file-title" className="text-xs font-medium text-muted-foreground">
                   File Title / Document Name
@@ -3807,9 +3812,9 @@ export function GeminiChatbot({
               </div>
 
               {/* Direct 1-Click Download Options (No Login Needed) */}
-              <div className="rounded-xl border border-border bg-muted/30 p-4">
+              <div className="rounded-2xl bg-card p-4 dark:bg-[#151B20]">
                 <p className="text-xs font-semibold text-foreground">
-                  ⚡ Instant Official Downloads (No Sign-in Required):
+                  Instant Official Downloads (No Sign-in Required):
                 </p>
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   Download the complete study note in official ICS Academy Vector PDF or editable DOCX format.
@@ -3817,10 +3822,10 @@ export function GeminiChatbot({
 
                 <div className="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {/* DOCX Download Card */}
-                  <div className="flex flex-col justify-between rounded-xl border border-sky-500/30 bg-sky-500/10 p-3.5 transition-colors hover:border-sky-500/50">
+                  <div className="flex flex-col justify-between rounded-2xl bg-[#0095F6]/10 p-3.5">
                     <div>
                       <div className="flex items-center gap-2">
-                        <FileText className="size-4 text-sky-400" aria-hidden="true" />
+                        <FileText className="size-4 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                         <span className="font-semibold text-xs text-foreground">DOCX (Word &amp; Google Docs)</span>
                       </div>
                       <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
@@ -3831,7 +3836,7 @@ export function GeminiChatbot({
                       type="button"
                       disabled={isGeneratingDirectDocx}
                       onClick={() => void handleDirectDocxDownload()}
-                      className="mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-sky-600 px-3 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-sky-500 disabled:opacity-60"
+                      className="mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full bg-[#0095F6] px-3 text-xs font-semibold text-white transition-colors hover:bg-[#0084DC] active:scale-[0.98] disabled:opacity-60"
                     >
                       {isGeneratingDirectDocx ? (
                         <>
@@ -3848,10 +3853,10 @@ export function GeminiChatbot({
                   </div>
 
                   {/* PDF Download Card */}
-                  <div className="flex flex-col justify-between rounded-xl border border-lime/30 bg-lime/10 p-3.5 transition-colors hover:border-lime/50">
+                  <div className="flex flex-col justify-between rounded-2xl bg-[#7C3AED]/12 p-3.5">
                     <div>
                       <div className="flex items-center gap-2">
-                        <BookOpen className="size-4 text-lime" aria-hidden="true" />
+                        <BookOpen className="size-4 text-[#7C3AED] dark:text-[#A78BFA]" aria-hidden="true" />
                         <span className="font-semibold text-xs text-foreground">Official Vector PDF</span>
                       </div>
                       <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
@@ -3862,7 +3867,7 @@ export function GeminiChatbot({
                       type="button"
                       disabled={isGeneratingDirectPdf}
                       onClick={() => void handleDirectPdfDownload()}
-                      className="mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-emerald-500 disabled:opacity-60"
+                      className="mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-[#7C3AED] via-[#4F46E5] to-[#0095F6] px-3 text-xs font-semibold text-white transition-all hover:opacity-95 active:scale-[0.98] disabled:opacity-60"
                     >
                       {isGeneratingDirectPdf ? (
                         <>
@@ -3881,9 +3886,8 @@ export function GeminiChatbot({
               </div>
 
               {/* Student Guide on opening in Google Docs */}
-              <div className="rounded-xl border border-border bg-background/80 p-3.5 text-xs text-muted-foreground">
+              <div className="rounded-2xl bg-card p-3.5 text-xs text-muted-foreground dark:bg-[#151B20]">
                 <p className="font-semibold text-foreground flex items-center gap-1.5">
-                  <span>💡</span>
                   <span>How to open and edit this file in Google Docs:</span>
                 </p>
                 <ol className="mt-2 list-decimal space-y-1 pl-4 text-[11px] leading-relaxed">
@@ -3897,9 +3901,9 @@ export function GeminiChatbot({
               {/* Note Preview */}
               <div
                 dir={isArabicText(activeExportNote.prompt) || isArabicText(activeExportNote.response) ? 'rtl' : 'ltr'}
-                className="rounded-xl border border-border bg-background/60 p-3.5"
+                className="rounded-2xl bg-card p-3.5 dark:bg-[#151B20]"
               >
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-lime">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#0077CC] dark:text-[#0095F6]">
                   Note Preview
                 </p>
                 <p
@@ -3913,7 +3917,7 @@ export function GeminiChatbot({
                 >
                   {activeExportNote.prompt}
                 </p>
-                <div className="mt-2 max-h-40 overflow-y-auto border-t border-border/60 pt-2 text-xs leading-relaxed text-muted-foreground">
+                <div className="mt-2 max-h-40 overflow-y-auto border-t border-border/40 pt-2 text-xs leading-relaxed text-muted-foreground">
                   <FormattedChatText
                     text={activeExportNote.response}
                     isUser={false}
@@ -3925,14 +3929,14 @@ export function GeminiChatbot({
               {exportDocsError ? (
                 <div
                   role="alert"
-                  className="rounded-xl border border-destructive/40 bg-destructive/10 px-3.5 py-2.5 text-xs text-destructive"
+                  className="rounded-2xl bg-destructive/15 px-3.5 py-2.5 text-xs text-destructive"
                 >
                   {exportDocsError}
                 </div>
               ) : null}
 
               {directDocxSuccess ? (
-                <div className="flex items-center gap-2 rounded-xl border border-sky-500/40 bg-sky-500/15 p-3.5 text-xs font-semibold text-sky-400">
+                <div className="flex items-center gap-2 rounded-2xl bg-[#0095F6]/15 p-3.5 text-xs font-semibold text-[#0077CC] dark:text-[#38BDF8]">
                   <Check className="size-4 shrink-0" aria-hidden="true" />
                   <span>
                     Study note downloaded as DOCX (Word &amp; Google Docs format) successfully!
@@ -3941,7 +3945,7 @@ export function GeminiChatbot({
               ) : null}
 
               {directPdfSuccess ? (
-                <div className="flex items-center gap-2 rounded-xl border border-lime/40 bg-lime/15 p-3.5 text-xs font-semibold text-lime">
+                <div className="flex items-center gap-2 rounded-2xl bg-[#0095F6]/15 p-3.5 text-xs font-semibold text-[#0077CC] dark:text-[#0095F6]">
                   <Check className="size-4 shrink-0" aria-hidden="true" />
                   <span>
                     Study note downloaded as high-quality PDF successfully!
@@ -3950,11 +3954,11 @@ export function GeminiChatbot({
               ) : null}
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/60 px-5 py-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/40 bg-card/50 px-5 py-3.5 pb-[max(0.875rem,var(--safe-bottom))] dark:bg-[#151B20]">
               <button
                 type="button"
                 onClick={() => setActiveExportNote(null)}
-                className="inline-flex h-9 items-center justify-center rounded-xl border border-border bg-background px-4 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="inline-flex h-9 items-center justify-center rounded-full bg-muted px-4 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground dark:bg-[#232A30]"
               >
                 Close
               </button>
@@ -3964,7 +3968,7 @@ export function GeminiChatbot({
                   type="button"
                   disabled={isGeneratingDirectDocx}
                   onClick={() => void handleDirectDocxDownload()}
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3.5 text-xs font-semibold text-sky-400 transition-colors hover:bg-sky-500/20 disabled:opacity-50"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#0095F6]/15 px-3.5 text-xs font-semibold text-[#0077CC] transition-colors hover:bg-[#0095F6]/25 disabled:opacity-50 dark:text-[#38BDF8]"
                 >
                   <Download className="size-3.5" aria-hidden="true" />
                   <span>DOCX</span>
@@ -3973,7 +3977,7 @@ export function GeminiChatbot({
                   type="button"
                   disabled={isGeneratingDirectPdf}
                   onClick={() => void handleDirectPdfDownload('print')}
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 text-xs font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-muted px-3.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted/80 disabled:opacity-50 dark:bg-[#232A30]"
                 >
                   <Printer className="size-3.5" aria-hidden="true" />
                   <span>Print</span>
@@ -3982,7 +3986,7 @@ export function GeminiChatbot({
                   type="button"
                   disabled={isGeneratingDirectPdf}
                   onClick={() => void handleDirectPdfDownload('download')}
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-lime/30 bg-lime/10 px-3.5 text-xs font-semibold text-lime transition-colors hover:bg-lime/20 disabled:opacity-50"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#0095F6] px-4 text-xs font-semibold text-white transition-colors hover:bg-[#0084DC] disabled:opacity-50"
                 >
                   <Download className="size-3.5" aria-hidden="true" />
                   <span>PDF</span>
