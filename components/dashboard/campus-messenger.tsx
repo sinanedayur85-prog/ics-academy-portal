@@ -4664,24 +4664,6 @@ export function CampusMessenger({
                     >
                       <Star className="size-4" aria-hidden="true" />
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAttachMenu(false)
-                        setSelectedMessageIds([])
-                        setShowSelectionMoreMenu(false)
-                        setShowNewChatModal(false)
-                        setShowStarredModal(false)
-                        if (isRecordingVoice) cancelVoiceRecording()
-                        setShowSettingsModal((prev) => !prev)
-                      }}
-                      title="Chat Settings"
-                      aria-label="Open Chat Settings"
-                      className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-200 dark:hover:bg-[#222630]"
-                    >
-                      <Settings className="size-4" aria-hidden="true" />
-                    </button>
                   </div>
                 </div>
               )}
@@ -4834,37 +4816,29 @@ export function CampusMessenger({
                         }}
                         className={cn(
                           'relative max-w-[86%] sm:max-w-[74%] rounded-2xl shadow-xs transition-colors cursor-pointer select-none',
-                          isImageMessage ? 'p-1 border-0' : 'px-3.5 py-2 pr-9 border',
+                          isImageMessage
+                            ? 'p-1 border-0'
+                            : isSelected
+                              ? 'px-3.5 py-2 pr-9 border'
+                              : 'px-3.5 py-2 border',
                           isMine
                             ? 'rounded-br-xs border-[#bde6b4] bg-[#dcf8c6] text-[#081e21] dark:border-[#056150] dark:bg-[#005c4b] dark:text-[#e9edef]'
                             : 'rounded-bl-xs border-border bg-card text-foreground dark:border-[#262a33] dark:bg-[#121418] dark:text-[#f3f4f6]',
                           isSelected && 'ring-2 ring-emerald-500/75 dark:ring-emerald-400/70',
                         )}
                       >
-                        {/* Touch-Friendly Selector Trigger in Top-Right Corner */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setShowAttachMenu(false)
-                            toggleSelectMessage(msg.id)
-                          }}
-                          aria-label={isSelected ? 'Deselect message' : 'Select message'}
-                          className={cn(
-                            'absolute right-1.5 top-1.5 z-20 flex size-6 items-center justify-center rounded-full transition-colors',
-                            isSelected
-                              ? 'bg-emerald-600 text-white shadow-xs'
-                              : isImageMessage
-                                ? 'right-2 top-2 bg-black/55 text-white/95 backdrop-blur-[2px] hover:bg-black/75'
-                                : 'text-foreground/70 hover:bg-black/10 dark:text-zinc-300 dark:hover:bg-white/15',
-                          )}
-                        >
-                          {isSelected ? (
+                        {/* Selected Checkmark Indicator (Shown only while selected; no three-dots clutter on bubbles) */}
+                        {isSelected && (
+                          <span
+                            aria-hidden="true"
+                            className={cn(
+                              'pointer-events-none absolute right-1.5 top-1.5 z-20 flex size-6 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xs',
+                              isImageMessage && 'right-2 top-2',
+                            )}
+                          >
                             <Check className="size-3.5 stroke-[3]" aria-hidden="true" />
-                          ) : (
-                            <MoreVertical className="size-3.5" aria-hidden="true" />
-                          )}
-                        </button>
+                          </span>
+                        )}
 
                         {/* Forwarded Label */}
                         {!msg.isDeleted && msg.isForwarded && (
@@ -4883,7 +4857,8 @@ export function CampusMessenger({
                         {!isMine && (
                       <div
                         className={cn(
-                          'mb-1 flex flex-wrap items-center gap-1.5 pr-7',
+                          'mb-1 flex flex-wrap items-center gap-1.5',
+                          isSelected && 'pr-7',
                           isImageMessage && 'px-2 pt-1',
                         )}
                       >
