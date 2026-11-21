@@ -4247,9 +4247,9 @@ export function CampusMessenger({
     const el = document.getElementById(`chat-msg-${messageId}`)
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      el.classList.add('ring-2', 'ring-lime')
+      el.classList.add('ring-2', 'ring-[#0095F6]')
       window.setTimeout(() => {
-        el.classList.remove('ring-2', 'ring-lime')
+        el.classList.remove('ring-2', 'ring-[#0095F6]')
       }, 1800)
     }
   }
@@ -4261,7 +4261,7 @@ export function CampusMessenger({
       id="campus-chat"
       aria-label="ICS Academy Campus Messenger"
       className={cn(
-        'flex flex-col overflow-hidden bg-background transition-colors lg:rounded-3xl lg:border lg:border-border lg:bg-card/95 lg:shadow-lg',
+        'flex flex-col overflow-hidden bg-background transition-colors lg:rounded-3xl lg:bg-card lg:shadow-lg',
         mobileFullScreen
           ? 'h-full w-full flex-1 rounded-none border-0 shadow-none lg:h-[760px]'
           : 'h-[720px] sm:h-[760px]',
@@ -4271,7 +4271,7 @@ export function CampusMessenger({
         {/* LEFT PANE: INSTAGRAM DM INBOX ROSTER */}
         <div
           className={cn(
-            'flex h-full w-full flex-col bg-white dark:bg-black lg:w-[310px] xl:w-[370px] lg:shrink-0 lg:border-r lg:border-border/70 dark:lg:border-white/10',
+            'flex h-full w-full flex-col bg-white dark:bg-black lg:w-[310px] xl:w-[370px] lg:shrink-0 lg:border-r lg:border-border/50 dark:lg:border-white/[0.06]',
             mobileShowChatPane ? 'hidden lg:flex' : 'flex',
           )}
         >
@@ -4854,7 +4854,7 @@ export function CampusMessenger({
         >
           {/* Floating Action Toast */}
           {actionToast && (
-            <div className="pointer-events-none absolute left-1/2 top-16 z-40 -translate-x-1/2 rounded-full border border-border bg-card/95 px-4 py-1.5 text-xs font-semibold text-foreground shadow-lg backdrop-blur-xs dark:border-[#343946] dark:bg-[#1a1d24] dark:text-zinc-100">
+            <div className="pointer-events-none absolute left-1/2 top-16 z-40 -translate-x-1/2 rounded-full bg-card/95 px-4 py-1.5 text-xs font-semibold text-foreground shadow-lg backdrop-blur-md dark:bg-[#0B1014] dark:text-[#F5F7FA]">
               {actionToast}
             </div>
           )}
@@ -4968,7 +4968,7 @@ export function CampusMessenger({
                               : 'bg-muted/40 dark:bg-black',
                       )}
                     >
-                      <div className="max-w-[90%] sm:max-w-[78%] rounded-2xl rounded-br-xs border border-[#bde6b4] bg-[#dcf8c6] px-3.5 py-2.5 text-[#081e21] shadow-xs dark:border-[#056150] dark:bg-[#005c4b] dark:text-[#e9edef]">
+                      <div className="max-w-[90%] sm:max-w-[78%] rounded-2xl rounded-br-xs bg-gradient-to-tr from-[#7C3AED] via-[#4F46E5] to-[#0095F6] px-3.5 py-2.5 text-white shadow-xs">
                         {infoMessage.isForwarded && (
                           <div className="mb-1 flex items-center gap-1 text-[11px] italic opacity-75">
                             <Forward className="size-3" aria-hidden="true" />
@@ -5036,7 +5036,7 @@ export function CampusMessenger({
                     {/* Receipts Section */}
                     {!isGroupRoom ? (
                       /* 1-on-1 Direct Chat Receipts (Matches WhatsApp Screenshot) */
-                      <div className="divide-y divide-border/70 px-4 sm:px-6 dark:divide-[#1f262e]">
+                      <div className="divide-y divide-border/50 px-4 sm:px-6 dark:divide-white/[0.06]">
                         <div className="py-4">
                           <div className="flex items-center gap-2.5">
                             <CheckCheck
@@ -5075,11 +5075,11 @@ export function CampusMessenger({
                       /* Group Chat Receipts (Read by + Delivered to member breakdown) */
                       <div className="space-y-3 p-4 sm:p-5">
                         {/* Read By Card */}
-                        <div className="overflow-hidden rounded-2xl border border-border bg-card dark:border-white/10 dark:bg-[#0B1014]">
-                          <div className="flex items-center justify-between border-b border-border/70 px-4 py-3 dark:border-[#1f262e]">
+                        <div className="overflow-hidden rounded-2xl bg-card dark:bg-[#0B1014]">
+                          <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
                             <div className="flex items-center gap-2">
                               <CheckCheck
-                                className="size-4.5 text-[#0095f6] dark:text-[#53bdeb] stroke-[2.5]"
+                                className="size-4.5 text-[#0095F6] stroke-[2.5]"
                                 aria-hidden="true"
                               />
                               <span className="text-xs font-bold uppercase tracking-wider text-foreground">
@@ -5096,7 +5096,7 @@ export function CampusMessenger({
                               No one has read this message yet.
                             </p>
                           ) : (
-                            <div className="divide-y divide-border/50 dark:divide-[#1f262e]">
+                            <div className="divide-y divide-border/40">
                               {readByList.map(({ profile, ts }) => (
                                 <div
                                   key={profile.id}
@@ -5107,10 +5107,10 @@ export function CampusMessenger({
                                       <img
                                         src={profile.avatarUrl}
                                         alt={profile.name}
-                                        className="size-8 shrink-0 rounded-full border border-border object-cover object-top"
+                                        className="size-8 shrink-0 rounded-full object-cover object-top"
                                       />
                                     ) : (
-                                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 font-poppins text-[11px] font-bold text-emerald-700 dark:bg-[#1f262e] dark:text-zinc-200">
+                                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#0095F6]/15 font-poppins text-[11px] font-bold text-[#0077CC] dark:bg-[#141A1F] dark:text-[#0095F6]">
                                         {profile.avatarText}
                                       </span>
                                     )}
@@ -5132,15 +5132,15 @@ export function CampusMessenger({
                           )}
 
                           {remainingToRead > 0 && (
-                            <div className="border-t border-border/60 bg-muted/30 px-4 py-2 text-[11px] font-medium text-muted-foreground dark:border-[#1f262e] dark:bg-[#0d1217]">
+                            <div className="border-t border-border/40 bg-muted/40 px-4 py-2 text-[11px] font-medium text-muted-foreground dark:bg-[#141A1F]/60">
                               {remainingToRead} remaining
                             </div>
                           )}
                         </div>
 
                         {/* Delivered To Card */}
-                        <div className="overflow-hidden rounded-2xl border border-border bg-card dark:border-white/10 dark:bg-[#0B1014]">
-                          <div className="flex items-center justify-between border-b border-border/70 px-4 py-3 dark:border-[#1f262e]">
+                        <div className="overflow-hidden rounded-2xl bg-card dark:bg-[#0B1014]">
+                          <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
                             <div className="flex items-center gap-2">
                               <CheckCheck
                                 className="size-4.5 text-muted-foreground stroke-[2.2]"
@@ -5162,7 +5162,7 @@ export function CampusMessenger({
                                 : 'Waiting for delivery to remaining members.'}
                             </p>
                           ) : (
-                            <div className="divide-y divide-border/50 dark:divide-[#1f262e]">
+                            <div className="divide-y divide-border/40">
                               {deliveredOnlyList.map(({ profile, ts }) => (
                                 <div
                                   key={profile.id}
@@ -5173,10 +5173,10 @@ export function CampusMessenger({
                                       <img
                                         src={profile.avatarUrl}
                                         alt={profile.name}
-                                        className="size-8 shrink-0 rounded-full border border-border object-cover object-top"
+                                        className="size-8 shrink-0 rounded-full object-cover object-top"
                                       />
                                     ) : (
-                                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted font-poppins text-[11px] font-bold text-foreground dark:bg-[#1f262e] dark:text-zinc-200">
+                                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted font-poppins text-[11px] font-bold text-foreground dark:bg-[#141A1F] dark:text-[#F5F7FA]">
                                         {profile.avatarText}
                                       </span>
                                     )}
@@ -5198,7 +5198,7 @@ export function CampusMessenger({
                           )}
 
                           {remainingToDeliver > 0 && (
-                            <div className="border-t border-border/60 bg-muted/30 px-4 py-2 text-[11px] font-medium text-muted-foreground dark:border-[#1f262e] dark:bg-[#0d1217]">
+                            <div className="border-t border-border/40 bg-muted/40 px-4 py-2 text-[11px] font-medium text-muted-foreground dark:bg-[#141A1F]/60">
                               {remainingToDeliver} remaining
                             </div>
                           )}
@@ -5337,7 +5337,7 @@ export function CampusMessenger({
                         </button>
 
                         {showSelectionMoreMenu && (
-                          <div className="absolute right-0 top-11 z-40 w-48 overflow-hidden rounded-2xl border border-border bg-white py-1.5 text-xs text-foreground shadow-2xl dark:border-white/10 dark:bg-[#262626] dark:text-zinc-100">
+                          <div className="absolute right-0 top-11 z-40 w-48 overflow-hidden rounded-2xl bg-white py-1.5 text-xs text-foreground shadow-2xl dark:bg-[#0B1014] dark:text-[#F5F7FA]">
                             <button
                               type="button"
                               onClick={() => void handleCopyMessages(nonDeletedSelectedMessages)}
@@ -5582,7 +5582,7 @@ export function CampusMessenger({
                       {showChatMoreMenu && (
                         <div
                           ref={chatMoreMenuRef}
-                          className="absolute right-0 top-11 z-40 w-52 overflow-hidden rounded-2xl border border-border bg-white py-1.5 text-sm text-foreground shadow-2xl dark:border-white/10 dark:bg-[#262626]"
+                          className="absolute right-0 top-11 z-40 w-52 overflow-hidden rounded-2xl bg-white py-1.5 text-sm text-foreground shadow-2xl dark:bg-[#0B1014]"
                         >
                           <button
                             type="button"
@@ -5650,7 +5650,7 @@ export function CampusMessenger({
 
               {/* Pinned Message Banner */}
               {pinnedMessage && (
-                <div className="flex items-center justify-between gap-2 border-b border-border bg-violet-500/8 px-3.5 py-2 dark:border-white/10 dark:bg-[#121212]">
+                <div className="flex items-center justify-between gap-2 bg-[#0095F6]/[0.07] px-3.5 py-2 dark:bg-[#0B1014]">
                   <button
                     type="button"
                     onClick={() => scrollToMessage(pinnedMessage.id)}
@@ -5706,7 +5706,7 @@ export function CampusMessenger({
                 }}
               >
                 {/* Subtle Campus Privacy Note */}
-                <div className="mx-auto mb-3 max-w-md rounded-full border border-border/60 bg-muted/40 px-3.5 py-1.5 text-center text-[11px] text-muted-foreground dark:border-white/10 dark:bg-white/[0.04]">
+                <div className="mx-auto mb-3 max-w-md rounded-full bg-muted/60 px-3.5 py-1.5 text-center text-[11px] text-muted-foreground dark:bg-[#0B1014]">
                   <ShieldCheck
                     className="mr-1 inline-block size-3.5 text-violet-600 dark:text-violet-400"
                     aria-hidden="true"
@@ -5895,7 +5895,7 @@ export function CampusMessenger({
                         {!isMine && (
                           <div className="w-7 shrink-0">
                             {isLastInGroup ? (
-                              <div className="flex size-7 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-muted font-poppins text-[10px] font-bold text-foreground dark:border-white/15 dark:bg-[#262626] dark:text-zinc-200">
+                              <div className="flex size-7 items-center justify-center overflow-hidden rounded-full bg-muted font-poppins text-[10px] font-bold text-foreground dark:bg-[#141A1F] dark:text-zinc-200">
                                 {senderAvatarUrl ? (
                                   <img
                                     src={senderAvatarUrl}
@@ -6661,7 +6661,7 @@ export function CampusMessenger({
                         <div
                           onClick={(e) => e.stopPropagation()}
                           className={cn(
-                            'z-20 mt-1.5 flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 shadow-lg dark:border-white/15 dark:bg-[#1c1c1e]',
+                            'z-20 mt-1.5 flex items-center gap-1 rounded-full bg-card px-2.5 py-1 shadow-xl dark:bg-[#0B1014]',
                             isMine ? 'self-end' : 'self-start ml-9',
                           )}
                         >
@@ -6694,10 +6694,10 @@ export function CampusMessenger({
                                 type="button"
                                 onClick={() => handleToggleReaction(msg.id, emoji)}
                                 className={cn(
-                                  'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors',
+                                  'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors',
                                   iReacted
-                                    ? 'border-violet-500/45 bg-violet-500/15 text-foreground dark:border-violet-400/40 dark:bg-violet-500/20 dark:text-zinc-100'
-                                    : 'border-border bg-card/90 text-muted-foreground hover:text-foreground dark:border-white/10 dark:bg-[#1c1c1e]',
+                                    ? 'bg-[#0095F6]/15 text-[#0077CC] dark:bg-[#0095F6]/20 dark:text-[#38BDF8]'
+                                    : 'bg-card/90 text-muted-foreground hover:text-foreground dark:bg-[#0B1014]',
                                 )}
                               >
                                 <span>{emoji}</span>
@@ -6717,10 +6717,10 @@ export function CampusMessenger({
 
               {/* Reply Preview Banner or Pending Media Preview (Preserves HD / Standard Toggle) */}
               {(replyingTo || pendingAttachment) && (
-                <div className="flex items-center justify-between gap-2 border-t border-border bg-card/95 px-3.5 py-2 dark:border-white/10 dark:bg-black">
+                <div className="flex items-center justify-between gap-2 bg-card/95 px-3.5 py-2 dark:bg-black">
                   {replyingTo ? (
                     <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-bold text-violet-600 dark:text-violet-400">
+                      <p className="text-[11px] font-bold text-[#0077CC] dark:text-[#0095F6]">
                         Replying to {formatMessengerDisplayName(replyingTo.senderName)}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
@@ -6740,7 +6740,7 @@ export function CampusMessenger({
                             className="size-9 shrink-0 rounded-lg object-cover"
                           />
                         ) : (
-                          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground dark:border-white/10 dark:bg-[#1e1e22]">
+                          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground dark:bg-[#141A1F]">
                             <FileText className="size-4" aria-hidden="true" />
                           </span>
                         )}
@@ -6759,14 +6759,14 @@ export function CampusMessenger({
                       </div>
 
                       {pendingAttachment.mediaType === 'image' && (
-                        <div className="flex shrink-0 items-center gap-1 rounded-full border border-border bg-background/80 p-0.5 dark:border-white/15 dark:bg-black">
+                        <div className="flex shrink-0 items-center gap-1 rounded-full bg-muted p-0.5 dark:bg-[#141A1F]">
                           <button
                             type="button"
                             onClick={() => handleSelectPhotoQuality('standard')}
                             className={cn(
                               'rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors whitespace-nowrap',
                               pendingAttachment.imageQuality !== 'hd'
-                                ? 'bg-violet-600 text-white'
+                                ? 'bg-[#0095F6] text-white'
                                 : 'text-muted-foreground hover:text-foreground',
                             )}
                           >
@@ -6778,7 +6778,7 @@ export function CampusMessenger({
                             className={cn(
                               'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors whitespace-nowrap',
                               pendingAttachment.imageQuality === 'hd'
-                                ? 'bg-gradient-to-r from-[#c026d3] to-[#4f46e5] text-white'
+                                ? 'bg-gradient-to-tr from-[#7C3AED] via-[#4F46E5] to-[#0095F6] text-white'
                                 : 'text-muted-foreground hover:text-foreground',
                             )}
                           >
@@ -6808,7 +6808,7 @@ export function CampusMessenger({
 
               {/* Bottom Composer Bar OR Locked Group Banner — Instagram Pill Composer */}
               {activeRoomMeta.onlyAdminsCanPost && !actor.isStaff ? (
-                <div className="flex items-center justify-center gap-2 border-t border-border bg-card px-4 py-3.5 text-center text-xs font-semibold text-muted-foreground dark:border-white/10 dark:bg-black">
+                <div className="flex items-center justify-center gap-2 bg-card px-4 py-3.5 text-center text-xs font-semibold text-muted-foreground dark:bg-black">
                   <Lock className="size-4 shrink-0" aria-hidden="true" />
                   <span>
                     Only Usthads and Principal can send messages in this group
@@ -6842,10 +6842,10 @@ export function CampusMessenger({
 
                   {/* Instagram Floating Action Popover Menu (Right-anchored above + button) */}
                   {showAttachMenu && (
-                    <div
-                      ref={attachMenuRef}
-                      className="absolute bottom-16 right-3 z-30 w-56 overflow-hidden rounded-2xl border border-border/80 bg-white py-1.5 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-[#262626]"
-                    >
+                      <div
+                        ref={attachMenuRef}
+                        className="absolute bottom-16 right-3 z-30 w-56 overflow-hidden rounded-2xl bg-white py-1.5 shadow-2xl backdrop-blur-xl dark:bg-[#0B1014]"
+                      >
                       <button
                         type="button"
                         onClick={() => {
@@ -7107,14 +7107,14 @@ export function CampusMessenger({
       {/* NEW CHAT DIRECTORY MODAL (Quickly Start Direct Chat with Any Usthad or Student Across All Classes) */}
       {showNewChatModal && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
           onClick={() => setShowNewChatModal(false)}
         >
           <div
-            className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-white/10 dark:bg-[#0B1014]"
+            className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-card shadow-2xl dark:bg-[#0B1014]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
+            <div className="flex items-center justify-between px-5 pb-3 pt-5">
               <div>
                 <h3 className="font-display text-base font-bold text-foreground">
                   Start Direct Chat (Usthads &amp; Students)
@@ -7126,16 +7126,16 @@ export function CampusMessenger({
               <button
                 type="button"
                 onClick={() => setShowNewChatModal(false)}
-                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:hover:bg-[#1C2329]"
               >
                 <X className="size-4" aria-hidden="true" />
               </button>
             </div>
 
-            <div className="border-b border-border/70 px-4 py-2.5 dark:border-[#262a33]">
+            <div className="px-4 pb-3">
               <div className="relative">
                 <Search
-                  className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                  className="pointer-events-none absolute left-3.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
                   aria-hidden="true"
                 />
                 <input
@@ -7143,12 +7143,12 @@ export function CampusMessenger({
                   value={newChatSearchQuery}
                   onChange={(e) => setNewChatSearchQuery(e.target.value)}
                   placeholder="Search any Usthad or Student by name or class..."
-                  className="h-9 w-full rounded-xl border border-input bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 focus:outline-none dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                  className="h-10 w-full rounded-full border-0 bg-muted pl-9 pr-4 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none dark:bg-[#141A1F]"
                 />
               </div>
             </div>
 
-            <div className="flex-1 space-y-4 overflow-y-auto p-4">
+            <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-5">
               {(() => {
                 const nq = newChatSearchQuery.trim().toLowerCase()
                 const matchingUsthads = OFFICIAL_CLASS_USTHADS.filter(
@@ -7187,21 +7187,21 @@ export function CampusMessenger({
                                 setShowNewChatModal(false)
                                 setNewChatSearchQuery('')
                               }}
-                              className="flex items-center justify-between rounded-2xl border border-border bg-background/70 px-3.5 py-2.5 text-left transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                              className="flex items-center justify-between rounded-2xl bg-muted/60 px-3.5 py-2.5 text-left transition-colors hover:bg-muted dark:bg-[#141A1F] dark:hover:bg-[#1C2329]"
                             >
                               <div className="flex min-w-0 items-center gap-2.5">
                                 {u.avatarUrl ? (
                                   <img
                                     src={u.avatarUrl}
                                     alt={u.name}
-                                    className="size-8 shrink-0 rounded-full border border-lime/40 object-cover object-top"
+                                    className="size-8 shrink-0 rounded-full object-cover object-top"
                                   />
                                 ) : null}
                                 <p className="truncate text-xs font-bold text-foreground">
                                   {u.name}
                                 </p>
                               </div>
-                              <span className="rounded-lg border border-border bg-muted px-2 py-1 text-[10px] font-bold text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
+                              <span className="rounded-full bg-[#0095F6]/15 px-3 py-1 text-[10px] font-bold text-[#0077CC] dark:text-[#0095F6]">
                                 Message
                               </span>
                             </button>
@@ -7218,7 +7218,7 @@ export function CampusMessenger({
                         <ThemeSelect
                           value={studentBatchFilter}
                           onChange={(e) => setStudentBatchFilter(e.target.value)}
-                          className="h-7 rounded-lg border border-input bg-background px-2 text-[11px] font-semibold dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                          className="h-8 rounded-full border-0 bg-muted px-3 text-[11px] font-semibold dark:bg-[#141A1F]"
                         >
                           <option value={actor.className}>My Class ({actor.className})</option>
                           <option value="ALL">All Classes ({students.length})</option>
@@ -7242,17 +7242,17 @@ export function CampusMessenger({
                                 setShowNewChatModal(false)
                                 setNewChatSearchQuery('')
                               }}
-                              className="flex items-center justify-between rounded-2xl border border-border bg-background/70 px-3.5 py-2.5 text-left transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                              className="flex items-center justify-between rounded-2xl bg-muted/60 px-3.5 py-2.5 text-left transition-colors hover:bg-muted dark:bg-[#141A1F] dark:hover:bg-[#1C2329]"
                             >
                               <div className="flex min-w-0 items-center gap-2.5">
                                 {st.avatarUrl ? (
                                   <img
                                     src={st.avatarUrl}
                                     alt={messengerStudentName}
-                                    className="size-8 shrink-0 rounded-full border border-lime/40 object-cover object-top"
+                                    className="size-8 shrink-0 rounded-full object-cover object-top"
                                   />
                                 ) : (
-                                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-cyan/15 font-poppins text-[11px] font-bold text-cyan">
+                                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#0095F6]/15 font-poppins text-[11px] font-bold text-[#0077CC] dark:text-[#0095F6]">
                                     {getMessengerAvatarText(messengerStudentName)}
                                   </span>
                                 )}
@@ -7265,7 +7265,7 @@ export function CampusMessenger({
                                   </p>
                                 </div>
                               </div>
-                              <span className="rounded-lg border border-border bg-muted px-2 py-1 text-[10px] font-bold text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
+                              <span className="rounded-full bg-[#0095F6]/15 px-3 py-1 text-[10px] font-bold text-[#0077CC] dark:text-[#0095F6]">
                                 Chat
                               </span>
                             </button>
@@ -7281,21 +7281,21 @@ export function CampusMessenger({
         </div>
       )}
 
-      {/* WHATSAPP-STYLE CHAT SETTINGS MODAL */}
+      {/* INSTAGRAM-STYLE CHAT SETTINGS MODAL */}
       {showSettingsModal && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/65 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
           onClick={() => setShowSettingsModal(false)}
         >
           <div
-            className="flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-white/10 dark:bg-[#0B1014]"
+            className="flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-card shadow-2xl dark:bg-[#0B1014]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
-              <div className="flex items-center gap-2.5">
-                <span className="flex size-9 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
-                  <Settings className="size-4" aria-hidden="true" />
+            <div className="flex items-center justify-between px-5 pb-3 pt-5">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-full bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]">
+                  <Settings className="size-4.5" aria-hidden="true" />
                 </span>
                 <div>
                   <h3 className="font-poppins text-base font-bold text-foreground">
@@ -7310,14 +7310,14 @@ export function CampusMessenger({
                 type="button"
                 onClick={() => setShowSettingsModal(false)}
                 aria-label="Close Chat Settings"
-                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:hover:bg-[#1C2329]"
               >
                 <X className="size-4" aria-hidden="true" />
               </button>
             </div>
 
             {/* Settings Content */}
-            <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <div className="flex-1 space-y-5 overflow-y-auto px-5 pb-5 pt-2">
               {/* Saved / Starred Messages Quick Access */}
               <button
                 type="button"
@@ -7325,10 +7325,10 @@ export function CampusMessenger({
                   setShowSettingsModal(false)
                   setShowStarredModal(true)
                 }}
-                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border bg-background/70 p-3.5 text-left transition-colors hover:bg-muted/60 dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                className="flex w-full items-center justify-between gap-3 rounded-2xl bg-muted/60 p-3.5 text-left transition-colors hover:bg-muted dark:bg-[#141A1F] dark:hover:bg-[#1C2329]"
               >
                 <div className="flex items-center gap-3">
-                  <span className="flex size-9 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500">
+                  <span className="flex size-9 items-center justify-center rounded-full bg-amber-500/15 text-amber-500">
                     <Star className="size-4" aria-hidden="true" />
                   </span>
                   <div>
@@ -7340,7 +7340,7 @@ export function CampusMessenger({
                     </p>
                   </div>
                 </div>
-                <span className="rounded-lg bg-muted px-2.5 py-1 text-[11px] font-semibold text-foreground dark:bg-[#1a1d24]">
+                <span className="rounded-full bg-[#0095F6]/15 px-3 py-1 text-[11px] font-semibold text-[#0077CC] dark:text-[#0095F6]">
                   View
                 </span>
               </button>
@@ -7351,7 +7351,7 @@ export function CampusMessenger({
                   1. Privacy &amp; Presence
                 </p>
 
-                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-border bg-background/70 p-3.5 transition-colors hover:bg-muted/40 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl bg-muted/60 p-3.5 transition-colors hover:bg-muted dark:bg-[#141A1F] dark:hover:bg-[#1C2329]">
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-foreground">
                       Show Online &amp; Last Seen Status
@@ -7364,11 +7364,11 @@ export function CampusMessenger({
                     type="checkbox"
                     checked={chatSettings.showOnlineStatus}
                     onChange={(e) => updateChatSetting('showOnlineStatus', e.target.checked)}
-                    className="size-4 shrink-0 accent-emerald-600"
+                    className="size-4 shrink-0 accent-[#0095F6]"
                   />
                 </label>
 
-                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-border bg-background/70 p-3.5 transition-colors hover:bg-muted/40 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl bg-muted/60 p-3.5 transition-colors hover:bg-muted dark:bg-[#141A1F] dark:hover:bg-[#1C2329]">
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-foreground">
                       Read Receipts / Blue Ticks
@@ -7381,7 +7381,7 @@ export function CampusMessenger({
                     type="checkbox"
                     checked={chatSettings.sendReadReceipts}
                     onChange={(e) => updateChatSetting('sendReadReceipts', e.target.checked)}
-                    className="size-4 shrink-0 accent-emerald-600"
+                    className="size-4 shrink-0 accent-[#0095F6]"
                   />
                 </label>
               </div>
@@ -7392,7 +7392,7 @@ export function CampusMessenger({
                   2. Appearance &amp; Font
                 </p>
 
-                <div className="rounded-2xl border border-border bg-background/70 p-3.5 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+                <div className="rounded-2xl bg-muted/60 p-3.5 dark:bg-[#141A1F]">
                   <p className="text-xs font-bold text-foreground">
                     Message Font Size
                   </p>
@@ -7411,10 +7411,10 @@ export function CampusMessenger({
                           type="button"
                           onClick={() => updateChatSetting('chatFontSize', opt.id)}
                           className={cn(
-                            'rounded-xl border px-2.5 py-2 text-xs font-semibold transition-colors',
+                            'rounded-full px-2.5 py-2 text-xs font-semibold transition-all active:scale-[0.98]',
                             active
-                              ? 'border-emerald-600 bg-emerald-600 text-white dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100'
-                              : 'border-border bg-card text-muted-foreground hover:text-foreground dark:border-[#262a33] dark:bg-[#14171d]',
+                              ? 'bg-[#0095F6] text-white'
+                              : 'bg-card text-muted-foreground hover:text-foreground dark:bg-[#0B1014] dark:hover:bg-[#1C2329]',
                           )}
                         >
                           {opt.label}
@@ -7424,7 +7424,7 @@ export function CampusMessenger({
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-border bg-background/70 p-3.5 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+                <div className="rounded-2xl bg-muted/60 p-3.5 dark:bg-[#141A1F]">
                   <p className="text-xs font-bold text-foreground">
                     Chat Background Theme
                   </p>
@@ -7444,10 +7444,10 @@ export function CampusMessenger({
                           type="button"
                           onClick={() => updateChatSetting('chatWallpaper', opt.id)}
                           className={cn(
-                            'rounded-xl border px-2.5 py-2 text-[11px] font-semibold transition-colors',
+                            'rounded-full px-2.5 py-2 text-[11px] font-semibold transition-all active:scale-[0.98]',
                             active
-                              ? 'border-emerald-600 bg-emerald-600 text-white dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100'
-                              : 'border-border bg-card text-muted-foreground hover:text-foreground dark:border-[#262a33] dark:bg-[#14171d]',
+                              ? 'bg-[#0095F6] text-white'
+                              : 'bg-card text-muted-foreground hover:text-foreground dark:bg-[#0B1014] dark:hover:bg-[#1C2329]',
                           )}
                         >
                           {opt.label}
@@ -7464,7 +7464,7 @@ export function CampusMessenger({
                   3. Keyboard &amp; Sound
                 </p>
 
-                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-border bg-background/70 p-3.5 transition-colors hover:bg-muted/40 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl bg-muted/60 p-3.5 transition-colors hover:bg-muted dark:bg-[#141A1F] dark:hover:bg-[#1C2329]">
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-foreground">
                       Enter Key Sends Message
@@ -7477,11 +7477,11 @@ export function CampusMessenger({
                     type="checkbox"
                     checked={chatSettings.enterToSend}
                     onChange={(e) => updateChatSetting('enterToSend', e.target.checked)}
-                    className="size-4 shrink-0 accent-emerald-600"
+                    className="size-4 shrink-0 accent-[#0095F6]"
                   />
                 </label>
 
-                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-border bg-background/70 p-3.5 transition-colors hover:bg-muted/40 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl bg-muted/60 p-3.5 transition-colors hover:bg-muted dark:bg-[#141A1F] dark:hover:bg-[#1C2329]">
                   <div className="flex min-w-0 items-center gap-2.5">
                     <Volume2 className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                     <div className="min-w-0">
@@ -7497,11 +7497,11 @@ export function CampusMessenger({
                     type="checkbox"
                     checked={chatSettings.soundEffects}
                     onChange={(e) => updateChatSetting('soundEffects', e.target.checked)}
-                    className="size-4 shrink-0 accent-emerald-600"
+                    className="size-4 shrink-0 accent-[#0095F6]"
                   />
                 </label>
 
-                <div className="rounded-2xl border border-border bg-background/70 p-3.5 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+                <div className="rounded-2xl bg-muted/60 p-3.5 dark:bg-[#141A1F]">
                   <p className="text-xs font-bold text-foreground">
                     Default Photo Upload Quality
                   </p>
@@ -7522,10 +7522,10 @@ export function CampusMessenger({
                           type="button"
                           onClick={() => updateChatSetting('defaultImageQuality', opt.id)}
                           className={cn(
-                            'rounded-xl border px-3 py-2 text-xs font-semibold transition-colors',
+                            'rounded-full px-3 py-2 text-xs font-semibold transition-all active:scale-[0.98]',
                             active
-                              ? 'border-emerald-600 bg-emerald-600 text-white dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100'
-                              : 'border-border bg-card text-muted-foreground hover:text-foreground dark:border-[#262a33] dark:bg-[#14171d]',
+                              ? 'bg-[#0095F6] text-white'
+                              : 'bg-card text-muted-foreground hover:text-foreground dark:bg-[#0B1014] dark:hover:bg-[#1C2329]',
                           )}
                         >
                           {opt.label}
@@ -7553,7 +7553,7 @@ export function CampusMessenger({
                       setSettingsToast(`Cleared messages in "${activeRoom.title}".`)
                       window.setTimeout(() => setSettingsToast(null), 3500)
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3.5 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-muted/80 px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted dark:bg-[#141A1F] dark:hover:bg-[#1C2329]"
                   >
                     <Trash2 className="size-3.5 text-amber-500" aria-hidden="true" />
                     <span>Clear Current Chat</span>
@@ -7571,7 +7571,7 @@ export function CampusMessenger({
                       setSettingsToast('All local chat history has been cleared.')
                       window.setTimeout(() => setSettingsToast(null), 3500)
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-semibold text-red-500 transition-colors hover:bg-red-500/20"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-red-500/15 px-4 py-2 text-xs font-semibold text-red-500 transition-colors hover:bg-red-500/25"
                   >
                     <Trash2 className="size-3.5" aria-hidden="true" />
                     <span>Clear All Chats</span>
@@ -7579,7 +7579,7 @@ export function CampusMessenger({
                 </div>
 
                 {settingsToast && (
-                  <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-700 dark:border-[#343946] dark:bg-[#1a1d24] dark:text-zinc-200">
+                  <p className="rounded-2xl bg-[#0095F6]/15 px-3.5 py-2 text-xs font-semibold text-[#0077CC] dark:text-[#0095F6]">
                     {settingsToast}
                   </p>
                 )}
@@ -7587,11 +7587,11 @@ export function CampusMessenger({
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end border-t border-border bg-background/60 px-5 py-3 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+            <div className="flex items-center justify-end bg-muted/40 px-5 py-3.5 dark:bg-black/40">
               <button
                 type="button"
                 onClick={() => setShowSettingsModal(false)}
-                className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-700 dark:border dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100 dark:hover:bg-[#2a2f3b]"
+                className="rounded-full bg-[#0095F6] px-6 py-2 text-xs font-bold text-white transition-all hover:bg-[#0084DC] active:scale-[0.98]"
               >
                 Done
               </button>
@@ -7600,17 +7600,17 @@ export function CampusMessenger({
         </div>
       )}
 
-      {/* WHATSAPP-STYLE DELETE MESSAGE DIALOG (Single & Multi-Select) */}
+      {/* INSTAGRAM-STYLE DELETE MESSAGE DIALOG (Single & Multi-Select) */}
       {deleteModalMessages.length > 0 && (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/65 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
           onClick={() => setDeleteModalMessages([])}
         >
           <div
-            className="w-full max-w-[320px] overflow-hidden rounded-3xl border border-border bg-card p-5 shadow-2xl dark:border-[#262a33] dark:bg-[#181b22]"
+            className="w-full max-w-[320px] overflow-hidden rounded-3xl bg-card p-5 shadow-2xl dark:bg-[#0B1014]"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-sm font-semibold text-foreground">
+            <h3 className="text-sm font-bold text-foreground">
               {deleteModalMessages.length === 1
                 ? 'Delete message?'
                 : `Delete ${deleteModalMessages.length} messages?`}
@@ -7621,7 +7621,7 @@ export function CampusMessenger({
                 : 'You can delete selected messages for everyone in this chat or only for yourself.'}
             </p>
 
-            <div className="mt-5 flex flex-col items-end gap-1">
+            <div className="mt-5 flex flex-col gap-1.5">
               {deleteModalMessages.some((m) => !m.isDeleted) &&
                 deleteModalMessages
                   .filter((m) => !m.isDeleted)
@@ -7633,7 +7633,7 @@ export function CampusMessenger({
                         deleteModalMessages.filter((m) => !m.isDeleted).map((m) => m.id),
                       )
                     }
-                    className="w-full rounded-xl px-3.5 py-2.5 text-right text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/10 dark:text-[#25d366]"
+                    className="w-full rounded-full bg-red-500/12 px-4 py-2.5 text-center text-xs font-bold text-red-500 transition-colors hover:bg-red-500/20"
                   >
                     Delete for everyone
                   </button>
@@ -7642,7 +7642,7 @@ export function CampusMessenger({
               <button
                 type="button"
                 onClick={() => handleDeleteForMe(deleteModalMessages.map((m) => m.id))}
-                className="w-full rounded-xl px-3.5 py-2.5 text-right text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/10 dark:text-[#25d366]"
+                className="w-full rounded-full bg-muted/70 px-4 py-2.5 text-center text-xs font-semibold text-red-500 transition-colors hover:bg-red-500/15 dark:bg-[#141A1F] dark:hover:bg-red-500/15"
               >
                 Delete for me
               </button>
@@ -7650,7 +7650,7 @@ export function CampusMessenger({
               <button
                 type="button"
                 onClick={() => setDeleteModalMessages([])}
-                className="w-full rounded-xl px-3.5 py-2.5 text-right text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/10 dark:text-[#25d366]"
+                className="w-full rounded-full px-4 py-2.5 text-center text-xs font-semibold text-[#0077CC] transition-colors hover:bg-[#0095F6]/12 dark:text-[#0095F6]"
               >
                 Cancel
               </button>
@@ -7659,23 +7659,23 @@ export function CampusMessenger({
         </div>
       )}
 
-      {/* WHATSAPP-STYLE FORWARD TO MODAL (Single & Multi-Message, Multi-Recipient) */}
+      {/* INSTAGRAM-STYLE FORWARD TO MODAL (Single & Multi-Message, Multi-Recipient) */}
       {forwardMessageIds.length > 0 && (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/65 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
           onClick={() => {
             setForwardMessageIds([])
             setForwardTargetRoomIds([])
           }}
         >
           <div
-            className="flex max-h-[86vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            className="flex max-h-[86vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-card shadow-2xl dark:bg-[#0B1014]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
-              <div className="flex items-center gap-2.5">
-                <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:bg-[#1a1d24] dark:text-[#25d366]">
-                  <Forward className="size-4" aria-hidden="true" />
+            <div className="flex items-center justify-between px-5 pb-3 pt-5">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-full bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]">
+                  <Forward className="size-4.5" aria-hidden="true" />
                 </span>
                 <div>
                   <h3 className="font-poppins text-base font-bold text-foreground">
@@ -7695,16 +7695,16 @@ export function CampusMessenger({
                   setForwardTargetRoomIds([])
                 }}
                 aria-label="Close forward dialog"
-                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:hover:bg-[#1C2329]"
               >
                 <X className="size-4" aria-hidden="true" />
               </button>
             </div>
 
-            <div className="flex flex-col gap-2 border-b border-border/70 px-4 py-3 dark:border-[#262a33]">
+            <div className="flex flex-col gap-2.5 px-4 pb-3">
               <div className="relative">
                 <Search
-                  className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                  className="pointer-events-none absolute left-3.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
                   aria-hidden="true"
                 />
                 <input
@@ -7712,18 +7712,18 @@ export function CampusMessenger({
                   value={forwardSearchQuery}
                   onChange={(e) => setForwardSearchQuery(e.target.value)}
                   placeholder="Search groups, teachers, or students..."
-                  className="h-9 w-full rounded-xl border border-input bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 focus:outline-none dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                  className="h-10 w-full rounded-full border-0 bg-muted pl-9 pr-4 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none dark:bg-[#141A1F]"
                 />
               </div>
 
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2.5">
                 <span className="text-[11px] font-medium text-muted-foreground">
                   Filter students:
                 </span>
                 <ThemeSelect
                   value={forwardBatchFilter}
                   onChange={(e) => setForwardBatchFilter(e.target.value)}
-                  className="h-7 flex-1 rounded-lg border border-input bg-background px-2 text-[11px] font-semibold dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                  className="h-8 flex-1 rounded-full border-0 bg-muted px-3 text-[11px] font-semibold dark:bg-[#141A1F]"
                 >
                   <option value="ALL">All Classes &amp; Chats</option>
                   <option value={actor.className}>My Class ({actor.className})</option>
@@ -7736,7 +7736,7 @@ export function CampusMessenger({
               </div>
             </div>
 
-            <div className="flex-1 space-y-1 overflow-y-auto p-3">
+            <div className="flex-1 space-y-1.5 overflow-y-auto px-3 pb-3">
               {allForwardRooms
                 .filter((r) => {
                   const meta = roomsMeta[r.roomId]
@@ -7769,10 +7769,10 @@ export function CampusMessenger({
                         )
                       }
                       className={cn(
-                        'flex w-full items-center justify-between gap-3 rounded-2xl border px-3 py-2.5 text-left transition-colors',
+                        'flex w-full items-center justify-between gap-3 rounded-2xl px-3.5 py-2.5 text-left transition-colors',
                         checked
-                          ? 'border-emerald-500/60 bg-emerald-500/12 dark:border-[#25d366]/60 dark:bg-[#25d366]/10'
-                          : 'border-transparent hover:bg-muted/60 dark:hover:bg-white/5',
+                          ? 'bg-[#0095F6]/15'
+                          : 'hover:bg-muted/70 dark:hover:bg-[#141A1F]',
                       )}
                     >
                       <div className="flex min-w-0 items-center gap-2.5">
@@ -7780,10 +7780,10 @@ export function CampusMessenger({
                           <img
                             src={room.avatarUrl}
                             alt={room.title}
-                            className="size-9 shrink-0 rounded-full border border-border object-cover object-top"
+                            className="size-9 shrink-0 rounded-full object-cover object-top"
                           />
                         ) : (
-                          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 font-poppins text-xs font-bold text-emerald-700 dark:bg-[#1a1d24] dark:text-zinc-200">
+                          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted font-poppins text-xs font-bold text-foreground dark:bg-[#141A1F] dark:text-zinc-200">
                             {room.type === 'batch_group' ? (
                               <Users className="size-4" aria-hidden="true" />
                             ) : room.type === 'staff_group' ? (
@@ -7804,20 +7804,20 @@ export function CampusMessenger({
                       </div>
                       <span
                         className={cn(
-                          'flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+                          'flex size-6 shrink-0 items-center justify-center rounded-full transition-colors',
                           checked
-                            ? 'border-emerald-600 bg-emerald-600 text-white dark:border-[#25d366] dark:bg-[#25d366] dark:text-[#0a0b0e]'
-                            : 'border-muted-foreground/40',
+                            ? 'bg-[#0095F6] text-white'
+                            : 'bg-muted dark:bg-[#1C2329]',
                         )}
                       >
-                        {checked && <Check className="size-3 stroke-[3]" aria-hidden="true" />}
+                        {checked && <Check className="size-3.5 stroke-[3]" aria-hidden="true" />}
                       </span>
                     </button>
                   )
                 })}
             </div>
 
-            <div className="flex items-center justify-between gap-3 border-t border-border bg-background/70 px-4 py-3 dark:border-[#262a33] dark:bg-[#0a0b0e]">
+            <div className="flex items-center justify-between gap-3 bg-muted/40 px-4 py-3.5 dark:bg-black/40">
               <p className="min-w-0 truncate text-xs text-muted-foreground">
                 {forwardTargetRoomIds.length === 0
                   ? 'Select one or more chats'
@@ -7830,7 +7830,7 @@ export function CampusMessenger({
                 type="button"
                 disabled={forwardTargetRoomIds.length === 0}
                 onClick={handleConfirmForwardMessages}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-40 dark:bg-[#25d366] dark:text-[#0a0b0e] dark:hover:bg-[#1fc75d]"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#0095F6] px-5 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-[#0084DC] active:scale-[0.98] disabled:opacity-40"
               >
                 <Send className="size-3.5" aria-hidden="true" />
                 <span>Forward ({forwardTargetRoomIds.length})</span>
@@ -7843,17 +7843,17 @@ export function CampusMessenger({
       {/* STARRED MESSAGES VIEWER MODAL */}
       {showStarredModal && (
         <div
-          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/65 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
           onClick={() => setShowStarredModal(false)}
         >
           <div
-            className="flex max-h-[86vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            className="flex max-h-[86vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-card shadow-2xl dark:bg-[#0B1014]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
-              <div className="flex items-center gap-2.5">
-                <span className="flex size-9 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500">
-                  <Star className="size-4 fill-amber-400" aria-hidden="true" />
+            <div className="flex items-center justify-between px-5 pb-3 pt-5">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-full bg-amber-500/15 text-amber-500">
+                  <Star className="size-4.5 fill-amber-400" aria-hidden="true" />
                 </span>
                 <div>
                   <h3 className="font-poppins text-base font-bold text-foreground">
@@ -7870,13 +7870,13 @@ export function CampusMessenger({
                 type="button"
                 onClick={() => setShowStarredModal(false)}
                 aria-label="Close Starred Messages"
-                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:hover:bg-[#1C2329]"
               >
                 <X className="size-4" aria-hidden="true" />
               </button>
             </div>
 
-            <div className="flex-1 space-y-2.5 overflow-y-auto p-4">
+            <div className="flex-1 space-y-2.5 overflow-y-auto px-4 pb-5 pt-2">
               {allStarredItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Star className="size-10 text-muted-foreground/35" aria-hidden="true" />
@@ -7891,10 +7891,10 @@ export function CampusMessenger({
                 allStarredItems.map(({ msg, roomTitle, roomId }) => (
                   <div
                     key={`${roomId}:${msg.id}`}
-                    className="rounded-2xl border border-border bg-background/70 p-3.5 transition-colors hover:bg-muted/40 dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                    className="rounded-2xl bg-muted/60 p-3.5 transition-colors hover:bg-muted dark:bg-[#141A1F] dark:hover:bg-[#1C2329]"
                   >
                     <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px]">
-                      <span className="truncate font-bold text-violet-700 dark:text-violet-400">
+                      <span className="truncate font-bold text-[#0077CC] dark:text-[#0095F6]">
                         {msg.senderId === actor.id
                           ? 'You'
                           : formatMessengerDisplayName(msg.senderName, msg.senderRole)}{' '}
@@ -7909,7 +7909,7 @@ export function CampusMessenger({
                           onClick={() => handleToggleStarMessages([msg], roomId)}
                           title="Remove star"
                           aria-label="Unstar message"
-                          className="rounded-lg p-1 text-amber-500 hover:bg-amber-500/15"
+                          className="rounded-full p-1 text-amber-500 hover:bg-amber-500/15"
                         >
                           <Star className="size-3.5 fill-amber-400" aria-hidden="true" />
                         </button>
@@ -7948,7 +7948,7 @@ export function CampusMessenger({
                           {msg.text}
                         </p>
                       )}
-                      <span className="mt-1.5 inline-block text-[10px] font-semibold text-emerald-600 dark:text-[#25d366]">
+                      <span className="mt-1.5 inline-block text-[10px] font-semibold text-[#0077CC] dark:text-[#0095F6]">
                         Jump to message →
                       </span>
                     </button>
@@ -7960,7 +7960,7 @@ export function CampusMessenger({
         </div>
       )}
 
-      {/* WHATSAPP-STYLE PHOTO PREVIEW & HD / STANDARD QUALITY SELECTOR MODAL */}
+      {/* INSTAGRAM-STYLE PHOTO PREVIEW & HD / STANDARD QUALITY SELECTOR MODAL */}
       {pendingAttachment && pendingAttachment.mediaType === 'image' && (
         <div
           className="fixed inset-0 z-[78] flex flex-col justify-between bg-black text-white pt-[max(var(--safe-top),2.75rem)] pb-[max(env(safe-area-inset-bottom,0px),0.75rem)] sm:pt-3"
@@ -7968,7 +7968,7 @@ export function CampusMessenger({
         >
           {/* Top Bar: Placed cleanly below phone status bar (clock/battery) */}
           <div
-            className="z-20 flex shrink-0 items-center justify-between border-b border-white/10 bg-black px-4 py-3 shadow-md sm:px-6"
+            className="z-20 flex shrink-0 items-center justify-between bg-black px-4 py-3 sm:px-6"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -7978,21 +7978,21 @@ export function CampusMessenger({
                 setShowPhotoQualitySheet(false)
               }}
               aria-label="Cancel photo upload"
-              className="flex size-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition-colors hover:bg-white/20"
+              className="flex size-10 items-center justify-center rounded-full bg-[#141A1F] text-white transition-colors hover:bg-[#1C2329]"
             >
               <X className="size-5" aria-hidden="true" />
             </button>
 
             <div className="flex items-center gap-2">
               {/* Direct Standard / HD Segmented Selector + Sheet Trigger */}
-              <div className="flex items-center rounded-full border border-white/15 bg-[#1b2229] p-1 shadow-inner">
+              <div className="flex items-center rounded-full bg-[#141A1F] p-1">
                 <button
                   type="button"
                   onClick={() => handleSelectPhotoQuality('standard')}
                   className={cn(
                     'flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-bold transition-all',
                     pendingAttachment.imageQuality !== 'hd'
-                      ? 'bg-[#25d366] text-[#0a0b0e] shadow-xs'
+                      ? 'bg-[#0095F6] text-white'
                       : 'text-zinc-300 hover:text-white',
                   )}
                 >
@@ -8008,16 +8008,16 @@ export function CampusMessenger({
                   className={cn(
                     'flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-bold transition-all',
                     pendingAttachment.imageQuality === 'hd'
-                      ? 'bg-[#25d366] text-[#0a0b0e] shadow-xs'
+                      ? 'bg-[#0095F6] text-white'
                       : 'text-zinc-300 hover:text-white',
                   )}
                 >
                   <span
                     className={cn(
-                      'rounded border px-1 py-0.2 font-poppins text-[9px] font-extrabold leading-tight',
+                      'rounded px-1 py-0.2 font-poppins text-[9px] font-extrabold leading-tight',
                       pendingAttachment.imageQuality === 'hd'
-                        ? 'border-[#0a0b0e] text-[#0a0b0e]'
-                        : 'border-current text-current',
+                        ? 'bg-white/20 text-white'
+                        : 'bg-white/10 text-zinc-200',
                     )}
                   >
                     HD
@@ -8033,17 +8033,17 @@ export function CampusMessenger({
                 type="button"
                 onClick={() => setShowPhotoQualitySheet((prev) => !prev)}
                 aria-label="Open photo quality details"
-                className="hidden h-9 items-center rounded-full border border-white/20 bg-white/10 px-3 text-[11px] font-semibold text-zinc-200 transition-colors hover:bg-white/20 sm:inline-flex"
+                className="hidden h-9 items-center rounded-full bg-[#141A1F] px-3.5 text-[11px] font-semibold text-zinc-200 transition-colors hover:bg-[#1C2329] sm:inline-flex"
               >
                 Details
               </button>
             </div>
           </div>
 
-          {/* Center Photo Preview Area + Toast + WhatsApp Photo Quality Bottom Sheet */}
+          {/* Center Photo Preview Area + Toast + Photo Quality Bottom Sheet */}
           <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-2">
             {photoQualityToast && (
-              <div className="pointer-events-none absolute top-3 z-20 rounded-full border border-white/15 bg-black/85 px-4 py-1.5 text-xs font-semibold text-white shadow-lg">
+              <div className="pointer-events-none absolute top-3 z-20 rounded-full bg-[#0B1014]/95 px-4 py-1.5 text-xs font-semibold text-white shadow-lg">
                 {photoQualityToast}
               </div>
             )}
@@ -8062,11 +8062,11 @@ export function CampusMessenger({
               {pendingAttachment.mediaSizeLabel.split('•')[0].trim()}
             </p>
 
-            {/* WhatsApp "Photo quality" Selector Dialog / Sheet */}
+            {/* Photo quality Selector Sheet */}
             {showPhotoQualitySheet && (
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="absolute bottom-3 z-30 w-full max-w-sm rounded-3xl border border-[#262a33] bg-[#181b22] p-5 text-white shadow-2xl"
+                className="absolute bottom-3 z-30 w-full max-w-sm rounded-3xl bg-[#0B1014] p-5 text-white shadow-2xl"
               >
                 <h4 className="text-sm font-bold text-white">Photo quality</h4>
                 <p className="mt-1 text-xs text-zinc-400">
@@ -8079,23 +8079,23 @@ export function CampusMessenger({
                     type="button"
                     onClick={() => handleSelectPhotoQuality('standard')}
                     className={cn(
-                      'flex w-full items-center justify-between rounded-2xl border px-3.5 py-3 text-left transition-colors',
+                      'flex w-full items-center justify-between rounded-2xl px-3.5 py-3 text-left transition-colors',
                       pendingAttachment.imageQuality !== 'hd'
-                        ? 'border-[#25d366]/60 bg-[#25d366]/10'
-                        : 'border-[#262a33] bg-[#121418] hover:bg-white/5',
+                        ? 'bg-[#0095F6]/15'
+                        : 'bg-[#141A1F] hover:bg-[#1C2329]',
                     )}
                   >
                     <div className="flex items-center gap-3">
                       <span
                         className={cn(
-                          'flex size-5 items-center justify-center rounded-full border-2',
+                          'flex size-5 items-center justify-center rounded-full',
                           pendingAttachment.imageQuality !== 'hd'
-                            ? 'border-[#25d366]'
-                            : 'border-zinc-500',
+                            ? 'bg-[#0095F6] text-white'
+                            : 'bg-[#1C2329]',
                         )}
                       >
                         {pendingAttachment.imageQuality !== 'hd' && (
-                          <span className="size-2.5 rounded-full bg-[#25d366]" />
+                          <Check className="size-3 stroke-[3]" aria-hidden="true" />
                         )}
                       </span>
                       <div>
@@ -8113,29 +8113,29 @@ export function CampusMessenger({
                     type="button"
                     onClick={() => handleSelectPhotoQuality('hd')}
                     className={cn(
-                      'flex w-full items-center justify-between rounded-2xl border px-3.5 py-3 text-left transition-colors',
+                      'flex w-full items-center justify-between rounded-2xl px-3.5 py-3 text-left transition-colors',
                       pendingAttachment.imageQuality === 'hd'
-                        ? 'border-[#25d366]/60 bg-[#25d366]/10'
-                        : 'border-[#262a33] bg-[#121418] hover:bg-white/5',
+                        ? 'bg-[#0095F6]/15'
+                        : 'bg-[#141A1F] hover:bg-[#1C2329]',
                     )}
                   >
                     <div className="flex items-center gap-3">
                       <span
                         className={cn(
-                          'flex size-5 items-center justify-center rounded-full border-2',
+                          'flex size-5 items-center justify-center rounded-full',
                           pendingAttachment.imageQuality === 'hd'
-                            ? 'border-[#25d366]'
-                            : 'border-zinc-500',
+                            ? 'bg-[#0095F6] text-white'
+                            : 'bg-[#1C2329]',
                         )}
                       >
                         {pendingAttachment.imageQuality === 'hd' && (
-                          <span className="size-2.5 rounded-full bg-[#25d366]" />
+                          <Check className="size-3 stroke-[3]" aria-hidden="true" />
                         )}
                       </span>
                       <div>
                         <div className="flex items-center gap-1.5">
                           <p className="text-xs font-bold text-white">HD quality</p>
-                          <span className="rounded border border-[#25d366] px-1 py-0.2 font-poppins text-[9px] font-bold text-[#25d366]">
+                          <span className="rounded bg-[#0095F6]/20 px-1.5 py-0.5 font-poppins text-[9px] font-bold text-[#0095F6]">
                             HD
                           </span>
                         </div>
@@ -8153,7 +8153,7 @@ export function CampusMessenger({
             )}
           </div>
 
-          {/* Bottom Caption & Send Bar (WhatsApp Photo Composer) */}
+          {/* Bottom Caption & Send Bar */}
           <form
             onSubmit={handleFormSubmit}
             onClick={(e) => e.stopPropagation()}
@@ -8165,12 +8165,12 @@ export function CampusMessenger({
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder="Add a caption..."
-                className="h-11 flex-1 rounded-full border border-white/15 bg-[#1a1f26] px-4 text-xs text-white placeholder:text-zinc-400 focus:border-[#25d366] focus:outline-none sm:text-sm"
+                className="h-11 flex-1 rounded-full border-0 bg-[#141A1F] px-4 text-xs text-white placeholder:text-zinc-400 focus:outline-none sm:text-sm"
               />
               <button
                 type="submit"
                 aria-label="Send photo"
-                className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#25d366] text-[#0a0b0e] shadow-lg transition-transform hover:scale-105 active:scale-95"
+                className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#7C3AED] via-[#4F46E5] to-[#0095F6] text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
               >
                 <Send className="size-4.5" aria-hidden="true" />
               </button>
@@ -8183,7 +8183,7 @@ export function CampusMessenger({
               <button
                 type="button"
                 onClick={() => setShowPhotoQualitySheet((prev) => !prev)}
-                className="font-semibold text-[#25d366] hover:underline"
+                className="font-semibold text-[#0095F6] hover:underline"
               >
                 {pendingAttachment.imageQuality === 'hd'
                   ? 'Sending in HD quality (Change)'
@@ -8197,18 +8197,18 @@ export function CampusMessenger({
       {/* PHOTO LIGHTBOX MODAL */}
       {lightboxImage && (
         <div
-          className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/90 px-4 pt-[max(var(--safe-top),2.75rem)] pb-[max(env(safe-area-inset-bottom,0px),1rem)]"
+          className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/92 px-4 pt-[max(var(--safe-top),2.75rem)] pb-[max(env(safe-area-inset-bottom,0px),1rem)]"
           onClick={() => setLightboxImage(null)}
         >
           <div
-            className="relative flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-[#262a33] bg-[#121418] p-2 shadow-2xl"
+            className="relative flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-[#0B1014] p-2.5 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2.5 text-xs text-white">
+            <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2 text-xs text-white">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="truncate font-semibold">{lightboxImage.name}</span>
                 {lightboxImage.quality === 'hd' && (
-                  <span className="rounded border border-white/80 bg-white/10 px-1.5 py-0.5 font-poppins text-[9px] font-bold tracking-wider text-white">
+                  <span className="rounded-full bg-[#0095F6]/20 px-2 py-0.5 font-poppins text-[9px] font-bold tracking-wider text-[#0095F6]">
                     HD
                   </span>
                 )}
@@ -8229,7 +8229,7 @@ export function CampusMessenger({
                         setDeleteModalMessages([found])
                       }
                     }}
-                    className="inline-flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-500/20 px-2.5 py-1.5 text-[11px] font-bold text-red-300 hover:bg-red-500/30"
+                    className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-3 py-1.5 text-[11px] font-bold text-red-300 transition-colors hover:bg-red-500/30"
                   >
                     <Trash2 className="size-3.5" aria-hidden="true" />
                     <span>Delete</span>
@@ -8238,7 +8238,7 @@ export function CampusMessenger({
                 <a
                   href={lightboxImage.url}
                   download={lightboxImage.name}
-                  className="inline-flex items-center gap-1 rounded-lg border border-[#343946] bg-[#222630] px-2.5 py-1.5 text-[11px] font-bold text-zinc-100"
+                  className="inline-flex items-center gap-1 rounded-full bg-[#0095F6] px-3.5 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-[#0084DC]"
                 >
                   <Download className="size-3.5" aria-hidden="true" />
                   <span>Download</span>
@@ -8247,7 +8247,7 @@ export function CampusMessenger({
                   type="button"
                   onClick={() => setLightboxImage(null)}
                   aria-label="Close photo viewer"
-                  className="flex size-8 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white hover:bg-white/20"
+                  className="flex size-8 items-center justify-center rounded-full bg-[#141A1F] text-white transition-colors hover:bg-[#1C2329]"
                 >
                   <X className="size-4" aria-hidden="true" />
                 </button>
@@ -8258,7 +8258,7 @@ export function CampusMessenger({
                 src={lightboxImage.url}
                 alt={lightboxImage.name}
                 referrerPolicy="no-referrer"
-                className="max-h-[72vh] w-auto rounded-xl object-contain"
+                className="max-h-[72vh] w-auto rounded-2xl object-contain"
               />
             </div>
           </div>
@@ -8267,11 +8267,11 @@ export function CampusMessenger({
       {/* CLEAR CHAT CONFIRMATION MODAL */}
       {showClearChatConfirm && (
         <div
-          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
           onClick={() => setShowClearChatConfirm(false)}
         >
           <div
-            className="w-full max-w-sm rounded-3xl border border-border bg-card p-5 shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            className="w-full max-w-sm rounded-3xl bg-card p-5 shadow-2xl dark:bg-[#0B1014]"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="font-display text-base font-bold text-foreground">
@@ -8285,14 +8285,14 @@ export function CampusMessenger({
               <button
                 type="button"
                 onClick={() => setShowClearChatConfirm(false)}
-                className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="rounded-full bg-muted/70 px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted dark:bg-[#141A1F] dark:hover:bg-[#1C2329]"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleClearCurrentChat}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700"
+                className="rounded-full bg-rose-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-rose-700"
               >
                 Clear chat
               </button>
@@ -8304,14 +8304,14 @@ export function CampusMessenger({
       {/* ADD TO LIST MODAL */}
       {showAddToListModal && (
         <div
-          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
           onClick={() => setShowAddToListModal(false)}
         >
           <div
-            className="w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            className="w-full max-w-sm overflow-hidden rounded-3xl bg-card shadow-2xl dark:bg-[#0B1014]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
+            <div className="flex items-center justify-between px-5 pb-3 pt-5">
               <div>
                 <h3 className="font-display text-base font-bold text-foreground">Add to list</h3>
                 <p className="truncate text-xs text-muted-foreground">{activeRoom.title}</p>
@@ -8319,13 +8319,13 @@ export function CampusMessenger({
               <button
                 type="button"
                 onClick={() => setShowAddToListModal(false)}
-                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:hover:bg-[#1C2329]"
               >
                 <X className="size-4" aria-hidden="true" />
               </button>
             </div>
 
-            <div className="max-h-64 divide-y divide-border/50 overflow-y-auto px-4 py-2">
+            <div className="max-h-64 space-y-1.5 overflow-y-auto px-4 py-2">
               {customLists.map((list) => {
                 const included = list.roomIds.includes(activeRoom.roomId)
                 return (
@@ -8333,7 +8333,12 @@ export function CampusMessenger({
                     key={list.id}
                     type="button"
                     onClick={() => handleToggleRoomInList(list.id, activeRoom.roomId)}
-                    className="flex w-full items-center justify-between py-3 text-left"
+                    className={cn(
+                      'flex w-full items-center justify-between rounded-2xl px-3.5 py-2.5 text-left transition-colors',
+                      included
+                        ? 'bg-[#0095F6]/15'
+                        : 'bg-muted/50 hover:bg-muted dark:bg-[#141A1F] dark:hover:bg-[#1C2329]',
+                    )}
                   >
                     <div>
                       <p className="text-sm font-semibold text-foreground">{list.name}</p>
@@ -8343,10 +8348,10 @@ export function CampusMessenger({
                     </div>
                     <span
                       className={cn(
-                        'flex size-5 items-center justify-center rounded-md border transition-colors',
+                        'flex size-5 items-center justify-center rounded-full transition-colors',
                         included
-                          ? 'border-emerald-600 bg-emerald-600 text-white'
-                          : 'border-border bg-background',
+                          ? 'bg-[#0095F6] text-white'
+                          : 'bg-muted dark:bg-[#1C2329]',
                       )}
                     >
                       {included && <Check className="size-3.5 stroke-[3]" aria-hidden="true" />}
@@ -8356,7 +8361,7 @@ export function CampusMessenger({
               })}
             </div>
 
-            <div className="border-t border-border p-4 dark:border-[#262a33]">
+            <div className="bg-muted/40 p-4 dark:bg-black/40">
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -8364,13 +8369,13 @@ export function CampusMessenger({
                   onChange={(e) => setNewListName(e.target.value)}
                   placeholder="Create new list (e.g. Study)..."
                   maxLength={32}
-                  className="h-9 flex-1 rounded-xl border border-input bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 focus:outline-none"
+                  className="h-9 flex-1 rounded-full border-0 bg-muted px-3.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none dark:bg-[#141A1F]"
                 />
                 <button
                   type="button"
                   disabled={!newListName.trim()}
                   onClick={handleCreateCustomList}
-                  className="inline-flex h-9 items-center gap-1 rounded-xl bg-emerald-600 px-3 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-40"
+                  className="inline-flex h-9 items-center gap-1 rounded-full bg-[#0095F6] px-4 text-xs font-bold text-white transition-colors hover:bg-[#0084DC] disabled:opacity-40"
                 >
                   <Plus className="size-3.5" aria-hidden="true" />
                   <span>Add</span>
@@ -8384,35 +8389,37 @@ export function CampusMessenger({
       {/* SEND LOCATION MODAL */}
       {showLocationModal && (
         <div
-          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
           onClick={() => setShowLocationModal(false)}
         >
           <div
-            className="w-full max-w-md overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            className="w-full max-w-md overflow-hidden rounded-3xl bg-card shadow-2xl dark:bg-[#0B1014]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
-              <div className="flex items-center gap-2">
-                <MapPin className="size-4 text-emerald-500" aria-hidden="true" />
+            <div className="flex items-center justify-between px-5 pb-3 pt-5">
+              <div className="flex items-center gap-2.5">
+                <span className="flex size-9 items-center justify-center rounded-full bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]">
+                  <MapPin className="size-4" aria-hidden="true" />
+                </span>
                 <h3 className="font-display text-base font-bold text-foreground">Share Location</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowLocationModal(false)}
-                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:hover:bg-[#1C2329]"
               >
                 <X className="size-4" aria-hidden="true" />
               </button>
             </div>
 
-            <div className="space-y-3 p-4">
+            <div className="space-y-3 px-5 pb-5 pt-2">
               <button
                 type="button"
                 disabled={locLoading}
                 onClick={handleDetectCurrentLocation}
-                className="flex w-full items-center gap-3 rounded-2xl border border-emerald-500/35 bg-emerald-500/10 p-3 text-left transition-colors hover:bg-emerald-500/15"
+                className="flex w-full items-center gap-3 rounded-2xl bg-[#0095F6]/12 p-3 text-left transition-colors hover:bg-[#0095F6]/20"
               >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#0095F6] text-white">
                   <Navigation className="size-4.5" aria-hidden="true" />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -8428,7 +8435,7 @@ export function CampusMessenger({
               </button>
 
               {locError && (
-                <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-600 dark:text-amber-300">
+                <p className="rounded-2xl bg-amber-500/15 px-3.5 py-2 text-[11px] text-amber-600 dark:text-amber-300">
                   {locError}
                 </p>
               )}
@@ -8442,7 +8449,7 @@ export function CampusMessenger({
                   value={locLabel}
                   onChange={(e) => setLocLabel(e.target.value)}
                   maxLength={120}
-                  className="h-9 w-full rounded-xl border border-input bg-background px-3 text-xs text-foreground focus:border-emerald-500 focus:outline-none"
+                  className="h-10 w-full rounded-xl border-0 bg-muted px-3.5 text-xs text-foreground focus:outline-none dark:bg-[#141A1F]"
                 />
                 <label className="block text-[11px] font-semibold text-muted-foreground">
                   Address / Note
@@ -8452,7 +8459,7 @@ export function CampusMessenger({
                   value={locAddress}
                   onChange={(e) => setLocAddress(e.target.value)}
                   maxLength={180}
-                  className="h-9 w-full rounded-xl border border-input bg-background px-3 text-xs text-foreground focus:border-emerald-500 focus:outline-none"
+                  className="h-10 w-full rounded-xl border-0 bg-muted px-3.5 text-xs text-foreground focus:outline-none dark:bg-[#141A1F]"
                 />
               </div>
 
@@ -8460,7 +8467,7 @@ export function CampusMessenger({
                 <button
                   type="button"
                   onClick={() => setShowLocationModal(false)}
-                  className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted"
+                  className="rounded-full bg-muted/70 px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted dark:bg-[#141A1F] dark:hover:bg-[#1C2329]"
                 >
                   Cancel
                 </button>
@@ -8474,7 +8481,7 @@ export function CampusMessenger({
                       longitude: locCoords?.lng ?? 76.1225,
                     })
                   }
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#0095F6] px-5 py-2 text-xs font-bold text-white transition-colors hover:bg-[#0084DC]"
                 >
                   <Send className="size-3.5" aria-hidden="true" />
                   <span>Send Location</span>
@@ -8488,31 +8495,33 @@ export function CampusMessenger({
       {/* SHARE CONTACT MODAL */}
       {showContactModal && (
         <div
-          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
           onClick={() => setShowContactModal(false)}
         >
           <div
-            className="flex max-h-[82vh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            className="flex max-h-[82vh] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-card shadow-2xl dark:bg-[#0B1014]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
-              <div className="flex items-center gap-2">
-                <User className="size-4 text-sky-500" aria-hidden="true" />
+            <div className="flex items-center justify-between px-5 pb-3 pt-5">
+              <div className="flex items-center gap-2.5">
+                <span className="flex size-9 items-center justify-center rounded-full bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]">
+                  <User className="size-4" aria-hidden="true" />
+                </span>
                 <h3 className="font-display text-base font-bold text-foreground">Share Contact</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowContactModal(false)}
-                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:hover:bg-[#1C2329]"
               >
                 <X className="size-4" aria-hidden="true" />
               </button>
             </div>
 
-            <div className="border-b border-border/70 px-4 py-2.5 dark:border-[#262a33]">
+            <div className="px-4 pb-3">
               <div className="relative">
                 <Search
-                  className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                  className="pointer-events-none absolute left-3.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
                   aria-hidden="true"
                 />
                 <input
@@ -8520,12 +8529,12 @@ export function CampusMessenger({
                   value={contactSearchQuery}
                   onChange={(e) => setContactSearchQuery(e.target.value)}
                   placeholder="Search Usthads or students..."
-                  className="h-9 w-full rounded-xl border border-input bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 focus:outline-none"
+                  className="h-10 w-full rounded-full border-0 bg-muted pl-9 pr-4 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none dark:bg-[#141A1F]"
                 />
               </div>
             </div>
 
-            <div className="flex-1 divide-y divide-border/50 overflow-y-auto px-2 py-1">
+            <div className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
               {allRooms
                 .filter(
                   (r) =>
@@ -8551,9 +8560,9 @@ export function CampusMessenger({
                         avatarUrl: r.avatarUrl,
                       })
                     }
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-muted/70"
+                    className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors hover:bg-muted/70 dark:hover:bg-[#141A1F]"
                   >
-                    <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-cyan/15 font-poppins text-xs font-bold text-cyan">
+                    <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#0095F6]/15 font-poppins text-xs font-bold text-[#0077CC] dark:text-[#0095F6]">
                       {r.avatarUrl ? (
                         <img
                           src={r.avatarUrl}
@@ -8568,7 +8577,7 @@ export function CampusMessenger({
                       <p className="truncate text-xs font-bold text-foreground">{r.title}</p>
                       <p className="truncate text-[11px] text-muted-foreground">{r.subtitle}</p>
                     </div>
-                    <Send className="size-3.5 shrink-0 text-emerald-500" aria-hidden="true" />
+                    <Send className="size-3.5 shrink-0 text-[#0095F6]" aria-hidden="true" />
                   </button>
                 ))}
             </div>
@@ -8579,28 +8588,30 @@ export function CampusMessenger({
       {/* CREATE POLL MODAL */}
       {showPollModal && (
         <div
-          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
           onClick={() => setShowPollModal(false)}
         >
           <div
-            className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-card shadow-2xl dark:bg-[#0B1014]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="size-4 text-amber-500" aria-hidden="true" />
+            <div className="flex items-center justify-between px-5 pb-3 pt-5">
+              <div className="flex items-center gap-2.5">
+                <span className="flex size-9 items-center justify-center rounded-full bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]">
+                  <BarChart3 className="size-4" aria-hidden="true" />
+                </span>
                 <h3 className="font-display text-base font-bold text-foreground">Create Poll</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowPollModal(false)}
-                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:hover:bg-[#1C2329]"
               >
                 <X className="size-4" aria-hidden="true" />
               </button>
             </div>
 
-            <div className="flex-1 space-y-3.5 overflow-y-auto p-4">
+            <div className="flex-1 space-y-3.5 overflow-y-auto px-5 pb-4 pt-2">
               <div>
                 <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
                   Question
@@ -8611,7 +8622,7 @@ export function CampusMessenger({
                   onChange={(e) => setPollQuestion(e.target.value)}
                   placeholder="Ask a question..."
                   maxLength={220}
-                  className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 focus:outline-none"
+                  className="h-10 w-full rounded-xl border-0 bg-muted px-3.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none dark:bg-[#141A1F]"
                 />
               </div>
 
@@ -8631,7 +8642,7 @@ export function CampusMessenger({
                       }}
                       placeholder={`Option ${idx + 1}`}
                       maxLength={100}
-                      className="h-9 flex-1 rounded-xl border border-input bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 focus:outline-none"
+                      className="h-10 flex-1 rounded-xl border-0 bg-muted px-3.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none dark:bg-[#141A1F]"
                     />
                     {pollOptions.length > 2 && (
                       <button
@@ -8640,7 +8651,7 @@ export function CampusMessenger({
                           setPollOptions((prev) => prev.filter((_, i) => i !== idx))
                         }
                         aria-label="Remove option"
-                        className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-rose-500"
+                        className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-rose-500 dark:hover:bg-[#1C2329]"
                       >
                         <X className="size-3.5" aria-hidden="true" />
                       </button>
@@ -8651,7 +8662,7 @@ export function CampusMessenger({
                   <button
                     type="button"
                     onClick={() => setPollOptions((prev) => [...prev, ''])}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-border px-3 py-1.5 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#0095F6]/15 px-3.5 py-1.5 text-[11px] font-semibold text-[#0077CC] transition-colors hover:bg-[#0095F6]/25 dark:text-[#0095F6]"
                   >
                     <Plus className="size-3.5" aria-hidden="true" />
                     <span>Add option</span>
@@ -8659,22 +8670,22 @@ export function CampusMessenger({
                 )}
               </div>
 
-              <label className="flex cursor-pointer items-center justify-between rounded-xl border border-border/80 bg-muted/30 px-3 py-2.5">
+              <label className="flex cursor-pointer items-center justify-between rounded-2xl bg-muted/60 px-3.5 py-3 dark:bg-[#141A1F]">
                 <span className="text-xs font-medium text-foreground">Allow multiple answers</span>
                 <input
                   type="checkbox"
                   checked={pollAllowMultiple}
                   onChange={(e) => setPollAllowMultiple(e.target.checked)}
-                  className="size-4 accent-emerald-600"
+                  className="size-4 accent-[#0095F6]"
                 />
               </label>
             </div>
 
-            <div className="flex justify-end gap-2 border-t border-border p-4 dark:border-[#262a33]">
+            <div className="flex justify-end gap-2 bg-muted/40 p-4 dark:bg-black/40">
               <button
                 type="button"
                 onClick={() => setShowPollModal(false)}
-                className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted"
+                className="rounded-full bg-muted/70 px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted dark:bg-[#141A1F] dark:hover:bg-[#1C2329]"
               >
                 Cancel
               </button>
@@ -8684,7 +8695,7 @@ export function CampusMessenger({
                   !pollQuestion.trim() || pollOptions.filter((o) => o.trim()).length < 2
                 }
                 onClick={handleSendPollMessage}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 rounded-full bg-[#0095F6] px-5 py-2 text-xs font-bold text-white transition-colors hover:bg-[#0084DC] disabled:opacity-40"
               >
                 <Send className="size-3.5" aria-hidden="true" />
                 <span>Send Poll</span>
@@ -8701,14 +8712,14 @@ export function CampusMessenger({
         const pm = pollMsg.pollMeta
         return (
           <div
-            className="fixed inset-0 z-[75] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+            className="fixed inset-0 z-[75] flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
             onClick={() => setPollVotesViewerMsgId(null)}
           >
             <div
-              className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+              className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-card shadow-2xl dark:bg-[#0B1014]"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
+              <div className="flex items-center justify-between px-5 pb-3 pt-5">
                 <div className="min-w-0 pr-2">
                   <h3 className="font-display text-base font-bold text-foreground">Poll votes</h3>
                   <p className="truncate text-xs text-muted-foreground">{pm.question}</p>
@@ -8716,20 +8727,20 @@ export function CampusMessenger({
                 <button
                   type="button"
                   onClick={() => setPollVotesViewerMsgId(null)}
-                  className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:hover:bg-[#1C2329]"
                 >
                   <X className="size-4" aria-hidden="true" />
                 </button>
               </div>
 
-              <div className="flex-1 space-y-4 overflow-y-auto p-4">
+              <div className="flex-1 space-y-4 overflow-y-auto px-5 pb-5 pt-2">
                 {pm.options.map((opt) => {
                   const voters = Array.isArray(pm.votes?.[opt.id]) ? pm.votes[opt.id] : []
                   return (
                     <div key={opt.id} className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-bold text-foreground">{opt.text}</p>
-                        <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                        <span className="text-[11px] font-semibold text-[#0077CC] dark:text-[#0095F6] tabular-nums">
                           {voters.length} {voters.length === 1 ? 'vote' : 'votes'}
                         </span>
                       </div>
@@ -8742,9 +8753,9 @@ export function CampusMessenger({
                             return (
                               <div
                                 key={voterId}
-                                className="flex items-center gap-2 rounded-xl bg-muted/40 px-2.5 py-1.5"
+                                className="flex items-center gap-2 rounded-xl bg-muted/60 px-3 py-2 dark:bg-[#141A1F]"
                               >
-                                <span className="flex size-6 items-center justify-center rounded-full bg-emerald-500/15 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                                <span className="flex size-6 items-center justify-center rounded-full bg-[#0095F6]/15 text-[10px] font-bold text-[#0077CC] dark:text-[#0095F6]">
                                   {profile.avatarText}
                                 </span>
                                 <span className="truncate text-xs font-medium text-foreground">

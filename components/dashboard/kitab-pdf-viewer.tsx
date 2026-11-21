@@ -141,7 +141,7 @@ function PdfSinglePageCanvas({
           </div>
         ) : null}
       </div>
-      <span className="mt-1.5 rounded-full bg-background/90 px-2.5 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground shadow-xs border border-border/60">
+      <span className="mt-1.5 rounded-full bg-card px-2.5 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground shadow-xs">
         Page {pageNumber}
       </span>
     </div>
@@ -293,12 +293,12 @@ export function KitabPdfCanvasViewer({
   return (
     <div className="flex flex-col gap-2.5">
       {/* Interactive PDF Viewer Control Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background/80 px-3 py-2 text-xs shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-card px-3 py-2 text-xs">
         {/* Page Navigation & View Mode */}
         <div className="flex flex-wrap items-center gap-1.5">
           {numPages > 0 && !loadError ? (
             <>
-              <div className="inline-flex items-center rounded-lg border border-border bg-card p-0.5">
+              <div className="inline-flex items-center rounded-full bg-muted p-0.5">
                 <button
                   type="button"
                   onClick={() => {
@@ -354,13 +354,13 @@ export function KitabPdfCanvasViewer({
 
         {/* Zoom & Full-Screen Controls */}
         <div className="flex items-center gap-1.5">
-          <div className="inline-flex items-center rounded-lg border border-border bg-card p-0.5">
+          <div className="inline-flex items-center rounded-full bg-muted p-0.5">
             <button
               type="button"
               onClick={() => setZoom((z) => Math.max(0.6, Math.round((z - 0.2) * 10) / 10))}
               disabled={zoom <= 0.6}
               aria-label="Zoom out"
-              className="flex size-7 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+              className="flex size-7 items-center justify-center rounded-full text-foreground transition-colors hover:bg-card disabled:opacity-40"
             >
               <ZoomOut className="size-3.5" aria-hidden="true" />
             </button>
@@ -368,7 +368,7 @@ export function KitabPdfCanvasViewer({
               type="button"
               onClick={() => setZoom(1)}
               title="Reset zoom to Fit Width"
-              className="px-2 font-mono text-[11px] font-semibold tabular-nums text-foreground hover:text-lime"
+              className="px-2 font-mono text-[11px] font-semibold tabular-nums text-foreground hover:text-[#0095F6]"
             >
               {Math.round(zoom * 100)}%
             </button>

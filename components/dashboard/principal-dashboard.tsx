@@ -3544,7 +3544,7 @@ export function PrincipalDashboard() {
                               e.target.value as 'all' | 'academy' | 'leave',
                             )
                           }
-                          className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
+                          className="h-10 rounded-full border-0 bg-muted px-3.5 text-xs font-semibold text-foreground outline-none"
                         >
                           <option value="all">All Status</option>
                           <option value="academy">Present in Academy</option>
@@ -3553,9 +3553,9 @@ export function PrincipalDashboard() {
                       </div>
                     </div>
 
-                    <div className="max-h-[540px] overflow-y-auto rounded-2xl border border-border bg-background/50">
+                    <div className="max-h-[540px] overflow-y-auto rounded-2xl bg-muted/40">
                       <table className="w-full min-w-[820px] border-collapse text-left text-xs">
-                        <thead className="sticky top-0 z-10 border-b border-border bg-card">
+                        <thead className="sticky top-0 z-10 border-b border-border/40 bg-card">
                           <tr className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase whitespace-nowrap">
                             <th className="px-3.5 py-3 whitespace-nowrap">Student Name</th>
                             <th className="px-3.5 py-3 whitespace-nowrap">Admission No.</th>
@@ -3908,7 +3908,7 @@ export function PrincipalDashboard() {
                                     )
                                     setTtDraft({ ...ttDraft, [semKey]: nextSlots })
                                   }}
-                                  className="h-9 w-24 shrink-0 rounded-xl border border-input bg-card px-2 text-[11px] font-semibold text-muted-foreground outline-none"
+                                  className="h-9 w-24 shrink-0 rounded-xl border-0 bg-card px-2 text-[11px] font-semibold text-muted-foreground outline-none"
                                 >
                                   <option value="">Pick...</option>
                                   <option value="SHAIKHUNA HAMZA USTHAD">
@@ -4530,7 +4530,7 @@ export function PrincipalDashboard() {
               </form>
 
               {localKitabUploads.length > 0 && (
-                <div className="mt-5 border-t border-border pt-4">
+                <div className="mt-5 border-t border-border/40 pt-4">
                   <h4 className="mb-2 text-xs font-bold tracking-wider text-muted-foreground uppercase">
                     Uploaded Custom Kitabs ({localKitabUploads.length})
                   </h4>
@@ -4538,7 +4538,7 @@ export function PrincipalDashboard() {
                     {localKitabUploads.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between gap-2 rounded-xl border border-border bg-background/60 p-2.5 text-xs"
+                        className="flex items-center justify-between gap-2 rounded-2xl bg-muted/45 p-3 text-xs"
                       >
                         <div className="min-w-0">
                           <p className="truncate font-semibold text-foreground">{item.title}</p>

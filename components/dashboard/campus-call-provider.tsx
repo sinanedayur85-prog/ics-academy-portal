@@ -1724,10 +1724,10 @@ export function CampusCallProvider({
         <div
           role="status"
           aria-live="polite"
-          className="fixed inset-x-4 top-[calc(var(--safe-top)+0.75rem)] z-[95] mx-auto flex max-w-sm items-center justify-between gap-2.5 rounded-2xl border border-white/15 bg-[#0f1722]/95 px-4 py-2.5 text-xs font-medium text-white shadow-2xl backdrop-blur-xl"
+          className="fixed inset-x-4 top-[calc(var(--safe-top)+0.75rem)] z-[95] mx-auto flex max-w-sm items-center justify-between gap-2.5 rounded-2xl bg-[#0B1014]/95 px-4 py-2.5 text-xs font-medium text-white shadow-2xl backdrop-blur-xl"
         >
           <span className="flex items-center gap-2">
-            <Phone className="size-3.5 shrink-0 text-emerald-400" />
+            <Phone className="size-3.5 shrink-0 text-[#0095F6]" />
             <span>{callToast}</span>
           </span>
           <button
@@ -1744,24 +1744,24 @@ export function CampusCallProvider({
       {/* 1. COMPACT MINIMIZED FLOATING CALL BAR (44px compact chrome, persists across all tabs) */}
       {activeCall && isCallMinimized && (
         <div className="fixed inset-x-3 top-[calc(var(--safe-top)+0.5rem)] z-[85] mx-auto max-w-md">
-          <div className="flex h-11 items-center justify-between gap-2 rounded-full border border-emerald-400/35 bg-[#064e3b]/95 px-2.5 text-white shadow-xl shadow-black/35 backdrop-blur-xl">
+          <div className="flex h-11 items-center justify-between gap-2 rounded-full bg-[#0B1014]/95 px-2.5 text-white shadow-xl shadow-black/50 backdrop-blur-xl">
             <button
               type="button"
               onClick={() => setIsCallMinimized(false)}
               className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
             >
-              <span className="relative flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/25 text-emerald-200">
+              <span className="relative flex size-7 shrink-0 items-center justify-center rounded-full bg-[#0095F6]/20 text-[#0095F6]">
                 {activeCall.callType === 'video' ? (
                   <Video className="size-3.5" />
                 ) : (
                   <Phone className="size-3.5" />
                 )}
-                <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-[#0095F6] animate-pulse" />
               </span>
               <span className="min-w-0 flex-1 truncate text-xs font-semibold">
                 {activeCall.peer.name}
               </span>
-              <span className="shrink-0 font-mono text-[11px] font-semibold tabular-nums text-emerald-200">
+              <span className="shrink-0 font-mono text-[11px] font-semibold tabular-nums text-[#0095F6]">
                 {activeCall.status === 'connected'
                   ? formatCallDuration(elapsedSec)
                   : activeCall.statusLabel}
@@ -1775,7 +1775,7 @@ export function CampusCallProvider({
                 aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'}
                 className={cn(
                   'flex size-8 items-center justify-center rounded-full transition-colors',
-                  isMuted ? 'bg-white text-slate-900' : 'bg-white/15 text-white hover:bg-white/25',
+                  isMuted ? 'bg-white text-slate-900' : 'bg-[#141A1F] text-white hover:bg-[#1C2329]',
                 )}
               >
                 {isMuted ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
@@ -1784,7 +1784,7 @@ export function CampusCallProvider({
                 type="button"
                 onClick={() => setIsCallMinimized(false)}
                 aria-label="Expand call screen"
-                className="flex size-8 items-center justify-center rounded-full bg-white/15 text-white transition-colors hover:bg-white/25"
+                className="flex size-8 items-center justify-center rounded-full bg-[#141A1F] text-white transition-colors hover:bg-[#1C2329]"
               >
                 <Maximize2 className="size-3.5" />
               </button>
@@ -1811,7 +1811,7 @@ export function CampusCallProvider({
         >
           {/* Video Background Layer */}
           {activeCall.callType === 'video' ? (
-            <div className="absolute inset-0 bg-[#080f14]">
+            <div className="absolute inset-0 bg-black">
               <video
                 ref={remoteVideoRef}
                 autoPlay
@@ -1822,11 +1822,11 @@ export function CampusCallProvider({
                 )}
               />
               {!hasRemoteVideo && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_35%,rgba(16,185,129,0.22),rgba(8,15,20,0.98)_65%)] px-6 text-center">
-                  <div className="relative flex size-28 items-center justify-center rounded-full border-2 border-emerald-400/40 bg-emerald-500/15 text-3xl font-bold text-emerald-100 shadow-2xl">
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_35%,rgba(0,149,246,0.18),rgba(0,0,0,0.98)_65%)] px-6 text-center">
+                  <div className="relative flex size-28 items-center justify-center rounded-full bg-[#0095F6]/20 text-3xl font-bold text-white shadow-2xl">
                     {getInitials(activeCall.peer.name)}
                     {activeCall.status !== 'connected' && (
-                      <span className="pointer-events-none absolute -inset-3 rounded-full border border-emerald-400/30 animate-ping" />
+                      <span className="pointer-events-none absolute -inset-3 rounded-full bg-[#0095F6]/15 animate-ping" />
                     )}
                   </div>
                   <h2 className="mt-5 text-2xl font-bold tracking-tight text-white">
@@ -1835,7 +1835,7 @@ export function CampusCallProvider({
                   {activeCall.peer.subtitle && (
                     <p className="mt-1 text-sm text-white/65">{activeCall.peer.subtitle}</p>
                   )}
-                  <p className="mt-2 font-mono text-sm font-semibold tabular-nums text-emerald-300">
+                  <p className="mt-2 font-mono text-sm font-semibold tabular-nums text-[#0095F6]">
                     {activeCall.status === 'connected'
                       ? formatCallDuration(elapsedSec)
                       : activeCall.statusLabel}
@@ -1849,7 +1849,7 @@ export function CampusCallProvider({
               {/* Local Self-View PiP */}
               <div
                 className={cn(
-                  'absolute right-4 top-[calc(var(--safe-top)+4.75rem)] z-20 h-36 w-24 overflow-hidden rounded-2xl border border-white/20 bg-slate-900 shadow-2xl sm:h-48 sm:w-36',
+                  'absolute right-4 top-[calc(var(--safe-top)+4.75rem)] z-20 h-36 w-24 overflow-hidden rounded-2xl bg-[#0B1014] shadow-2xl sm:h-48 sm:w-36',
                   !isVideoEnabled && 'flex items-center justify-center',
                 )}
               >
@@ -1874,7 +1874,7 @@ export function CampusCallProvider({
             </div>
           ) : (
             /* Voice Call Ambient Canvas */
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(16,185,129,0.2),rgba(11,20,26,1)_68%)]" />
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(0,149,246,0.18),rgba(0,0,0,1)_68%)]" />
           )}
 
           {/* Top Bar */}
@@ -1889,7 +1889,7 @@ export function CampusCallProvider({
             </button>
 
             <div className="flex flex-col items-center text-center">
-              <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-emerald-300/90">
+              <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-[#0095F6]">
                 <ShieldCheck className="size-3.5" />
                 ICS Academy · {activeCall.callType === 'video' ? 'Video Call' : 'Voice Call'}
               </span>
@@ -1899,7 +1899,7 @@ export function CampusCallProvider({
                     {activeCall.peer.name}
                   </span>
                   <span className="text-white/40">·</span>
-                  <span className="font-mono tabular-nums text-emerald-300">
+                  <span className="font-mono tabular-nums text-[#0095F6]">
                     {activeCall.status === 'connected'
                       ? formatCallDuration(elapsedSec)
                       : activeCall.statusLabel}
@@ -1926,12 +1926,12 @@ export function CampusCallProvider({
           <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 text-center">
             {activeCall.callType === 'voice' && (
               <>
-                <div className="relative flex size-32 items-center justify-center rounded-full border-2 border-emerald-400/35 bg-emerald-500/15 text-4xl font-bold tracking-tight text-emerald-100 shadow-2xl">
+                <div className="relative flex size-32 items-center justify-center rounded-full bg-[#0095F6]/20 text-4xl font-bold tracking-tight text-white shadow-2xl">
                   {getInitials(activeCall.peer.name)}
                   {activeCall.status !== 'connected' ? (
-                    <span className="pointer-events-none absolute -inset-3 rounded-full border border-emerald-400/35 animate-ping" />
+                    <span className="pointer-events-none absolute -inset-3 rounded-full bg-[#0095F6]/15 animate-ping" />
                   ) : (
-                    <span className="pointer-events-none absolute -inset-2 rounded-full border border-emerald-400/25 animate-pulse" />
+                    <span className="pointer-events-none absolute -inset-2 rounded-full bg-[#0095F6]/12 animate-pulse" />
                   )}
                 </div>
                 <h2 className="mt-6 max-w-xs truncate text-2xl font-bold tracking-tight text-white">
@@ -1940,7 +1940,7 @@ export function CampusCallProvider({
                 {activeCall.peer.subtitle && (
                   <p className="mt-1 text-sm text-white/65">{activeCall.peer.subtitle}</p>
                 )}
-                <p className="mt-3 font-mono text-base font-semibold tabular-nums text-emerald-300">
+                <p className="mt-3 font-mono text-base font-semibold tabular-nums text-[#0095F6]">
                   {activeCall.status === 'connected'
                     ? formatCallDuration(elapsedSec)
                     : activeCall.statusLabel}
@@ -1957,7 +1957,7 @@ export function CampusCallProvider({
 
           {/* Bottom Control Dock (Thumb-Zone Ergonomics) */}
           <div className="relative z-10 px-4 pb-[calc(var(--safe-bottom)+1.5rem)] pt-3">
-            <div className="mx-auto flex max-w-md items-center justify-around rounded-3xl border border-white/10 bg-[#131f28]/88 px-3 py-3.5 shadow-2xl backdrop-blur-xl">
+            <div className="mx-auto flex max-w-md items-center justify-around rounded-3xl bg-[#0B1014]/92 px-3 py-3.5 shadow-2xl backdrop-blur-xl">
               <button
                 type="button"
                 onClick={toggleSpeaker}
@@ -1968,7 +1968,7 @@ export function CampusCallProvider({
                   className={cn(
                     'flex size-12 items-center justify-center rounded-full transition-colors',
                     isSpeakerOn
-                      ? 'bg-white/15 text-white hover:bg-white/25'
+                      ? 'bg-[#141A1F] text-white hover:bg-[#1C2329]'
                       : 'bg-white text-slate-900',
                   )}
                 >
@@ -1990,7 +1990,7 @@ export function CampusCallProvider({
                     className={cn(
                       'flex size-12 items-center justify-center rounded-full transition-colors',
                       isVideoEnabled
-                        ? 'bg-white/15 text-white hover:bg-white/25'
+                        ? 'bg-[#141A1F] text-white hover:bg-[#1C2329]'
                         : 'bg-white text-slate-900',
                     )}
                   >
@@ -2013,7 +2013,7 @@ export function CampusCallProvider({
                     'flex size-12 items-center justify-center rounded-full transition-colors',
                     isMuted
                       ? 'bg-white text-slate-900'
-                      : 'bg-white/15 text-white hover:bg-white/25',
+                      : 'bg-[#141A1F] text-white hover:bg-[#1C2329]',
                   )}
                 >
                   {isMuted ? <MicOff className="size-5" /> : <Mic className="size-5" />}
@@ -2045,13 +2045,13 @@ export function CampusCallProvider({
           role="alertdialog"
           aria-modal="true"
           aria-label={`Incoming ${incomingCall.callType} call from ${incomingCall.callerName}`}
-          className="fixed inset-0 z-[90] flex h-[100dvh] w-full flex-col justify-between overflow-hidden bg-black/97 px-6 pt-[calc(var(--safe-top)+1.75rem)] pb-[calc(var(--safe-bottom)+2.25rem)] text-white backdrop-blur-xl"
+          className="fixed inset-0 z-[90] flex h-[100dvh] w-full flex-col justify-between overflow-hidden bg-black px-6 pt-[calc(var(--safe-top)+1.75rem)] pb-[calc(var(--safe-bottom)+2.25rem)] text-white"
         >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_32%,rgba(16,185,129,0.22),transparent_65%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_32%,rgba(0,149,246,0.20),transparent_65%)]" />
 
           {/* Top label */}
           <div className="relative z-10 flex flex-col items-center text-center">
-            <span className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-emerald-300">
+            <span className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-[#0095F6]">
               {incomingCall.callType === 'video' ? (
                 <Video className="size-4" />
               ) : (
@@ -2063,10 +2063,10 @@ export function CampusCallProvider({
 
           {/* Caller focal identity */}
           <div className="relative z-10 flex flex-col items-center text-center">
-            <div className="relative flex size-32 items-center justify-center rounded-full border-2 border-emerald-400/50 bg-emerald-500/20 text-4xl font-bold text-emerald-100 shadow-2xl">
+            <div className="relative flex size-32 items-center justify-center rounded-full bg-[#0095F6]/20 text-4xl font-bold text-white shadow-2xl">
               {getInitials(incomingCall.callerName)}
-              <span className="pointer-events-none absolute -inset-3 rounded-full border-2 border-emerald-400/35 animate-ping" />
-              <span className="pointer-events-none absolute -inset-6 rounded-full border border-emerald-400/20 animate-pulse" />
+              <span className="pointer-events-none absolute -inset-3 rounded-full bg-[#0095F6]/15 animate-ping" />
+              <span className="pointer-events-none absolute -inset-6 rounded-full bg-[#0095F6]/10 animate-pulse" />
             </div>
             <h2 className="mt-7 max-w-xs truncate text-3xl font-bold tracking-tight text-white">
               {incomingCall.callerName}
@@ -2079,7 +2079,7 @@ export function CampusCallProvider({
                     ? 'Class Usthad'
                     : 'Student')}
             </p>
-            <p className="mt-3 text-xs font-medium tracking-wide text-emerald-300/90">
+            <p className="mt-3 text-xs font-medium tracking-wide text-[#0095F6]">
               Ringing...
             </p>
           </div>

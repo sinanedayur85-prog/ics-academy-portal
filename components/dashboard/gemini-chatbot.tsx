@@ -2628,9 +2628,8 @@ export function GeminiChatbot({
       title="Da'wa College Chatbot"
       icon={MessageSquareText}
       className={cn(
-        'border-border dark:border-[#262a33]',
         mobileFullScreen &&
-          'max-lg:flex max-lg:flex-1 max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden rounded-none border-0 bg-transparent p-0 sm:p-0 md:p-0 [&>header]:hidden lg:rounded-2xl lg:border lg:border-border dark:lg:border-[#262a33] lg:bg-card lg:p-6 lg:[&>header]:flex',
+          'max-lg:flex max-lg:flex-1 max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden rounded-none border-0 bg-transparent p-0 sm:p-0 md:p-0 [&>header]:hidden lg:rounded-3xl lg:bg-card lg:p-6 lg:[&>header]:flex',
       )}
       action={
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">

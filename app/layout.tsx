@@ -42,7 +42,7 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
   interactiveWidget: 'resizes-content',
   colorScheme: 'dark light',
-  themeColor: '#0A0B0E',
+  themeColor: '#000000',
 }
 
 export default function RootLayout({
@@ -55,7 +55,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=localStorage.getItem('ics-theme');var d=s?s==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.classList.toggle('dark',d);var m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute('content',d?'#0A0B0E':'#FFFFFF');}}catch(e){}})();`,
+            __html: `(function(){try{var s=localStorage.getItem('ics-theme');var d=s?s==='dark':true;document.documentElement.classList.toggle('dark',d);var m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute('content',d?'#000000':'#FFFFFF');}}catch(e){}})();`,
           }}
         />
       </head>

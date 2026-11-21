@@ -1149,7 +1149,7 @@ export function UsthadDashboard() {
             mobileTab !== 'roster' && 'hidden lg:grid',
           )}
         >
-          <div className="rounded-2xl border border-border bg-card/60 p-4">
+          <div className="rounded-2xl bg-card p-4">
             <p className="text-xs font-medium text-muted-foreground">Students</p>
             <p className="mt-1.5 font-display text-2xl font-bold tabular-nums text-foreground md:text-3xl">
               {classStudents.length}
@@ -1157,7 +1157,7 @@ export function UsthadDashboard() {
             <p className="mt-0.5 text-[11px] text-muted-foreground">{usthad.fullClassLabel}</p>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card/60 p-4">
+          <div className="rounded-2xl bg-card p-4">
             <p className="text-xs font-medium text-muted-foreground">Present</p>
             <p className="mt-1.5 font-display text-2xl font-bold tabular-nums text-emerald-600 dark:text-lime md:text-3xl">
               {classStudents.length - studentsCurrentlyOnLeave.length}
@@ -1165,7 +1165,7 @@ export function UsthadDashboard() {
             <p className="mt-0.5 text-[11px] text-muted-foreground">In Campus</p>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card/60 p-4">
+          <div className="rounded-2xl bg-card p-4">
             <p className="text-xs font-medium text-muted-foreground">On Leave</p>
             <p className="mt-1.5 font-display text-2xl font-bold tabular-nums text-red-500 md:text-3xl">
               {studentsCurrentlyOnLeave.length}
@@ -1173,9 +1173,9 @@ export function UsthadDashboard() {
             <p className="mt-0.5 text-[11px] text-muted-foreground">Leave List</p>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card/60 p-4">
+          <div className="rounded-2xl bg-card p-4">
             <p className="text-xs font-medium text-muted-foreground">Attendance</p>
-            <p className="mt-1.5 font-display text-2xl font-bold tabular-nums text-cyan md:text-3xl">
+            <p className="mt-1.5 font-display text-2xl font-bold tabular-nums text-[#0077CC] dark:text-[#0095F6] md:text-3xl">
               {classAverageAttendance}%
             </p>
             <p className="mt-0.5 text-[11px] text-muted-foreground">Average</p>
@@ -1671,7 +1671,7 @@ export function UsthadDashboard() {
             <div className="grid gap-6 xl:grid-cols-12">
               {/* Left Column: Selected Student Monthly Gauge + Editor Form */}
               <div className="flex flex-col gap-5 xl:col-span-7">
-                <div className="flex flex-col items-center gap-5 rounded-xl border border-border bg-background/50 p-4 sm:flex-row">
+                <div className="flex flex-col items-center gap-5 rounded-2xl bg-muted/50 p-4 sm:flex-row">
                   <div className="relative size-28 shrink-0">
                     <svg viewBox="0 0 120 120" className="size-full -rotate-90" aria-hidden="true">
                       <circle cx="60" cy="60" r={RADIUS} fill="none" strokeWidth="10" className="stroke-muted" />
@@ -1682,7 +1682,7 @@ export function UsthadDashboard() {
                         fill="none"
                         strokeWidth="10"
                         strokeLinecap="round"
-                        className="stroke-lime transition-[stroke-dashoffset] duration-500 ease-out"
+                        className="stroke-[#0095F6] transition-[stroke-dashoffset] duration-500 ease-out"
                         strokeDasharray={CIRCUMFERENCE}
                         strokeDashoffset={CIRCUMFERENCE * (1 - monthRate / 100)}
                       />
@@ -1698,7 +1698,7 @@ export function UsthadDashboard() {
                   </div>
 
                   <div className="min-w-0 flex-1 text-center sm:text-left">
-                    <p className="text-xs font-medium text-lime">
+                    <p className="text-xs font-medium text-[#0077CC] dark:text-[#0095F6]">
                       {selectedStudent.admissionNo} · {usthad.className}
                     </p>
                     <h3 className="mt-0.5 font-display text-lg font-semibold text-foreground">
@@ -1710,7 +1710,7 @@ export function UsthadDashboard() {
                       {' · '}
                       <span className="font-semibold text-destructive">{selectedMonthRecord.absent} Absent</span>
                       {' · '}
-                      <span className="font-semibold text-cyan">{selectedMonthRecord.leave} Leave</span>
+                      <span className="font-semibold text-[#0077CC] dark:text-[#0095F6]">{selectedMonthRecord.leave} Leave</span>
                     </p>
                   </div>
                 </div>
@@ -1718,7 +1718,7 @@ export function UsthadDashboard() {
                 {/* Monthly Attendance Update Form */}
                 <form
                   onSubmit={handleSaveMonthAttendance}
-                  className="flex flex-col gap-4 rounded-xl border border-border bg-background/60 p-4"
+                  className="flex flex-col gap-4 rounded-2xl bg-muted/45 p-4"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -1769,7 +1769,7 @@ export function UsthadDashboard() {
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     {/* Present Stepper */}
-                    <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-card/60 p-3">
+                    <div className="flex flex-col gap-1.5 rounded-2xl bg-card p-3">
                       <Label htmlFor="edit-present" className="text-xs text-emerald-600 dark:text-lime">
                         Present Days
                       </Label>
@@ -1777,7 +1777,7 @@ export function UsthadDashboard() {
                         <button
                           type="button"
                           onClick={() => setEditPresent((v) => Math.max(0, v - 1))}
-                          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted"
+                          className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground transition-colors hover:bg-muted/80"
                           aria-label="Decrease present days"
                         >
                           <Minus className="size-3.5" aria-hidden="true" />
@@ -1789,12 +1789,12 @@ export function UsthadDashboard() {
                           max={31}
                           value={editPresent}
                           onChange={(e) => setEditPresent(Math.max(0, Number.parseInt(e.target.value, 10) || 0))}
-                          className="h-9 w-full rounded-lg border border-input bg-background text-center font-mono text-sm font-semibold tabular-nums text-foreground"
+                          className="h-9 w-full rounded-xl border-0 bg-muted text-center font-mono text-sm font-semibold tabular-nums text-foreground focus:outline-none"
                         />
                         <button
                           type="button"
                           onClick={() => setEditPresent((v) => Math.min(31, v + 1))}
-                          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted"
+                          className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground transition-colors hover:bg-muted/80"
                           aria-label="Increase present days"
                         >
                           <Plus className="size-3.5" aria-hidden="true" />
@@ -1806,10 +1806,10 @@ export function UsthadDashboard() {
                     <div
                       onClick={() => setFocusedReasonField('absent')}
                       className={cn(
-                        'flex cursor-pointer flex-col gap-1.5 rounded-xl border bg-card/60 p-3 transition-colors',
+                        'flex cursor-pointer flex-col gap-1.5 rounded-2xl p-3 transition-colors',
                         focusedReasonField === 'absent' || editAbsent > 0
-                          ? 'border-red-500/40 bg-red-500/[0.04]'
-                          : 'border-border',
+                          ? 'bg-red-500/12'
+                          : 'bg-card',
                       )}
                     >
                       <Label htmlFor="edit-absent" className="text-xs text-destructive">
@@ -1822,7 +1822,7 @@ export function UsthadDashboard() {
                             setFocusedReasonField('absent')
                             setEditAbsent((v) => Math.max(0, v - 1))
                           }}
-                          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted"
+                          className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground transition-colors hover:bg-muted/80"
                           aria-label="Decrease absent days"
                         >
                           <Minus className="size-3.5" aria-hidden="true" />
@@ -1838,7 +1838,7 @@ export function UsthadDashboard() {
                             setFocusedReasonField('absent')
                             setEditAbsent(Math.max(0, Number.parseInt(e.target.value, 10) || 0))
                           }}
-                          className="h-9 w-full rounded-lg border border-input bg-background text-center font-mono text-sm font-semibold tabular-nums text-foreground"
+                          className="h-9 w-full rounded-xl border-0 bg-muted text-center font-mono text-sm font-semibold tabular-nums text-foreground focus:outline-none"
                         />
                         <button
                           type="button"
@@ -1846,7 +1846,7 @@ export function UsthadDashboard() {
                             setFocusedReasonField('absent')
                             setEditAbsent((v) => Math.min(31, v + 1))
                           }}
-                          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted"
+                          className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground transition-colors hover:bg-muted/80"
                           aria-label="Increase absent days"
                         >
                           <Plus className="size-3.5" aria-hidden="true" />
@@ -3055,7 +3055,7 @@ export function UsthadDashboard() {
           </form>
 
           {localKitabUploads.length > 0 ? (
-            <div className="mt-5 border-t border-border pt-4">
+            <div className="mt-5 border-t border-border/40 pt-4">
               <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Recently Uploaded Kitab PDFs ({localKitabUploads.length})
               </p>
@@ -3063,11 +3063,11 @@ export function UsthadDashboard() {
                 {localKitabUploads.map((item) => (
                   <li
                     key={item.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/50 p-3 text-xs"
+                    className="flex items-center justify-between gap-3 rounded-2xl bg-muted/50 p-3 text-xs"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <FileText className="size-3.5 shrink-0 text-lime" aria-hidden="true" />
+                        <FileText className="size-3.5 shrink-0 text-[#0095F6]" aria-hidden="true" />
                         <span className="truncate font-semibold text-foreground">{item.title}</span>
                       </div>
                       <p className="mt-0.5 truncate text-muted-foreground">
