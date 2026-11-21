@@ -354,8 +354,8 @@ export function LoginPortal({
                   className={cn(
                     'group relative flex flex-col rounded-3xl transition-all duration-200 ease-out',
                     isActive
-                      ? 'bg-[#E9EEF2] dark:bg-[#1C2227]'
-                      : 'bg-card hover:bg-[#EAEFF3] dark:hover:bg-[#1A2128]',
+                      ? 'bg-[#E9EEF2] dark:bg-[#141A1F]'
+                      : 'bg-card hover:bg-[#EAEFF3] dark:hover:bg-[#11171D]',
                   )}
                 >
                 <button
@@ -456,7 +456,7 @@ export function LoginPortal({
                               onChange={() => {
                                 if (isInvalid) setInvalidRoleId(null)
                               }}
-                              className="h-11 rounded-2xl bg-background dark:bg-[#0B1014]"
+                              className="h-11 rounded-2xl bg-background dark:bg-black"
                             />
                           </div>
 
@@ -474,12 +474,12 @@ export function LoginPortal({
                               onChange={() => {
                                 if (isInvalid) setInvalidRoleId(null)
                               }}
-                              className="h-11 rounded-2xl bg-background dark:bg-[#0B1014]"
+                              className="h-11 rounded-2xl bg-background dark:bg-black"
                             />
                           </div>
 
                           {primaryOwner && (
-                            <div className="rounded-2xl bg-background/70 p-3.5 text-xs dark:bg-[#0B1014]/70">
+                            <div className="rounded-2xl bg-background/70 p-3.5 text-xs dark:bg-black/70">
                               <p className="font-semibold text-foreground">
                                 Phone Notification Owner: {primaryOwner.actorName} ({primaryOwner.className})
                               </p>

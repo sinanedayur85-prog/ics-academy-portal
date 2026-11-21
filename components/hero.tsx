@@ -67,7 +67,7 @@ export function Hero() {
       {/* Full-bleed Background Image Slider with Ken Burns Zoom & Crossfade */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-0 bg-white transition-colors duration-300 dark:bg-[#0B1014]"
+        className="pointer-events-none absolute inset-0 z-0 bg-white transition-colors duration-300 dark:bg-black"
       >
         {HERO_SLIDES.map((slide, index) => {
           const isActive = index === activeIndex
@@ -95,10 +95,10 @@ export function Hero() {
         })}
 
         {/* Dynamic Theme Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/60 via-white/55 to-white/75 transition-colors duration-300 dark:from-[#0B1014]/82 dark:via-[#0B1014]/78 dark:to-[#0B1014]/95" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/60 via-white/55 to-white/75 transition-colors duration-300 dark:from-black/82 dark:via-black/78 dark:to-black/95" />
 
         {/* Seamless Bottom Blending Gradient */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-white via-white/75 to-white/0 transition-colors duration-300 md:h-44 dark:from-[#0B1014] dark:via-[#0B1014]/80 dark:to-[#0B1014]/0" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-white via-white/75 to-white/0 transition-colors duration-300 md:h-44 dark:from-black dark:via-black/80 dark:to-black/0" />
       </div>
 
       {/* Centered Hero Content with Repeatable Scroll Animations */}
@@ -113,7 +113,7 @@ export function Hero() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.2 }}
             transition={{ duration: 1.15, ease: [0.22, 1, 0.36, 1] }}
-            className="inline-flex items-center gap-2 rounded-full bg-white/85 px-4 py-1.5 text-xs font-semibold tracking-wider text-[#0077CC] uppercase backdrop-blur-md transition-colors duration-300 dark:bg-[#151B20]/85 dark:text-[#0095F6]"
+            className="inline-flex items-center gap-2 rounded-full bg-white/85 px-4 py-1.5 text-xs font-semibold tracking-wider text-[#0077CC] uppercase backdrop-blur-md transition-colors duration-300 dark:bg-[#0B1014]/90 dark:text-[#0095F6]"
           >
             <BrandLogoMark className="h-4 w-auto" />
             Digital Campus • 2026
@@ -173,7 +173,7 @@ export function Hero() {
             </Button>
             <a
               href="#contact"
-              className="rounded-full bg-white/85 px-6 py-3 text-sm font-semibold tracking-wide text-[#0F1419] backdrop-blur-md transition-all duration-200 hover:bg-white active:scale-[0.98] dark:bg-[#1C2227]/85 dark:text-[#F5F7FA] dark:hover:bg-[#242C33]"
+              className="rounded-full bg-white/85 px-6 py-3 text-sm font-semibold tracking-wide text-[#0F1419] backdrop-blur-md transition-all duration-200 hover:bg-white active:scale-[0.98] dark:bg-[#141A1F]/90 dark:text-[#F5F7FA] dark:hover:bg-[#1C2329]"
             >
               Contact Office
             </a>
@@ -189,7 +189,7 @@ export function Hero() {
             className="mt-12 grid w-full max-w-md grid-cols-2 gap-8 pt-8 transition-colors duration-300"
           >
             <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-center sm:gap-3.5 sm:text-left">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/85 text-[#0095F6] backdrop-blur-md transition-colors duration-300 dark:bg-[#151B20]/85">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/85 text-[#0095F6] backdrop-blur-md transition-colors duration-300 dark:bg-[#0B1014]/90">
                 <Users className="size-5 stroke-[1.9]" aria-hidden="true" />
               </span>
               <div>
@@ -203,7 +203,7 @@ export function Hero() {
             </div>
 
             <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-center sm:gap-3.5 sm:text-left">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/85 text-[#0077CC] backdrop-blur-md transition-colors duration-300 dark:bg-[#151B20]/85 dark:text-[#38BDF8]">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/85 text-[#0077CC] backdrop-blur-md transition-colors duration-300 dark:bg-[#0B1014]/90 dark:text-[#38BDF8]">
                 <BookOpen className="size-5 stroke-[1.9]" aria-hidden="true" />
               </span>
               <div>

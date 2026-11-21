@@ -132,7 +132,7 @@ export function LibraryBooks() {
                     'rounded-full px-3 py-1.5 text-[0.7rem] sm:text-xs font-semibold whitespace-nowrap transition-all shrink-0 active:scale-95',
                     active
                       ? 'bg-[#0095F6] text-white'
-                      : 'bg-muted text-muted-foreground hover:text-foreground dark:bg-[#1C2227]',
+                      : 'bg-muted text-muted-foreground hover:text-foreground',
                   )}
                 >
                   {cat}
@@ -146,7 +146,7 @@ export function LibraryBooks() {
         {!hasActiveSearch && !showAllCatalogue ? (
           <div
             id={resultsId}
-            className="flex flex-col items-center gap-2 rounded-2xl bg-muted/60 px-4 py-6 text-center dark:bg-[#1C2227]/60"
+            className="flex flex-col items-center gap-2 rounded-2xl bg-muted/60 px-4 py-6 text-center"
           >
             <Search className="size-5 text-[#0095F6]" aria-hidden="true" />
             <p className="text-xs font-semibold text-foreground">
@@ -199,7 +199,7 @@ export function LibraryBooks() {
             ) : (
               <div
                 id={resultsId}
-                className="flex flex-col items-center gap-2 rounded-2xl bg-muted/60 px-4 py-8 text-center dark:bg-[#1C2227]/60"
+                className="flex flex-col items-center gap-2 rounded-2xl bg-muted/60 px-4 py-8 text-center"
               >
                 <SearchX className="size-6 text-muted-foreground" aria-hidden="true" />
                 <p className="text-xs font-semibold text-foreground">No matching Kitabs found</p>
@@ -209,7 +209,7 @@ export function LibraryBooks() {
                 <button
                   type="button"
                   onClick={clearSearch}
-                  className="mt-1 rounded-full bg-muted px-4 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-[#0095F6] hover:text-white dark:bg-[#232A30]"
+                  className="mt-1 rounded-full bg-muted px-4 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-[#0095F6] hover:text-white dark:bg-[#1C2329]"
                 >
                   Reset filters
                 </button>
@@ -235,7 +235,7 @@ function BookRow({ book }: { book: LibraryBook }) {
       <div className="min-w-0 flex-1">
         {/* Category Tag */}
         <div className="mb-1 flex flex-wrap items-center gap-1.5">
-          <span className="rounded-full bg-muted px-2.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground dark:bg-[#1C2227]">
+          <span className="rounded-full bg-muted px-2.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground">
             {book.category}
           </span>
         </div>

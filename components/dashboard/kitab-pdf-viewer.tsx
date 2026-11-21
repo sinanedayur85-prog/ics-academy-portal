@@ -388,7 +388,7 @@ export function KitabPdfCanvasViewer({
               type="button"
               onClick={() => setZoom(1)}
               aria-label="Reset zoom"
-              className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground hover:text-foreground dark:bg-[#1C2227]"
+              className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground hover:text-foreground"
             >
               <RotateCcw className="size-3.5" aria-hidden="true" />
             </button>
@@ -398,7 +398,7 @@ export function KitabPdfCanvasViewer({
             <button
               type="button"
               onClick={onToggleFullScreen}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-muted px-3 text-[11px] font-medium text-foreground transition-colors hover:bg-muted/80 dark:bg-[#1C2227]"
+              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-muted px-3 text-[11px] font-medium text-foreground transition-colors hover:bg-muted/80"
             >
               {isFullScreen ? (
                 <>
@@ -418,7 +418,7 @@ export function KitabPdfCanvasViewer({
             type="button"
             onClick={() => void handlePrintPdf()}
             title="Print Kitab PDF"
-            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-muted px-3 text-[11px] font-medium text-foreground transition-colors hover:bg-muted/80 dark:bg-[#1C2227]"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-muted px-3 text-[11px] font-medium text-foreground transition-colors hover:bg-muted/80"
           >
             <Printer className="size-3.5 text-[#0095F6]" aria-hidden="true" />
             <span className="hidden sm:inline">Print</span>

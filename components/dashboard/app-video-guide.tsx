@@ -1819,7 +1819,7 @@ export function AppVideoGuideModal({
           </div>
 
           {/* VIDEO SCREEN SIMULATOR ("സ്ക്രീനിൽ ഓരോന്നും തൊട്ട് കാണിക്കുന്ന വീഡിയോ ഫ്രെയിം") */}
-          <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#0B1014] via-[#121820] to-[#151B20] p-4 text-white shadow-xl sm:p-5">
+          <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-black via-[#0B1014] to-[#0B1014] p-4 text-white shadow-xl sm:p-5">
             {/* Top Simulated App Bar & Audio Waveform */}
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
               <div className="flex items-center gap-2.5">

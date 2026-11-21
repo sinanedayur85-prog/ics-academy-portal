@@ -1807,7 +1807,7 @@ export function CampusCallProvider({
           role="dialog"
           aria-modal="true"
           aria-label={`${activeCall.callType === 'video' ? 'Video' : 'Voice'} call with ${activeCall.peer.name}`}
-          className="fixed inset-0 z-[88] flex h-[100dvh] w-full flex-col overflow-hidden bg-[#0b141a] text-white"
+          className="fixed inset-0 z-[88] flex h-[100dvh] w-full flex-col overflow-hidden bg-black text-white"
         >
           {/* Video Background Layer */}
           {activeCall.callType === 'video' ? (
@@ -2045,7 +2045,7 @@ export function CampusCallProvider({
           role="alertdialog"
           aria-modal="true"
           aria-label={`Incoming ${incomingCall.callType} call from ${incomingCall.callerName}`}
-          className="fixed inset-0 z-[90] flex h-[100dvh] w-full flex-col justify-between overflow-hidden bg-[#0b141a]/97 px-6 pt-[calc(var(--safe-top)+1.75rem)] pb-[calc(var(--safe-bottom)+2.25rem)] text-white backdrop-blur-xl"
+          className="fixed inset-0 z-[90] flex h-[100dvh] w-full flex-col justify-between overflow-hidden bg-black/97 px-6 pt-[calc(var(--safe-top)+1.75rem)] pb-[calc(var(--safe-bottom)+2.25rem)] text-white backdrop-blur-xl"
         >
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_32%,rgba(16,185,129,0.22),transparent_65%)]" />
 

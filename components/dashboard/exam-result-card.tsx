@@ -13,7 +13,7 @@ export function ExamResultCard() {
         className="group relative flex flex-col gap-6 overflow-hidden rounded-3xl bg-gradient-to-br from-[#7C3AED]/12 via-card to-[#0095F6]/12 p-6 transition-all duration-200 outline-none hover:from-[#7C3AED]/18 hover:to-[#0095F6]/18 active:scale-[0.99] md:flex-row md:items-center md:justify-between md:p-8"
       >
         <div className="flex items-center gap-4 sm:gap-4.5">
-          <span className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-white p-2.5 transition-colors duration-200 dark:bg-[#1C2227] md:size-[4.5rem]">
+          <span className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-white p-2.5 transition-colors duration-200 dark:bg-[#141A1F] md:size-[4.5rem]">
             <img
               src="/images/jamiathul-hind-logo.svg"
               alt="Jamiathul Hind Al Islamiyya Logo"

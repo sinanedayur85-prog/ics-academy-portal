@@ -155,7 +155,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
 
   return (
     <div className="lg:min-h-svh bg-background transition-colors duration-200 max-lg:fixed max-lg:inset-0 max-lg:flex max-lg:flex-col max-lg:overflow-hidden lg:pl-64">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-background pt-[var(--safe-top)] transition-colors duration-200 lg:flex dark:bg-[#0B1014]">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-background pt-[var(--safe-top)] transition-colors duration-200 lg:flex dark:bg-black">
         <Link href="/" className="flex h-20 items-center gap-3 px-6 active:opacity-80" aria-label="ICS Academy Manhappatta home">
           <BrandLogoMark className="h-10 w-auto" />
           <BrandWordmark
@@ -509,7 +509,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
       {/* INSTAGRAM-STYLE PHONE & TABLET BOTTOM NAVIGATION BAR */}
       <nav
         aria-label="Mobile & Tablet Bottom Navigation"
-        className="z-50 shrink-0 bg-background/96 pb-[var(--safe-bottom)] backdrop-blur-xl lg:hidden dark:bg-[#0B1014]/96"
+        className="z-50 shrink-0 bg-background/96 pb-[var(--safe-bottom)] backdrop-blur-xl lg:hidden dark:bg-black/96"
       >
         <div className="mx-auto grid h-[62px] max-w-xl grid-cols-6 items-center px-1.5">
           <button

@@ -160,7 +160,7 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
             </div>
           </div>
 
-          <dl className="mb-3.5 flex flex-col gap-2.5 rounded-2xl bg-card p-3.5 text-sm dark:bg-[#151B20]">
+          <dl className="mb-3.5 flex flex-col gap-2.5 rounded-2xl bg-card p-3.5 text-sm">
             <div className="flex items-start justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
                 <User className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
@@ -338,7 +338,7 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
             </div>
           </div>
 
-          <dl className="mb-3.5 flex flex-col gap-2.5 rounded-2xl bg-card p-3.5 text-sm dark:bg-[#151B20]">
+          <dl className="mb-3.5 flex flex-col gap-2.5 rounded-2xl bg-card p-3.5 text-sm">
             <div className="flex items-start justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
                 <User className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
@@ -526,7 +526,7 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
             </div>
           </div>
 
-          <dl className="mb-3.5 flex flex-col gap-2.5 rounded-2xl bg-card p-3.5 text-sm dark:bg-[#151B20]">
+          <dl className="mb-3.5 flex flex-col gap-2.5 rounded-2xl bg-card p-3.5 text-sm">
             <div className="flex items-start justify-between gap-3">
               <dt className="flex items-center gap-2 text-xs text-muted-foreground">
                 <User className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />

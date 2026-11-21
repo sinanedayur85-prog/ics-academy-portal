@@ -228,7 +228,7 @@ export function StarOfTheMonthSpotlight({
   const winner = summary.winner
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-card via-[#EFF6FF] to-[#E6F1FE] p-5 text-foreground transition-colors duration-300 sm:p-6 dark:from-[#121922] dark:via-[#161E28] dark:to-[#10161D] dark:text-white">
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-card via-[#EFF6FF] to-[#E6F1FE] p-5 text-foreground transition-colors duration-300 sm:p-6 dark:from-[#0B1014] dark:via-[#0E151B] dark:to-[#0B1014] dark:text-white">
       <div className="flex flex-col justify-between gap-4 border-b border-border/40 pb-4 sm:flex-row sm:items-center dark:border-white/10">
         <div>
           <p className="flex items-center gap-2 text-[11px] font-bold tracking-[0.18em] text-[#0077CC] uppercase dark:text-[#0095F6]">

@@ -48,4 +48,4 @@ export function Panel({ id, title, eyebrow, icon: Icon, action, className, child
 }
 
 export const fieldClassName =
-  'h-11 w-full min-w-0 rounded-xl border-0 bg-muted px-3.5 text-sm text-foreground transition-colors outline-none placeholder:text-muted-foreground focus-visible:bg-accent dark:bg-[#1C2227] dark:focus-visible:bg-[#242C33] dark:[color-scheme:dark]'
+  'h-11 w-full min-w-0 rounded-xl border-0 bg-muted px-3.5 text-sm text-foreground transition-colors outline-none placeholder:text-muted-foreground focus-visible:bg-accent dark:bg-[#141A1F] dark:focus-visible:bg-[#1C2329] dark:[color-scheme:dark]'

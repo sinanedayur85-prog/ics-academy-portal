@@ -1087,7 +1087,7 @@ export function UsthadDashboard() {
             )}
 
             {allTeachingClasses.length > 1 && (
-              <div className="flex flex-wrap items-center gap-1.5 rounded-2xl bg-card p-1.5 dark:bg-[#151B20]">
+              <div className="flex flex-wrap items-center gap-1.5 rounded-2xl bg-card p-1.5">
                 <span className="px-2 text-[11px] font-bold text-[#0077CC] uppercase dark:text-[#0095F6]">
                   My Classes ({allTeachingClasses.length}):
                 </span>
@@ -1115,7 +1115,7 @@ export function UsthadDashboard() {
                         'rounded-xl px-2.5 py-1 text-xs font-semibold transition-all active:scale-95',
                         activeClassName === batch
                           ? 'bg-[#0095F6] text-white'
-                          : 'bg-muted/70 text-foreground hover:bg-muted dark:bg-[#1C2227]',
+                          : 'bg-muted/70 text-foreground hover:bg-muted',
                       )}
                       title={
                         isOwnClass

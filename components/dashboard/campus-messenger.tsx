@@ -4846,7 +4846,7 @@ export function CampusMessenger({
         {/* RIGHT PANE: ACTIVE WHATSAPP CONVERSATION WINDOW (OR MESSAGE INFO SCREEN) */}
         <div
           className={cn(
-            'relative flex h-full min-w-0 flex-1 flex-col bg-background lg:bg-background/95',
+            'relative flex h-full min-w-0 flex-1 flex-col bg-background dark:bg-black lg:bg-background/95 lg:dark:bg-black',
             !mobileShowChatPane
               ? 'hidden lg:flex'
               : 'flex max-lg:fixed max-lg:inset-0 max-lg:z-[55] max-lg:w-full max-lg:pt-[var(--safe-top)] max-lg:pb-[var(--safe-bottom)]',
@@ -4937,9 +4937,9 @@ export function CampusMessenger({
                 : undefined
 
               return (
-                <div className="flex h-full flex-col bg-background dark:bg-[#0b1014]">
+                <div className="flex h-full flex-col bg-background dark:bg-black">
                   {/* Message Info Top Bar */}
-                  <div className="flex items-center gap-3 border-b border-border bg-card/95 px-3 py-3 sm:px-4 dark:border-[#262a33] dark:bg-[#11171d]">
+                  <div className="flex items-center gap-3 border-b border-border bg-card/95 px-3 py-3 sm:px-4 dark:border-white/10 dark:bg-black">
                     <button
                       type="button"
                       onClick={() => setInfoMessageId(null)}
@@ -4958,14 +4958,14 @@ export function CampusMessenger({
                     {/* Message Bubble Preview over subtle wallpaper */}
                     <div
                       className={cn(
-                        'flex flex-col items-end border-b border-border/80 px-4 py-5 sm:px-6 dark:border-[#1f262e]',
+                        'flex flex-col items-end border-b border-border/80 px-4 py-5 sm:px-6 dark:border-white/10',
                         chatSettings.chatWallpaper === 'pitch_dark'
-                          ? 'bg-[#e8edf2] dark:bg-[#07080a]'
+                          ? 'bg-[#e8edf2] dark:bg-black'
                           : chatSettings.chatWallpaper === 'soft_mint'
-                            ? 'bg-[#e7f5ea] dark:bg-[#0c1412]'
+                            ? 'bg-[#e7f5ea] dark:bg-[#070d0a]'
                             : chatSettings.chatWallpaper === 'warm_slate'
-                              ? 'bg-[#f2efe9] dark:bg-[#101216]'
-                              : 'bg-muted/40 dark:bg-[#0b141a]',
+                              ? 'bg-[#f2efe9] dark:bg-[#0c0d11]'
+                              : 'bg-muted/40 dark:bg-black',
                       )}
                     >
                       <div className="max-w-[90%] sm:max-w-[78%] rounded-2xl rounded-br-xs border border-[#bde6b4] bg-[#dcf8c6] px-3.5 py-2.5 text-[#081e21] shadow-xs dark:border-[#056150] dark:bg-[#005c4b] dark:text-[#e9edef]">
@@ -5075,7 +5075,7 @@ export function CampusMessenger({
                       /* Group Chat Receipts (Read by + Delivered to member breakdown) */
                       <div className="space-y-3 p-4 sm:p-5">
                         {/* Read By Card */}
-                        <div className="overflow-hidden rounded-2xl border border-border bg-card dark:border-[#222831] dark:bg-[#11171d]">
+                        <div className="overflow-hidden rounded-2xl border border-border bg-card dark:border-white/10 dark:bg-[#0B1014]">
                           <div className="flex items-center justify-between border-b border-border/70 px-4 py-3 dark:border-[#1f262e]">
                             <div className="flex items-center gap-2">
                               <CheckCheck
@@ -5139,7 +5139,7 @@ export function CampusMessenger({
                         </div>
 
                         {/* Delivered To Card */}
-                        <div className="overflow-hidden rounded-2xl border border-border bg-card dark:border-[#222831] dark:bg-[#11171d]">
+                        <div className="overflow-hidden rounded-2xl border border-border bg-card dark:border-white/10 dark:bg-[#0B1014]">
                           <div className="flex items-center justify-between border-b border-border/70 px-4 py-3 dark:border-[#1f262e]">
                             <div className="flex items-center gap-2">
                               <CheckCheck
@@ -5213,7 +5213,7 @@ export function CampusMessenger({
             <>
               {/* Active Chat Header OR Clean Instagram Multi-Message Selection Bar */}
               {selectedMessageIds.length > 0 ? (
-                <div className="relative z-30 flex items-center justify-between gap-2 border-b border-border/70 bg-white px-2.5 py-2.5 text-zinc-950 sm:px-4 sm:py-3 dark:border-white/10 dark:bg-[#121212] dark:text-white">
+                <div className="relative z-30 flex items-center justify-between gap-2 border-b border-border/70 bg-white px-2.5 py-2.5 text-zinc-950 sm:px-4 sm:py-3 dark:border-white/10 dark:bg-black dark:text-white">
                   <div className="flex items-center gap-2.5 sm:gap-3">
                     <button
                       type="button"
@@ -5688,6 +5688,8 @@ export function CampusMessenger({
               <div
                 className={cn(
                   'flex-1 overflow-y-auto px-2.5 py-4 sm:px-5 transition-colors',
+                  chatSettings.chatWallpaper === 'default' &&
+                    'dark:bg-black',
                   chatSettings.chatWallpaper === 'pitch_dark' &&
                     'bg-white dark:bg-black',
                   chatSettings.chatWallpaper === 'soft_mint' &&
@@ -6715,7 +6717,7 @@ export function CampusMessenger({
 
               {/* Reply Preview Banner or Pending Media Preview (Preserves HD / Standard Toggle) */}
               {(replyingTo || pendingAttachment) && (
-                <div className="flex items-center justify-between gap-2 border-t border-border bg-card/95 px-3.5 py-2 dark:border-white/10 dark:bg-[#121212]">
+                <div className="flex items-center justify-between gap-2 border-t border-border bg-card/95 px-3.5 py-2 dark:border-white/10 dark:bg-black">
                   {replyingTo ? (
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] font-bold text-violet-600 dark:text-violet-400">
@@ -7109,7 +7111,7 @@ export function CampusMessenger({
           onClick={() => setShowNewChatModal(false)}
         >
           <div
-            className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-white/10 dark:bg-[#0B1014]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-[#262a33]">
@@ -7286,7 +7288,7 @@ export function CampusMessenger({
           onClick={() => setShowSettingsModal(false)}
         >
           <div
-            className="flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-[#262a33] dark:bg-[#121418]"
+            className="flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl dark:border-white/10 dark:bg-[#0B1014]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -7961,12 +7963,12 @@ export function CampusMessenger({
       {/* WHATSAPP-STYLE PHOTO PREVIEW & HD / STANDARD QUALITY SELECTOR MODAL */}
       {pendingAttachment && pendingAttachment.mediaType === 'image' && (
         <div
-          className="fixed inset-0 z-[78] flex flex-col justify-between bg-[#0b1014] text-white pt-[max(var(--safe-top),2.75rem)] pb-[max(env(safe-area-inset-bottom,0px),0.75rem)] sm:pt-3"
+          className="fixed inset-0 z-[78] flex flex-col justify-between bg-black text-white pt-[max(var(--safe-top),2.75rem)] pb-[max(env(safe-area-inset-bottom,0px),0.75rem)] sm:pt-3"
           onClick={() => setShowPhotoQualitySheet(false)}
         >
           {/* Top Bar: Placed cleanly below phone status bar (clock/battery) */}
           <div
-            className="z-20 flex shrink-0 items-center justify-between border-b border-white/10 bg-[#11171d] px-4 py-3 shadow-md sm:px-6"
+            className="z-20 flex shrink-0 items-center justify-between border-b border-white/10 bg-black px-4 py-3 shadow-md sm:px-6"
             onClick={(e) => e.stopPropagation()}
           >
             <button

@@ -1473,7 +1473,7 @@ export function PrincipalDashboard() {
                 className={cn(
                   'group flex items-center justify-between gap-2 rounded-2xl px-3.5 py-2.5 text-left text-sm transition-all duration-150 active:scale-[0.98]',
                   isActive
-                    ? 'bg-[#0095F6]/15 font-semibold text-foreground dark:bg-[#1C2227]'
+                    ? 'bg-[#0095F6]/15 font-semibold text-foreground dark:bg-[#141A1F]'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
               >

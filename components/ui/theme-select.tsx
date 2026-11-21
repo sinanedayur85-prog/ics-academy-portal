@@ -208,7 +208,7 @@ export function ThemeSelect({
           if (!disabled) setIsOpen((prev) => !prev)
         }}
         className={`inline-flex items-center justify-between gap-2 text-left transition-all select-none outline-none border-0 ${cleanedClassName} ${
-          isOpen ? "bg-accent dark:bg-[#242C33]" : ""
+          isOpen ? "bg-accent dark:bg-[#1C2329]" : ""
         } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer active:scale-[0.985]"}`}
       >
         <span className="truncate flex-1">{selectedOption?.label ?? ""}</span>
@@ -233,10 +233,10 @@ export function ThemeSelect({
               width: `${menuStyle.width}px`,
               zIndex: 9999,
             }}
-            className="overflow-hidden rounded-3xl bg-white/98 dark:bg-[#1C2227]/98 backdrop-blur-xl shadow-[0_20px_55px_rgba(0,0,0,0.28)] dark:shadow-[0_24px_65px_rgba(0,0,0,0.78)] animate-in fade-in zoom-in-95 duration-150"
+            className="overflow-hidden rounded-3xl bg-white/98 dark:bg-[#0B1014]/98 backdrop-blur-xl shadow-[0_20px_55px_rgba(0,0,0,0.28)] dark:shadow-[0_24px_65px_rgba(0,0,0,0.85)] animate-in fade-in zoom-in-95 duration-150"
           >
             {showSearch && (
-              <div className="p-2.5 bg-[#F3F5F7] dark:bg-[#151B20]">
+              <div className="p-2.5 bg-[#F3F5F7] dark:bg-black">
                 <div className="relative flex items-center">
                   <Search className="w-4 h-4 text-[#657786] dark:text-[#8E9AA4] absolute left-3 pointer-events-none" />
                   <input
@@ -245,7 +245,7 @@ export function ThemeSelect({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search..."
-                    className="w-full rounded-full bg-white dark:bg-[#1C2227] border-0 pl-9 pr-3.5 py-2 text-xs font-medium text-[#0F1419] dark:text-[#F5F7FA] placeholder:text-[#657786] dark:placeholder:text-[#8E9AA4] focus:outline-none"
+                    className="w-full rounded-full bg-white dark:bg-[#141A1F] border-0 pl-9 pr-3.5 py-2 text-xs font-medium text-[#0F1419] dark:text-[#F5F7FA] placeholder:text-[#657786] dark:placeholder:text-[#8E9AA4] focus:outline-none"
                   />
                 </div>
               </div>
@@ -277,7 +277,7 @@ export function ThemeSelect({
                           ? "opacity-40 cursor-not-allowed text-muted-foreground"
                           : isSelected
                             ? "bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]"
-                            : "text-[#0F1419] dark:text-[#F5F7FA] hover:bg-[#F3F5F7] dark:hover:bg-[#242C33] active:bg-[#E8ECEF] dark:active:bg-[#2C353D]"
+                            : "text-[#0F1419] dark:text-[#F5F7FA] hover:bg-[#F3F5F7] dark:hover:bg-[#141A1F] active:bg-[#E8ECEF] dark:active:bg-[#1C2329]"
                       }`}
                     >
                       <span className="leading-snug break-words pr-1">{opt.label}</span>

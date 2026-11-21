@@ -6,10 +6,10 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
     />
-    <meta name="theme-color" content="#0B1014" />
+    <meta name="theme-color" content="#000000" />
     <style>
       html, body, #root { background-color: #ffffff; margin: 0; height: 100%; min-height: 100%; }
-      html.dark, html.dark body, html.dark #root { background-color: #0B1014; }
+      html.dark, html.dark body, html.dark #root { background-color: #000000; }
     </style>
     <script>
       (function () {
@@ -18,7 +18,7 @@
           var isDark = saved ? saved === 'dark' : true;
           document.documentElement.classList.toggle('dark', isDark);
           var meta = document.querySelector('meta[name="theme-color"]');
-          if (meta) meta.setAttribute('content', isDark ? '#0B1014' : '#FFFFFF');
+          if (meta) meta.setAttribute('content', isDark ? '#000000' : '#FFFFFF');
         } catch (e) {}
       })();
     </script>

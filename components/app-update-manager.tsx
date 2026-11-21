@@ -421,7 +421,7 @@ export function AppUpdateBanner() {
         aria-label="Install ICS Academy on iPhone"
         className="fixed inset-x-3 bottom-4 z-[95] mx-auto max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300"
       >
-        <div className="flex items-start justify-between gap-3 rounded-3xl bg-[#1C2227]/96 p-4 text-white shadow-2xl backdrop-blur-xl">
+        <div className="flex items-start justify-between gap-3 rounded-3xl bg-[#0B1014]/96 p-4 text-white shadow-2xl backdrop-blur-xl">
           <div className="flex min-w-0 items-start gap-3">
             <img
               src="/icons/apple-touch-icon.png"
@@ -467,7 +467,7 @@ export function AppUpdateBanner() {
       aria-label="App Update Available"
       className="fixed inset-x-3 bottom-4 z-[95] mx-auto max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300 sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-full"
     >
-      <div className="flex flex-col gap-3 rounded-3xl bg-[#1C2227]/96 p-4 text-white shadow-2xl backdrop-blur-xl">
+      <div className="flex flex-col gap-3 rounded-3xl bg-[#0B1014]/96 p-4 text-white shadow-2xl backdrop-blur-xl">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-[#0095F6]/20 text-[#0095F6]">
@@ -618,7 +618,7 @@ export function AppUpdateButton({ className }: { className?: string }) {
               </div>
 
               <div className="space-y-3.5 sm:space-y-4">
-                <div className="grid grid-cols-2 gap-3 rounded-2xl bg-card p-4 text-xs dark:bg-[#151B20]">
+                <div className="grid grid-cols-2 gap-3 rounded-2xl bg-card p-4 text-xs">
                   <div className="min-w-0">
                     <p className="text-muted-foreground">Installed Version</p>
                     <p className="mt-1 truncate font-bold tabular-nums text-foreground">
@@ -635,7 +635,7 @@ export function AppUpdateButton({ className }: { className?: string }) {
                   </div>
                 </div>
 
-                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl bg-card px-4 py-3.5 text-xs dark:bg-[#151B20]">
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl bg-card px-4 py-3.5 text-xs">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-foreground">
                       Auto-Check for Updates
@@ -673,7 +673,7 @@ export function AppUpdateButton({ className }: { className?: string }) {
                       'flex items-start gap-2.5 rounded-2xl p-3.5 text-xs leading-relaxed',
                       updateAvailable
                         ? 'bg-[#0095F6]/12 text-[#0077CC] dark:text-[#0095F6]'
-                        : 'bg-card text-muted-foreground dark:bg-[#151B20]',
+                        : 'bg-card text-muted-foreground',
                     )}
                   >
                     <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[#0095F6]" />
@@ -702,7 +702,7 @@ export function AppUpdateButton({ className }: { className?: string }) {
                     type="button"
                     onClick={() => checkForUpdates(true)}
                     disabled={isChecking || isUpdating}
-                    className="inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-card px-4 py-2.5 text-xs font-semibold text-foreground transition hover:bg-accent active:scale-[0.98] disabled:opacity-60 dark:bg-[#151B20]"
+                    className="inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-card px-4 py-2.5 text-xs font-semibold text-foreground transition hover:bg-accent active:scale-[0.98] disabled:opacity-60"
                   >
                     <RefreshCw
                       className={cn('size-3.5 shrink-0', isChecking && 'animate-spin')}

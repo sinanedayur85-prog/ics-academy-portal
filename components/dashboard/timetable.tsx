@@ -79,12 +79,12 @@ export function Timetable({ student }: { student: Student }) {
               className={cn(
                 'flex flex-col justify-between rounded-2xl p-3.5 transition-colors duration-150',
                 isNonTeaching
-                  ? 'bg-muted/50 dark:bg-[#1C2227]/50'
+                  ? 'bg-muted/50'
                   : isNotHeld
                     ? 'bg-red-500/10'
                     : isSubstituted
                       ? 'bg-[#0095F6]/10'
-                      : 'bg-muted/70 hover:bg-muted dark:bg-[#1C2227] dark:hover:bg-[#232A30]',
+                      : 'bg-muted/70 hover:bg-muted dark:bg-[#141A1F] dark:hover:bg-[#1C2329]',
               )}
             >
               <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2">

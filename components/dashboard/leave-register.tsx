@@ -688,7 +688,7 @@ export function LeaveRegister({
       <div
         role="tablist"
         aria-label="Leave register"
-        className="mb-5 grid grid-cols-2 gap-1.5 rounded-2xl bg-muted p-1 dark:bg-[#1C2227]"
+        className="mb-5 grid grid-cols-2 gap-1.5 rounded-2xl bg-muted p-1"
       >
         {tabs.map((tab) => {
           const selected = activeTab === tab.id
@@ -753,7 +753,7 @@ export function LeaveRegister({
           <button
             type="button"
             onClick={() => setShowAllMatchingRecords((prev) => !prev)}
-            className="self-start rounded-full bg-muted px-3.5 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-[#0095F6] hover:text-white active:scale-95 dark:bg-[#1C2227] sm:self-auto"
+            className="self-start rounded-full bg-muted px-3.5 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-[#0095F6] hover:text-white active:scale-95 sm:self-auto"
           >
             {showAllMatchingRecords || hasActiveSearchOrFilter
               ? `Showing ${filteredHistoryItems.length} Record${filteredHistoryItems.length === 1 ? '' : 's'}`
@@ -762,7 +762,7 @@ export function LeaveRegister({
         </div>
 
         {/* Search Input + Month / Year / Day / Time / Category Filters */}
-        <div className="grid gap-2.5 rounded-2xl bg-muted/60 p-3.5 dark:bg-[#1C2227]/60 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid gap-2.5 rounded-2xl bg-muted/60 p-3.5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           <div className="relative sm:col-span-2 md:col-span-3 xl:col-span-2">
             <Search
               className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -776,7 +776,7 @@ export function LeaveRegister({
                 setShowAllMatchingRecords(true)
               }}
               placeholder="Search reason, subject, date, or time..."
-              className="h-10 w-full rounded-xl border-0 bg-background pr-3 pl-8 text-xs text-foreground placeholder:text-muted-foreground outline-none dark:bg-[#151B20]"
+              className="h-10 w-full rounded-xl border-0 bg-background pr-3 pl-8 text-xs text-foreground placeholder:text-muted-foreground outline-none dark:bg-[#0B1014]"
             />
           </div>
 
@@ -798,7 +798,7 @@ export function LeaveRegister({
                 )
                 setShowAllMatchingRecords(true)
               }}
-              className="h-10 w-full rounded-xl border-0 bg-background px-2.5 text-xs text-foreground outline-none dark:bg-[#151B20]"
+              className="h-10 w-full rounded-xl border-0 bg-background px-2.5 text-xs text-foreground outline-none dark:bg-[#0B1014]"
             >
               <option value="all">All Record Types</option>
               <option value="leave-departure">Leave Departures</option>
@@ -819,7 +819,7 @@ export function LeaveRegister({
                 setFilterMonth(e.target.value)
                 setShowAllMatchingRecords(true)
               }}
-              className="h-10 w-full rounded-xl border-0 bg-background px-2.5 text-xs text-foreground outline-none dark:bg-[#151B20]"
+              className="h-10 w-full rounded-xl border-0 bg-background px-2.5 text-xs text-foreground outline-none dark:bg-[#0B1014]"
             >
               <option value="all">All Months (June – May)</option>
               {ACADEMIC_MONTHS.map((m) => (
@@ -841,7 +841,7 @@ export function LeaveRegister({
                 setFilterYear(e.target.value)
                 setShowAllMatchingRecords(true)
               }}
-              className="h-10 w-full rounded-xl border-0 bg-background px-2.5 text-xs text-foreground outline-none dark:bg-[#151B20]"
+              className="h-10 w-full rounded-xl border-0 bg-background px-2.5 text-xs text-foreground outline-none dark:bg-[#0B1014]"
             >
               <option value="all">All Years</option>
               {BASE_YEARS.map((y) => (
@@ -864,7 +864,7 @@ export function LeaveRegister({
                   setFilterDay(e.target.value)
                   setShowAllMatchingRecords(true)
                 }}
-                className="h-10 w-full rounded-xl border-0 bg-background px-2 text-xs text-foreground outline-none dark:bg-[#151B20]"
+                className="h-10 w-full rounded-xl border-0 bg-background px-2 text-xs text-foreground outline-none dark:bg-[#0B1014]"
               >
                 <option value="all">Any Day</option>
                 {DAYS.map((d) => (
@@ -886,7 +886,7 @@ export function LeaveRegister({
                   setFilterPeriodTime(e.target.value)
                   setShowAllMatchingRecords(true)
                 }}
-                className="h-10 w-full rounded-xl border-0 bg-background px-2 text-xs text-foreground outline-none dark:bg-[#151B20]"
+                className="h-10 w-full rounded-xl border-0 bg-background px-2 text-xs text-foreground outline-none dark:bg-[#0B1014]"
               >
                 <option value="all">Any Time</option>
                 <option value="AM">Morning (AM)</option>
@@ -900,7 +900,7 @@ export function LeaveRegister({
         {showAllMatchingRecords || hasActiveSearchOrFilter ? (
           <div className="mt-3">
             {filteredHistoryItems.length === 0 ? (
-              <p className="rounded-2xl bg-muted/50 p-4 text-center text-xs text-muted-foreground dark:bg-[#1C2227]/50">
+              <p className="rounded-2xl bg-muted/50 p-4 text-center text-xs text-muted-foreground">
                 No leave or absent records found matching your search filters.
               </p>
             ) : (
@@ -908,7 +908,7 @@ export function LeaveRegister({
                 {filteredHistoryItems.map((item) => (
                   <li
                     key={item.id}
-                    className="flex flex-col justify-between gap-2 rounded-2xl bg-muted/60 px-3.5 py-3 text-xs dark:bg-[#1C2227] sm:flex-row sm:items-center"
+                    className="flex flex-col justify-between gap-2 rounded-2xl bg-muted/60 px-3.5 py-3 text-xs sm:flex-row sm:items-center"
                   >
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <div className="flex flex-wrap items-center gap-2">
@@ -960,7 +960,7 @@ function SuccessMessage({ message }: { message: string }) {
 }
 
 const selectTriggerClassName =
-  'h-11 w-full min-w-0 rounded-xl border-0 bg-muted px-2 sm:px-3 text-xs sm:text-sm font-medium tabular-nums cursor-pointer transition-colors hover:bg-muted/80 text-foreground outline-none dark:bg-[#1C2227]'
+  'h-11 w-full min-w-0 rounded-xl border-0 bg-muted px-2 sm:px-3 text-xs sm:text-sm font-medium tabular-nums cursor-pointer transition-colors hover:bg-muted/80 text-foreground outline-none'
 
 type DateSelectGroupProps = {
   idPrefix: string

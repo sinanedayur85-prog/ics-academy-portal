@@ -117,7 +117,7 @@ export default function Page() {
 
   // Wait for client mount before rendering persistent auth state to prevent hydration mismatch
   if (!hasMounted) {
-    return <div className="min-h-svh bg-[#0B1014]" aria-hidden="true" />
+    return <div className="min-h-svh bg-background" aria-hidden="true" />
   }
 
   if (isLoggedIn) {

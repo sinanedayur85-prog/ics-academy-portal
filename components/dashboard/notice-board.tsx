@@ -64,7 +64,7 @@ export function NoticeBoard({ studentClass }: { studentClass?: string }) {
       }
     >
       {allNotices.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl bg-muted/60 px-4 py-10 text-center dark:bg-[#1C2227]/60">
+        <div className="flex flex-col items-center justify-center rounded-2xl bg-muted/60 px-4 py-10 text-center">
           <div className="flex size-11 items-center justify-center rounded-2xl bg-[#0095F6]/15 text-[#0077CC] dark:text-[#0095F6]">
             <Megaphone className="size-5" aria-hidden="true" />
           </div>
@@ -95,7 +95,7 @@ export function NoticeBoard({ studentClass }: { studentClass?: string }) {
               <li key={notice.id} className="group flex gap-4 py-4 first:pt-0 last:pb-0">
                 <time
                   dateTime={notice.date}
-                  className="flex w-12 shrink-0 flex-col items-center justify-center rounded-2xl bg-muted py-2.5 dark:bg-[#1C2227]"
+                  className="flex w-12 shrink-0 flex-col items-center justify-center rounded-2xl bg-muted py-2.5"
                 >
                   <span className="font-display text-lg font-semibold leading-none tabular-nums text-foreground">
                     {day}
@@ -149,7 +149,7 @@ export function NoticeBoard({ studentClass }: { studentClass?: string }) {
                   </p>
 
                   {hMeta?.isOfficialHoliday ? (
-                    <div className="mt-3 grid gap-2.5 rounded-2xl bg-[#0095F6]/[0.07] p-3.5 text-xs dark:bg-[#1C2227] sm:grid-cols-3">
+                    <div className="mt-3 grid gap-2.5 rounded-2xl bg-[#0095F6]/[0.07] p-3.5 text-xs dark:bg-[#141A1F] sm:grid-cols-3">
                       <div className="flex flex-col gap-0.5">
                         <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
                           Departure Date & Time
