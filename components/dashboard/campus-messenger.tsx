@@ -4181,16 +4181,18 @@ export function CampusMessenger({
     }
     for (const st of students) {
       if (st.id === actor.id) continue
+      const displayName = formatMessengerStudentName(st.name)
       list.push({
         roomId: makeDirectRoomId(actor.id, st.id),
         type: 'direct_student',
-        title: st.name,
+        title: displayName,
+        searchName: `${displayName} ${st.name}`,
         subtitle: `Class ${st.className} • ${st.admissionNo}`,
         badgeLabel: st.className,
         batchName: st.className,
         peerId: st.id,
         peerRole: 'student',
-        avatarText: st.firstName.slice(0, 2).toUpperCase(),
+        avatarText: getMessengerAvatarText(displayName),
         avatarUrl: st.avatarUrl,
       })
     }
@@ -5611,19 +5613,19 @@ export function CampusMessenger({
 
               {/* Pinned Message Banner */}
               {pinnedMessage && (
-                <div className="flex items-center justify-between gap-2 border-b border-border bg-emerald-500/10 px-3.5 py-2 dark:border-[#262a33] dark:bg-[#14171d]">
+                <div className="flex items-center justify-between gap-2 border-b border-border bg-violet-500/8 px-3.5 py-2 dark:border-white/10 dark:bg-[#121212]">
                   <button
                     type="button"
                     onClick={() => scrollToMessage(pinnedMessage.id)}
                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
                     <Pin
-                      className="size-3.5 shrink-0 text-emerald-600 dark:text-muted-foreground"
+                      className="size-3.5 shrink-0 text-violet-600 dark:text-violet-400"
                       aria-hidden="true"
                     />
                     <div className="min-w-0">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-muted-foreground">
-                        Pinned • {pinnedMessage.senderName}
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
+                        Pinned • {formatMessengerDisplayName(pinnedMessage.senderName, pinnedMessage.senderRole)}
                       </p>
                       <p className="truncate text-xs text-foreground">
                         {pinnedMessage.mediaType === 'pdf'
@@ -5645,16 +5647,16 @@ export function CampusMessenger({
                 </div>
               )}
 
-              {/* Scrollable Message Stream */}
+              {/* Scrollable Message Stream — Instagram DM Layout */}
               <div
                 className={cn(
-                  'flex-1 space-y-2 overflow-y-auto px-2 py-4 sm:px-4 transition-colors',
+                  'flex-1 overflow-y-auto px-2.5 py-4 sm:px-5 transition-colors',
                   chatSettings.chatWallpaper === 'pitch_dark' &&
-                    'bg-[#f1f5f9] dark:bg-[#07080a]',
+                    'bg-white dark:bg-black',
                   chatSettings.chatWallpaper === 'soft_mint' &&
-                    'bg-[#eef8f0] dark:bg-[#0c1110]',
+                    'bg-[#f2f9f4] dark:bg-[#070d0a]',
                   chatSettings.chatWallpaper === 'warm_slate' &&
-                    'bg-[#f5f3ef] dark:bg-[#101115]',
+                    'bg-[#f6f4f0] dark:bg-[#0c0d11]',
                 )}
                 onClick={() => {
                   if (selectedMessageIds.length > 0) {
@@ -5664,19 +5666,48 @@ export function CampusMessenger({
                   setShowAttachMenu(false)
                 }}
               >
-                {/* End-to-End Campus Security Banner */}
-                <div className="mx-auto max-w-md rounded-2xl border border-border/70 bg-card/70 px-3.5 py-2 text-center text-[11px] text-muted-foreground dark:border-[#262a33] dark:bg-[#121418]">
+                {/* Subtle Campus Privacy Note */}
+                <div className="mx-auto mb-3 max-w-md rounded-full border border-border/60 bg-muted/40 px-3.5 py-1.5 text-center text-[11px] text-muted-foreground dark:border-white/10 dark:bg-white/[0.04]">
                   <ShieldCheck
-                    className="mr-1 inline-block size-3.5 text-emerald-600 dark:text-muted-foreground"
+                    className="mr-1 inline-block size-3.5 text-violet-600 dark:text-violet-400"
                     aria-hidden="true"
                   />
                   Messages and files are private to ICS Academy.
                 </div>
 
-                {activeMessages.map((msg) => {
+                {activeMessages.map((msg, idx) => {
+                  const prevMsg = idx > 0 ? activeMessages[idx - 1] : null
+                  const nextMsg = idx < activeMessages.length - 1 ? activeMessages[idx + 1] : null
+
+                  const msgDay = getIstDayNumber(msg.createdAtMs)
+                  const prevDay = prevMsg ? getIstDayNumber(prevMsg.createdAtMs) : null
+                  const nextDay = nextMsg ? getIstDayNumber(nextMsg.createdAtMs) : null
+                  const showDateDivider = !prevMsg || msgDay !== prevDay
+
+                  const GROUP_GAP_MS = 3 * 60 * 1000
+                  const isSameSenderAsPrev =
+                    Boolean(prevMsg) &&
+                    !showDateDivider &&
+                    prevMsg!.senderId === msg.senderId &&
+                    Math.abs(msg.createdAtMs - prevMsg!.createdAtMs) <= GROUP_GAP_MS &&
+                    !msg.replyTo &&
+                    !prevMsg!.replyTo
+                  const isSameSenderAsNext =
+                    Boolean(nextMsg) &&
+                    msgDay === nextDay &&
+                    nextMsg!.senderId === msg.senderId &&
+                    Math.abs(nextMsg!.createdAtMs - msg.createdAtMs) <= GROUP_GAP_MS &&
+                    !nextMsg!.replyTo &&
+                    !msg.replyTo
+
+                  const isFirstInGroup = !isSameSenderAsPrev
+                  const isLastInGroup = !isSameSenderAsNext
                   const isMine = msg.senderId === actor.id
+                  const isGroupChat =
+                    activeRoom.type === 'batch_group' || activeRoom.type === 'staff_group'
                   const isPinned = activeRoomMeta.pinnedMessageId === msg.id
-                  const isStarred = !msg.isDeleted && isMessageStarredByMe(msg)
+                  const isStarred = isMessageStarredByMe(msg)
+
                   const otherReadersCount = (msg.readBy ?? []).filter(
                     (id) => id && id !== msg.senderId,
                   ).length
@@ -5686,16 +5717,53 @@ export function CampusMessenger({
                   const isReadByOthers = otherReadersCount > 0 || (msg.readBy?.length ?? 0) > 1
                   const isDeliveredToOthers =
                     isReadByOthers || otherDeliveredCount > 0 || (msg.deliveredTo?.length ?? 0) > 1
+
                   const isSelected = selectedMessageIds.includes(msg.id)
                   const isSelectionActive = selectedMessageIds.length > 0
                   const showSingleReactionPill =
-                    isSelected && selectedMessageIds.length === 1 && !msg.isDeleted
-                  const isImageMessage =
-                    !msg.isDeleted && msg.mediaType === 'image' && Boolean(msg.mediaUrl)
-                  const isImageOnlyWithoutCaption = isImageMessage && !msg.text
+                    isSelected && selectedMessageIds.length === 1
+                  const isImageMessage = msg.mediaType === 'image' && Boolean(msg.mediaUrl)
+                  const isVoiceMessage = msg.mediaType === 'voice'
+                  const isRichCardMessage =
+                    msg.mediaType === 'call' ||
+                    msg.mediaType === 'pdf' ||
+                    msg.mediaType === 'location' ||
+                    msg.mediaType === 'contact' ||
+                    msg.mediaType === 'poll'
                   const reactionEntries = Object.entries(msg.reactions || {}).filter(
                     ([, users]) => Array.isArray(users) && users.length > 0,
                   )
+
+                  const senderProfile = !isMine ? resolveActorDirectoryProfile(msg.senderId) : null
+                  const formattedSenderName = formatMessengerDisplayName(
+                    msg.senderName,
+                    msg.senderRole,
+                  )
+                  const senderAvatarUrl =
+                    senderProfile?.avatarUrl ||
+                    (!isGroupChat && activeRoom.avatarUrl ? activeRoom.avatarUrl : undefined)
+                  const senderAvatarText = getMessengerAvatarText(formattedSenderName)
+
+                  // Instagram adaptive pill curves for solo / first / middle / last bubbles
+                  const bubbleRadiusClass = isImageMessage
+                    ? 'rounded-[20px]'
+                    : isMine
+                      ? isFirstInGroup && isLastInGroup
+                        ? 'rounded-[22px]'
+                        : isFirstInGroup
+                          ? 'rounded-[22px] rounded-br-[5px]'
+                          : isLastInGroup
+                            ? 'rounded-[22px] rounded-tr-[5px]'
+                            : 'rounded-[22px] rounded-r-[5px]'
+                      : isFirstInGroup && isLastInGroup
+                        ? 'rounded-[22px]'
+                        : isFirstInGroup
+                          ? 'rounded-[22px] rounded-bl-[5px]'
+                          : isLastInGroup
+                            ? 'rounded-[22px] rounded-tl-[5px]'
+                            : 'rounded-[22px] rounded-l-[5px]'
+
+                  const showBelowGroupMeta = isLastInGroup || isStarred || isPinned
 
                   return (
                     <div
@@ -5707,1163 +5775,1214 @@ export function CampusMessenger({
                         toggleSelectMessage(msg.id)
                       }}
                       className={cn(
-                        'group relative flex flex-col px-1.5 py-0.5 transition-all duration-150 rounded-xl',
-                        isMine ? 'items-end' : 'items-start',
-                        isSelected && 'bg-emerald-500/18 dark:bg-emerald-500/20',
+                        'group relative flex flex-col transition-all duration-150 rounded-2xl',
+                        idx === 0 ? 'mt-0' : isFirstInGroup ? 'mt-3' : 'mt-[3px]',
+                        isSelected && 'bg-violet-500/15 px-1.5 py-1 dark:bg-violet-500/20',
                       )}
                     >
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setShowAttachMenu(false)
-                          if (longPressTriggeredRef.current) {
-                            longPressTriggeredRef.current = false
-                            return
-                          }
-                          toggleSelectMessage(msg.id)
-                        }}
-                        onContextMenu={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setShowAttachMenu(false)
-                          if (!selectedMessageIds.includes(msg.id)) {
-                            setSelectedMessageIds((prev) => [...prev, msg.id])
-                          }
-                        }}
-                        onTouchStart={() => {
-                          longPressTriggeredRef.current = false
-                          if (longPressTimerRef.current) {
-                            window.clearTimeout(longPressTimerRef.current)
-                          }
-                          longPressTimerRef.current = window.setTimeout(() => {
-                            longPressTriggeredRef.current = true
-                            setShowAttachMenu(false)
-                            setSelectedMessageIds((prev) =>
-                              prev.includes(msg.id) ? prev : [...prev, msg.id],
-                            )
-                          }, 380)
-                        }}
-                        onTouchEnd={() => {
-                          if (longPressTimerRef.current) {
-                            window.clearTimeout(longPressTimerRef.current)
-                            longPressTimerRef.current = null
-                          }
-                        }}
-                        onTouchMove={() => {
-                          if (longPressTimerRef.current) {
-                            window.clearTimeout(longPressTimerRef.current)
-                            longPressTimerRef.current = null
-                          }
-                        }}
-                        className={cn(
-                          'relative max-w-[86%] sm:max-w-[74%] rounded-2xl shadow-xs transition-colors cursor-pointer select-none',
-                          isImageMessage
-                            ? 'p-1 border-0'
-                            : isSelected
-                              ? 'px-3.5 py-2 pr-9 border'
-                              : 'px-3.5 py-2 border',
-                          isMine
-                            ? 'rounded-br-xs border-[#bde6b4] bg-[#dcf8c6] text-[#081e21] dark:border-[#056150] dark:bg-[#005c4b] dark:text-[#e9edef]'
-                            : 'rounded-bl-xs border-border bg-card text-foreground dark:border-[#262a33] dark:bg-[#121418] dark:text-[#f3f4f6]',
-                          isSelected && 'ring-2 ring-emerald-500/75 dark:ring-emerald-400/70',
-                        )}
-                      >
-                        {/* Selected Checkmark Indicator (Shown only while selected; no three-dots clutter on bubbles) */}
-                        {isSelected && (
-                          <span
-                            aria-hidden="true"
-                            className={cn(
-                              'pointer-events-none absolute right-1.5 top-1.5 z-20 flex size-6 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xs',
-                              isImageMessage && 'right-2 top-2',
-                            )}
-                          >
-                            <Check className="size-3.5 stroke-[3]" aria-hidden="true" />
+                      {/* Centered Instagram IST Date Divider */}
+                      {showDateDivider && (
+                        <div className="my-3 flex items-center justify-center">
+                          <span className="font-poppins text-[11px] font-medium tracking-wider text-muted-foreground/80 dark:text-zinc-400">
+                            {formatInstagramDateDivider(msg.createdAtMs)}
                           </span>
-                        )}
+                        </div>
+                      )}
 
-                        {/* Forwarded Label */}
-                        {!msg.isDeleted && msg.isForwarded && (
-                          <div
+                      {/* Incoming Group Sender Name (only above first message in a group chat cluster) */}
+                      {!isMine && isGroupChat && isFirstInGroup && (
+                        <div className="mb-1 pl-9 text-left">
+                          <span
                             className={cn(
-                              'mb-0.5 flex items-center gap-1 text-[10.5px] italic opacity-75',
-                              isImageMessage && 'px-2 pt-1',
+                              'text-[11px] font-semibold',
+                              msg.senderRole === 'principal'
+                                ? 'text-amber-600 dark:text-amber-400'
+                                : msg.senderRole === 'usthad'
+                                  ? 'text-violet-600 dark:text-violet-300'
+                                  : 'text-muted-foreground dark:text-zinc-400',
                             )}
                           >
-                            <Forward className="size-3" aria-hidden="true" />
-                            <span>Forwarded</span>
-                          </div>
-                        )}
+                            {formattedSenderName}
+                          </span>
+                        </div>
+                      )}
 
-                        {/* Sender Name Header (Name only) */}
-                        {!isMine && (
-                      <div
-                        className={cn(
-                          'mb-1 flex flex-wrap items-center gap-1.5',
-                          isSelected && 'pr-7',
-                          isImageMessage && 'px-2 pt-1',
-                        )}
-                      >
-                        <span
+                      {/* Instagram-Style Quoted Reply Above Bubble */}
+                      {msg.replyTo && (
+                        <div
                           className={cn(
-                            'text-xs font-bold',
-                            msg.senderRole === 'principal'
-                              ? 'text-amber-600 dark:text-amber-400'
-                              : msg.senderRole === 'usthad'
-                                ? 'text-emerald-700 dark:text-zinc-200'
-                                : 'text-cyan',
+                            'mb-1 flex flex-col',
+                            isMine ? 'items-end' : 'items-start pl-9',
                           )}
                         >
-                          {msg.senderName}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Deleted Message State */}
-                    {msg.isDeleted ? (
-                      <p className="py-1 pr-4 text-xs italic opacity-75">
-                        🚫{' '}
-                        {msg.deletedById === actor.id || (!msg.deletedById && isMine)
-                          ? 'You deleted this message'
-                          : 'This message was deleted'}
-                      </p>
-                    ) : (
-                      <>
-                        {/* Quoted Reply Box */}
-                        {msg.replyTo && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              scrollToMessage(msg.replyTo!.messageId)
-                            }}
+                          <span className="mb-1 text-[10.5px] font-medium text-muted-foreground dark:text-zinc-400">
+                            {isMine
+                              ? `You replied to ${formatMessengerDisplayName(msg.replyTo.senderName)}`
+                              : `Replied to ${formatMessengerDisplayName(msg.replyTo.senderName)}`}
+                          </span>
+                          <div
                             className={cn(
-                              'mb-1.5 flex w-full flex-col rounded-xl border-l-4 px-2.5 py-1.5 text-left text-[11px] transition-colors',
-                              isMine
-                                ? 'border-l-emerald-600 bg-black/[0.06] text-[#081e21] dark:border-l-zinc-400 dark:bg-[#0a0b0e]/70 dark:text-zinc-200'
-                                : 'border-l-cyan bg-muted/70 text-foreground dark:bg-[#0a0b0e]/60',
+                              'flex max-w-[78%] items-stretch gap-2',
+                              isMine ? 'flex-row-reverse' : 'flex-row',
                             )}
                           >
-                            <span className="font-bold opacity-90">
-                              {msg.replyTo.senderName}
-                            </span>
-                            <span className="truncate opacity-75">
-                              {msg.replyTo.previewText}
-                            </span>
-                          </button>
-                        )}
-
-                        {/* Media Attachment: Clean WhatsApp Voice Note Waveform */}
-                        {msg.mediaType === 'voice' && (
-                          <div className="flex min-w-[220px] sm:min-w-[250px] items-center gap-2.5 py-1 pr-2">
+                            <span className="w-[3px] shrink-0 rounded-full bg-zinc-400/50 dark:bg-zinc-600" />
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                handleTogglePlayVoice(msg)
+                                scrollToMessage(msg.replyTo!.messageId)
                               }}
-                              aria-label={
-                                playingMessageId === msg.id
-                                  ? 'Pause voice message'
-                                  : 'Play voice message'
-                              }
                               className={cn(
-                                'flex size-10 shrink-0 items-center justify-center rounded-full shadow-xs transition-transform active:scale-95',
+                                'truncate rounded-[18px] px-3 py-1.5 text-left text-xs transition-opacity hover:opacity-90',
                                 isMine
-                                  ? 'bg-emerald-600 text-white dark:bg-[#262a33] dark:text-zinc-100'
-                                  : 'bg-emerald-600 text-white dark:bg-[#222630] dark:text-zinc-100',
+                                  ? 'bg-[#efefef] text-zinc-700 dark:bg-[#1f1f24] dark:text-zinc-300'
+                                  : 'bg-violet-600/15 text-violet-950 dark:bg-[#2a214a] dark:text-zinc-200',
                               )}
                             >
-                              {playingMessageId === msg.id ? (
-                                <Pause className="size-4" aria-hidden="true" />
-                              ) : (
-                                <Play className="ml-0.5 size-4" aria-hidden="true" />
-                              )}
+                              {msg.replyTo.previewText}
                             </button>
+                          </div>
+                        </div>
+                      )}
 
-                            <div className="min-w-0 flex-1">
-                              <div className="flex h-6 items-center gap-0.5">
-                                {Array.from({ length: 26 }).map((_, barIdx) => {
-                                  const barPct = (barIdx / 26) * 100
-                                  const isActiveBar =
-                                    playingMessageId === msg.id && playbackProgress >= barPct
-                                  const heights = [
-                                    35, 65, 50, 85, 45, 95, 60, 75, 40, 90, 55, 80, 65, 95, 50, 70,
-                                    85, 45, 60, 90, 50, 70, 55, 40, 65, 50,
-                                  ]
-                                  return (
-                                    <span
-                                      key={barIdx}
-                                      style={{ height: `${heights[barIdx % heights.length]}%` }}
-                                      className={cn(
-                                        'w-1 rounded-full transition-colors',
-                                        isActiveBar
-                                          ? 'bg-emerald-700 dark:bg-zinc-100'
-                                          : isMine
-                                            ? 'bg-emerald-900/35 dark:bg-zinc-400/45'
-                                            : 'bg-foreground/30',
-                                      )}
-                                    />
-                                  )
-                                })}
+                      {/* Main Bubble Row (Bottom-left avatar for incoming last-in-group) */}
+                      <div
+                        className={cn(
+                          'flex items-end gap-2',
+                          isMine ? 'justify-end' : 'justify-start',
+                        )}
+                      >
+                        {!isMine && (
+                          <div className="w-7 shrink-0">
+                            {isLastInGroup ? (
+                              <div className="flex size-7 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-muted font-poppins text-[10px] font-bold text-foreground dark:border-white/15 dark:bg-[#262626] dark:text-zinc-200">
+                                {senderAvatarUrl ? (
+                                  <img
+                                    src={senderAvatarUrl}
+                                    alt={formattedSenderName}
+                                    className="size-full object-cover object-top"
+                                  />
+                                ) : (
+                                  senderAvatarText
+                                )}
                               </div>
-                              <div className="mt-1 flex items-center justify-between gap-2 text-[10px] opacity-80">
-                                <span className="font-poppins tabular-nums">
-                                  {formatVoiceDuration(msg.mediaDurationSec || 4)}
-                                </span>
-                                <div className="flex items-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleCyclePlaybackRate()
-                                    }}
-                                    className="rounded-full bg-black/10 px-1.5 py-0.2 font-poppins text-[10px] font-semibold dark:bg-white/10"
-                                  >
-                                    {playbackRate}x
-                                  </button>
-                                  {isStarred && (
-                                    <Star
-                                      className="size-3 fill-amber-400 text-amber-500 dark:text-amber-300"
-                                      aria-label="Starred message"
-                                    />
-                                  )}
-                                  {isPinned && (
-                                    <Pin className="size-3 opacity-80" aria-label="Pinned message" />
-                                  )}
-                                  <span className="font-poppins tabular-nums">
-                                    {formatChatTime(msg.createdAtMs)}
-                                  </span>
-                                  {isMine && (
-                                    <span
-                                      title={
-                                        isReadByOthers
-                                          ? `Seen / Read`
-                                          : isDeliveredToOthers
-                                            ? 'Delivered'
-                                            : 'Sent'
-                                      }
-                                      className="inline-flex items-center"
-                                    >
-                                      {isReadByOthers ? (
-                                        <CheckCheck
-                                          className="size-4 text-[#0095f6] dark:text-[#38bdf8] stroke-[2.6]"
-                                          aria-label="Read"
-                                        />
-                                      ) : isDeliveredToOthers ? (
-                                        <CheckCheck
-                                          className="size-4 text-zinc-500 dark:text-zinc-300 stroke-[2.2]"
-                                          aria-label="Delivered"
-                                        />
-                                      ) : (
-                                        <Check
-                                          className="size-3.5 text-zinc-500/80 dark:text-zinc-400 stroke-[2.2]"
-                                          aria-label="Sent"
-                                        />
-                                      )}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
+                            ) : null}
                           </div>
                         )}
 
-                        {/* Media Attachment: WhatsApp-Style In-Chat Voice/Video Call Card */}
-                        {msg.mediaType === 'call' && (() => {
-                          const cMeta = msg.callMeta
-                          const callType: CallMediaType = cMeta?.callType === 'video' ? 'video' : 'voice'
-                          const cStatus = cMeta?.callStatus || 'ended'
-                          const isCallerMe = (cMeta?.callerId || msg.senderId) === actor.id
-                          const isMissedOrFailed =
-                            cStatus === 'missed' || cStatus === 'declined' || cStatus === 'busy'
-                          const durLabel =
-                            cStatus === 'missed'
-                              ? isCallerMe
-                                ? 'No answer'
-                                : 'Missed'
-                              : cStatus === 'declined'
-                                ? 'Declined'
-                                : cStatus === 'busy'
-                                  ? 'Busy'
-                                  : cMeta?.durationSec && cMeta.durationSec > 0
-                                    ? formatCallDuration(cMeta.durationSec)
-                                    : isCallerMe
-                                      ? 'Outgoing'
-                                      : 'Incoming'
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setShowAttachMenu(false)
+                            if (longPressTriggeredRef.current) {
+                              longPressTriggeredRef.current = false
+                              return
+                            }
+                            toggleSelectMessage(msg.id)
+                          }}
+                          onContextMenu={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setShowAttachMenu(false)
+                            if (!selectedMessageIds.includes(msg.id)) {
+                              setSelectedMessageIds((prev) => [...prev, msg.id])
+                            }
+                          }}
+                          onTouchStart={() => {
+                            longPressTriggeredRef.current = false
+                            if (longPressTimerRef.current) {
+                              window.clearTimeout(longPressTimerRef.current)
+                            }
+                            longPressTimerRef.current = window.setTimeout(() => {
+                              longPressTriggeredRef.current = true
+                              setShowAttachMenu(false)
+                              setSelectedMessageIds((prev) =>
+                                prev.includes(msg.id) ? prev : [...prev, msg.id],
+                              )
+                            }, 380)
+                          }}
+                          onTouchEnd={() => {
+                            if (longPressTimerRef.current) {
+                              window.clearTimeout(longPressTimerRef.current)
+                              longPressTimerRef.current = null
+                            }
+                          }}
+                          onTouchMove={() => {
+                            if (longPressTimerRef.current) {
+                              window.clearTimeout(longPressTimerRef.current)
+                              longPressTimerRef.current = null
+                            }
+                          }}
+                          className={cn(
+                            'relative max-w-[82%] sm:max-w-[70%] cursor-pointer select-none transition-all',
+                            bubbleRadiusClass,
+                            isImageMessage
+                              ? 'overflow-hidden p-0'
+                              : isVoiceMessage
+                                ? 'px-3.5 py-2.5'
+                                : isRichCardMessage
+                                  ? 'p-2'
+                                  : isSelected
+                                    ? 'px-4 py-2 pr-9'
+                                    : 'px-4 py-2',
+                            isImageMessage && !msg.text
+                              ? 'bg-transparent'
+                              : isMine
+                                ? 'bg-gradient-to-br from-[#c026d3] via-[#7c3aed] to-[#4f46e5] text-white shadow-xs'
+                                : 'bg-[#efefef] text-zinc-900 dark:bg-[#262626] dark:text-[#f5f5f5]',
+                            isSelected && 'ring-2 ring-violet-500/80 dark:ring-violet-400/80',
+                          )}
+                        >
+                          {/* Selected Checkmark Indicator */}
+                          {isSelected && (
+                            <span
+                              aria-hidden="true"
+                              className={cn(
+                                'pointer-events-none absolute right-1.5 top-1.5 z-20 flex size-5 items-center justify-center rounded-full bg-violet-600 text-white shadow-xs ring-2 ring-white dark:ring-black',
+                                isImageMessage && 'right-2 top-2',
+                              )}
+                            >
+                              <Check className="size-3 stroke-[3]" aria-hidden="true" />
+                            </span>
+                          )}
 
-                          return (
+                          {/* Forwarded Label */}
+                          {msg.isForwarded && (
                             <div
                               className={cn(
-                                'my-0.5 flex min-w-[215px] items-center justify-between gap-3 rounded-xl border border-border/70 p-2.5 dark:border-[#262a33]',
+                                'mb-0.5 flex items-center gap-1 text-[10.5px] italic opacity-75',
+                                isImageMessage && 'px-3 pt-2',
+                              )}
+                            >
+                              <Forward className="size-3" aria-hidden="true" />
+                              <span>Forwarded</span>
+                            </div>
+                          )}
+
+                          {/* Media Attachment: Instagram-Style Voice Note Pill */}
+                          {msg.mediaType === 'voice' && (
+                            <div className="flex min-w-[210px] sm:min-w-[245px] items-center gap-2.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleTogglePlayVoice(msg)
+                                }}
+                                aria-label={
+                                  playingMessageId === msg.id
+                                    ? 'Pause voice message'
+                                    : 'Play voice message'
+                                }
+                                className={cn(
+                                  'flex size-9 shrink-0 items-center justify-center rounded-full transition-transform active:scale-95',
+                                  isMine
+                                    ? 'bg-white/20 text-white hover:bg-white/30'
+                                    : 'bg-zinc-900/10 text-zinc-900 hover:bg-zinc-900/15 dark:bg-white/15 dark:text-white dark:hover:bg-white/25',
+                                )}
+                              >
+                                {playingMessageId === msg.id ? (
+                                  <Pause className="size-4 fill-current" aria-hidden="true" />
+                                ) : (
+                                  <Play className="ml-0.5 size-4 fill-current" aria-hidden="true" />
+                                )}
+                              </button>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="flex h-7 items-center gap-[2.5px]">
+                                  {Array.from({ length: 24 }).map((_, barIdx) => {
+                                    const barPct = (barIdx / 24) * 100
+                                    const isActiveBar =
+                                      playingMessageId === msg.id && playbackProgress >= barPct
+                                    const heights = [
+                                      28, 62, 46, 86, 40, 96, 58, 76, 36, 90, 52, 82, 64, 94, 48,
+                                      72, 84, 44, 60, 88, 50, 68, 54, 38,
+                                    ]
+                                    return (
+                                      <span
+                                        key={barIdx}
+                                        style={{ height: `${heights[barIdx % heights.length]}%` }}
+                                        className={cn(
+                                          'w-[2.5px] rounded-full transition-colors',
+                                          isActiveBar
+                                            ? isMine
+                                              ? 'bg-white'
+                                              : 'bg-violet-600 dark:bg-white'
+                                            : isMine
+                                              ? 'bg-white/45'
+                                              : 'bg-zinc-900/35 dark:bg-white/45',
+                                        )}
+                                      />
+                                    )
+                                  })}
+                                </div>
+                              </div>
+
+                              <div className="flex shrink-0 flex-col items-end gap-0.5">
+                                <span className="font-poppins text-[11px] font-medium tabular-nums opacity-90">
+                                  {formatVoiceDuration(msg.mediaDurationSec || 4)}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleCyclePlaybackRate()
+                                  }}
+                                  className={cn(
+                                    'rounded-full px-1.5 py-0.2 font-poppins text-[9.5px] font-semibold',
+                                    isMine
+                                      ? 'bg-white/20 text-white'
+                                      : 'bg-black/10 text-foreground dark:bg-white/15 dark:text-zinc-200',
+                                  )}
+                                >
+                                  {playbackRate}x
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Media Attachment: Voice/Video Call Card */}
+                          {msg.mediaType === 'call' && (() => {
+                            const cMeta = msg.callMeta
+                            const callType: CallMediaType =
+                              cMeta?.callType === 'video' ? 'video' : 'voice'
+                            const cStatus = cMeta?.callStatus || 'ended'
+                            const isCallerMe = (cMeta?.callerId || msg.senderId) === actor.id
+                            const isMissedOrFailed =
+                              cStatus === 'missed' || cStatus === 'declined' || cStatus === 'busy'
+                            const durLabel =
+                              cStatus === 'missed'
+                                ? isCallerMe
+                                  ? 'No answer'
+                                  : 'Missed'
+                                : cStatus === 'declined'
+                                  ? 'Declined'
+                                  : cStatus === 'busy'
+                                    ? 'Busy'
+                                    : cMeta?.durationSec && cMeta.durationSec > 0
+                                      ? formatCallDuration(cMeta.durationSec)
+                                      : isCallerMe
+                                        ? 'Outgoing'
+                                        : 'Incoming'
+
+                            return (
+                              <div
+                                className={cn(
+                                  'flex min-w-[215px] items-center justify-between gap-3 rounded-2xl p-2',
+                                  isMine
+                                    ? 'bg-black/15 text-white'
+                                    : 'bg-white/70 dark:bg-black/30',
+                                )}
+                              >
+                                <div className="flex min-w-0 items-center gap-2.5">
+                                  <div
+                                    className={cn(
+                                      'flex size-9 shrink-0 items-center justify-center rounded-full',
+                                      isMissedOrFailed
+                                        ? 'bg-rose-500/20 text-rose-400'
+                                        : isMine
+                                          ? 'bg-white/20 text-white'
+                                          : 'bg-violet-500/15 text-violet-600 dark:text-violet-300',
+                                    )}
+                                  >
+                                    {isMissedOrFailed ? (
+                                      <PhoneMissed className="size-4" aria-hidden="true" />
+                                    ) : callType === 'video' ? (
+                                      <Video className="size-4" aria-hidden="true" />
+                                    ) : isCallerMe ? (
+                                      <PhoneOutgoing className="size-4" aria-hidden="true" />
+                                    ) : (
+                                      <PhoneIncoming className="size-4" aria-hidden="true" />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="truncate text-xs font-bold">
+                                      {callType === 'video' ? 'Video call' : 'Voice call'}
+                                    </p>
+                                    <p
+                                      className={cn(
+                                        'text-[11px] font-medium tabular-nums',
+                                        isMissedOrFailed
+                                          ? isMine
+                                            ? 'text-rose-200'
+                                            : 'text-rose-500 dark:text-rose-400'
+                                          : 'opacity-80',
+                                      )}
+                                    >
+                                      {durLabel}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {(activeRoom.type === 'direct_usthad' ||
+                                  activeRoom.type === 'direct_student') &&
+                                  activeRoom.peerId && (
+                                    <button
+                                      type="button"
+                                      disabled={Boolean(activeCall)}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        if (isSelectionActive) {
+                                          toggleSelectMessage(msg.id)
+                                          return
+                                        }
+                                        void startCall(
+                                          {
+                                            id: activeRoom.peerId!,
+                                            name: activeRoom.title,
+                                            role: activeRoom.peerRole || 'student',
+                                            subtitle: activeRoom.subtitle,
+                                            roomId: activeRoom.roomId,
+                                            avatarUrl: activeRoom.avatarUrl,
+                                          },
+                                          callType,
+                                        )
+                                      }}
+                                      aria-label={`Call back ${activeRoom.title}`}
+                                      className={cn(
+                                        'inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-[11px] font-bold transition-colors disabled:opacity-45',
+                                        isMine
+                                          ? 'bg-white/20 text-white hover:bg-white/30'
+                                          : 'bg-violet-600 text-white hover:bg-violet-700',
+                                      )}
+                                    >
+                                      {callType === 'video' ? (
+                                        <Video className="size-3.5" aria-hidden="true" />
+                                      ) : (
+                                        <Phone className="size-3.5" aria-hidden="true" />
+                                      )}
+                                      <span>Call</span>
+                                    </button>
+                                  )}
+                              </div>
+                            )
+                          })()}
+
+                          {/* Media Attachment: PDF Document Card */}
+                          {msg.mediaType === 'pdf' && (
+                            <div
+                              className={cn(
+                                'flex min-w-[220px] items-center justify-between gap-3 rounded-2xl p-2',
                                 isMine
-                                  ? 'bg-black/[0.05] dark:bg-[#0a0b0e]/60'
-                                  : 'bg-muted/60 dark:bg-[#0a0b0e]/50',
+                                  ? 'bg-black/15 text-white'
+                                  : 'bg-white/75 dark:bg-black/30',
                               )}
                             >
                               <div className="flex min-w-0 items-center gap-2.5">
                                 <div
                                   className={cn(
-                                    'flex size-10 shrink-0 items-center justify-center rounded-full',
-                                    isMissedOrFailed
-                                      ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
-                                      : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+                                    'flex size-9 shrink-0 items-center justify-center rounded-xl',
+                                    isMine
+                                      ? 'bg-white/20 text-white'
+                                      : 'bg-red-500/15 text-red-600 dark:bg-red-500/20 dark:text-red-400',
                                   )}
                                 >
-                                  {isMissedOrFailed ? (
-                                    <PhoneMissed className="size-4.5" aria-hidden="true" />
-                                  ) : callType === 'video' ? (
-                                    <Video className="size-4.5" aria-hidden="true" />
-                                  ) : isCallerMe ? (
-                                    <PhoneOutgoing className="size-4.5" aria-hidden="true" />
-                                  ) : (
-                                    <PhoneIncoming className="size-4.5" aria-hidden="true" />
-                                  )}
+                                  <FileText className="size-4" aria-hidden="true" />
                                 </div>
                                 <div className="min-w-0">
                                   <p className="truncate text-xs font-bold">
-                                    {callType === 'video' ? 'Video call' : 'Voice call'}
+                                    {msg.mediaName || 'ICS_Study_Notes.pdf'}
                                   </p>
-                                  <p
-                                    className={cn(
-                                      'text-[11px] font-medium tabular-nums',
-                                      isMissedOrFailed
-                                        ? 'text-rose-600 dark:text-rose-400'
-                                        : 'opacity-80',
-                                    )}
-                                  >
-                                    {durLabel}
+                                  <p className="text-[10px] opacity-75">
+                                    {msg.mediaSizeLabel || 'PDF Document'}
                                   </p>
                                 </div>
                               </div>
-
-                              {(activeRoom.type === 'direct_usthad' ||
-                                activeRoom.type === 'direct_student') &&
-                                activeRoom.peerId && (
-                                  <button
-                                    type="button"
-                                    disabled={Boolean(activeCall)}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      if (isSelectionActive) {
-                                        toggleSelectMessage(msg.id)
-                                        return
-                                      }
-                                      void startCall(
-                                        {
-                                          id: activeRoom.peerId!,
-                                          name: activeRoom.title,
-                                          role: activeRoom.peerRole || 'student',
-                                          subtitle: activeRoom.subtitle,
-                                          roomId: activeRoom.roomId,
-                                          avatarUrl: activeRoom.avatarUrl,
-                                        },
-                                        callType,
-                                      )
-                                    }}
-                                    aria-label={`Call back ${activeRoom.title}`}
-                                    className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-emerald-600 px-2.5 text-[11px] font-bold text-white transition-colors hover:bg-emerald-700 disabled:opacity-45 dark:border dark:border-[#262a33] dark:bg-[#222630] dark:text-emerald-300 dark:hover:bg-zinc-700"
-                                  >
-                                    {callType === 'video' ? (
-                                      <Video className="size-3.5" aria-hidden="true" />
-                                    ) : (
-                                      <Phone className="size-3.5" aria-hidden="true" />
-                                    )}
-                                    <span>Call</span>
-                                  </button>
-                                )}
-                            </div>
-                          )
-                        })()}
-
-                        {/* Media Attachment: PDF Document Card */}
-                        {msg.mediaType === 'pdf' && (
-                          <div
-                            className={cn(
-                              'my-1 flex items-center justify-between gap-3 rounded-xl border border-border/70 p-2.5 dark:border-[#262a33]',
-                              isMine
-                                ? 'bg-black/[0.05] dark:bg-[#0a0b0e]/60'
-                                : 'bg-muted/60 dark:bg-[#0a0b0e]/50',
-                            )}
-                          >
-                            <div className="flex min-w-0 items-center gap-2.5">
-                              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-red-500/15 text-red-600 dark:bg-[#1a1d24] dark:text-red-400">
-                                <FileText className="size-4" aria-hidden="true" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="truncate text-xs font-bold">
-                                  {msg.mediaName || 'ICS_Study_Notes.pdf'}
-                                </p>
-                                <p className="text-[10px] opacity-75">
-                                  {msg.mediaSizeLabel || 'PDF Document'}
-                                </p>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (isSelectionActive) {
-                                  toggleSelectMessage(msg.id)
-                                  return
-                                }
-                                handleOpenOrDownloadPdf(msg)
-                              }}
-                              className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-emerald-600 px-2.5 text-[11px] font-bold text-white transition-colors hover:bg-emerald-700 dark:border dark:border-[#262a33] dark:bg-[#222630] dark:text-zinc-100 dark:hover:bg-zinc-700"
-                            >
-                              <Download className="size-3.5" aria-hidden="true" />
-                              <span>PDF</span>
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Media Attachment: WhatsApp-Style Borderless Photo with Overlaid Timestamp & HD Badge */}
-                        {msg.mediaType === 'image' && msg.mediaUrl && (
-                          <div className="relative overflow-hidden rounded-xl border-0">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (isSelectionActive) {
-                                  toggleSelectMessage(msg.id)
-                                  return
-                                }
-                                setLightboxImage({
-                                  messageId: msg.id,
-                                  url: msg.mediaUrl!,
-                                  name: msg.mediaName || 'Campus Photo',
-                                  quality: msg.imageQuality,
-                                  dimensions: msg.imageDimensions,
-                                })
-                              }}
-                              className="block w-full text-left"
-                            >
-                              <img
-                                src={msg.mediaUrl}
-                                alt={msg.mediaName || 'Shared attachment'}
-                                referrerPolicy="no-referrer"
-                                className="block max-h-72 w-full rounded-xl border-0 object-cover"
-                              />
-                            </button>
-
-                            {/* WhatsApp HD Badge on Bottom-Left of Photo */}
-                            {msg.imageQuality === 'hd' && (
-                              <span
-                                title={
-                                  msg.imageDimensions
-                                    ? `HD Photo (${msg.imageDimensions})`
-                                    : 'HD Quality Photo'
-                                }
-                                className="pointer-events-none absolute bottom-1.5 left-2 inline-flex items-center justify-center rounded border border-white/75 bg-black/55 px-1.5 py-0.5 font-poppins text-[9px] font-bold tracking-wider text-white backdrop-blur-[2px]"
-                              >
-                                HD
-                              </span>
-                            )}
-
-                            {isImageOnlyWithoutCaption && (
-                              <div className="pointer-events-none absolute bottom-1.5 right-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] text-white backdrop-blur-[2px]">
-                                {isStarred && (
-                                  <Star
-                                    className="size-2.5 fill-amber-300 text-amber-300"
-                                    aria-label="Starred message"
-                                  />
-                                )}
-                                {isPinned && (
-                                  <Pin className="size-2.5 opacity-90" aria-label="Pinned message" />
-                                )}
-                                <span className="font-poppins tabular-nums drop-shadow-xs">
-                                  {formatChatTime(msg.createdAtMs)}
-                                </span>
-                                {isMine && !msg.isDeleted && (
-                                  <span className="inline-flex items-center">
-                                    {isReadByOthers ? (
-                                      <CheckCheck
-                                        className="size-4 text-[#38bdf8] stroke-[2.6]"
-                                        aria-label="Read"
-                                      />
-                                    ) : isDeliveredToOthers ? (
-                                      <CheckCheck
-                                        className="size-4 text-white/95 stroke-[2.2]"
-                                        aria-label="Delivered"
-                                      />
-                                    ) : (
-                                      <Check
-                                        className="size-3.5 text-white/85 stroke-[2.2]"
-                                        aria-label="Sent"
-                                      />
-                                    )}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Media Attachment: Shared Location Card */}
-                        {msg.mediaType === 'location' && msg.locationMeta && (
-                          <div
-                            onClick={(e) => e.stopPropagation()}
-                            className="my-0.5 w-[240px] sm:w-[260px] overflow-hidden rounded-xl border border-border/70 bg-background/60 dark:border-[#262a33] dark:bg-[#0a0b0e]/70"
-                          >
-                            <div className="relative flex h-24 items-center justify-center bg-[radial-gradient(circle_at_50%_45%,rgba(16,185,129,0.28),rgba(15,23,42,0.12)_72%)] dark:bg-[radial-gradient(circle_at_50%_45%,rgba(16,185,129,0.32),rgba(10,15,22,0.92)_75%)]">
-                              <div className="flex size-11 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-900/30">
-                                <MapPin className="size-5" aria-hidden="true" />
-                              </div>
-                            </div>
-                            <div className="p-2.5">
-                              <p className="truncate text-xs font-bold">{msg.locationMeta.label}</p>
-                              {msg.locationMeta.address && (
-                                <p className="mt-0.5 line-clamp-2 text-[11px] opacity-75">
-                                  {msg.locationMeta.address}
-                                </p>
-                              )}
-                              <a
-                                href={`https://www.google.com/maps?q=${msg.locationMeta.latitude},${msg.locationMeta.longitude}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600/15 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-600/25 dark:bg-emerald-500/20 dark:text-emerald-300"
-                              >
-                                <ExternalLink className="size-3.5" aria-hidden="true" />
-                                <span>Open in Maps</span>
-                              </a>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Media Attachment: Shared ICS Academy Contact Card */}
-                        {msg.mediaType === 'contact' && msg.contactMeta && (() => {
-                          const cm = msg.contactMeta
-                          const initials = cm.name
-                            .split(/\s+/)
-                            .filter(Boolean)
-                            .slice(0, 2)
-                            .map((p) => p[0]?.toUpperCase() || '')
-                            .join('')
-                          const directRoomId = makeDirectRoomId(actor.id, cm.actorId)
-                          const isSelfContact = cm.actorId === actor.id
-                          return (
-                            <div
-                              onClick={(e) => e.stopPropagation()}
-                              className="my-0.5 w-[235px] sm:w-[255px] overflow-hidden rounded-xl border border-border/70 bg-background/60 dark:border-[#262a33] dark:bg-[#0a0b0e]/70"
-                            >
-                              <div className="flex items-center gap-2.5 p-2.5">
-                                <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-cyan/15 font-poppins text-xs font-bold text-cyan">
-                                  {cm.avatarUrl ? (
-                                    <img
-                                      src={cm.avatarUrl}
-                                      alt={cm.name}
-                                      className="size-full object-cover object-top"
-                                    />
-                                  ) : (
-                                    initials || 'IC'
-                                  )}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="truncate text-xs font-bold">{cm.name}</p>
-                                  <p className="truncate text-[10.5px] opacity-75">
-                                    {cm.subtitle ||
-                                      (cm.role === 'principal'
-                                        ? 'Principal'
-                                        : cm.role === 'usthad'
-                                          ? 'Usthad'
-                                          : 'Student')}
-                                  </p>
-                                </div>
-                              </div>
-                              {!isSelfContact && cm.actorId && (
-                                <div className="grid grid-cols-2 divide-x divide-border/70 border-t border-border/70 dark:divide-[#262a33] dark:border-[#262a33]">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedRoomId(directRoomId)
-                                      setMobileShowChatPane(true)
-                                    }}
-                                    className="flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/10 dark:text-emerald-300"
-                                  >
-                                    <MessageSquareText className="size-3.5" aria-hidden="true" />
-                                    <span>Message</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={Boolean(activeCall)}
-                                    onClick={() => {
-                                      void startCall(
-                                        {
-                                          id: cm.actorId,
-                                          name: cm.name,
-                                          role: cm.role,
-                                          subtitle: cm.subtitle,
-                                          roomId: directRoomId,
-                                          avatarUrl: cm.avatarUrl,
-                                        },
-                                        'voice',
-                                      )
-                                    }}
-                                    className="flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/10 disabled:opacity-40 dark:text-emerald-300"
-                                  >
-                                    <Phone className="size-3.5" aria-hidden="true" />
-                                    <span>Call</span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })()}
-
-                        {/* Media Attachment: Live Interactive Poll Card */}
-                        {msg.mediaType === 'poll' && msg.pollMeta && (() => {
-                          const pm = msg.pollMeta
-                          const votesMap = pm.votes || {}
-                          const allUniqueVoters = new Set<string>()
-                          for (const voters of Object.values(votesMap)) {
-                            if (Array.isArray(voters)) {
-                              for (const v of voters) allUniqueVoters.add(v)
-                            }
-                          }
-                          const totalVoters = allUniqueVoters.size
-
-                          return (
-                            <div
-                              onClick={(e) => e.stopPropagation()}
-                              className="my-0.5 w-[245px] sm:w-[275px] rounded-xl border border-border/70 bg-background/55 p-3 dark:border-[#262a33] dark:bg-[#0a0b0e]/70"
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <p className="text-xs font-bold leading-snug sm:text-[13px]">
-                                  {pm.question}
-                                </p>
-                                <BarChart3
-                                  className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
-                                  aria-hidden="true"
-                                />
-                              </div>
-                              <p className="mt-0.5 text-[10px] opacity-70">
-                                {pm.allowMultiple ? 'Select one or more' : 'Select one'}
-                              </p>
-
-                              <div className="mt-2.5 flex flex-col gap-2">
-                                {pm.options.map((opt) => {
-                                  const optVoters = Array.isArray(votesMap[opt.id])
-                                    ? votesMap[opt.id]
-                                    : []
-                                  const votedByMe = optVoters.includes(actor.id)
-                                  const pct =
-                                    totalVoters > 0
-                                      ? Math.round((optVoters.length / totalVoters) * 100)
-                                      : 0
-                                  return (
-                                    <button
-                                      key={opt.id}
-                                      type="button"
-                                      onClick={() => handleVotePoll(msg, opt.id)}
-                                      className="group w-full text-left"
-                                    >
-                                      <div className="flex items-center justify-between gap-2">
-                                        <span className="flex min-w-0 items-center gap-2">
-                                          <span
-                                            className={cn(
-                                              'flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors',
-                                              votedByMe
-                                                ? 'border-emerald-500 bg-emerald-500 text-white'
-                                                : 'border-foreground/35 group-hover:border-emerald-500',
-                                            )}
-                                          >
-                                            {votedByMe && (
-                                              <Check
-                                                className="size-2.5 stroke-[3]"
-                                                aria-hidden="true"
-                                              />
-                                            )}
-                                          </span>
-                                          <span className="truncate text-xs font-medium">
-                                            {opt.text}
-                                          </span>
-                                        </span>
-                                        <span className="shrink-0 font-poppins text-[10.5px] font-semibold tabular-nums opacity-80">
-                                          {optVoters.length}
-                                        </span>
-                                      </div>
-                                      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-foreground/12">
-                                        <div
-                                          className="h-full rounded-full bg-emerald-500 transition-all duration-300"
-                                          style={{ width: `${pct}%` }}
-                                        />
-                                      </div>
-                                    </button>
-                                  )
-                                })}
-                              </div>
-
                               <button
                                 type="button"
-                                onClick={() => setPollVotesViewerMsgId(msg.id)}
-                                className="mt-2.5 w-full border-t border-border/60 pt-2 text-center text-[11px] font-semibold text-emerald-700 transition-colors hover:text-emerald-600 dark:border-[#262a33] dark:text-emerald-300"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (isSelectionActive) {
+                                    toggleSelectMessage(msg.id)
+                                    return
+                                  }
+                                  handleOpenOrDownloadPdf(msg)
+                                }}
+                                className={cn(
+                                  'inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-[11px] font-bold transition-colors',
+                                  isMine
+                                    ? 'bg-white/20 text-white hover:bg-white/30'
+                                    : 'bg-violet-600 text-white hover:bg-violet-700',
+                                )}
                               >
-                                View votes ({totalVoters})
+                                <Download className="size-3.5" aria-hidden="true" />
+                                <span>PDF</span>
                               </button>
                             </div>
-                          )
-                        })()}
+                          )}
 
-                        {/* Message Body Text (Never shown for voice notes, call cards, location, contact, or poll cards) */}
-                        {msg.mediaType !== 'voice' &&
-                          msg.mediaType !== 'call' &&
-                          msg.mediaType !== 'location' &&
-                          msg.mediaType !== 'contact' &&
-                          msg.mediaType !== 'poll' &&
-                          msg.text && (
-                            <p
+                          {/* Media Attachment: Borderless Instagram-Curved Photo with Preserved HD Badge */}
+                          {msg.mediaType === 'image' && msg.mediaUrl && (
+                            <div className="relative overflow-hidden rounded-[20px]">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (isSelectionActive) {
+                                    toggleSelectMessage(msg.id)
+                                    return
+                                  }
+                                  setLightboxImage({
+                                    messageId: msg.id,
+                                    url: msg.mediaUrl!,
+                                    name: msg.mediaName || 'Campus Photo',
+                                    quality: msg.imageQuality,
+                                    dimensions: msg.imageDimensions,
+                                  })
+                                }}
+                                className="block w-full text-left"
+                              >
+                                <img
+                                  src={msg.mediaUrl}
+                                  alt={msg.mediaName || 'Shared attachment'}
+                                  referrerPolicy="no-referrer"
+                                  className="block max-h-80 w-full rounded-[20px] object-cover"
+                                />
+                              </button>
+
+                              {/* Preserved HD Badge on Bottom-Left of Photo */}
+                              {msg.imageQuality === 'hd' && (
+                                <span
+                                  title={
+                                    msg.imageDimensions
+                                      ? `HD Photo (${msg.imageDimensions})`
+                                      : 'HD Quality Photo'
+                                  }
+                                  className="pointer-events-none absolute bottom-2 left-2.5 inline-flex items-center justify-center rounded-md border border-white/80 bg-black/60 px-1.5 py-0.5 font-poppins text-[9px] font-bold tracking-wider text-white backdrop-blur-[2px]"
+                                >
+                                  HD
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Media Attachment: Shared Location Card */}
+                          {msg.mediaType === 'location' && msg.locationMeta && (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
                               className={cn(
-                                'whitespace-pre-wrap break-words pr-1 leading-relaxed',
-                                isImageMessage && 'px-2.5 pt-1.5',
-                                chatSettings.chatFontSize === 'small'
-                                  ? 'text-[11.5px] sm:text-xs'
-                                  : chatSettings.chatFontSize === 'large'
-                                    ? 'text-sm sm:text-[15px]'
-                                    : 'text-xs sm:text-[13.5px]',
+                                'w-[240px] sm:w-[260px] overflow-hidden rounded-2xl',
+                                isMine
+                                  ? 'bg-black/20 text-white'
+                                  : 'bg-white/80 dark:bg-black/35',
                               )}
                             >
-                              {msg.text}
-                            </p>
+                              <div className="relative flex h-24 items-center justify-center bg-[radial-gradient(circle_at_50%_45%,rgba(124,58,237,0.34),rgba(15,23,42,0.16)_72%)] dark:bg-[radial-gradient(circle_at_50%_45%,rgba(124,58,237,0.38),rgba(0,0,0,0.92)_75%)]">
+                                <div className="flex size-11 items-center justify-center rounded-full bg-violet-600 text-white shadow-lg shadow-violet-900/40">
+                                  <MapPin className="size-5" aria-hidden="true" />
+                                </div>
+                              </div>
+                              <div className="p-2.5">
+                                <p className="truncate text-xs font-bold">{msg.locationMeta.label}</p>
+                                {msg.locationMeta.address && (
+                                  <p className="mt-0.5 line-clamp-2 text-[11px] opacity-80">
+                                    {msg.locationMeta.address}
+                                  </p>
+                                )}
+                                <a
+                                  href={`https://www.google.com/maps?q=${msg.locationMeta.latitude},${msg.locationMeta.longitude}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={cn(
+                                    'mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition-colors',
+                                    isMine
+                                      ? 'bg-white/20 text-white hover:bg-white/30'
+                                      : 'bg-violet-600/15 text-violet-700 hover:bg-violet-600/25 dark:bg-violet-500/25 dark:text-violet-200',
+                                  )}
+                                >
+                                  <ExternalLink className="size-3.5" aria-hidden="true" />
+                                  <span>Open in Maps</span>
+                                </a>
+                              </div>
+                            </div>
                           )}
-                      </>
-                    )}
 
-                    {/* Timestamp, Star, Pin & WhatsApp Double Tick for non-voice & non-captionless-image messages */}
-                    {msg.mediaType !== 'voice' && !isImageOnlyWithoutCaption && (
-                      <div
-                        className={cn(
-                          'mt-1 flex items-center justify-end gap-1 text-[10px] opacity-85',
-                          isImageMessage && 'px-2 pb-0.5',
-                        )}
-                      >
-                        {isStarred && (
-                          <Star
-                            className="size-3 fill-amber-400 text-amber-500 dark:text-amber-300"
-                            aria-label="Starred message"
-                          />
-                        )}
-                        {isPinned && (
-                          <Pin className="size-3 opacity-80" aria-label="Pinned message" />
-                        )}
-                        <span className="font-poppins tabular-nums opacity-80">
-                          {formatChatTime(msg.createdAtMs)}
-                        </span>
-                        {isMine && !msg.isDeleted && (
-                          <span
-                            title={
-                              isReadByOthers
-                                ? `Seen / Read`
-                                : isDeliveredToOthers
-                                  ? 'Delivered'
-                                  : 'Sent'
+                          {/* Media Attachment: Shared ICS Academy Contact Card */}
+                          {msg.mediaType === 'contact' && msg.contactMeta && (() => {
+                            const cm = msg.contactMeta
+                            const formattedContactName = formatMessengerDisplayName(cm.name, cm.role)
+                            const initials = getMessengerAvatarText(formattedContactName)
+                            const directRoomId = makeDirectRoomId(actor.id, cm.actorId)
+                            const isSelfContact = cm.actorId === actor.id
+                            return (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className={cn(
+                                  'w-[235px] sm:w-[255px] overflow-hidden rounded-2xl',
+                                  isMine
+                                    ? 'bg-black/20 text-white'
+                                    : 'bg-white/80 dark:bg-black/35',
+                                )}
+                              >
+                                <div className="flex items-center gap-2.5 p-2.5">
+                                  <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-violet-500/20 font-poppins text-xs font-bold text-violet-300">
+                                    {cm.avatarUrl ? (
+                                      <img
+                                        src={cm.avatarUrl}
+                                        alt={formattedContactName}
+                                        className="size-full object-cover object-top"
+                                      />
+                                    ) : (
+                                      initials || 'IC'
+                                    )}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-xs font-bold">
+                                      {formattedContactName}
+                                    </p>
+                                    <p className="truncate text-[10.5px] opacity-75">
+                                      {cm.subtitle ||
+                                        (cm.role === 'principal'
+                                          ? 'Principal'
+                                          : cm.role === 'usthad'
+                                            ? 'Usthad'
+                                            : 'Student')}
+                                    </p>
+                                  </div>
+                                </div>
+                                {!isSelfContact && cm.actorId && (
+                                  <div
+                                    className={cn(
+                                      'grid grid-cols-2 divide-x border-t',
+                                      isMine
+                                        ? 'divide-white/15 border-white/15'
+                                        : 'divide-border/70 border-border/70 dark:divide-white/10 dark:border-white/10',
+                                    )}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedRoomId(directRoomId)
+                                        setMobileShowChatPane(true)
+                                      }}
+                                      className={cn(
+                                        'flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold transition-colors',
+                                        isMine
+                                          ? 'text-white hover:bg-white/10'
+                                          : 'text-violet-700 hover:bg-violet-500/10 dark:text-violet-300',
+                                      )}
+                                    >
+                                      <MessageSquareText className="size-3.5" aria-hidden="true" />
+                                      <span>Message</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={Boolean(activeCall)}
+                                      onClick={() => {
+                                        void startCall(
+                                          {
+                                            id: cm.actorId,
+                                            name: formattedContactName,
+                                            role: cm.role,
+                                            subtitle: cm.subtitle,
+                                            roomId: directRoomId,
+                                            avatarUrl: cm.avatarUrl,
+                                          },
+                                          'voice',
+                                        )
+                                      }}
+                                      className={cn(
+                                        'flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold transition-colors disabled:opacity-40',
+                                        isMine
+                                          ? 'text-white hover:bg-white/10'
+                                          : 'text-violet-700 hover:bg-violet-500/10 dark:text-violet-300',
+                                      )}
+                                    >
+                                      <Phone className="size-3.5" aria-hidden="true" />
+                                      <span>Call</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })()}
+
+                          {/* Media Attachment: Live Interactive Poll Card */}
+                          {msg.mediaType === 'poll' && msg.pollMeta && (() => {
+                            const pm = msg.pollMeta
+                            const votesMap = pm.votes || {}
+                            const allUniqueVoters = new Set<string>()
+                            for (const voters of Object.values(votesMap)) {
+                              if (Array.isArray(voters)) {
+                                for (const v of voters) allUniqueVoters.add(v)
+                              }
                             }
-                            className="inline-flex items-center"
-                          >
-                            {isReadByOthers ? (
-                              <CheckCheck
-                                className="size-4 text-[#0095f6] dark:text-[#53bdeb] stroke-[2.6]"
-                                aria-label="Read"
-                              />
-                            ) : isDeliveredToOthers ? (
-                              <CheckCheck
-                                className="size-4 text-zinc-500 dark:text-zinc-300 stroke-[2.2]"
-                                aria-label="Delivered"
-                              />
-                            ) : (
-                              <Check
-                                className="size-3.5 text-zinc-500/80 dark:text-zinc-300 stroke-[2.2]"
-                                aria-label="Sent"
-                              />
+                            const totalVoters = allUniqueVoters.size
+
+                            return (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className={cn(
+                                  'w-[245px] sm:w-[275px] rounded-2xl p-3',
+                                  isMine
+                                    ? 'bg-black/20 text-white'
+                                    : 'bg-white/80 dark:bg-black/35',
+                                )}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <p className="text-xs font-bold leading-snug sm:text-[13px]">
+                                    {pm.question}
+                                  </p>
+                                  <BarChart3
+                                    className={cn(
+                                      'size-4 shrink-0',
+                                      isMine
+                                        ? 'text-white/90'
+                                        : 'text-violet-600 dark:text-violet-400',
+                                    )}
+                                    aria-hidden="true"
+                                  />
+                                </div>
+                                <p className="mt-0.5 text-[10px] opacity-75">
+                                  {pm.allowMultiple ? 'Select one or more' : 'Select one'}
+                                </p>
+
+                                <div className="mt-2.5 flex flex-col gap-2">
+                                  {pm.options.map((opt) => {
+                                    const optVoters = Array.isArray(votesMap[opt.id])
+                                      ? votesMap[opt.id]
+                                      : []
+                                    const votedByMe = optVoters.includes(actor.id)
+                                    const pct =
+                                      totalVoters > 0
+                                        ? Math.round((optVoters.length / totalVoters) * 100)
+                                        : 0
+                                    return (
+                                      <button
+                                        key={opt.id}
+                                        type="button"
+                                        onClick={() => handleVotePoll(msg, opt.id)}
+                                        className="group w-full text-left"
+                                      >
+                                        <div className="flex items-center justify-between gap-2">
+                                          <span className="flex min-w-0 items-center gap-2">
+                                            <span
+                                              className={cn(
+                                                'flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors',
+                                                votedByMe
+                                                  ? isMine
+                                                    ? 'border-white bg-white text-violet-700'
+                                                    : 'border-violet-500 bg-violet-500 text-white'
+                                                  : isMine
+                                                    ? 'border-white/50 group-hover:border-white'
+                                                    : 'border-foreground/35 group-hover:border-violet-500',
+                                              )}
+                                            >
+                                              {votedByMe && (
+                                                <Check
+                                                  className="size-2.5 stroke-[3]"
+                                                  aria-hidden="true"
+                                                />
+                                              )}
+                                            </span>
+                                            <span className="truncate text-xs font-medium">
+                                              {opt.text}
+                                            </span>
+                                          </span>
+                                          <span className="shrink-0 font-poppins text-[10.5px] font-semibold tabular-nums opacity-85">
+                                            {optVoters.length}
+                                          </span>
+                                        </div>
+                                        <div
+                                          className={cn(
+                                            'mt-1.5 h-1.5 w-full overflow-hidden rounded-full',
+                                            isMine ? 'bg-white/20' : 'bg-foreground/12',
+                                          )}
+                                        >
+                                          <div
+                                            className={cn(
+                                              'h-full rounded-full transition-all duration-300',
+                                              isMine ? 'bg-white' : 'bg-violet-500',
+                                            )}
+                                            style={{ width: `${pct}%` }}
+                                          />
+                                        </div>
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setPollVotesViewerMsgId(msg.id)}
+                                  className={cn(
+                                    'mt-2.5 w-full border-t pt-2 text-center text-[11px] font-semibold transition-colors',
+                                    isMine
+                                      ? 'border-white/15 text-white/95 hover:text-white'
+                                      : 'border-border/60 text-violet-700 hover:text-violet-600 dark:border-white/10 dark:text-violet-300',
+                                  )}
+                                >
+                                  View votes ({totalVoters})
+                                </button>
+                              </div>
+                            )
+                          })()}
+
+                          {/* Message Body Text (Clean inside bubble — no clutter) */}
+                          {msg.mediaType !== 'voice' &&
+                            msg.mediaType !== 'call' &&
+                            msg.mediaType !== 'location' &&
+                            msg.mediaType !== 'contact' &&
+                            msg.mediaType !== 'poll' &&
+                            msg.text && (
+                              <p
+                                className={cn(
+                                  'whitespace-pre-wrap break-words leading-snug',
+                                  isImageMessage && 'px-3 py-2',
+                                  chatSettings.chatFontSize === 'small'
+                                    ? 'text-[12.5px] sm:text-[13px]'
+                                    : chatSettings.chatFontSize === 'large'
+                                      ? 'text-[15.5px] sm:text-base'
+                                      : 'text-[14px] sm:text-[14.5px]',
+                                )}
+                              >
+                                {msg.text}
+                              </p>
                             )}
+                        </div>
+                      </div>
+
+                      {/* Clean Below-Group IST Timestamp, Star/Pin & Read Ticks */}
+                      {showBelowGroupMeta && (
+                        <div
+                          className={cn(
+                            'mt-1 flex items-center gap-1 text-[10px] text-muted-foreground/80 dark:text-zinc-500',
+                            isMine ? 'justify-end pr-1' : 'justify-start pl-9',
+                          )}
+                        >
+                          {isStarred && (
+                            <Star
+                              className="size-2.5 fill-amber-400 text-amber-500 dark:text-amber-400"
+                              aria-label="Starred message"
+                            />
+                          )}
+                          {isPinned && (
+                            <Pin className="size-2.5 opacity-80" aria-label="Pinned message" />
+                          )}
+                          <span className="font-poppins tabular-nums">
+                            {formatChatTime(msg.createdAtMs)}
+                          </span>
+                          {isMine && (
+                            <span
+                              title={
+                                isReadByOthers
+                                  ? 'Seen / Read'
+                                  : isDeliveredToOthers
+                                    ? 'Delivered'
+                                    : 'Sent'
+                              }
+                              className="inline-flex items-center"
+                            >
+                              {isReadByOthers ? (
+                                <CheckCheck
+                                  className="size-3.5 text-[#38bdf8] stroke-[2.5]"
+                                  aria-label="Read"
+                                />
+                              ) : isDeliveredToOthers ? (
+                                <CheckCheck
+                                  className="size-3.5 text-muted-foreground/80 dark:text-zinc-400 stroke-[2.2]"
+                                  aria-label="Delivered"
+                                />
+                              ) : (
+                                <Check
+                                  className="size-3 text-muted-foreground/70 dark:text-zinc-500 stroke-[2.2]"
+                                  aria-label="Sent"
+                                />
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Quick Floating Emoji Reaction Bar (Shown when 1 message is selected) */}
+                      {showSingleReactionPill && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className={cn(
+                            'z-20 mt-1.5 flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 shadow-lg dark:border-white/15 dark:bg-[#1c1c1e]',
+                            isMine ? 'self-end' : 'self-start ml-9',
+                          )}
+                        >
+                          {QUICK_REACTIONS.map((emoji) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => handleToggleReaction(msg.id, emoji)}
+                              className="rounded-full p-1 text-base transition-transform hover:scale-125 active:scale-95"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Existing Emoji Reactions Row */}
+                      {reactionEntries.length > 0 && (
+                        <div
+                          className={cn(
+                            'mt-1 flex flex-wrap items-center gap-1',
+                            isMine ? 'justify-end' : 'justify-start pl-9',
+                          )}
+                        >
+                          {reactionEntries.map(([emoji, reactorIds]) => {
+                            const iReacted = reactorIds.includes(actor.id)
+                            return (
+                              <button
+                                key={emoji}
+                                type="button"
+                                onClick={() => handleToggleReaction(msg.id, emoji)}
+                                className={cn(
+                                  'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors',
+                                  iReacted
+                                    ? 'border-violet-500/45 bg-violet-500/15 text-foreground dark:border-violet-400/40 dark:bg-violet-500/20 dark:text-zinc-100'
+                                    : 'border-border bg-card/90 text-muted-foreground hover:text-foreground dark:border-white/10 dark:bg-[#1c1c1e]',
+                                )}
+                              >
+                                <span>{emoji}</span>
+                                <span className="font-poppins text-[10px] tabular-nums">
+                                  {reactorIds.length}
+                                </span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Reply Preview Banner or Pending Media Preview (Preserves HD / Standard Toggle) */}
+              {(replyingTo || pendingAttachment) && (
+                <div className="flex items-center justify-between gap-2 border-t border-border bg-card/95 px-3.5 py-2 dark:border-white/10 dark:bg-[#121212]">
+                  {replyingTo ? (
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-bold text-violet-600 dark:text-violet-400">
+                        Replying to {formatMessengerDisplayName(replyingTo.senderName)}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {replyingTo.previewText}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {pendingAttachment ? (
+                    <div className="flex min-w-0 flex-1 items-center justify-between gap-2.5">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        {pendingAttachment.mediaType === 'image' ? (
+                          <img
+                            src={pendingAttachment.mediaUrl}
+                            alt={pendingAttachment.mediaName}
+                            referrerPolicy="no-referrer"
+                            className="size-9 shrink-0 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground dark:border-white/10 dark:bg-[#1e1e22]">
+                            <FileText className="size-4" aria-hidden="true" />
                           </span>
                         )}
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-bold text-foreground">
+                            {pendingAttachment.mediaName}
+                          </p>
+                          <p className="truncate text-[10px] text-muted-foreground">
+                            {pendingAttachment.mediaSizeLabel}
+                            {pendingAttachment.imageDimensions
+                              ? ` • ${pendingAttachment.imageDimensions}`
+                              : ''}{' '}
+                            • Ready to send
+                          </p>
+                        </div>
                       </div>
-                    )}
-                  </div>
 
-                  {/* Quick Floating Emoji Reaction Bar (Shown when 1 non-deleted message is selected) */}
-                  {showSingleReactionPill && (
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className={cn(
-                        'z-20 mt-1.5 flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 shadow-lg dark:border-[#262a33] dark:bg-[#121418]',
-                        isMine ? 'self-end' : 'self-start',
-                      )}
-                    >
-                      {QUICK_REACTIONS.map((emoji) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          onClick={() => handleToggleReaction(msg.id, emoji)}
-                          className="rounded-full p-1 text-base transition-transform hover:scale-125 active:scale-95"
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Existing Emoji Reactions Row */}
-                  {reactionEntries.length > 0 && (
-                    <div className="mt-1 flex flex-wrap items-center gap-1">
-                      {reactionEntries.map(([emoji, reactorIds]) => {
-                        const iReacted = reactorIds.includes(actor.id)
-                        return (
+                      {pendingAttachment.mediaType === 'image' && (
+                        <div className="flex shrink-0 items-center gap-1 rounded-full border border-border bg-background/80 p-0.5 dark:border-white/15 dark:bg-black">
                           <button
-                            key={emoji}
                             type="button"
-                            onClick={() => handleToggleReaction(msg.id, emoji)}
+                            onClick={() => handleSelectPhotoQuality('standard')}
                             className={cn(
-                              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors',
-                              iReacted
-                                ? 'border-emerald-500/45 bg-emerald-500/15 text-foreground dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100'
-                                : 'border-border bg-card/80 text-muted-foreground hover:text-foreground dark:border-[#262a33] dark:bg-[#121418]',
+                              'rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors whitespace-nowrap',
+                              pendingAttachment.imageQuality !== 'hd'
+                                ? 'bg-violet-600 text-white'
+                                : 'text-muted-foreground hover:text-foreground',
                             )}
                           >
-                            <span>{emoji}</span>
-                            <span className="font-poppins text-[10px] tabular-nums">
-                              {reactorIds.length}
-                            </span>
+                            Standard
                           </button>
-                        )
-                      })}
+                          <button
+                            type="button"
+                            onClick={() => handleSelectPhotoQuality('hd')}
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors whitespace-nowrap',
+                              pendingAttachment.imageQuality === 'hd'
+                                ? 'bg-gradient-to-r from-[#c026d3] to-[#4f46e5] text-white'
+                                : 'text-muted-foreground hover:text-foreground',
+                            )}
+                          >
+                            <span>HD</span>
+                            {pendingAttachment.imageQuality === 'hd' && (
+                              <Check className="size-3" aria-hidden="true" />
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )
-            })}
-            <div ref={messagesEndRef} />
-          </div>
+                  ) : null}
 
-          {/* Reply Preview Banner or Pending Media Preview */}
-          {(replyingTo || pendingAttachment) && (
-            <div className="flex items-center justify-between gap-2 border-t border-border bg-card/95 px-3.5 py-2 dark:border-[#262a33] dark:bg-[#121418]">
-              {replyingTo ? (
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-bold text-emerald-700 dark:text-zinc-300">
-                    Replying to {replyingTo.senderName}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {replyingTo.previewText}
-                  </p>
-                </div>
-              ) : null}
-
-              {pendingAttachment ? (
-                <div className="flex min-w-0 flex-1 items-center justify-between gap-2.5">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    {pendingAttachment.mediaType === 'image' ? (
-                      <img
-                        src={pendingAttachment.mediaUrl}
-                        alt={pendingAttachment.mediaName}
-                        referrerPolicy="no-referrer"
-                        className="size-9 shrink-0 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground dark:border-[#262a33] dark:bg-[#1a1d24]">
-                        <FileText className="size-4" aria-hidden="true" />
-                      </span>
-                    )}
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-bold text-foreground">
-                        {pendingAttachment.mediaName}
-                      </p>
-                      <p className="truncate text-[10px] text-muted-foreground">
-                        {pendingAttachment.mediaSizeLabel}
-                        {pendingAttachment.imageDimensions
-                          ? ` • ${pendingAttachment.imageDimensions}`
-                          : ''}{' '}
-                        • Ready to send
-                      </p>
-                    </div>
-                  </div>
-
-                  {pendingAttachment.mediaType === 'image' && (
-                    <div className="flex shrink-0 items-center gap-1 rounded-xl border border-border bg-background/80 p-0.5 dark:border-[#262a33] dark:bg-[#0a0b0e]">
-                      <button
-                        type="button"
-                        onClick={() => handleSelectPhotoQuality('standard')}
-                        className={cn(
-                          'rounded-lg px-2 py-1 text-[10px] font-bold transition-colors whitespace-nowrap',
-                          pendingAttachment.imageQuality !== 'hd'
-                            ? 'bg-emerald-600 text-white dark:bg-[#222630] dark:text-zinc-100'
-                            : 'text-muted-foreground hover:text-foreground',
-                        )}
-                      >
-                        Standard
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSelectPhotoQuality('hd')}
-                        className={cn(
-                          'inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold transition-colors whitespace-nowrap',
-                          pendingAttachment.imageQuality === 'hd'
-                            ? 'bg-emerald-600 text-white dark:bg-[#25d366] dark:text-[#0a0b0e]'
-                            : 'text-muted-foreground hover:text-foreground',
-                        )}
-                      >
-                        <span>HD</span>
-                        {pendingAttachment.imageQuality === 'hd' && (
-                          <Check className="size-3" aria-hidden="true" />
-                        )}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setReplyingTo(null)
-                  setPendingAttachment(null)
-                }}
-                aria-label="Clear preview"
-                className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <X className="size-4" aria-hidden="true" />
-              </button>
-            </div>
-          )}
-
-          {/* Bottom Composer Bar OR Locked Group Banner */}
-          {activeRoomMeta.onlyAdminsCanPost && !actor.isStaff ? (
-            <div className="flex items-center justify-center gap-2 border-t border-border bg-card px-4 py-3.5 text-center text-xs font-semibold text-muted-foreground dark:border-[#262a33] dark:bg-[#121418]">
-              <Lock className="size-4 shrink-0" aria-hidden="true" />
-              <span>
-                Only Usthads and Principal can send messages in this group
-              </span>
-            </div>
-          ) : (
-            <div className="relative border-t border-border bg-card/95 p-2.5 sm:px-4 sm:py-3 dark:border-[#262a33] dark:bg-[#121418]">
-              {/* Hidden file inputs (Gallery, Camera, Document) */}
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleFileSelected(e, 'image')}
-                className="hidden"
-              />
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={(e) => handleFileSelected(e, 'image')}
-                className="hidden"
-              />
-              <input
-                ref={pdfInputRef}
-                type="file"
-                accept="application/pdf,.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx"
-                onChange={(e) => handleFileSelected(e, 'pdf')}
-                className="hidden"
-              />
-
-              {/* WhatsApp-Style 6-Option Attachment Grid (Gallery, Camera, Document, Location, Contact, Poll) */}
-              {showAttachMenu && (
-                <div
-                  ref={attachMenuRef}
-                  className="absolute bottom-16 left-2 right-2 sm:left-4 sm:right-auto sm:w-80 z-30 rounded-3xl border border-border bg-card/98 p-4 shadow-2xl backdrop-blur-xl dark:border-[#262a33] dark:bg-[#12161c]/98"
-                >
-                  <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-border/90" />
-                  <div className="grid grid-cols-3 gap-x-2 gap-y-4">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAttachMenu(false)
-                        imageInputRef.current?.click()
-                      }}
-                      className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
-                    >
-                      <span className="flex size-12 items-center justify-center rounded-full bg-blue-500/15 text-blue-500 dark:bg-blue-500/20 dark:text-blue-400">
-                        <ImageIcon className="size-5" aria-hidden="true" />
-                      </span>
-                      <span className="text-[11px] font-medium text-foreground">Gallery</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAttachMenu(false)
-                        cameraInputRef.current?.click()
-                      }}
-                      className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
-                    >
-                      <span className="flex size-12 items-center justify-center rounded-full bg-rose-500/15 text-rose-500 dark:bg-rose-500/20 dark:text-rose-400">
-                        <Camera className="size-5" aria-hidden="true" />
-                      </span>
-                      <span className="text-[11px] font-medium text-foreground">Camera</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAttachMenu(false)
-                        pdfInputRef.current?.click()
-                      }}
-                      className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
-                    >
-                      <span className="flex size-12 items-center justify-center rounded-full bg-violet-500/15 text-violet-500 dark:bg-violet-500/20 dark:text-violet-400">
-                        <FileText className="size-5" aria-hidden="true" />
-                      </span>
-                      <span className="text-[11px] font-medium text-foreground">Document</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAttachMenu(false)
-                        setLocError(null)
-                        setLocCoords(null)
-                        setLocLabel('ICS Academy Manhappatta')
-                        setLocAddress("Manhappatta, Da'wa College Campus, Kerala")
-                        setShowLocationModal(true)
-                      }}
-                      className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
-                    >
-                      <span className="flex size-12 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-400">
-                        <MapPin className="size-5" aria-hidden="true" />
-                      </span>
-                      <span className="text-[11px] font-medium text-foreground">Location</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAttachMenu(false)
-                        setContactSearchQuery('')
-                        setShowContactModal(true)
-                      }}
-                      className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
-                    >
-                      <span className="flex size-12 items-center justify-center rounded-full bg-sky-500/15 text-sky-500 dark:bg-sky-500/20 dark:text-sky-400">
-                        <User className="size-5" aria-hidden="true" />
-                      </span>
-                      <span className="text-[11px] font-medium text-foreground">Contact</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAttachMenu(false)
-                        setPollQuestion('')
-                        setPollOptions(['', ''])
-                        setPollAllowMultiple(false)
-                        setShowPollModal(true)
-                      }}
-                      className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
-                    >
-                      <span className="flex size-12 items-center justify-center rounded-full bg-amber-500/15 text-amber-500 dark:bg-amber-500/20 dark:text-amber-400">
-                        <BarChart3 className="size-5" aria-hidden="true" />
-                      </span>
-                      <span className="text-[11px] font-medium text-foreground">Poll</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReplyingTo(null)
+                      setPendingAttachment(null)
+                    }}
+                    aria-label="Clear preview"
+                    className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                  </button>
                 </div>
               )}
 
-              {isRecordingVoice ? (
-                <div className="flex items-center justify-between gap-2 sm:gap-3 rounded-2xl border border-red-500/40 bg-red-500/10 px-3 py-2">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="size-2.5 shrink-0 rounded-full bg-red-500 animate-pulse" />
-                    <span className="truncate font-poppins text-xs font-bold tabular-nums text-red-500">
-                      Recording • {formatVoiceDuration(recordingSeconds)}
-                    </span>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-                    <button
-                      type="button"
-                      onClick={cancelVoiceRecording}
-                      className="inline-flex h-9 items-center gap-1 rounded-xl border border-border bg-background px-2.5 sm:px-3 text-xs font-semibold text-muted-foreground hover:text-foreground"
-                    >
-                      <Trash2 className="size-3.5" aria-hidden="true" />
-                      <span>Cancel</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={finishAndSendVoiceRecording}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-emerald-600 px-3 text-xs font-bold text-white hover:bg-emerald-700 dark:border dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100"
-                    >
-                      <Send className="size-3.5" aria-hidden="true" />
-                      <span>Send</span>
-                    </button>
-                  </div>
+              {/* Bottom Composer Bar OR Locked Group Banner — Instagram Pill Composer */}
+              {activeRoomMeta.onlyAdminsCanPost && !actor.isStaff ? (
+                <div className="flex items-center justify-center gap-2 border-t border-border bg-card px-4 py-3.5 text-center text-xs font-semibold text-muted-foreground dark:border-white/10 dark:bg-black">
+                  <Lock className="size-4 shrink-0" aria-hidden="true" />
+                  <span>
+                    Only Usthads and Principal can send messages in this group
+                  </span>
                 </div>
               ) : (
-                <form
-                  onSubmit={handleFormSubmit}
-                  className="flex min-w-0 w-full items-center gap-1.5 sm:gap-2"
-                >
-                  <button
-                    ref={attachButtonRef}
-                    type="button"
-                    onClick={() => {
-                      setSelectedMessageIds([])
-                      setShowSelectionMoreMenu(false)
-                      setShowSettingsModal(false)
-                      setShowNewChatModal(false)
-                      setShowAttachMenu((prev) => !prev)
-                    }}
-                    aria-label="Attach PDF or Photo"
-                    className={cn(
-                      'flex size-10 sm:size-11 shrink-0 items-center justify-center rounded-2xl border transition-colors',
-                      showAttachMenu
-                        ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100'
-                        : 'border-border bg-background text-muted-foreground hover:text-foreground dark:border-[#262a33] dark:bg-[#0a0b0e]',
-                    )}
-                  >
-                    <Paperclip className="size-4" aria-hidden="true" />
-                  </button>
-
+                <div className="relative bg-white px-2.5 pb-2.5 pt-1.5 sm:px-4 sm:pb-3 dark:bg-black">
+                  {/* Hidden file inputs (Gallery, Camera, Document) */}
                   <input
-                    type="text"
-                    value={inputText}
-                    onFocus={() => {
-                      setShowAttachMenu(false)
-                      setSelectedMessageIds([])
-                      setShowSelectionMoreMenu(false)
-                    }}
-                    onClick={() => {
-                      setShowAttachMenu(false)
-                      setSelectedMessageIds([])
-                      setShowSelectionMoreMenu(false)
-                    }}
-                    onChange={(e) => handleInputChange(e.target.value)}
-                    placeholder={
-                      pendingAttachment
-                        ? 'Add a caption....'
-                        : 'type a message....'
-                    }
-                    className="h-10 sm:h-11 min-w-0 flex-1 rounded-2xl border border-input bg-background px-3 sm:px-3.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 dark:focus:border-zinc-500 focus:outline-none sm:text-sm dark:border-[#262a33] dark:bg-[#0a0b0e]"
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleFileSelected(e, 'image')}
+                    className="hidden"
+                  />
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={(e) => handleFileSelected(e, 'image')}
+                    className="hidden"
+                  />
+                  <input
+                    ref={pdfInputRef}
+                    type="file"
+                    accept="application/pdf,.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx"
+                    onChange={(e) => handleFileSelected(e, 'pdf')}
+                    className="hidden"
                   />
 
-                  <button
-                    type="button"
-                    onClick={startVoiceRecording}
-                    title="Record a Voice Message (Audio)"
-                    aria-label="Record voice message"
-                    className="flex size-10 sm:size-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-background text-muted-foreground transition-colors hover:border-emerald-500 hover:text-emerald-600 dark:border-[#262a33] dark:bg-[#0a0b0e] dark:hover:border-zinc-500 dark:hover:text-foreground"
-                  >
-                    <Mic className="size-4" aria-hidden="true" />
-                  </button>
+                  {/* 6-Option Attachment Grid (Gallery, Camera, Document, Location, Contact, Poll) */}
+                  {showAttachMenu && (
+                    <div
+                      ref={attachMenuRef}
+                      className="absolute bottom-16 left-2 right-2 sm:left-4 sm:right-auto sm:w-80 z-30 rounded-3xl border border-border bg-card/98 p-4 shadow-2xl backdrop-blur-xl dark:border-white/15 dark:bg-[#16161a]/98"
+                    >
+                      <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-border/90 dark:bg-white/20" />
+                      <div className="grid grid-cols-3 gap-x-2 gap-y-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAttachMenu(false)
+                            imageInputRef.current?.click()
+                          }}
+                          className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
+                        >
+                          <span className="flex size-12 items-center justify-center rounded-full bg-blue-500/15 text-blue-500 dark:bg-blue-500/20 dark:text-blue-400">
+                            <ImageIcon className="size-5" aria-hidden="true" />
+                          </span>
+                          <span className="text-[11px] font-medium text-foreground">Gallery</span>
+                        </button>
 
-                  <button
-                    type="submit"
-                    onClick={() => {
-                      setShowAttachMenu(false)
-                      setSelectedMessageIds([])
-                      setShowSelectionMoreMenu(false)
-                    }}
-                    disabled={!inputText.trim() && !pendingAttachment}
-                    aria-label="Send message"
-                    className="flex size-10 sm:size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm transition-all hover:bg-emerald-700 disabled:opacity-40 dark:border dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100 dark:hover:bg-[#2a2f3b]"
-                  >
-                    <Send className="size-4" aria-hidden="true" />
-                  </button>
-                </form>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAttachMenu(false)
+                            cameraInputRef.current?.click()
+                          }}
+                          className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
+                        >
+                          <span className="flex size-12 items-center justify-center rounded-full bg-rose-500/15 text-rose-500 dark:bg-rose-500/20 dark:text-rose-400">
+                            <Camera className="size-5" aria-hidden="true" />
+                          </span>
+                          <span className="text-[11px] font-medium text-foreground">Camera</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAttachMenu(false)
+                            pdfInputRef.current?.click()
+                          }}
+                          className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
+                        >
+                          <span className="flex size-12 items-center justify-center rounded-full bg-violet-500/15 text-violet-500 dark:bg-violet-500/20 dark:text-violet-400">
+                            <FileText className="size-5" aria-hidden="true" />
+                          </span>
+                          <span className="text-[11px] font-medium text-foreground">Document</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAttachMenu(false)
+                            setLocError(null)
+                            setLocCoords(null)
+                            setLocLabel('ICS Academy Manhappatta')
+                            setLocAddress("Manhappatta, Da'wa College Campus, Kerala")
+                            setShowLocationModal(true)
+                          }}
+                          className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
+                        >
+                          <span className="flex size-12 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-400">
+                            <MapPin className="size-5" aria-hidden="true" />
+                          </span>
+                          <span className="text-[11px] font-medium text-foreground">Location</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAttachMenu(false)
+                            setContactSearchQuery('')
+                            setShowContactModal(true)
+                          }}
+                          className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
+                        >
+                          <span className="flex size-12 items-center justify-center rounded-full bg-sky-500/15 text-sky-500 dark:bg-sky-500/20 dark:text-sky-400">
+                            <User className="size-5" aria-hidden="true" />
+                          </span>
+                          <span className="text-[11px] font-medium text-foreground">Contact</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAttachMenu(false)
+                            setPollQuestion('')
+                            setPollOptions(['', ''])
+                            setPollAllowMultiple(false)
+                            setShowPollModal(true)
+                          }}
+                          className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
+                        >
+                          <span className="flex size-12 items-center justify-center rounded-full bg-amber-500/15 text-amber-500 dark:bg-amber-500/20 dark:text-amber-400">
+                            <BarChart3 className="size-5" aria-hidden="true" />
+                          </span>
+                          <span className="text-[11px] font-medium text-foreground">Poll</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {isRecordingVoice ? (
+                    <div className="flex items-center justify-between gap-2 sm:gap-3 rounded-full border border-red-500/40 bg-red-500/10 px-3.5 py-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="size-2.5 shrink-0 rounded-full bg-red-500 animate-pulse" />
+                        <span className="truncate font-poppins text-xs font-bold tabular-nums text-red-500">
+                          Recording • {formatVoiceDuration(recordingSeconds)}
+                        </span>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                        <button
+                          type="button"
+                          onClick={cancelVoiceRecording}
+                          className="inline-flex h-8 items-center gap-1 rounded-full border border-border bg-background px-3 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                        >
+                          <Trash2 className="size-3.5" aria-hidden="true" />
+                          <span>Cancel</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={finishAndSendVoiceRecording}
+                          className="inline-flex h-8 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#c026d3] via-[#7c3aed] to-[#4f46e5] px-3.5 text-xs font-bold text-white shadow-xs"
+                        >
+                          <Send className="size-3.5" aria-hidden="true" />
+                          <span>Send</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <form
+                      onSubmit={handleFormSubmit}
+                      className="flex min-w-0 w-full items-center gap-1.5 rounded-full border border-border/80 bg-[#efefef] p-1.5 transition-colors focus-within:border-violet-500/70 dark:border-white/10 dark:bg-[#262626]"
+                    >
+                      <button
+                        ref={attachButtonRef}
+                        type="button"
+                        onClick={() => {
+                          setSelectedMessageIds([])
+                          setShowSelectionMoreMenu(false)
+                          setShowSettingsModal(false)
+                          setShowNewChatModal(false)
+                          setShowAttachMenu((prev) => !prev)
+                        }}
+                        aria-label="Attach Media, Document, Location, Contact, or Poll"
+                        className={cn(
+                          'flex size-9 shrink-0 items-center justify-center rounded-full transition-all',
+                          showAttachMenu
+                            ? 'bg-gradient-to-br from-[#c026d3] to-[#4f46e5] text-white shadow-sm'
+                            : 'bg-[#4f46e5] text-white hover:opacity-90',
+                        )}
+                      >
+                        <Paperclip className="size-4" aria-hidden="true" />
+                      </button>
+
+                      <input
+                        type="text"
+                        value={inputText}
+                        onFocus={() => {
+                          setShowAttachMenu(false)
+                          setSelectedMessageIds([])
+                          setShowSelectionMoreMenu(false)
+                        }}
+                        onClick={() => {
+                          setShowAttachMenu(false)
+                          setSelectedMessageIds([])
+                          setShowSelectionMoreMenu(false)
+                        }}
+                        onChange={(e) => handleInputChange(e.target.value)}
+                        placeholder={
+                          pendingAttachment
+                            ? 'Add a caption...'
+                            : 'Message...'
+                        }
+                        className="h-9 min-w-0 flex-1 bg-transparent px-2 text-[13.5px] text-foreground placeholder:text-muted-foreground focus:outline-none sm:text-sm dark:text-white dark:placeholder:text-zinc-400"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={startVoiceRecording}
+                        title="Record a Voice Message (Audio)"
+                        aria-label="Record voice message"
+                        className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
+                      >
+                        <Mic className="size-[18px]" aria-hidden="true" />
+                      </button>
+
+                      <button
+                        type="submit"
+                        onClick={() => {
+                          setShowAttachMenu(false)
+                          setSelectedMessageIds([])
+                          setShowSelectionMoreMenu(false)
+                        }}
+                        disabled={!inputText.trim() && !pendingAttachment}
+                        aria-label="Send message"
+                        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#c026d3] via-[#7c3aed] to-[#4f46e5] text-white shadow-sm transition-all hover:opacity-95 disabled:opacity-35"
+                      >
+                        <Send className="size-4" aria-hidden="true" />
+                      </button>
+                    </form>
+                  )}
+                </div>
               )}
-            </div>
-          )}
             </>
           )}
         </div>
@@ -7510,6 +7629,7 @@ export function CampusMessenger({
                   if (fq) {
                     return (
                       r.title.toLowerCase().includes(fq) ||
+                      (r.searchName || '').toLowerCase().includes(fq) ||
                       r.subtitle.toLowerCase().includes(fq) ||
                       (r.batchName || '').toLowerCase().includes(fq)
                     )
@@ -7658,8 +7778,11 @@ export function CampusMessenger({
                     className="rounded-2xl border border-border bg-background/70 p-3.5 transition-colors hover:bg-muted/40 dark:border-[#262a33] dark:bg-[#0a0b0e]"
                   >
                     <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px]">
-                      <span className="truncate font-bold text-emerald-700 dark:text-emerald-400">
-                        {msg.senderId === actor.id ? 'You' : msg.senderName} • {roomTitle}
+                      <span className="truncate font-bold text-violet-700 dark:text-violet-400">
+                        {msg.senderId === actor.id
+                          ? 'You'
+                          : formatMessengerDisplayName(msg.senderName, msg.senderRole)}{' '}
+                        • {roomTitle}
                       </span>
                       <div className="flex shrink-0 items-center gap-1.5">
                         <span className="text-[10px] text-muted-foreground">
