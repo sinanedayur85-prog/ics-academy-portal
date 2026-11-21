@@ -17,7 +17,9 @@ import {
 } from 'firebase/firestore'
 import {
   ArrowLeft,
+  ArrowUp,
   BarChart3,
+  Bookmark,
   BookmarkPlus,
   Camera,
   Check,
@@ -47,6 +49,7 @@ import {
   Pin,
   Play,
   Plus,
+  PlusCircle,
   Reply,
   Search,
   Send,
@@ -55,6 +58,7 @@ import {
   ShieldCheck,
   Smile,
   Sparkles,
+  SquarePen,
   Star,
   Trash2,
   Unlock,
@@ -622,6 +626,26 @@ function formatInstagramDateDivider(ms: number, nowMs: number = Date.now()): str
   } catch {
     return ''
   }
+}
+
+function formatInstagramRelativeTime(ms: number, nowMs: number = Date.now()): string {
+  const diffSec = Math.max(0, Math.floor((nowMs - ms) / 1000))
+  if (diffSec < 60) return 'now'
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin}m`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return `${diffHr}h`
+  const diffDay = Math.floor(diffHr / 24)
+  if (diffDay < 7) return `${diffDay}d`
+  const diffWeek = Math.floor(diffDay / 7)
+  return `${diffWeek}w`
+}
+
+function formatVoiceDurationPadded(sec: number): string {
+  const safe = Math.max(0, Math.floor(sec))
+  const m = Math.floor(safe / 60)
+  const s = safe % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
 const MUHAMMED_WORD_RE = /^m[ou]hamm?[ae]d\.?$/i
@@ -4244,49 +4268,22 @@ export function CampusMessenger({
       )}
     >
       <div className="flex h-full min-h-0 flex-1 overflow-hidden">
-        {/* LEFT PANE: WHATSAPP CONVERSATION ROSTER */}
+        {/* LEFT PANE: INSTAGRAM DM INBOX ROSTER */}
         <div
           className={cn(
-            'flex h-full w-full flex-col bg-background lg:w-[290px] xl:w-[360px] lg:shrink-0 lg:border-r lg:border-border lg:bg-background/80',
+            'flex h-full w-full flex-col bg-white dark:bg-black lg:w-[310px] xl:w-[370px] lg:shrink-0 lg:border-r lg:border-border/70 dark:lg:border-white/10',
             mobileShowChatPane ? 'hidden lg:flex' : 'flex',
           )}
         >
-          {/* Roster Header */}
-          <div className="flex items-center justify-between gap-2 border-b border-border bg-card/90 px-4 py-3.5">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100">
-                  <MessageSquareText className="size-4" aria-hidden="true" />
-                </span>
-                <div className="min-w-0">
-                  <h2 className="truncate font-display text-base font-bold tracking-tight text-foreground">
-                    Messenger
-                  </h2>
-                  <p className="truncate text-[11px] text-muted-foreground">
-                    {actor.name}
-                  </p>
-                </div>
-              </div>
+          {/* Instagram Inbox Top Bar */}
+          <div className="flex items-center justify-between gap-2 bg-white px-4 pb-2 pt-3.5 dark:bg-black">
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate font-poppins text-[19px] font-bold tracking-tight text-zinc-950 dark:text-white">
+                {formatMessengerDisplayName(actor.name, actor.role)}
+              </h2>
             </div>
 
-            <div className="flex shrink-0 items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAttachMenu(false)
-                  setSelectedMessageIds([])
-                  setShowSelectionMoreMenu(false)
-                  setShowSettingsModal(false)
-                  setShowStarredModal(false)
-                  if (isRecordingVoice) cancelVoiceRecording()
-                  setShowNewChatModal((prev) => !prev)
-                }}
-                title="Start a new chat with an Usthad or Student"
-                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-emerald-500/35 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-500/25 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-100 dark:hover:bg-[#222630] shrink-0"
-              >
-                <MessageSquarePlus className="size-3.5" aria-hidden="true" />
-                <span>New Chat</span>
-              </button>
+            <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
                 onClick={() => {
@@ -4300,103 +4297,143 @@ export function CampusMessenger({
                 }}
                 title="Chat Settings"
                 aria-label="Open Chat Settings"
-                className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-200 dark:hover:bg-[#222630]"
+                className="flex size-10 shrink-0 items-center justify-center rounded-full text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-white dark:hover:bg-white/10"
               >
-                <Settings className="size-4" aria-hidden="true" />
+                <Settings className="size-[21px]" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAttachMenu(false)
+                  setSelectedMessageIds([])
+                  setShowSelectionMoreMenu(false)
+                  setShowSettingsModal(false)
+                  setShowStarredModal(false)
+                  if (isRecordingVoice) cancelVoiceRecording()
+                  setShowNewChatModal((prev) => !prev)
+                }}
+                title="New message"
+                aria-label="Start a new chat"
+                className="flex size-10 shrink-0 items-center justify-center rounded-full text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-white dark:hover:bg-white/10"
+              >
+                <SquarePen className="size-[21px]" aria-hidden="true" />
               </button>
             </div>
           </div>
 
-          {/* Search & Category Filter Bar */}
-          <div className="flex flex-col gap-2.5 border-b border-border/80 bg-background/60 p-3">
+          {/* Search & Instagram Filter Pills */}
+          <div className="flex flex-col gap-2.5 bg-white px-4 pb-2.5 pt-1 dark:bg-black">
             <div className="relative">
               <Search
-                className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-zinc-400 dark:text-zinc-500"
                 aria-hidden="true"
               />
               <input
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search chats..."
-                className="h-9 w-full rounded-xl border border-input bg-card pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-emerald-500 dark:focus:border-zinc-500 focus:outline-none"
+                placeholder="Search"
+                className="h-9 w-full rounded-xl border-0 bg-[#efefef] pl-10 pr-3 text-[13.5px] text-zinc-900 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-violet-500/50 dark:bg-[#262626] dark:text-white dark:placeholder:text-zinc-400"
               />
             </div>
 
-            <div className="flex items-center gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {(
-                [
-                  { id: 'all', label: 'All' },
-                  { id: 'groups', label: 'Groups' },
-                  ...(actor.isStaff ? [{ id: 'staff', label: 'Staff' } as const] : []),
-                  { id: 'usthads', label: 'Teachers' },
-                  { id: 'students', label: 'Students' },
-                  { id: 'calls', label: 'Calls' },
-                ] as const
-              ).map((tab) => {
-                const active = !activeCustomListId && categoryFilter === tab.id
-                const showMissedBadge = tab.id === 'calls' && unreadMissedCallsCount > 0
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => {
-                      setActiveCustomListId(null)
-                      setCategoryFilter(tab.id)
-                      if (tab.id === 'calls') {
-                        markMissedCallsSeen()
-                      }
-                    }}
-                    className={cn(
-                      'inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors whitespace-nowrap shrink-0 border',
-                      active
-                        ? 'border-emerald-600 bg-emerald-600 text-white dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100'
-                        : 'border-transparent bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
-                    )}
-                  >
-                    {tab.id === 'calls' && <Phone className="size-3" aria-hidden="true" />}
-                    <span>{tab.label}</span>
-                    {showMissedBadge && (
-                      <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 font-poppins text-[9px] font-bold text-white tabular-nums">
-                        {unreadMissedCallsCount > 99 ? '99+' : unreadMissedCallsCount}
-                      </span>
-                    )}
-                  </button>
+            {(() => {
+              const totalUnreadChatsCount = allRooms.reduce((acc, r) => {
+                const rMsgs = (messagesByRoom[r.roomId] ?? []).filter(
+                  (m) => !isMessageHiddenForMe(m),
                 )
-              })}
+                const hasUnread = rMsgs.some(
+                  (m) => m.senderId !== actor.id && !m.readBy.includes(actor.id),
+                )
+                return acc + (hasUnread ? 1 : 0)
+              }, 0)
 
-              {/* User's Custom Chat Lists (created via "Add to list") */}
-              {customLists
-                .filter((l) => l.roomIds.length > 0)
-                .map((list) => {
-                  const active = activeCustomListId === list.id
-                  return (
-                    <button
-                      key={list.id}
-                      type="button"
-                      onClick={() => {
-                        setCategoryFilter('all')
-                        setActiveCustomListId(active ? null : list.id)
-                      }}
-                      className={cn(
-                        'inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors whitespace-nowrap shrink-0 border',
-                        active
-                          ? 'border-emerald-600 bg-emerald-600 text-white dark:border-[#343946] dark:bg-[#222630] dark:text-zinc-100'
-                          : 'border-transparent bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
-                      )}
-                    >
-                      <span>{list.name}</span>
-                      <span className="text-[10px] opacity-75 tabular-nums">
-                        {list.roomIds.length}
-                      </span>
-                    </button>
-                  )
-                })}
-            </div>
+              return (
+                <div className="flex items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {(
+                    [
+                      { id: 'all', label: 'All' },
+                      { id: 'groups', label: 'Groups' },
+                      ...(actor.isStaff ? [{ id: 'staff', label: 'Staff' } as const] : []),
+                      { id: 'usthads', label: 'Teachers' },
+                      { id: 'students', label: 'Students' },
+                      { id: 'calls', label: 'Calls' },
+                    ] as const
+                  ).map((tab) => {
+                    const active = !activeCustomListId && categoryFilter === tab.id
+                    const showMissedBadge = tab.id === 'calls' && unreadMissedCallsCount > 0
+                    const showAllUnread = tab.id === 'all' && totalUnreadChatsCount > 0
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveCustomListId(null)
+                          setCategoryFilter(tab.id)
+                          if (tab.id === 'calls') {
+                            markMissedCallsSeen()
+                          }
+                        }}
+                        className={cn(
+                          'inline-flex h-8 items-center gap-1.5 rounded-xl px-3.5 text-[12.5px] font-semibold transition-colors whitespace-nowrap shrink-0',
+                          active
+                            ? 'bg-zinc-950 text-white dark:bg-white dark:text-black'
+                            : 'bg-[#efefef] text-zinc-700 hover:bg-zinc-200 dark:bg-[#262626] dark:text-zinc-200 dark:hover:bg-[#323232]',
+                        )}
+                      >
+                        {showAllUnread && (
+                          <span className="size-1.5 rounded-full bg-[#4f5bd5]" aria-hidden="true" />
+                        )}
+                        {tab.id === 'calls' && <Phone className="size-3" aria-hidden="true" />}
+                        <span>{tab.label}</span>
+                        {showAllUnread && (
+                          <span className="font-poppins text-[11.5px] opacity-80 tabular-nums">
+                            {totalUnreadChatsCount}
+                          </span>
+                        )}
+                        {showMissedBadge && (
+                          <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 font-poppins text-[9px] font-bold text-white tabular-nums">
+                            {unreadMissedCallsCount > 99 ? '99+' : unreadMissedCallsCount}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
 
-            {/* Quick-Access Pinned Chat Shortcuts Strip (Added via "Add shortcut") */}
+                  {/* User's Custom Chat Lists (created via "Add to list") */}
+                  {customLists
+                    .filter((l) => l.roomIds.length > 0)
+                    .map((list) => {
+                      const active = activeCustomListId === list.id
+                      return (
+                        <button
+                          key={list.id}
+                          type="button"
+                          onClick={() => {
+                            setCategoryFilter('all')
+                            setActiveCustomListId(active ? null : list.id)
+                          }}
+                          className={cn(
+                            'inline-flex h-8 items-center gap-1.5 rounded-xl px-3.5 text-[12.5px] font-semibold transition-colors whitespace-nowrap shrink-0',
+                            active
+                              ? 'bg-zinc-950 text-white dark:bg-white dark:text-black'
+                              : 'bg-[#efefef] text-zinc-700 hover:bg-zinc-200 dark:bg-[#262626] dark:text-zinc-200 dark:hover:bg-[#323232]',
+                          )}
+                        >
+                          <span>{list.name}</span>
+                          <span className="text-[11px] opacity-75 tabular-nums">
+                            {list.roomIds.length}
+                          </span>
+                        </button>
+                      )
+                    })}
+                </div>
+              )
+            })()}
+
+            {/* Quick-Access Pinned Chat Shortcuts Strip (Instagram Notes / Story Avatar Row) */}
             {shortcutRoomIds.length > 0 && categoryFilter !== 'calls' && (
-              <div className="flex items-center gap-2 overflow-x-auto pt-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex items-center gap-3 overflow-x-auto pt-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {shortcutRoomIds
                   .map((id) => allRooms.find((r) => r.roomId === id))
                   .filter((r): r is ChatRoomDescriptor => Boolean(r))
@@ -4408,20 +4445,24 @@ export function CampusMessenger({
                         setSelectedRoomId(sRoom.roomId)
                         setMobileShowChatPane(true)
                       }}
-                      className="flex shrink-0 flex-col items-center gap-1 rounded-xl px-1.5 py-1 transition-colors hover:bg-muted/70"
+                      className="flex shrink-0 flex-col items-center gap-1.5 transition-opacity hover:opacity-85"
                     >
-                      <div className="relative flex size-10 items-center justify-center overflow-hidden rounded-full border-2 border-emerald-500/50 bg-emerald-500/12 font-poppins text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
-                        {sRoom.avatarUrl ? (
-                          <img
-                            src={sRoom.avatarUrl}
-                            alt={sRoom.title}
-                            className="size-full object-cover object-top"
-                          />
-                        ) : (
-                          sRoom.avatarText
-                        )}
+                      <div className="rounded-full bg-gradient-to-tr from-[#c026d3] via-[#7c3aed] to-[#4f46e5] p-[2px]">
+                        <div className="flex size-12 items-center justify-center overflow-hidden rounded-full bg-white p-[2px] dark:bg-black">
+                          <div className="flex size-full items-center justify-center overflow-hidden rounded-full bg-zinc-200 font-poppins text-xs font-bold text-zinc-800 dark:bg-[#262626] dark:text-zinc-100">
+                            {sRoom.avatarUrl ? (
+                              <img
+                                src={sRoom.avatarUrl}
+                                alt={sRoom.title}
+                                className="size-full object-cover object-top"
+                              />
+                            ) : (
+                              sRoom.avatarText
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <span className="max-w-[54px] truncate text-[10px] font-medium text-foreground/85">
+                      <span className="max-w-[58px] truncate text-[11px] font-medium text-zinc-700 dark:text-zinc-300">
                         {sRoom.title.split(' ')[0]}
                       </span>
                     </button>
@@ -4429,17 +4470,17 @@ export function CampusMessenger({
               </div>
             )}
 
-            {/* Class selector when viewing Students tab (Available for ALL students & staff) */}
+            {/* Class selector when viewing Students tab */}
             {!activeCustomListId && categoryFilter === 'students' && (
               <div className="flex items-center justify-between gap-2 pt-0.5">
-                <span className="text-[11px] font-medium text-muted-foreground">
+                <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
                   Class:
                 </span>
                 <ThemeSelect
                   value={studentBatchFilter}
                   onChange={(e) => setStudentBatchFilter(e.target.value)}
                   aria-label="Filter students"
-                  className="h-8 flex-1 rounded-lg border border-input bg-card px-2.5 text-xs font-semibold text-foreground"
+                  className="h-8 flex-1 rounded-xl border-0 bg-[#efefef] px-2.5 text-xs font-semibold text-foreground dark:bg-[#262626] dark:text-zinc-100"
                 >
                   <option value={actor.className}>My Class ({actor.className})</option>
                   <option value="ALL">All Students ({students.length})</option>
@@ -4453,8 +4494,8 @@ export function CampusMessenger({
             )}
           </div>
 
-          {/* Scrollable Room List OR Dedicated Calls History List */}
-          <div className="flex-1 overflow-y-auto divide-y divide-border/50">
+          {/* Scrollable Room List OR Dedicated Calls History List (Zero row dividers, Instagram airy list) */}
+          <div className="flex-1 overflow-y-auto bg-white py-1 dark:bg-black">
             {categoryFilter === 'calls' ? (
               (() => {
                 const q = searchQuery.trim().toLowerCase()
@@ -4471,7 +4512,7 @@ export function CampusMessenger({
                 if (filteredCalls.length === 0) {
                   return (
                     <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-                      <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-500/12 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
+                      <div className="flex size-13 items-center justify-center rounded-full bg-violet-500/12 text-violet-600 dark:bg-white/10 dark:text-zinc-200">
                         <Phone className="size-5" aria-hidden="true" />
                       </div>
                       <p className="mt-3 text-sm font-semibold text-foreground">No calls yet</p>
@@ -4535,7 +4576,7 @@ export function CampusMessenger({
                   return (
                     <div
                       key={rec.id}
-                      className="flex items-center justify-between gap-2.5 px-3.5 py-3 transition-colors hover:bg-muted/50 min-h-[68px]"
+                      className="flex items-center justify-between gap-3 px-4 py-2.5 transition-colors hover:bg-zinc-100/80 dark:hover:bg-white/[0.06]"
                     >
                       <button
                         type="button"
@@ -4548,9 +4589,9 @@ export function CampusMessenger({
                             setMobileShowChatPane(true)
                           }
                         }}
-                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        className="flex min-w-0 flex-1 items-center gap-3.5 text-left"
                       >
-                        <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-cyan/15 font-poppins text-xs font-bold text-cyan dark:border-[#262a33] dark:bg-[#1a1d24]">
+                        <div className="flex size-[52px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#efefef] font-poppins text-sm font-bold text-zinc-700 dark:bg-[#262626] dark:text-zinc-200">
                           {avatarUrl ? (
                             <img
                               src={avatarUrl}
@@ -4564,40 +4605,42 @@ export function CampusMessenger({
                         <div className="min-w-0 flex-1">
                           <p
                             className={cn(
-                              'truncate text-sm font-semibold',
-                              isMissedIncoming ? 'text-rose-600 dark:text-rose-400' : 'text-foreground',
+                              'truncate text-[14.5px] font-semibold',
+                              isMissedIncoming
+                                ? 'text-rose-600 dark:text-rose-400'
+                                : 'text-zinc-950 dark:text-white',
                             )}
                           >
                             {peerName}
                           </p>
-                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">
                             {isMissedIncoming ? (
                               <PhoneMissed className="size-3.5 shrink-0 text-rose-500" />
                             ) : isOutgoing ? (
-                              <PhoneOutgoing className="size-3.5 shrink-0 text-emerald-500" />
+                              <PhoneOutgoing className="size-3.5 shrink-0 text-violet-500" />
                             ) : (
                               <PhoneIncoming className="size-3.5 shrink-0 text-emerald-500" />
                             )}
                             <span className="truncate">
                               {rec.callType === 'video' ? 'Video' : 'Voice'} · {statusText} ·{' '}
                               <span className="tabular-nums">
-                                {formatReceiptTimestamp(rec.startedAtMs)}
+                                {formatInstagramRelativeTime(rec.startedAtMs)}
                               </span>
                             </span>
                           </div>
                         </div>
                       </button>
 
-                      <div className="flex shrink-0 items-center gap-1">
+                      <div className="flex shrink-0 items-center gap-0.5">
                         <button
                           type="button"
                           disabled={Boolean(activeCall)}
                           onClick={() => handleQuickCall('voice')}
                           aria-label={`Voice call ${peerName}`}
                           title="Voice call"
-                          className="flex size-10 items-center justify-center rounded-xl text-emerald-600 transition-colors hover:bg-emerald-500/12 disabled:opacity-40 dark:text-emerald-400"
+                          className="flex size-9 items-center justify-center rounded-full text-zinc-800 transition-colors hover:bg-zinc-200/70 disabled:opacity-40 dark:text-white dark:hover:bg-white/10"
                         >
-                          <Phone className="size-4" aria-hidden="true" />
+                          <Phone className="size-[19px]" aria-hidden="true" />
                         </button>
                         <button
                           type="button"
@@ -4605,9 +4648,9 @@ export function CampusMessenger({
                           onClick={() => handleQuickCall('video')}
                           aria-label={`Video call ${peerName}`}
                           title="Video call"
-                          className="flex size-10 items-center justify-center rounded-xl text-emerald-600 transition-colors hover:bg-emerald-500/12 disabled:opacity-40 dark:text-emerald-400"
+                          className="flex size-9 items-center justify-center rounded-full text-zinc-800 transition-colors hover:bg-zinc-200/70 disabled:opacity-40 dark:text-white dark:hover:bg-white/10"
                         >
-                          <Video className="size-4" aria-hidden="true" />
+                          <Video className="size-[20px]" aria-hidden="true" />
                         </button>
                       </div>
                     </div>
@@ -4616,78 +4659,120 @@ export function CampusMessenger({
               })()
             ) : (
               filteredRooms.map((room) => {
-              const isSelected = room.roomId === activeRoom.roomId
-              const roomMsgs = (messagesByRoom[room.roomId] ?? []).filter(
-                (m) => !isMessageHiddenForMe(m),
-              )
-              const lastMsg = roomMsgs[roomMsgs.length - 1]
-              const unreadCount = roomMsgs.filter(
-                (m) => m.senderId !== actor.id && !m.readBy.includes(actor.id),
-              ).length
-              const roomMeta = roomsMeta[room.roomId]
-              const roomTyping = getRoomTypingText(room.roomId)
+                const isSelected = room.roomId === activeRoom.roomId
+                const roomMsgs = (messagesByRoom[room.roomId] ?? []).filter(
+                  (m) => !isMessageHiddenForMe(m),
+                )
+                const lastMsg = roomMsgs[roomMsgs.length - 1]
+                const unreadCount = roomMsgs.filter(
+                  (m) => m.senderId !== actor.id && !m.readBy.includes(actor.id),
+                ).length
+                const roomMeta = roomsMeta[room.roomId]
+                const roomTyping = getRoomTypingText(room.roomId)
+                const peerPresence =
+                  (room.type === 'direct_usthad' || room.type === 'direct_student') && room.peerId
+                    ? getOpenChatHeaderStatus(room)
+                    : null
+                const isPeerOnline = Boolean(peerPresence?.isOnlineNow)
 
-              return (
-                <button
-                  key={room.roomId}
-                  type="button"
-                  onClick={() => {
-                    unlockNotificationAudio()
-                    setShowAttachMenu(false)
-                    setSelectedMessageIds([])
-                    setShowSelectionMoreMenu(false)
-                    setInfoMessageId(null)
-                    if (isRecordingVoice) cancelVoiceRecording()
-                    setSelectedRoomId(room.roomId)
-                    setMobileShowChatPane(true)
-                    void sendChatActionToServer({
-                      action: 'mark_read',
-                      roomId: room.roomId,
-                      sendReadReceipts: chatSettings.sendReadReceipts,
-                    })
-                  }}
-                  className={cn(
-                    'flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors min-h-[68px]',
-                    isSelected
-                      ? 'bg-emerald-500/12 dark:bg-[#1a1d24]'
-                      : 'hover:bg-muted/50',
-                  )}
-                >
-                  {/* Avatar (Clean WhatsApp style — no green dot on avatar) */}
-                  <div className="relative shrink-0">
-                    <div
-                      className={cn(
-                        'flex size-11 items-center justify-center overflow-hidden rounded-2xl font-poppins text-xs font-bold shadow-xs border border-border dark:border-[#262a33]',
-                        room.type === 'staff_group'
-                          ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1a1d24] dark:text-amber-300'
-                          : room.type === 'batch_group'
-                            ? 'bg-emerald-500/15 text-emerald-700 dark:bg-[#1a1d24] dark:text-zinc-100'
-                            : room.type === 'direct_usthad'
-                              ? 'bg-cyan/15 text-cyan dark:bg-[#1a1d24] dark:text-cyan'
-                              : 'bg-muted text-foreground dark:bg-[#1a1d24] dark:text-zinc-200',
-                      )}
-                    >
-                      {room.avatarUrl ? (
-                        <img
-                          src={room.avatarUrl}
-                          alt={room.title}
-                          className="size-full object-cover object-top"
+                const previewSnippet = lastMsg
+                  ? lastMsg.mediaType === 'voice'
+                    ? `Sent a voice message · ${formatVoiceDuration(lastMsg.mediaDurationSec || 4)}`
+                    : lastMsg.mediaType === 'pdf'
+                      ? `Sent a document · ${lastMsg.mediaName || 'PDF'}`
+                      : lastMsg.mediaType === 'image'
+                        ? `Sent ${lastMsg.imageQuality === 'hd' ? 'an HD ' : 'a '}photo`
+                        : lastMsg.mediaType === 'call'
+                          ? `${lastMsg.callMeta?.callType === 'video' ? 'Video' : 'Voice'} call`
+                          : lastMsg.mediaType === 'location'
+                            ? `Shared a location`
+                            : lastMsg.mediaType === 'contact'
+                              ? `Shared ${
+                                  lastMsg.contactMeta
+                                    ? formatMessengerDisplayName(
+                                        lastMsg.contactMeta.name,
+                                        lastMsg.contactMeta.role,
+                                      )
+                                    : 'a contact'
+                                }`
+                              : lastMsg.mediaType === 'poll'
+                                ? `Poll: ${lastMsg.pollMeta?.question || 'Vote'}`
+                                : lastMsg.text
+                  : ''
+
+                return (
+                  <button
+                    key={room.roomId}
+                    type="button"
+                    onClick={() => {
+                      unlockNotificationAudio()
+                      setShowAttachMenu(false)
+                      setSelectedMessageIds([])
+                      setShowSelectionMoreMenu(false)
+                      setInfoMessageId(null)
+                      if (isRecordingVoice) cancelVoiceRecording()
+                      setSelectedRoomId(room.roomId)
+                      setMobileShowChatPane(true)
+                      void sendChatActionToServer({
+                        action: 'mark_read',
+                        roomId: room.roomId,
+                        sendReadReceipts: chatSettings.sendReadReceipts,
+                      })
+                    }}
+                    className={cn(
+                      'flex w-full items-center gap-3.5 px-4 py-2.5 text-left transition-colors',
+                      isSelected
+                        ? 'bg-zinc-100/90 dark:bg-white/[0.08]'
+                        : 'hover:bg-zinc-100/60 dark:hover:bg-white/[0.05]',
+                    )}
+                  >
+                    {/* Instagram Circular 52px Avatar + Optional Online Green Dot */}
+                    <div className="relative shrink-0">
+                      <div
+                        className={cn(
+                          'flex size-[52px] items-center justify-center overflow-hidden rounded-full font-poppins text-sm font-bold',
+                          room.type === 'staff_group'
+                            ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1f1b14] dark:text-amber-300'
+                            : room.type === 'batch_group'
+                              ? 'bg-violet-500/15 text-violet-700 dark:bg-[#1e1b2e] dark:text-violet-200'
+                              : room.type === 'direct_usthad'
+                                ? 'bg-indigo-500/15 text-indigo-700 dark:bg-[#222228] dark:text-zinc-100'
+                                : 'bg-[#efefef] text-zinc-700 dark:bg-[#262626] dark:text-zinc-200',
+                        )}
+                      >
+                        {room.avatarUrl ? (
+                          <img
+                            src={room.avatarUrl}
+                            alt={room.title}
+                            className="size-full object-cover object-top"
+                          />
+                        ) : room.type === 'batch_group' ? (
+                          <Users className="size-5" aria-hidden="true" />
+                        ) : room.type === 'staff_group' ? (
+                          <Crown className="size-5" aria-hidden="true" />
+                        ) : (
+                          room.avatarText
+                        )}
+                      </div>
+                      {isPeerOnline && (
+                        <span
+                          className="absolute bottom-0.5 right-0.5 size-3.5 rounded-full bg-[#22c55e] ring-[2.5px] ring-white dark:ring-black"
+                          aria-label="Active now"
                         />
-                      ) : room.type === 'batch_group' ? (
-                        <Users className="size-4" aria-hidden="true" />
-                      ) : room.type === 'staff_group' ? (
-                        <Crown className="size-4" aria-hidden="true" />
-                      ) : (
-                        room.avatarText
                       )}
                     </div>
-                  </div>
 
-                  {/* Title, Last Message & Badges */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-1.5">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate text-xs font-bold text-foreground sm:text-[13px]">
+                    {/* Instagram 2-Line Title + Preview · Relative Time */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={cn(
+                            'truncate text-[14.5px] leading-snug',
+                            unreadCount > 0
+                              ? 'font-bold text-zinc-950 dark:text-white'
+                              : 'font-medium text-zinc-900 dark:text-zinc-100',
+                          )}
+                        >
                           {room.title}
                         </span>
                         {roomMeta?.onlyAdminsCanPost && (
@@ -4697,110 +4782,63 @@ export function CampusMessenger({
                           />
                         )}
                       </div>
-                      {lastMsg && (
-                        <span className="shrink-0 font-poppins text-[10px] tabular-nums text-muted-foreground">
-                          {formatSidebarDateOrTime(lastMsg.createdAtMs)}
-                        </span>
-                      )}
+
+                      <div className="mt-0.5 flex items-center gap-1 text-[13px] leading-snug">
+                        {roomTyping ? (
+                          <p className="truncate font-medium text-violet-600 dark:text-violet-400">
+                            {roomTyping}
+                          </p>
+                        ) : unreadCount > 1 && lastMsg ? (
+                          <p className="flex min-w-0 items-center gap-1 font-semibold text-zinc-900 dark:text-white">
+                            <span className="truncate">
+                              {unreadCount >= 4 ? '4+ new messages' : `${unreadCount} new messages`}
+                            </span>
+                            <span className="shrink-0 font-normal text-zinc-500 dark:text-zinc-400">
+                              · {formatInstagramRelativeTime(lastMsg.createdAtMs)}
+                            </span>
+                          </p>
+                        ) : lastMsg ? (
+                          <p
+                            className={cn(
+                              'flex min-w-0 items-center gap-1',
+                              unreadCount > 0
+                                ? 'font-semibold text-zinc-900 dark:text-white'
+                                : 'text-zinc-500 dark:text-zinc-400',
+                            )}
+                          >
+                            <span className="truncate">
+                              {lastMsg.senderId === actor.id
+                                ? `You: ${previewSnippet}`
+                                : room.type === 'batch_group' || room.type === 'staff_group'
+                                  ? `${formatMessengerDisplayName(lastMsg.senderName, lastMsg.senderRole).split(' ')[0]}: ${previewSnippet}`
+                                  : previewSnippet}
+                            </span>
+                            <span className="shrink-0 font-normal text-zinc-400 dark:text-zinc-500">
+                              · {formatInstagramRelativeTime(lastMsg.createdAtMs)}
+                            </span>
+                          </p>
+                        ) : (
+                          <p className="truncate text-zinc-500 dark:text-zinc-400">
+                            {isPeerOnline
+                              ? 'Active now'
+                              : peerPresence?.text
+                                ? peerPresence.text
+                                : room.subtitle || 'Start a conversation'}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
-                    {room.subtitle ? (
-                      <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                        {room.subtitle}
-                      </p>
-                    ) : null}
-
-                    <div className="mt-1 flex items-center justify-between gap-2">
-                      {roomTyping ? (
-                        <p className="truncate text-[11px] font-semibold text-emerald-600 dark:text-zinc-300">
-                          {roomTyping}
-                        </p>
-                      ) : lastMsg ? (
-                        <p className="flex min-w-0 items-center truncate text-[11px] text-foreground/80">
-                          {lastMsg.senderId === actor.id &&
-                            (() => {
-                              const lastReadByOthers =
-                                (lastMsg.readBy ?? []).some(
-                                  (id) => id && id !== lastMsg.senderId,
-                                ) || (lastMsg.readBy?.length ?? 0) > 1
-                              const lastDeliveredToOthers =
-                                lastReadByOthers ||
-                                (lastMsg.deliveredTo ?? []).some(
-                                  (id) => id && id !== lastMsg.senderId,
-                                ) ||
-                                (lastMsg.deliveredTo?.length ?? 0) > 1
-                              if (lastReadByOthers) {
-                                return (
-                                  <CheckCheck
-                                    className="mr-1 inline-block size-3.5 shrink-0 text-[#0095f6] dark:text-[#38bdf8] stroke-[2.5]"
-                                    aria-label="Read"
-                                  />
-                                )
-                              }
-                              if (lastDeliveredToOthers) {
-                                return (
-                                  <CheckCheck
-                                    className="mr-1 inline-block size-3.5 shrink-0 text-zinc-500 dark:text-zinc-300 stroke-[2.2]"
-                                    aria-label="Delivered"
-                                  />
-                                )
-                              }
-                              return (
-                                <Check
-                                  className="mr-1 inline-block size-3.5 shrink-0 text-zinc-400 dark:text-zinc-500 stroke-[2.2]"
-                                  aria-label="Sent"
-                                />
-                              )
-                            })()}
-                          <span className="font-semibold shrink-0 mr-1">
-                            {lastMsg.senderId === actor.id
-                              ? 'You:'
-                              : `${formatMessengerDisplayName(lastMsg.senderName, lastMsg.senderRole)
-                                  .split(' ')
-                                  .slice(0, 2)
-                                  .join(' ')}:`}
-                          </span>
-                          <span className="truncate">
-                            {lastMsg.mediaType === 'voice'
-                              ? `🎤 ${formatVoiceDuration(lastMsg.mediaDurationSec || 4)}`
-                              : lastMsg.mediaType === 'pdf'
-                                ? `📄 ${lastMsg.mediaName || 'Document'}`
-                                : lastMsg.mediaType === 'image'
-                                  ? `📷 ${lastMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo`
-                                  : lastMsg.mediaType === 'call'
-                                    ? `${lastMsg.callMeta?.callType === 'video' ? '📹' : '📞'} ${lastMsg.text || 'Call'}`
-                                    : lastMsg.mediaType === 'location'
-                                      ? `📍 ${lastMsg.locationMeta?.label || 'Location'}`
-                                      : lastMsg.mediaType === 'contact'
-                                        ? `👤 ${
-                                            lastMsg.contactMeta
-                                              ? formatMessengerDisplayName(
-                                                  lastMsg.contactMeta.name,
-                                                  lastMsg.contactMeta.role,
-                                                )
-                                              : 'Contact'
-                                          }`
-                                        : lastMsg.mediaType === 'poll'
-                                          ? `📊 ${lastMsg.pollMeta?.question || 'Poll'}`
-                                          : lastMsg.text}
-                          </span>
-                        </p>
-                      ) : (
-                        <p className="truncate text-[11px] italic text-muted-foreground">
-                          Tap to start conversation...
-                        </p>
-                      )}
-
-                      {unreadCount > 0 && (
-                        <span className="flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-full bg-emerald-600 px-1.5 font-poppins text-[10px] font-bold text-white tabular-nums dark:bg-zinc-200 dark:text-[#0a0b0e]">
-                          {unreadCount}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              )
-            })
+                    {/* Instagram Blue Unread Dot on Far Right */}
+                    {unreadCount > 0 && (
+                      <span
+                        className="size-2.5 shrink-0 rounded-full bg-[#4f5bd5]"
+                        aria-label={`${unreadCount} unread messages`}
+                      />
+                    )}
+                  </button>
+                )
+              })
             )}
           </div>
         </div>
@@ -5173,9 +5211,9 @@ export function CampusMessenger({
             })()
           ) : (
             <>
-              {/* Active Chat Header OR WhatsApp Contextual Multi-Message Selection Bar */}
+              {/* Active Chat Header OR Clean Instagram Multi-Message Selection Bar */}
               {selectedMessageIds.length > 0 ? (
-                <div className="relative z-30 flex items-center justify-between gap-2 border-b border-border bg-emerald-700 px-2.5 py-2.5 text-white shadow-sm sm:px-4 sm:py-3 dark:border-[#262a33] dark:bg-[#11171d] dark:text-zinc-100">
+                <div className="relative z-30 flex items-center justify-between gap-2 border-b border-border/70 bg-white px-2.5 py-2.5 text-zinc-950 sm:px-4 sm:py-3 dark:border-white/10 dark:bg-[#121212] dark:text-white">
                   <div className="flex items-center gap-2.5 sm:gap-3">
                     <button
                       type="button"
@@ -5184,7 +5222,7 @@ export function CampusMessenger({
                         setShowSelectionMoreMenu(false)
                       }}
                       aria-label="Exit message selection"
-                      className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
+                      className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-zinc-100 dark:hover:bg-white/10"
                     >
                       <ArrowLeft className="size-5" aria-hidden="true" />
                     </button>
@@ -5193,7 +5231,7 @@ export function CampusMessenger({
                     </span>
                   </div>
 
-                  {/* WhatsApp Selection Actions: Reply, Star, Info, Delete, Forward, More (⋮) */}
+                  {/* Selection Actions: Reply, Star, Info, Delete, Forward, More (⋮) */}
                   <div className="flex items-center gap-0.5 sm:gap-1.5">
                     {singleSelectedMessage && !singleSelectedMessage.isDeleted && (
                       <button
@@ -5215,7 +5253,7 @@ export function CampusMessenger({
                         }}
                         title="Reply"
                         aria-label="Reply to message"
-                        className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
+                        className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-zinc-100 dark:hover:bg-white/10"
                       >
                         <Reply className="size-5" aria-hidden="true" />
                       </button>
@@ -5227,7 +5265,7 @@ export function CampusMessenger({
                         onClick={() => handleToggleStarMessages(nonDeletedSelectedMessages)}
                         title={isAllSelectedStarred ? 'Unstar' : 'Star'}
                         aria-label={isAllSelectedStarred ? 'Unstar message' : 'Star message'}
-                        className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
+                        className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-zinc-100 dark:hover:bg-white/10"
                       >
                         <Star
                           className={cn(
@@ -5249,7 +5287,7 @@ export function CampusMessenger({
                         }}
                         title="Message info"
                         aria-label="Message info"
-                        className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
+                        className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-zinc-100 dark:hover:bg-white/10"
                       >
                         <Info className="size-5" aria-hidden="true" />
                       </button>
@@ -5263,7 +5301,7 @@ export function CampusMessenger({
                       }}
                       title="Delete"
                       aria-label="Delete selected messages"
-                      className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
+                      className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-rose-500/15 hover:text-rose-500"
                     >
                       <Trash2 className="size-5" aria-hidden="true" />
                     </button>
@@ -5280,7 +5318,7 @@ export function CampusMessenger({
                         }}
                         title="Forward"
                         aria-label="Forward selected messages"
-                        className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
+                        className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-zinc-100 dark:hover:bg-white/10"
                       >
                         <Forward className="size-5" aria-hidden="true" />
                       </button>
@@ -5293,17 +5331,17 @@ export function CampusMessenger({
                           onClick={() => setShowSelectionMoreMenu((prev) => !prev)}
                           title="More options"
                           aria-label="More message options"
-                          className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
+                          className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-zinc-100 dark:hover:bg-white/10"
                         >
                           <MoreVertical className="size-5" aria-hidden="true" />
                         </button>
 
                         {showSelectionMoreMenu && (
-                          <div className="absolute right-0 top-11 z-40 w-48 overflow-hidden rounded-2xl border border-border bg-card py-1.5 text-xs text-foreground shadow-2xl dark:border-[#262a33] dark:bg-[#181b22] dark:text-zinc-100">
+                          <div className="absolute right-0 top-11 z-40 w-48 overflow-hidden rounded-2xl border border-border bg-white py-1.5 text-xs text-foreground shadow-2xl dark:border-white/10 dark:bg-[#262626] dark:text-zinc-100">
                             <button
                               type="button"
                               onClick={() => void handleCopyMessages(nonDeletedSelectedMessages)}
-                              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left font-medium transition-colors hover:bg-muted dark:hover:bg-white/10"
+                              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-white/10"
                             >
                               <Copy className="size-4 text-muted-foreground" aria-hidden="true" />
                               <span>Copy</span>
@@ -5317,7 +5355,7 @@ export function CampusMessenger({
                                   onClick={() =>
                                     handleTogglePinMessage(singleSelectedMessage.id)
                                   }
-                                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left font-medium transition-colors hover:bg-muted dark:hover:bg-white/10"
+                                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-white/10"
                                 >
                                   <Pin
                                     className="size-4 text-muted-foreground"
@@ -5334,7 +5372,7 @@ export function CampusMessenger({
                             <button
                               type="button"
                               onClick={() => void handleShareMessages(nonDeletedSelectedMessages)}
-                              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left font-medium transition-colors hover:bg-muted dark:hover:bg-white/10"
+                              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-white/10"
                             >
                               <Share2
                                 className="size-4 text-muted-foreground"
@@ -5349,7 +5387,7 @@ export function CampusMessenger({
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between gap-2 border-b border-border bg-card/95 px-3 py-2.5 sm:px-4 sm:py-3">
+                <div className="flex items-center justify-between gap-2 border-b border-border/50 bg-white px-2.5 py-2.5 sm:px-4 sm:py-3 dark:border-white/[0.08] dark:bg-black">
                   <div className="flex min-w-0 items-center gap-2.5">
                     <button
                       type="button"
@@ -5361,20 +5399,20 @@ export function CampusMessenger({
                         setMobileShowChatPane(false)
                       }}
                       aria-label="Back to chat list"
-                      className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-foreground hover:bg-muted lg:hidden"
+                      className="flex size-9 shrink-0 items-center justify-center rounded-full text-zinc-900 transition-colors hover:bg-zinc-100 lg:hidden dark:text-white dark:hover:bg-white/10"
                     >
-                      <ArrowLeft className="size-4" aria-hidden="true" />
+                      <ArrowLeft className="size-5" aria-hidden="true" />
                     </button>
 
                     <div className="relative shrink-0">
                       <div
                         className={cn(
-                          'flex size-10 items-center justify-center overflow-hidden rounded-full font-poppins text-xs font-bold border border-border dark:border-white/15',
+                          'flex size-9 items-center justify-center overflow-hidden rounded-full font-poppins text-xs font-bold',
                           activeRoom.type === 'staff_group'
-                            ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1a1d24] dark:text-amber-300'
+                            ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1f1b14] dark:text-amber-300'
                             : activeRoom.type === 'batch_group'
-                              ? 'bg-violet-500/15 text-violet-700 dark:bg-[#1a1d24] dark:text-zinc-100'
-                              : 'bg-cyan/15 text-cyan dark:bg-[#1a1d24] dark:text-cyan',
+                              ? 'bg-violet-500/15 text-violet-700 dark:bg-[#1e1b2e] dark:text-violet-200'
+                              : 'bg-[#efefef] text-zinc-800 dark:bg-[#262626] dark:text-zinc-100',
                         )}
                       >
                         {activeRoom.avatarUrl ? (
@@ -5395,70 +5433,45 @@ export function CampusMessenger({
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <h3 className="truncate font-poppins text-sm font-bold text-foreground sm:text-base">
+                        <h3 className="truncate font-poppins text-[15px] font-bold leading-tight text-zinc-950 dark:text-white">
                           {activeRoom.title}
                         </h3>
-                        {activeRoom.badgeLabel ? (
-                          <span className="hidden rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground sm:inline-block">
-                            {activeRoom.badgeLabel}
-                          </span>
-                        ) : null}
                       </div>
 
                       {activeTypingBanner ? (
-                        <p className="truncate text-[11px] font-semibold text-emerald-600 dark:text-zinc-300">
+                        <p className="truncate text-[11.5px] font-medium text-violet-600 dark:text-violet-400">
                           {activeTypingBanner}
                         </p>
                       ) : (() => {
                           const headerStatus = getOpenChatHeaderStatus(activeRoom)
                           if (headerStatus.isOnlineNow) {
                             return (
-                              <p className="truncate text-[11px] font-medium text-emerald-600 dark:text-zinc-300">
-                                online
+                              <p className="truncate text-[11.5px] font-medium text-emerald-600 dark:text-emerald-400">
+                                Active now
                               </p>
                             )
                           }
                           if (headerStatus.text) {
                             return (
-                              <p className="truncate text-[11px] text-muted-foreground">
+                              <p className="truncate text-[11.5px] text-zinc-500 dark:text-zinc-400">
                                 {headerStatus.text}
                               </p>
                             )
                           }
-                          return null
+                          return activeRoom.subtitle ? (
+                            <p className="truncate text-[11.5px] text-zinc-500 dark:text-zinc-400">
+                              {activeRoom.subtitle}
+                            </p>
+                          ) : null
                         })()}
                     </div>
                   </div>
 
-                  {/* Right Controls: 1-on-1 Voice/Video Call + Group Lock Toggle + Starred + Chat Settings */}
-                  <div className="flex shrink-0 items-center gap-1.5">
+                  {/* Right Controls — Clean Bare Instagram Icons (Phone, Video, Lock, More) */}
+                  <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
                     {(activeRoom.type === 'direct_usthad' || activeRoom.type === 'direct_student') &&
                       activeRoom.peerId && (
                         <>
-                          <button
-                            type="button"
-                            disabled={Boolean(activeCall)}
-                            onClick={() => {
-                              setShowAttachMenu(false)
-                              if (isRecordingVoice) cancelVoiceRecording()
-                              void startCall(
-                                {
-                                  id: activeRoom.peerId!,
-                                  name: activeRoom.title,
-                                  role: activeRoom.peerRole || 'student',
-                                  subtitle: activeRoom.subtitle,
-                                  roomId: activeRoom.roomId,
-                                  avatarUrl: activeRoom.avatarUrl,
-                                },
-                                'video',
-                              )
-                            }}
-                            title={`Video call ${activeRoom.title}`}
-                            aria-label={`Video call ${activeRoom.title}`}
-                            className="flex size-10 items-center justify-center rounded-xl border border-border bg-background/80 text-emerald-600 transition-colors hover:bg-emerald-500/12 disabled:opacity-45 sm:size-9 dark:text-emerald-400"
-                          >
-                            <Video className="size-4.5 sm:size-4" aria-hidden="true" />
-                          </button>
                           <button
                             type="button"
                             disabled={Boolean(activeCall)}
@@ -5479,9 +5492,33 @@ export function CampusMessenger({
                             }}
                             title={`Voice call ${activeRoom.title}`}
                             aria-label={`Voice call ${activeRoom.title}`}
-                            className="flex size-10 items-center justify-center rounded-xl border border-border bg-background/80 text-emerald-600 transition-colors hover:bg-emerald-500/12 disabled:opacity-45 sm:size-9 dark:text-emerald-400"
+                            className="flex size-10 items-center justify-center rounded-full text-zinc-900 transition-colors hover:bg-zinc-100 disabled:opacity-40 dark:text-white dark:hover:bg-white/10"
                           >
-                            <Phone className="size-4.5 sm:size-4" aria-hidden="true" />
+                            <Phone className="size-[20px]" aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={Boolean(activeCall)}
+                            onClick={() => {
+                              setShowAttachMenu(false)
+                              if (isRecordingVoice) cancelVoiceRecording()
+                              void startCall(
+                                {
+                                  id: activeRoom.peerId!,
+                                  name: activeRoom.title,
+                                  role: activeRoom.peerRole || 'student',
+                                  subtitle: activeRoom.subtitle,
+                                  roomId: activeRoom.roomId,
+                                  avatarUrl: activeRoom.avatarUrl,
+                                },
+                                'video',
+                              )
+                            }}
+                            title={`Video call ${activeRoom.title}`}
+                            aria-label={`Video call ${activeRoom.title}`}
+                            className="flex size-10 items-center justify-center rounded-full text-zinc-900 transition-colors hover:bg-zinc-100 disabled:opacity-40 dark:text-white dark:hover:bg-white/10"
+                          >
+                            <Video className="size-[22px]" aria-hidden="true" />
                           </button>
                         </>
                       )}
@@ -5502,10 +5539,10 @@ export function CampusMessenger({
                             : 'Click to restrict group so only Usthads & Principal can send messages.'
                         }
                         className={cn(
-                          'inline-flex h-9 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-semibold transition-all whitespace-nowrap shrink-0',
+                          'inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-semibold transition-all whitespace-nowrap shrink-0',
                           activeRoomMeta.onlyAdminsCanPost
-                            ? 'border-border bg-amber-500/15 text-amber-600 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-amber-300'
-                            : 'border-border bg-background/80 text-muted-foreground hover:text-foreground',
+                            ? 'bg-amber-500/15 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300'
+                            : 'bg-[#efefef] text-zinc-700 hover:bg-zinc-200 dark:bg-[#262626] dark:text-zinc-200',
                         )}
                       >
                         {activeRoomMeta.onlyAdminsCanPost ? (
@@ -5537,15 +5574,15 @@ export function CampusMessenger({
                         }}
                         title="Chat Options"
                         aria-label="Chat options menu"
-                        className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:size-9 dark:border-[#262a33] dark:bg-[#1a1d24] dark:text-zinc-200 dark:hover:bg-[#222630]"
+                        className="flex size-10 shrink-0 items-center justify-center rounded-full text-zinc-900 transition-colors hover:bg-zinc-100 dark:text-white dark:hover:bg-white/10"
                       >
-                        <MoreVertical className="size-4.5 sm:size-4" aria-hidden="true" />
+                        <MoreVertical className="size-[20px]" aria-hidden="true" />
                       </button>
 
                       {showChatMoreMenu && (
                         <div
                           ref={chatMoreMenuRef}
-                          className="absolute right-0 top-11 z-40 w-52 overflow-hidden rounded-2xl border border-border bg-card py-1.5 text-sm text-foreground shadow-2xl dark:border-[#262a33] dark:bg-[#16191f]"
+                          className="absolute right-0 top-11 z-40 w-52 overflow-hidden rounded-2xl border border-border bg-white py-1.5 text-sm text-foreground shadow-2xl dark:border-white/10 dark:bg-[#262626]"
                         >
                           <button
                             type="button"
@@ -5553,7 +5590,7 @@ export function CampusMessenger({
                               setShowChatMoreMenu(false)
                               setShowStarredModal(true)
                             }}
-                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors hover:bg-muted dark:hover:bg-white/10"
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-white/10"
                           >
                             <Star className="size-4 text-amber-500" aria-hidden="true" />
                             <span>Starred messages</span>
@@ -5565,7 +5602,7 @@ export function CampusMessenger({
                               setShowChatMoreMenu(false)
                               setShowClearChatConfirm(true)
                             }}
-                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors hover:bg-muted dark:hover:bg-white/10"
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-white/10"
                           >
                             <Trash2 className="size-4 text-muted-foreground" aria-hidden="true" />
                             <span>Clear chat</span>
@@ -5577,7 +5614,7 @@ export function CampusMessenger({
                               setShowChatMoreMenu(false)
                               handleToggleShortcut(activeRoom.roomId, activeRoom.title)
                             }}
-                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors hover:bg-muted dark:hover:bg-white/10"
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-white/10"
                           >
                             <BookmarkPlus
                               className="size-4 text-muted-foreground"
@@ -5596,7 +5633,7 @@ export function CampusMessenger({
                               setShowChatMoreMenu(false)
                               setShowAddToListModal(true)
                             }}
-                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors hover:bg-muted dark:hover:bg-white/10"
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-white/10"
                           >
                             <ListPlus
                               className="size-4 text-muted-foreground"
@@ -5775,9 +5812,9 @@ export function CampusMessenger({
                         toggleSelectMessage(msg.id)
                       }}
                       className={cn(
-                        'group relative flex flex-col transition-all duration-150 rounded-2xl',
+                        'group relative flex flex-col transition-colors duration-150 rounded-2xl',
                         idx === 0 ? 'mt-0' : isFirstInGroup ? 'mt-3' : 'mt-[3px]',
-                        isSelected && 'bg-violet-500/15 px-1.5 py-1 dark:bg-violet-500/20',
+                        isSelected && 'bg-violet-500/12 px-1.5 py-0.5 dark:bg-white/[0.11]',
                       )}
                     >
                       {/* Centered Instagram IST Date Divider */}
@@ -5879,7 +5916,10 @@ export function CampusMessenger({
                               longPressTriggeredRef.current = false
                               return
                             }
-                            toggleSelectMessage(msg.id)
+                            // Only single-tap to toggle selection when already in selection mode (after a long press)
+                            if (isSelectionActive) {
+                              toggleSelectMessage(msg.id)
+                            }
                           }}
                           onContextMenu={(e) => {
                             e.preventDefault()
@@ -5889,7 +5929,8 @@ export function CampusMessenger({
                               setSelectedMessageIds((prev) => [...prev, msg.id])
                             }
                           }}
-                          onTouchStart={() => {
+                          onMouseDown={(e) => {
+                            if (e.button !== 0 || isSelectionActive) return
                             longPressTriggeredRef.current = false
                             if (longPressTimerRef.current) {
                               window.clearTimeout(longPressTimerRef.current)
@@ -5897,6 +5938,39 @@ export function CampusMessenger({
                             longPressTimerRef.current = window.setTimeout(() => {
                               longPressTriggeredRef.current = true
                               setShowAttachMenu(false)
+                              setSelectedMessageIds((prev) =>
+                                prev.includes(msg.id) ? prev : [...prev, msg.id],
+                              )
+                            }, 380)
+                          }}
+                          onMouseUp={() => {
+                            if (longPressTimerRef.current) {
+                              window.clearTimeout(longPressTimerRef.current)
+                              longPressTimerRef.current = null
+                            }
+                          }}
+                          onMouseLeave={() => {
+                            if (longPressTimerRef.current) {
+                              window.clearTimeout(longPressTimerRef.current)
+                              longPressTimerRef.current = null
+                            }
+                          }}
+                          onTouchStart={() => {
+                            if (isSelectionActive) return
+                            longPressTriggeredRef.current = false
+                            if (longPressTimerRef.current) {
+                              window.clearTimeout(longPressTimerRef.current)
+                            }
+                            longPressTimerRef.current = window.setTimeout(() => {
+                              longPressTriggeredRef.current = true
+                              setShowAttachMenu(false)
+                              try {
+                                if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                                  navigator.vibrate(18)
+                                }
+                              } catch {
+                                // Ignore vibration permission errors
+                              }
                               setSelectedMessageIds((prev) =>
                                 prev.includes(msg.id) ? prev : [...prev, msg.id],
                               )
@@ -5915,7 +5989,8 @@ export function CampusMessenger({
                             }
                           }}
                           className={cn(
-                            'relative max-w-[82%] sm:max-w-[70%] cursor-pointer select-none transition-all',
+                            'relative max-w-[82%] sm:max-w-[70%] select-none transition-opacity',
+                            isSelectionActive ? 'cursor-pointer' : 'cursor-default',
                             bubbleRadiusClass,
                             isImageMessage
                               ? 'overflow-hidden p-0'
@@ -5923,29 +5998,14 @@ export function CampusMessenger({
                                 ? 'px-3.5 py-2.5'
                                 : isRichCardMessage
                                   ? 'p-2'
-                                  : isSelected
-                                    ? 'px-4 py-2 pr-9'
-                                    : 'px-4 py-2',
+                                  : 'px-4 py-2',
                             isImageMessage && !msg.text
                               ? 'bg-transparent'
                               : isMine
                                 ? 'bg-gradient-to-br from-[#c026d3] via-[#7c3aed] to-[#4f46e5] text-white shadow-xs'
                                 : 'bg-[#efefef] text-zinc-900 dark:bg-[#262626] dark:text-[#f5f5f5]',
-                            isSelected && 'ring-2 ring-violet-500/80 dark:ring-violet-400/80',
                           )}
                         >
-                          {/* Selected Checkmark Indicator */}
-                          {isSelected && (
-                            <span
-                              aria-hidden="true"
-                              className={cn(
-                                'pointer-events-none absolute right-1.5 top-1.5 z-20 flex size-5 items-center justify-center rounded-full bg-violet-600 text-white shadow-xs ring-2 ring-white dark:ring-black',
-                                isImageMessage && 'right-2 top-2',
-                              )}
-                            >
-                              <Check className="size-3 stroke-[3]" aria-hidden="true" />
-                            </span>
-                          )}
 
                           {/* Forwarded Label */}
                           {msg.isForwarded && (
@@ -6778,160 +6838,158 @@ export function CampusMessenger({
                     className="hidden"
                   />
 
-                  {/* 6-Option Attachment Grid (Gallery, Camera, Document, Location, Contact, Poll) */}
+                  {/* Instagram Floating Action Popover Menu (Right-anchored above + button) */}
                   {showAttachMenu && (
                     <div
                       ref={attachMenuRef}
-                      className="absolute bottom-16 left-2 right-2 sm:left-4 sm:right-auto sm:w-80 z-30 rounded-3xl border border-border bg-card/98 p-4 shadow-2xl backdrop-blur-xl dark:border-white/15 dark:bg-[#16161a]/98"
+                      className="absolute bottom-16 right-3 z-30 w-56 overflow-hidden rounded-2xl border border-border/80 bg-white py-1.5 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-[#262626]"
                     >
-                      <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-border/90 dark:bg-white/20" />
-                      <div className="grid grid-cols-3 gap-x-2 gap-y-4">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAttachMenu(false)
-                            imageInputRef.current?.click()
-                          }}
-                          className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
-                        >
-                          <span className="flex size-12 items-center justify-center rounded-full bg-blue-500/15 text-blue-500 dark:bg-blue-500/20 dark:text-blue-400">
-                            <ImageIcon className="size-5" aria-hidden="true" />
-                          </span>
-                          <span className="text-[11px] font-medium text-foreground">Gallery</span>
-                        </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAttachMenu(false)
+                          pdfInputRef.current?.click()
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[13.5px] font-medium text-zinc-900 transition-colors hover:bg-zinc-100 dark:text-white dark:hover:bg-white/10"
+                      >
+                        <FileText className="size-[18px] text-violet-500 dark:text-zinc-200" aria-hidden="true" />
+                        <span>Document</span>
+                      </button>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAttachMenu(false)
-                            cameraInputRef.current?.click()
-                          }}
-                          className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
-                        >
-                          <span className="flex size-12 items-center justify-center rounded-full bg-rose-500/15 text-rose-500 dark:bg-rose-500/20 dark:text-rose-400">
-                            <Camera className="size-5" aria-hidden="true" />
-                          </span>
-                          <span className="text-[11px] font-medium text-foreground">Camera</span>
-                        </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAttachMenu(false)
+                          setLocError(null)
+                          setLocCoords(null)
+                          setLocLabel('ICS Academy Manhappatta')
+                          setLocAddress("Manhappatta, Da'wa College Campus, Kerala")
+                          setShowLocationModal(true)
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[13.5px] font-medium text-zinc-900 transition-colors hover:bg-zinc-100 dark:text-white dark:hover:bg-white/10"
+                      >
+                        <MapPin className="size-[18px] text-emerald-500 dark:text-zinc-200" aria-hidden="true" />
+                        <span>Location</span>
+                      </button>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAttachMenu(false)
-                            pdfInputRef.current?.click()
-                          }}
-                          className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
-                        >
-                          <span className="flex size-12 items-center justify-center rounded-full bg-violet-500/15 text-violet-500 dark:bg-violet-500/20 dark:text-violet-400">
-                            <FileText className="size-5" aria-hidden="true" />
-                          </span>
-                          <span className="text-[11px] font-medium text-foreground">Document</span>
-                        </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAttachMenu(false)
+                          setContactSearchQuery('')
+                          setShowContactModal(true)
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[13.5px] font-medium text-zinc-900 transition-colors hover:bg-zinc-100 dark:text-white dark:hover:bg-white/10"
+                      >
+                        <User className="size-[18px] text-sky-500 dark:text-zinc-200" aria-hidden="true" />
+                        <span>Contact</span>
+                      </button>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAttachMenu(false)
-                            setLocError(null)
-                            setLocCoords(null)
-                            setLocLabel('ICS Academy Manhappatta')
-                            setLocAddress("Manhappatta, Da'wa College Campus, Kerala")
-                            setShowLocationModal(true)
-                          }}
-                          className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
-                        >
-                          <span className="flex size-12 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-400">
-                            <MapPin className="size-5" aria-hidden="true" />
-                          </span>
-                          <span className="text-[11px] font-medium text-foreground">Location</span>
-                        </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAttachMenu(false)
+                          setPollQuestion('')
+                          setPollOptions(['', ''])
+                          setPollAllowMultiple(false)
+                          setShowPollModal(true)
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[13.5px] font-medium text-zinc-900 transition-colors hover:bg-zinc-100 dark:text-white dark:hover:bg-white/10"
+                      >
+                        <BarChart3 className="size-[18px] text-amber-500 dark:text-zinc-200" aria-hidden="true" />
+                        <span>Poll</span>
+                      </button>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAttachMenu(false)
-                            setContactSearchQuery('')
-                            setShowContactModal(true)
-                          }}
-                          className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
-                        >
-                          <span className="flex size-12 items-center justify-center rounded-full bg-sky-500/15 text-sky-500 dark:bg-sky-500/20 dark:text-sky-400">
-                            <User className="size-5" aria-hidden="true" />
-                          </span>
-                          <span className="text-[11px] font-medium text-foreground">Contact</span>
-                        </button>
+                      <div className="my-1 border-t border-border/60 dark:border-white/10" />
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAttachMenu(false)
-                            setPollQuestion('')
-                            setPollOptions(['', ''])
-                            setPollAllowMultiple(false)
-                            setShowPollModal(true)
-                          }}
-                          className="flex flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors hover:bg-muted/70"
-                        >
-                          <span className="flex size-12 items-center justify-center rounded-full bg-amber-500/15 text-amber-500 dark:bg-amber-500/20 dark:text-amber-400">
-                            <BarChart3 className="size-5" aria-hidden="true" />
-                          </span>
-                          <span className="text-[11px] font-medium text-foreground">Poll</span>
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAttachMenu(false)
+                          imageInputRef.current?.click()
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[13.5px] font-medium text-zinc-900 transition-colors hover:bg-zinc-100 dark:text-white dark:hover:bg-white/10"
+                      >
+                        <ImageIcon className="size-[18px] text-blue-500 dark:text-zinc-200" aria-hidden="true" />
+                        <span>Gallery (HD)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAttachMenu(false)
+                          cameraInputRef.current?.click()
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[13.5px] font-medium text-zinc-900 transition-colors hover:bg-zinc-100 dark:text-white dark:hover:bg-white/10"
+                      >
+                        <Camera className="size-[18px] text-rose-500 dark:text-zinc-200" aria-hidden="true" />
+                        <span>Camera</span>
+                      </button>
                     </div>
                   )}
 
                   {isRecordingVoice ? (
-                    <div className="flex items-center justify-between gap-2 sm:gap-3 rounded-full border border-red-500/40 bg-red-500/10 px-3.5 py-2">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className="size-2.5 shrink-0 rounded-full bg-red-500 animate-pulse" />
-                        <span className="truncate font-poppins text-xs font-bold tabular-nums text-red-500">
-                          Recording • {formatVoiceDuration(recordingSeconds)}
-                        </span>
+                    /* Instagram Full-Pill Indigo-Violet Live Waveform Voice Recorder */
+                    <div className="flex items-center gap-2.5 rounded-full bg-gradient-to-r from-[#5851db] via-[#4f46e5] to-[#6366f1] px-1.5 py-1.5 text-white shadow-md">
+                      <button
+                        type="button"
+                        onClick={cancelVoiceRecording}
+                        aria-label="Discard voice recording"
+                        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white text-[#4f46e5] shadow-xs transition-transform active:scale-95"
+                      >
+                        <Trash2 className="size-4" aria-hidden="true" />
+                      </button>
+
+                      <div className="flex h-7 min-w-0 flex-1 items-center gap-[3px] overflow-hidden px-1">
+                        {Array.from({ length: 28 }).map((_, barIdx) => {
+                          const baseHeights = [
+                            22, 34, 24, 52, 38, 72, 46, 86, 58, 92, 64, 78, 52, 88, 70, 44, 80,
+                            62, 94, 56, 74, 48, 66, 40, 54, 32, 42, 26,
+                          ]
+                          const waveShift = (barIdx + recordingSeconds * 3) % baseHeights.length
+                          const heightPct = baseHeights[waveShift]
+                          return (
+                            <span
+                              key={barIdx}
+                              style={{ height: `${Math.max(18, heightPct)}%` }}
+                              className="w-[2.5px] shrink-0 rounded-full bg-white/90 transition-all duration-300"
+                            />
+                          )
+                        })}
                       </div>
-                      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-                        <button
-                          type="button"
-                          onClick={cancelVoiceRecording}
-                          className="inline-flex h-8 items-center gap-1 rounded-full border border-border bg-background px-3 text-xs font-semibold text-muted-foreground hover:text-foreground"
-                        >
-                          <Trash2 className="size-3.5" aria-hidden="true" />
-                          <span>Cancel</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={finishAndSendVoiceRecording}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#c026d3] via-[#7c3aed] to-[#4f46e5] px-3.5 text-xs font-bold text-white shadow-xs"
-                        >
-                          <Send className="size-3.5" aria-hidden="true" />
-                          <span>Send</span>
-                        </button>
-                      </div>
+
+                      <span className="shrink-0 font-poppins text-xs font-semibold tabular-nums text-white/95">
+                        {formatVoiceDurationPadded(recordingSeconds)}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={finishAndSendVoiceRecording}
+                        aria-label="Send voice message"
+                        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white text-[#4f46e5] shadow-xs transition-transform hover:scale-105 active:scale-95"
+                      >
+                        <ArrowUp className="size-4 stroke-[2.6]" aria-hidden="true" />
+                      </button>
                     </div>
                   ) : (
+                    /* Instagram DM Pill Composer: Camera (Left) · Message... · Mic · Gallery · Saved · Plus (Right) */
                     <form
                       onSubmit={handleFormSubmit}
-                      className="flex min-w-0 w-full items-center gap-1.5 rounded-full border border-border/80 bg-[#efefef] p-1.5 transition-colors focus-within:border-violet-500/70 dark:border-white/10 dark:bg-[#262626]"
+                      className="flex min-w-0 w-full items-center gap-1 rounded-full bg-[#efefef] p-1.5 transition-colors dark:bg-[#262626]"
                     >
                       <button
-                        ref={attachButtonRef}
                         type="button"
                         onClick={() => {
+                          setShowAttachMenu(false)
                           setSelectedMessageIds([])
                           setShowSelectionMoreMenu(false)
-                          setShowSettingsModal(false)
-                          setShowNewChatModal(false)
-                          setShowAttachMenu((prev) => !prev)
+                          cameraInputRef.current?.click()
                         }}
-                        aria-label="Attach Media, Document, Location, Contact, or Poll"
-                        className={cn(
-                          'flex size-9 shrink-0 items-center justify-center rounded-full transition-all',
-                          showAttachMenu
-                            ? 'bg-gradient-to-br from-[#c026d3] to-[#4f46e5] text-white shadow-sm'
-                            : 'bg-[#4f46e5] text-white hover:opacity-90',
-                        )}
+                        title="Open Camera"
+                        aria-label="Take a photo with camera"
+                        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#4f46e5] text-white shadow-xs transition-transform active:scale-95 hover:opacity-95"
                       >
-                        <Paperclip className="size-4" aria-hidden="true" />
+                        <Camera className="size-[18px]" aria-hidden="true" />
                       </button>
 
                       <input
@@ -6953,32 +7011,88 @@ export function CampusMessenger({
                             ? 'Add a caption...'
                             : 'Message...'
                         }
-                        className="h-9 min-w-0 flex-1 bg-transparent px-2 text-[13.5px] text-foreground placeholder:text-muted-foreground focus:outline-none sm:text-sm dark:text-white dark:placeholder:text-zinc-400"
+                        className="h-9 min-w-0 flex-1 bg-transparent px-2 text-[14px] text-zinc-950 placeholder:text-zinc-500 focus:outline-none dark:text-white dark:placeholder:text-zinc-400"
                       />
 
-                      <button
-                        type="button"
-                        onClick={startVoiceRecording}
-                        title="Record a Voice Message (Audio)"
-                        aria-label="Record voice message"
-                        className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
-                      >
-                        <Mic className="size-[18px]" aria-hidden="true" />
-                      </button>
+                      {inputText.trim().length > 0 || pendingAttachment ? (
+                        <button
+                          type="submit"
+                          onClick={() => {
+                            setShowAttachMenu(false)
+                            setSelectedMessageIds([])
+                            setShowSelectionMoreMenu(false)
+                          }}
+                          aria-label="Send message"
+                          className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-[#c026d3] via-[#7c3aed] to-[#4f46e5] px-4 text-xs font-bold text-white shadow-xs transition-opacity hover:opacity-95"
+                        >
+                          <Send className="size-3.5" aria-hidden="true" />
+                          <span>Send</span>
+                        </button>
+                      ) : (
+                        <div className="flex shrink-0 items-center gap-0.5 pr-0.5">
+                          <button
+                            type="button"
+                            onClick={startVoiceRecording}
+                            title="Record voice message"
+                            aria-label="Record voice message"
+                            className="flex size-9 items-center justify-center rounded-full text-zinc-800 transition-colors hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                          >
+                            <Mic className="size-[19px]" aria-hidden="true" />
+                          </button>
 
-                      <button
-                        type="submit"
-                        onClick={() => {
-                          setShowAttachMenu(false)
-                          setSelectedMessageIds([])
-                          setShowSelectionMoreMenu(false)
-                        }}
-                        disabled={!inputText.trim() && !pendingAttachment}
-                        aria-label="Send message"
-                        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#c026d3] via-[#7c3aed] to-[#4f46e5] text-white shadow-sm transition-all hover:opacity-95 disabled:opacity-35"
-                      >
-                        <Send className="size-4" aria-hidden="true" />
-                      </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAttachMenu(false)
+                              setSelectedMessageIds([])
+                              setShowSelectionMoreMenu(false)
+                              imageInputRef.current?.click()
+                            }}
+                            title="Photo Gallery (HD)"
+                            aria-label="Choose photo from gallery"
+                            className="flex size-9 items-center justify-center rounded-full text-zinc-800 transition-colors hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                          >
+                            <ImageIcon className="size-[19px]" aria-hidden="true" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAttachMenu(false)
+                              setSelectedMessageIds([])
+                              setShowSelectionMoreMenu(false)
+                              setShowStarredModal(true)
+                            }}
+                            title="Saved / Starred Messages"
+                            aria-label="Open saved messages"
+                            className="flex size-9 items-center justify-center rounded-full text-zinc-800 transition-colors hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                          >
+                            <Bookmark className="size-[18px]" aria-hidden="true" />
+                          </button>
+
+                          <button
+                            ref={attachButtonRef}
+                            type="button"
+                            onClick={() => {
+                              setSelectedMessageIds([])
+                              setShowSelectionMoreMenu(false)
+                              setShowSettingsModal(false)
+                              setShowNewChatModal(false)
+                              setShowAttachMenu((prev) => !prev)
+                            }}
+                            title="More attachments (Document, Location, Contact, Poll)"
+                            aria-label="Open attachment options"
+                            className={cn(
+                              'flex size-9 items-center justify-center rounded-full transition-colors',
+                              showAttachMenu
+                                ? 'bg-violet-600 text-white'
+                                : 'text-zinc-800 hover:bg-black/5 dark:text-white dark:hover:bg-white/10',
+                            )}
+                          >
+                            <PlusCircle className="size-[19px]" aria-hidden="true" />
+                          </button>
+                        </div>
+                      )}
                     </form>
                   )}
                 </div>
