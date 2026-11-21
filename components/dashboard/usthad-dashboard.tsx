@@ -934,7 +934,7 @@ export function UsthadDashboard() {
           <BrandWordmark
             className="pt-[2px]"
             gapClassName="gap-[1px]"
-            topClassName="translate-y-[1px] text-lg font-bold text-foreground leading-none"
+            topClassName="translate-y-[1px] text-lg font-bold text-[#009245] leading-none"
             bottomClassName="text-[10px] font-semibold text-[#0077CC] dark:text-[#0095F6] leading-none"
           />
         </Link>
@@ -985,7 +985,7 @@ export function UsthadDashboard() {
             <BrandWordmark
               className="pt-[2px]"
               gapClassName="gap-[1px]"
-              topClassName="translate-y-[1px] text-[15px] sm:text-lg font-bold text-foreground leading-none"
+              topClassName="translate-y-[1px] text-[15px] sm:text-lg font-bold text-[#009245] leading-none"
               bottomClassName="text-[8.5px] sm:text-[10px] font-semibold text-[#0077CC] dark:text-[#0095F6] leading-none"
             />
           </Link>

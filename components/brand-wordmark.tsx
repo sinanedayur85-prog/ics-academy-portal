@@ -7,7 +7,7 @@ type BrandLogoMarkProps = SVGProps<SVGSVGElement> & {
 
 export function BrandLogoMark({
   className,
-  variant = 'monochrome',
+  variant = 'color',
   ...props
 }: BrandLogoMarkProps) {
   const isMono = variant === 'monochrome'

@@ -130,7 +130,7 @@ export function Hero() {
             <BrandWordmark
               as="h1"
               gapClassName="gap-1 sm:gap-1.5"
-              topClassName="text-5xl font-bold text-[#0F1419] transition-colors duration-300 dark:text-white sm:text-6xl lg:text-7xl leading-none"
+              topClassName="text-5xl font-bold text-[#009245] transition-colors duration-300 sm:text-6xl lg:text-7xl leading-none"
               bottomClassName="text-2xl font-semibold text-[#0077CC] transition-colors duration-300 dark:text-[#0095F6] sm:text-3xl lg:text-[2.1rem] leading-none"
             />
 

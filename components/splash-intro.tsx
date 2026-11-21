@@ -167,7 +167,7 @@ export function SplashIntro() {
             {/* 2. Exact Home Screen Header Wordmark Alignment (BrandWordmark layout + El Messiri font-display) */}
             <div className="mt-4 inline-flex w-max flex-col font-display antialiased">
               {/* Top Line: "ICS ACADEMY" with Keyboard Typewriter Animation */}
-              <span className="relative -ml-[0.078em] block text-3xl leading-none font-bold text-white sm:text-5xl">
+              <span className="relative -ml-[0.078em] block text-3xl leading-none font-bold text-[#009245] sm:text-5xl">
                 {/* Invisible full text preserves exact width so MANHAPPATTA below aligns edge-to-edge */}
                 <span className="invisible select-none" aria-hidden="true">
                   {TITLE_TEXT}
@@ -187,7 +187,7 @@ export function SplashIntro() {
               {/* Bottom Line: "MANHAPPATTA" in ICS Font (font-display), edge-to-edge aligned like Header, with Flowing Animation */}
               <span
                 aria-label="MANHAPPATTA"
-                className="mt-[2.4px] flex w-full justify-between text-[17px] leading-none font-semibold text-emerald-400 sm:text-[27px]"
+                className="mt-[2.4px] flex w-full justify-between text-[17px] leading-none font-semibold text-[#0095F6] sm:text-[27px]"
               >
                 {SUBTITLE_LETTERS.map((letter, index, letters) => (
                   <motion.span
