@@ -102,7 +102,14 @@ import {
 } from '@/components/dashboard/digital-library'
 import { ExamResultCard } from '@/components/dashboard/exam-result-card'
 import { LibraryBooks } from '@/components/dashboard/library-books'
-import type { SavedLeaveEntry } from '@/components/dashboard/leave-register'
+import {
+  DateSelectGroup,
+  TimeSelectGroup,
+  getCurrentDateTime,
+  type DateValue,
+  type SavedLeaveEntry,
+  type Time12Value,
+} from '@/components/dashboard/leave-register'
 import { Panel, fieldClassName } from '@/components/dashboard/panel'
 import { ParentReportModal } from '@/components/dashboard/parent-report-modal'
 import { ProfileInitialsAvatar, UsthadSwitcher } from '@/components/dashboard/student-switcher'
@@ -339,9 +346,49 @@ export function UsthadDashboard() {
     () => classStudents[0]?.id ?? students[0].id,
   )
   const [leaveActionType, setLeaveActionType] = useState<'application' | 'return'>('application')
+  const [leaveDate, setLeaveDate] = useState<DateValue>(() => getCurrentDateTime().date)
+  const [leaveTime, setLeaveTime] = useState<Time12Value>(() => getCurrentDateTime().time)
+  const [isManualLeaveDateTime, setIsManualLeaveDateTime] = useState(false)
   const [leaveReason, setLeaveReason] = useState<string>(leaveReasons[0])
   const [leaveDetails, setLeaveDetails] = useState<string>('')
   const [leaveSavedToast, setLeaveSavedToast] = useState<string | null>(null)
+
+  const syncUsthadLeaveDateTime = useCallback(() => {
+    const { date, time } = getCurrentDateTime()
+    setLeaveDate((prev) =>
+      prev.day === date.day && prev.month === date.month && prev.year === date.year ? prev : date,
+    )
+    setLeaveTime((prev) =>
+      prev.hour === time.hour && prev.minute === time.minute && prev.period === time.period
+        ? prev
+        : time,
+    )
+  }, [])
+
+  function resetUsthadLeaveDateTimeToLive() {
+    setIsManualLeaveDateTime(false)
+    const { date, time } = getCurrentDateTime()
+    setLeaveDate(date)
+    setLeaveTime(time)
+  }
+
+  useEffect(() => {
+    if (isManualLeaveDateTime) return
+    syncUsthadLeaveDateTime()
+    const timer = window.setInterval(syncUsthadLeaveDateTime, 1000)
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        syncUsthadLeaveDateTime()
+      }
+    }
+    window.addEventListener('focus', handleVisibilityOrFocus)
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', handleVisibilityOrFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+    }
+  }, [isManualLeaveDateTime, syncUsthadLeaveDateTime])
 
   // Notice Board Publisher State
   const [customNotices, setCustomNotices] = useState<Notice[]>(() => loadCustomNotices())
@@ -592,10 +639,11 @@ export function UsthadDashboard() {
     recordType: 'application' | 'return',
     reasonText: string,
     detailsText: string,
+    overrideDateTime?: { dateString: string; timeString: string },
   ) {
     const safeStudentId = sanitizeId(targetStudent.id)
     const activeUid = firebaseUser ? firebaseUser.uid : `portal_${safeStudentId}`
-    const { dateString, timeString } = formatNowParts()
+    const { dateString, timeString } = overrideDateTime ?? formatNowParts()
     const recordId = sanitizeId(`leave_${safeStudentId}_${Date.now()}`)
 
     const newEntry: SavedLeaveEntry = {
@@ -628,7 +676,7 @@ export function UsthadDashboard() {
       message:
         recordType === 'return'
           ? `${targetStudent.name} (${targetStudent.className}) returned to campus on ${dateString} at ${timeString}.`
-          : `${targetStudent.name} (${targetStudent.className}) leave recorded: ${reasonText} (${dateString}).`,
+          : `${targetStudent.name} (${targetStudent.className}) leave recorded: ${reasonText} (${dateString} at ${timeString}).`,
       targetStudentId: targetStudent.id,
       targetClass: targetStudent.className,
       actorName: usthad.name,
@@ -637,8 +685,8 @@ export function UsthadDashboard() {
 
     setLeaveSavedToast(
       recordType === 'return'
-        ? `Marked ${targetStudent.name} as Returned to Academy.`
-        : `Recorded leave for ${targetStudent.name} (${reasonText}).`,
+        ? `Marked ${targetStudent.name} as Returned (${dateString} at ${timeString}).`
+        : `Recorded leave for ${targetStudent.name} (${dateString} at ${timeString}).`,
     )
     window.setTimeout(() => setLeaveSavedToast(null), 4000)
 
@@ -671,8 +719,14 @@ export function UsthadDashboard() {
     if (isUsthadLeaveActionDuplicate) return
     const st = classStudents.find((s) => s.id === leaveStudentId) ?? classStudents[0]
     if (!st) return
-    void recordUsthadLeaveOrReturn(st, leaveActionType, leaveReason, leaveDetails.trim())
+    const dateString = `${leaveDate.day} ${leaveDate.month} ${leaveDate.year}`
+    const timeString = `${leaveTime.hour}:${leaveTime.minute} ${leaveTime.period}`
+    void recordUsthadLeaveOrReturn(st, leaveActionType, leaveReason, leaveDetails.trim(), {
+      dateString,
+      timeString,
+    })
     setLeaveDetails('')
+    resetUsthadLeaveDateTimeToLive()
   }
 
   async function handleDeleteLeaveLog(entry: SavedLeaveEntry) {
@@ -2292,6 +2346,29 @@ export function UsthadDashboard() {
                   <LogIn className="size-3.5" aria-hidden="true" />
                   Record Return
                 </button>
+              </div>
+
+              <div className="grid gap-3">
+                <DateSelectGroup
+                  idPrefix="usthad-leave-date"
+                  label={leaveActionType === 'application' ? 'Departure date' : 'Return date'}
+                  value={leaveDate}
+                  onChange={(nextDate) => {
+                    setIsManualLeaveDateTime(true)
+                    setLeaveDate(nextDate)
+                  }}
+                />
+                <TimeSelectGroup
+                  idPrefix="usthad-leave-time"
+                  label={leaveActionType === 'application' ? 'Departure time' : 'Return time'}
+                  value={leaveTime}
+                  isManual={isManualLeaveDateTime}
+                  onResetToLive={resetUsthadLeaveDateTimeToLive}
+                  onChange={(nextTime) => {
+                    setIsManualLeaveDateTime(true)
+                    setLeaveTime(nextTime)
+                  }}
+                />
               </div>
 
               {leaveActionType === 'application' ? (

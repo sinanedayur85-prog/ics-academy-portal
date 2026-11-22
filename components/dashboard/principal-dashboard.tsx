@@ -134,7 +134,14 @@ import {
 } from '@/components/dashboard/digital-library'
 import { getPdfBlobPageCount } from '@/components/dashboard/kitab-pdf-viewer'
 import { ExamResultCard } from '@/components/dashboard/exam-result-card'
-import { type SavedLeaveEntry } from '@/components/dashboard/leave-register'
+import {
+  DateSelectGroup,
+  TimeSelectGroup,
+  getCurrentDateTime,
+  type DateValue,
+  type SavedLeaveEntry,
+  type Time12Value,
+} from '@/components/dashboard/leave-register'
 import { LibraryBooks } from '@/components/dashboard/library-books'
 import { NoticeBoard } from '@/components/dashboard/notice-board'
 import { Panel } from '@/components/dashboard/panel'
@@ -267,9 +274,49 @@ export function PrincipalDashboard() {
   // Leave Action Form (Campus-wide)
   const [leaveStudentId, setLeaveStudentId] = useState<string>(() => students[0]?.id ?? 'std-1')
   const [leaveActionType, setLeaveActionType] = useState<'application' | 'return'>('application')
+  const [leaveDate, setLeaveDate] = useState<DateValue>(() => getCurrentDateTime().date)
+  const [leaveTime, setLeaveTime] = useState<Time12Value>(() => getCurrentDateTime().time)
+  const [isManualLeaveDateTime, setIsManualLeaveDateTime] = useState(false)
   const [leaveReason, setLeaveReason] = useState<string>(leaveReasons[0])
   const [leaveDetails, setLeaveDetails] = useState<string>('')
   const [leaveSavedToast, setLeaveSavedToast] = useState<string | null>(null)
+
+  const syncPrincipalLeaveDateTime = useCallback(() => {
+    const { date, time } = getCurrentDateTime()
+    setLeaveDate((prev) =>
+      prev.day === date.day && prev.month === date.month && prev.year === date.year ? prev : date,
+    )
+    setLeaveTime((prev) =>
+      prev.hour === time.hour && prev.minute === time.minute && prev.period === time.period
+        ? prev
+        : time,
+    )
+  }, [])
+
+  function resetPrincipalLeaveDateTimeToLive() {
+    setIsManualLeaveDateTime(false)
+    const { date, time } = getCurrentDateTime()
+    setLeaveDate(date)
+    setLeaveTime(time)
+  }
+
+  useEffect(() => {
+    if (isManualLeaveDateTime) return
+    syncPrincipalLeaveDateTime()
+    const timer = window.setInterval(syncPrincipalLeaveDateTime, 1000)
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        syncPrincipalLeaveDateTime()
+      }
+    }
+    window.addEventListener('focus', handleVisibilityOrFocus)
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', handleVisibilityOrFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+    }
+  }, [isManualLeaveDateTime, syncPrincipalLeaveDateTime])
 
   // Parent Report Modal State
   const [pdfReportStudent, setPdfReportStudent] = useState<Student | null>(null)
@@ -1096,10 +1143,11 @@ export function PrincipalDashboard() {
     recordType: 'application' | 'return',
     reasonText: string,
     detailsText: string,
+    overrideDateTime?: { dateString: string; timeString: string },
   ) {
     const safeStudentId = sanitizeId(targetStudent.id)
     const activeUid = firebaseUser ? firebaseUser.uid : `portal_${safeStudentId}`
-    const { dateString, timeString } = formatNowParts()
+    const { dateString, timeString } = overrideDateTime ?? formatNowParts()
     const recordId = sanitizeId(`leave_${safeStudentId}_${Date.now()}`)
 
     const newEntry: SavedLeaveEntry = {
@@ -1135,7 +1183,7 @@ export function PrincipalDashboard() {
       message:
         recordType === 'return'
           ? `${targetStudent.name} (${targetStudent.className}) returned to campus on ${dateString} at ${timeString}.`
-          : `${targetStudent.name} (${targetStudent.className}) leave recorded by Principal: ${reasonText} (${dateString}).`,
+          : `${targetStudent.name} (${targetStudent.className}) leave recorded by Principal: ${reasonText} (${dateString} at ${timeString}).`,
       targetStudentId: targetStudent.id,
       targetClass: targetStudent.className,
       actorName: principal.name,
@@ -1144,8 +1192,8 @@ export function PrincipalDashboard() {
 
     setLeaveSavedToast(
       recordType === 'return'
-        ? `Recorded campus return for ${targetStudent.name} (${targetStudent.className}).`
-        : `Recorded leave for ${targetStudent.name} (${targetStudent.className}) (${reasonText}).`,
+        ? `Recorded return for ${targetStudent.name} (${dateString} at ${timeString}).`
+        : `Recorded leave for ${targetStudent.name} (${dateString} at ${timeString}).`,
     )
     window.setTimeout(() => setLeaveSavedToast(null), 4000)
 
@@ -1178,8 +1226,14 @@ export function PrincipalDashboard() {
     if (isPrincipalLeaveActionDuplicate) return
     const st = students.find((s) => s.id === leaveStudentId) ?? students[0]
     if (!st) return
-    void recordPrincipalLeaveOrReturn(st, leaveActionType, leaveReason, leaveDetails.trim())
+    const dateString = `${leaveDate.day} ${leaveDate.month} ${leaveDate.year}`
+    const timeString = `${leaveTime.hour}:${leaveTime.minute} ${leaveTime.period}`
+    void recordPrincipalLeaveOrReturn(st, leaveActionType, leaveReason, leaveDetails.trim(), {
+      dateString,
+      timeString,
+    })
     setLeaveDetails('')
+    resetPrincipalLeaveDateTimeToLive()
   }
 
   function getResolvedTargetClasses(): string[] | undefined {
@@ -3406,6 +3460,29 @@ export function PrincipalDashboard() {
                             <option value="return">Mark Returned</option>
                           </ThemeSelect>
                         </div>
+                      </div>
+
+                      <div className="grid gap-3.5 sm:grid-cols-2">
+                        <DateSelectGroup
+                          idPrefix="pr-leave-date"
+                          label={leaveActionType === 'application' ? 'Departure date' : 'Return date'}
+                          value={leaveDate}
+                          onChange={(nextDate) => {
+                            setIsManualLeaveDateTime(true)
+                            setLeaveDate(nextDate)
+                          }}
+                        />
+                        <TimeSelectGroup
+                          idPrefix="pr-leave-time"
+                          label={leaveActionType === 'application' ? 'Departure time' : 'Return time'}
+                          value={leaveTime}
+                          isManual={isManualLeaveDateTime}
+                          onResetToLive={resetPrincipalLeaveDateTimeToLive}
+                          onChange={(nextTime) => {
+                            setIsManualLeaveDateTime(true)
+                            setLeaveTime(nextTime)
+                          }}
+                        />
                       </div>
 
                       {leaveActionType === 'application' && (

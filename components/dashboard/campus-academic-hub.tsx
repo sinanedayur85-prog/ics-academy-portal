@@ -536,7 +536,6 @@ function ClassZadulKhairManager({
       {
         paidAmount: string
         receiptNo: string
-        remarks: string
       }
     >
   >({})
@@ -569,7 +568,6 @@ function ClassZadulKhairManager({
         draft?.receiptNo ??
         saved?.receiptNo ??
         `ZK-${selectedMonth.replace('-', '')}-${stu.admissionNo.slice(-4)}`
-      const remarks = draft?.remarks ?? saved?.remarks ?? ''
 
       return {
         student: stu,
@@ -581,7 +579,6 @@ function ClassZadulKhairManager({
         totalAmount: summary.previousContribution + parsedAmount,
         isRecorded,
         receiptNo,
-        remarks,
       }
     })
   }, [classStudents, selectedMonth, records, zkEdits])
@@ -610,12 +607,6 @@ function ClassZadulKhairManager({
           ? row.receiptNo.trim() ||
             `ZK-${selectedMonth.replace('-', '')}-${row.student.admissionNo.slice(-4)}`
           : ''
-      const remarks =
-        row.remarks.trim() ||
-        (paidAmount > 0
-          ? 'Received voluntary household Zadul Khair contribution with heartfelt gratitude.'
-          : '')
-
       const record: CampusAcademicRecord = {
         id: `zk_${selectedMonth}_${row.student.id}`,
         campusId: 'ics-academy',
@@ -625,9 +616,9 @@ function ClassZadulKhairManager({
         studentName: row.student.name,
         admissionNo: row.student.admissionNo,
         month: selectedMonth,
-        title: 'Zadul Khair (زاد الخير) Voluntary Household Contribution',
+        title: 'Zadul Khair Voluntary Household Contribution',
         subjectOrCategory: selectedMonthLabel,
-        remarks,
+        remarks: '',
         status,
         actorId,
         actorName,
@@ -683,7 +674,7 @@ function ClassZadulKhairManager({
           isRecorded: row.isRecorded,
           receiptNo: row.receiptNo,
           dateString: row.saved?.dateString || (row.isRecorded ? formatTodayDateDisplay() : '—'),
-          remarks: row.remarks,
+          remarks: '',
         })),
         preparedByName: actorName,
         preparedByRole: actorRoleLabel,
@@ -711,7 +702,7 @@ function ClassZadulKhairManager({
         month: selectedMonth,
         title: 'Zadul Khair Voluntary Household Contribution',
         subjectOrCategory: selectedMonthLabel,
-        remarks: row.remarks,
+        remarks: '',
         status: row.isRecorded ? 'received' : 'not_recorded',
         actorId: row.saved?.actorId || actorId,
         actorName: row.saved?.actorName || actorName,
@@ -839,7 +830,6 @@ function ClassZadulKhairManager({
               <th className="px-3 py-3">Current Month (₹)</th>
               <th className="px-3 py-3">Total (₹)</th>
               <th className="px-3 py-3">Status</th>
-              <th className="px-3 py-3">Remarks</th>
               <th className="px-3 py-3 text-right">Save &amp; Receipt</th>
             </tr>
           </thead>
@@ -861,7 +851,6 @@ function ClassZadulKhairManager({
                         [row.student.id]: {
                           paidAmount: row.rawAmountStr,
                           receiptNo: e.target.value,
-                          remarks: row.remarks,
                         },
                       }))
                     }
@@ -884,7 +873,6 @@ function ClassZadulKhairManager({
                         [row.student.id]: {
                           paidAmount: e.target.value,
                           receiptNo: row.receiptNo,
-                          remarks: row.remarks,
                         },
                       }))
                     }
@@ -905,23 +893,6 @@ function ClassZadulKhairManager({
                   >
                     {row.isRecorded ? 'Received' : 'Not Recorded'}
                   </span>
-                </td>
-                <td className="px-3 py-2.5">
-                  <Input
-                    value={row.remarks}
-                    onChange={(e) =>
-                      setZkEdits((prev) => ({
-                        ...prev,
-                        [row.student.id]: {
-                          paidAmount: row.rawAmountStr,
-                          receiptNo: row.receiptNo,
-                          remarks: e.target.value,
-                        },
-                      }))
-                    }
-                    placeholder="Optional gratitude note..."
-                    className="h-8 w-40 text-xs"
-                  />
                 </td>
                 <td className="px-3 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1.5">
@@ -2724,7 +2695,6 @@ export function StudentAcademicHub({
                         <th className="px-4 py-3">Date</th>
                         <th className="px-4 py-3">Contribution (₹)</th>
                         <th className="px-4 py-3">Status</th>
-                        <th className="px-4 py-3">Remarks</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/40 tabular-nums">
@@ -2759,9 +2729,6 @@ export function StudentAcademicHub({
                               {row.statusLabel}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">
-                            {row.remarks || '—'}
-                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -2773,7 +2740,7 @@ export function StudentAcademicHub({
                         <td className="px-4 py-3 font-mono font-bold text-emerald-700 dark:text-emerald-400">
                           ₹{myZadulKhairSummary.fullAcademicYearTotal.toLocaleString('en-IN')}
                         </td>
-                        <td className="px-4 py-3 text-xs text-emerald-700 dark:text-emerald-400" colSpan={2}>
+                        <td className="px-4 py-3 text-xs text-emerald-700 dark:text-emerald-400">
                           {myZadulKhairSummary.recordedMonthsCount}{' '}
                           {myZadulKhairSummary.recordedMonthsCount === 1 ? 'Month' : 'Months'} Recorded
                         </td>

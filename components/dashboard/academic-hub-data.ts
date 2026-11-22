@@ -26,6 +26,11 @@ import {
   students,
   type Student,
 } from '@/components/dashboard/data'
+import {
+  loadVectorPdfAssets,
+  registerOfficialVectorPdfFonts,
+  shapeArabicLineForUthmanVector,
+} from '@/components/dashboard/study-note-pdf'
 import { downloadBlobOnDevice, printPdfBlobOnDevice } from '@/lib/mobile-pdf'
 import { db, handleFirestoreError, OperationType } from '@/src/lib/firebase'
 
@@ -1164,115 +1169,7 @@ export function computeStudentZadulKhairSummary(
   }
 }
 
-const ZADUL_KHAIR_ARABIC_DUA = 'بارك الله في أموالكم وأهليكم، وزادكم من فضله'
-const ZADUL_KHAIR_DUA_TRANSLATION =
-  'May Allah bless your wealth and family, and increase you from His bounty.'
-
-async function renderArabicDuaBannerDataUrl(): Promise<string | null> {
-  if (typeof window === 'undefined' || typeof document === 'undefined') return null
-  try {
-    if (document.fonts) {
-      await Promise.race([
-        Promise.allSettled([
-          document.fonts.ready,
-          document.fonts.load('600 66px "KFGQPC Uthman Taha Naskh"', ZADUL_KHAIR_ARABIC_DUA),
-          document.fonts.load('400 66px "KFGQPC Uthman Taha Naskh"', ZADUL_KHAIR_ARABIC_DUA),
-        ]),
-        new Promise((resolve) => window.setTimeout(resolve, 1800)),
-      ])
-    }
-
-    const width = 1860
-    const height = 240
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return null
-
-    const drawRoundedRect = (x: number, y: number, w: number, h: number, r: number) => {
-      ctx.beginPath()
-      ctx.moveTo(x + r, y)
-      ctx.lineTo(x + w - r, y)
-      ctx.quadraticCurveTo(x + w, y, x + w, y + r)
-      ctx.lineTo(x + w, y + h - r)
-      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
-      ctx.lineTo(x + r, y + h)
-      ctx.quadraticCurveTo(x, y + h, x, y + h - r)
-      ctx.lineTo(x, y + r)
-      ctx.quadraticCurveTo(x, y, x + r, y)
-      ctx.closePath()
-    }
-
-    // Soft serene emerald-ivory card fill
-    const bgGrad = ctx.createLinearGradient(0, 0, width, height)
-    bgGrad.addColorStop(0, '#F0FDF4')
-    bgGrad.addColorStop(0.5, '#ECFDF5')
-    bgGrad.addColorStop(1, '#F0FDF4')
-    drawRoundedRect(6, 6, width - 12, height - 12, 26)
-    ctx.fillStyle = bgGrad
-    ctx.fill()
-
-    // Outer emerald hairline border
-    ctx.lineWidth = 3.5
-    ctx.strokeStyle = '#10B981'
-    ctx.stroke()
-
-    // Delicate inner ornamental double-frame
-    drawRoundedRect(18, 18, width - 36, height - 36, 18)
-    ctx.lineWidth = 1.6
-    ctx.strokeStyle = 'rgba(4, 120, 87, 0.28)'
-    ctx.stroke()
-
-    // Subtle decorative divider line & ornament at top
-    const centerX = width / 2
-    ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)'
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.moveTo(centerX - 340, 44)
-    ctx.lineTo(centerX - 36, 44)
-    ctx.moveTo(centerX + 36, 44)
-    ctx.lineTo(centerX + 340, 44)
-    ctx.stroke()
-
-    // Small diamond ornament in center of top rule
-    ctx.fillStyle = '#047857'
-    ctx.beginPath()
-    ctx.moveTo(centerX, 34)
-    ctx.lineTo(centerX + 10, 44)
-    ctx.lineTo(centerX, 54)
-    ctx.lineTo(centerX - 10, 44)
-    ctx.closePath()
-    ctx.fill()
-
-    // Calligraphic Arabic Dua rendered in the app's official KFGQPC Uthman Taha Naskh font
-    ctx.save()
-    ctx.direction = 'rtl'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillStyle = '#081E21'
-    ctx.font = '600 72px "KFGQPC Uthman Taha Naskh", "Tajawal", "Amiri", serif'
-    ctx.fillText(ZADUL_KHAIR_ARABIC_DUA, centerX, 120)
-    ctx.restore()
-
-    // Warm English meaning beneath
-    ctx.save()
-    ctx.direction = 'ltr'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillStyle = '#047857'
-    ctx.font = '500 24px "Poppins", system-ui, -apple-system, sans-serif'
-    ctx.fillText(ZADUL_KHAIR_DUA_TRANSLATION, centerX, 192)
-    ctx.restore()
-
-    const url = canvas.toDataURL('image/png')
-    canvas.width = 0
-    canvas.height = 0
-    return url
-  } catch {
-    return null
-  }
-}
+const ZADUL_KHAIR_ARABIC_DUA = 'بارك الله في أموالكم وأهليكم، وزادكم من فضله، آمين'
 
 async function renderPdfArrayBufferToJpgBlob(pdfBytes: ArrayBuffer): Promise<Blob> {
   const [pdfjsLib, workerMod] = await Promise.all([
@@ -1342,7 +1239,25 @@ export async function exportStudentZadulKhairReceiptPdf(params: {
     compress: true,
   })
 
-  const { fontFamily, hasElMessiri, logoDataUrl } = await loadOfficialPdfFontsAndLogo(pdf)
+  let fontFamily: 'Poppins' | 'helvetica' = 'helvetica'
+  let hasElMessiri = false
+  let hasUthmanVector = false
+  let logoDataUrl: string | null = null
+
+  try {
+    const vectorAssets = await loadVectorPdfAssets()
+    registerOfficialVectorPdfFonts(pdf, vectorAssets)
+    fontFamily = 'Poppins'
+    hasElMessiri = true
+    hasUthmanVector = true
+    logoDataUrl = vectorAssets.logoDataUrl
+  } catch {
+    const fallbackAssets = await loadOfficialPdfFontsAndLogo(pdf)
+    fontFamily = fallbackAssets.fontFamily
+    hasElMessiri = fallbackAssets.hasElMessiri
+    logoDataUrl = fallbackAssets.logoDataUrl
+  }
+
   const setFont = (style: 'normal' | 'semibold' | 'bold') => {
     if (fontFamily === 'Poppins') {
       pdf.setFont('Poppins', style)
@@ -1550,39 +1465,14 @@ export async function exportStudentZadulKhairReceiptPdf(params: {
     pdf.text(box.sub, bx + 3.8, y + 18.4)
   })
 
-  y += kpiH + 5
+  y += kpiH + 7
 
-  // 4. Voluntary Gratitude Acknowledgement Box
-  const remarkH = 15
-  pdf.setFillColor(255, 255, 255)
-  pdf.setDrawColor(203, 213, 225)
-  pdf.setLineWidth(0.3)
-  pdf.roundedRect(margin, y, contentWidth, remarkH, 2.4, 2.4, 'FD')
-
-  setFont('bold')
-  pdf.setFontSize(6.6)
-  pdf.setTextColor(8, 30, 33)
-  pdf.text('VOLUNTARY HOUSEHOLD CONTRIBUTION ACKNOWLEDGEMENT', margin + 4.2, y + 5)
-
-  setFont('normal')
-  pdf.setFontSize(7.6)
-  pdf.setTextColor(51, 65, 85)
-  const customNote = (summary.currentMonthRecord?.remarks || record.remarks || '').trim()
-  const noteText =
-    customNote ||
-    (isCurrentRecorded
-      ? 'Jazakallahu Khairan. Received voluntary household Zadul Khair contribution with heartfelt gratitude.'
-      : 'Zadul Khair is a voluntary household charity initiative supporting ICS Academy Manhappatta. Thank you for your prayers and support.')
-  pdf.text(pdf.splitTextToSize(noteText, contentWidth - 8.4).slice(0, 2), margin + 4.2, y + 10.2)
-
-  y += remarkH + 6
-
-  // 5. Complete Academic Year Monthly Contribution Ledger Table (All 12 Months)
+  // 4. Complete Academic Year Monthly Contribution Ledger Table (All 12 Months)
   setFont('bold')
   pdf.setFontSize(8.8)
   pdf.setTextColor(8, 30, 33)
   pdf.text('STUDENT ZADUL KHAIR MONTHLY CONTRIBUTION LEDGER (2026–27)', margin, y)
-  y += 3.2
+  y += 3.5
 
   const colX = [margin, margin + 44, margin + 88, margin + 124, margin + 158]
   pdf.setFillColor(8, 30, 33)
@@ -1597,7 +1487,7 @@ export async function exportStudentZadulKhairReceiptPdf(params: {
   pdf.text('STATUS', colX[4] + 2, y + 5)
   y += 7.5
 
-  const rowH = 7.8
+  const rowH = 8.4
   summary.monthlyRows.forEach((row, idx) => {
     if (row.isSelectedMonth) {
       pdf.setFillColor(236, 253, 245)
@@ -1660,17 +1550,20 @@ export async function exportStudentZadulKhairReceiptPdf(params: {
     colX[4] + 2,
     y + 5.4,
   )
+  y += 8.2
 
-  // 6. Calligraphic Arabic Blessing Dua Card for Donors
-  const duaBannerDataUrl = await renderArabicDuaBannerDataUrl()
-  if (duaBannerDataUrl) {
-    const duaY = Math.min(236, Math.max(y + 12.5, 234))
-    const duaH = 24
-    pdf.addImage(duaBannerDataUrl, 'PNG', margin, duaY, contentWidth, duaH)
+  // 5. Pure Black 100% Vector Arabic Blessing Dua + Ameen (No Box / No Green Fill)
+  const footerY = 266
+  if (hasUthmanVector) {
+    const shapedDua = shapeArabicLineForUthmanVector(ZADUL_KHAIR_ARABIC_DUA, false)
+    const duaY = Math.round(((y + footerY) / 2 + 1.5) * 10) / 10
+    pdf.setFont('UthmanTN1', 'bold')
+    pdf.setFontSize(17.5)
+    pdf.setTextColor(0, 0, 0)
+    pdf.text(shapedDua, pageWidth / 2, duaY, { align: 'center' })
   }
 
   // Signature & Verification Footer at bottom of page
-  const footerY = 266
   pdf.setDrawColor(203, 213, 225)
   pdf.setLineWidth(0.3)
   pdf.line(margin, footerY, pageWidth - margin, footerY)
