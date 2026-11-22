@@ -7,10 +7,12 @@ import {
   AlertTriangle,
   Award,
   Ban,
+  BookMarked,
   BookOpen,
   Building2,
   CalendarCheck,
   CalendarClock,
+  CalendarDays,
   Check,
   CheckCircle2,
   ClipboardCheck,
@@ -18,6 +20,7 @@ import {
   Crown,
   FileText,
   FileUp,
+  Globe,
   GraduationCap,
   Library,
   Lock,
@@ -137,6 +140,7 @@ import { NoticeBoard } from '@/components/dashboard/notice-board'
 import { Panel } from '@/components/dashboard/panel'
 import { ParentReportModal } from '@/components/dashboard/parent-report-modal'
 import { PrincipalSwitcher, ProfileInitialsAvatar } from '@/components/dashboard/student-switcher'
+import { Timetable } from '@/components/dashboard/timetable'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -207,12 +211,14 @@ function saveStudentLeaveEntriesToStorage(studentId: string, entries: SavedLeave
 
 type ExecutiveTab = 'monitor' | 'people' | 'chat' | 'notices' | 'library'
 type PeopleSubTab = 'usthads' | 'leaders' | 'students' | 'timetable'
+type PrincipalLibrarySubTab = 'library' | 'digital-library' | 'timetable' | 'exam-results'
 
 export function PrincipalDashboard() {
   const principal = ACADEMY_PRINCIPAL
 
   const [activeTab, setActiveTab] = useState<ExecutiveTab>('monitor')
   const [peopleSubTab, setPeopleSubTab] = useState<PeopleSubTab>('usthads')
+  const [librarySubTab, setLibrarySubTab] = useState<PrincipalLibrarySubTab>('library')
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString)
   const [configVersion, setConfigVersion] = useState<number>(0)
 
@@ -4363,15 +4369,55 @@ export function PrincipalDashboard() {
           </div>
         )}
 
-        {/* ==================== TAB 4: DIGITAL LIBRARY & UNIVERSITY PORTAL ==================== */}
+        {/* ==================== TAB 4: LIBRARY, DIGITAL KITABS, TIMETABLE & EXAM RESULTS ==================== */}
         {activeTab === 'library' && (
-          <div className="flex flex-col gap-6">
-            <Panel
-              id="principal-kitab-uploader"
-              eyebrow="Library"
-              title="Upload Kitab"
-              icon={FileUp}
-            >
+          <div className="flex flex-col gap-5">
+            {/* 4-Interface Switcher matching Student Library Layout */}
+            <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-card p-1.5 sm:grid-cols-4">
+              {(
+                [
+                  { id: 'library', label: 'Library', icon: BookMarked },
+                  { id: 'digital-library', label: 'Digital Kitabs', icon: Library },
+                  { id: 'timetable', label: 'Time Table', icon: CalendarDays },
+                  { id: 'exam-results', label: 'Exam Results', icon: Globe },
+                ] as const
+              ).map((sub) => {
+                const active = librarySubTab === sub.id
+                return (
+                  <button
+                    key={sub.id}
+                    type="button"
+                    onClick={() => setLibrarySubTab(sub.id)}
+                    className={cn(
+                      'flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2.5 text-xs font-semibold transition-all active:scale-[0.98]',
+                      active
+                        ? 'bg-[#0095F6] text-white'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    <sub.icon className="size-3.5 shrink-0" aria-hidden="true" />
+                    <span className="truncate">{sub.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {librarySubTab === 'library' && (
+              <LibraryBooks
+                canEdit
+                actorId={`principal-${principal.usthadId || 'principal'}`}
+                actorName={principal.name}
+              />
+            )}
+
+            {librarySubTab === 'digital-library' && (
+              <div className="flex flex-col gap-6">
+                <Panel
+                  id="principal-kitab-uploader"
+                  eyebrow="Library"
+                  title="Upload Kitab"
+                  icon={FileUp}
+                >
               <form onSubmit={handleUploadKitabPdf} className="flex flex-col gap-4">
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="flex flex-col gap-1.5">
@@ -4560,13 +4606,53 @@ export function PrincipalDashboard() {
                   </div>
                 </div>
               )}
-            </Panel>
+                </Panel>
 
-            <ExamResultCard />
+                <DigitalLibrary student={selectedClassRepresentativeStudent} />
+              </div>
+            )}
 
-            <DigitalLibrary student={selectedClassRepresentativeStudent} />
+            {librarySubTab === 'timetable' && (
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-card p-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {CLASS_USTHADS.map((u) => {
+                      const active = selectedClassName === u.className
+                      return (
+                        <button
+                          key={u.className}
+                          type="button"
+                          onClick={() => setSelectedClassName(u.className)}
+                          className={cn(
+                            'rounded-full px-3 py-1.5 text-xs font-semibold transition-all active:scale-95',
+                            active
+                              ? 'bg-[#0095F6] text-white'
+                              : 'bg-muted text-muted-foreground hover:text-foreground dark:bg-[#141A1F]',
+                          )}
+                        >
+                          {u.className}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('people')
+                      setPeopleSubTab('timetable')
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#0095F6]/15 px-3.5 py-1.5 text-xs font-semibold text-[#0077CC] transition-colors hover:bg-[#0095F6]/25 dark:text-[#0095F6]"
+                  >
+                    <CalendarClock className="size-3.5" aria-hidden="true" />
+                    <span>Edit Timetable</span>
+                  </button>
+                </div>
 
-            <LibraryBooks />
+                <Timetable student={selectedClassRepresentativeStudent} />
+              </div>
+            )}
+
+            {librarySubTab === 'exam-results' && <ExamResultCard />}
           </div>
         )}
 

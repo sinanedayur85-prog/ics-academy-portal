@@ -1134,6 +1134,121 @@
         "createdAt",
         "updatedAtMs"
       ]
+    },
+    "CampusLibraryChange": {
+      "title": "CampusLibraryChange",
+      "description": "A Principal-authored override, new addition, shelf assignment, or soft-deletion for an ICS Academy Library Kitab or Book synced in real time across Principal, Usthad, and Student dashboards.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Catalog item identifier (matches base ID such as kitab-1 or book-42, or custom-kitab-/custom-book- ID for new entries).",
+          "minLength": 2,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "campusId": {
+          "type": "string",
+          "description": "Fixed campus tenant identifier (ics-academy).",
+          "enum": ["ics-academy"],
+          "minLength": 11,
+          "maxLength": 16
+        },
+        "itemType": {
+          "type": "string",
+          "description": "Whether this catalog entry is an Arabic Kitab or a Malayalam/English Book.",
+          "enum": ["kitab", "book"],
+          "minLength": 4,
+          "maxLength": 5
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the Kitab (Arabic) or Book (Malayalam/English).",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "category": {
+          "type": "string",
+          "description": "Subject category name.",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "arabicCategory": {
+          "type": "string",
+          "description": "Optional Arabic subject label for Kitabs.",
+          "minLength": 0,
+          "maxLength": 80
+        },
+        "code": {
+          "type": "string",
+          "description": "Optional catalog code (e.g., MS01, E01) or serial number.",
+          "minLength": 0,
+          "maxLength": 32
+        },
+        "author": {
+          "type": "string",
+          "description": "Optional author or scholar name.",
+          "minLength": 0,
+          "maxLength": 160
+        },
+        "volumes": {
+          "type": "string",
+          "description": "Optional volume range or count (e.g., 1-11).",
+          "minLength": 0,
+          "maxLength": 40
+        },
+        "publisher": {
+          "type": "string",
+          "description": "Optional publisher name or PDF marker.",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "shelf": {
+          "type": "string",
+          "description": "Optional physical rack/shelf location assigned by the Principal.",
+          "minLength": 0,
+          "maxLength": 80
+        },
+        "isDeleted": {
+          "type": "boolean",
+          "description": "Whether this item has been soft-deleted by the Principal."
+        },
+        "updatedByActorId": {
+          "type": "string",
+          "description": "Canonical Principal actor ID who created or edited this entry.",
+          "minLength": 11,
+          "maxLength": 64,
+          "pattern": "^principal-[a-zA-Z0-9_\\-]+$"
+        },
+        "updatedByName": {
+          "type": "string",
+          "description": "Display name of the Principal who saved the update.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the override or custom entry was created."
+        },
+        "updatedAtMs": {
+          "type": "integer",
+          "description": "Epoch milliseconds of creation or last edit.",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id",
+        "campusId",
+        "itemType",
+        "title",
+        "category",
+        "isDeleted",
+        "updatedByActorId",
+        "updatedByName",
+        "createdAt",
+        "updatedAtMs"
+      ]
     }
   },
   "firestore": {
@@ -1176,6 +1291,10 @@
     "/campusCalls/{callId}": {
       "schema": { "$ref": "#/entities/CampusCall" },
       "description": "Stores real-time 1-on-1 WebRTC voice and video call signaling documents and call history records."
+    },
+    "/campusLibraryChanges/{itemId}": {
+      "schema": { "$ref": "#/entities/CampusLibraryChange" },
+      "description": "Stores Principal edits, new Kitab/Book additions, shelf assignments, and soft-deletions merged over the base library catalog in real time."
     }
   }
 }

@@ -1005,5 +1005,105 @@ service cloud.firestore {
         ]);
       allow delete: if false;
     }
+
+    function isPrincipalActorId(actorId) {
+      return actorId is string
+        && actorId.size() >= 11
+        && actorId.size() <= 64
+        && actorId.matches('^principal-[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Validation Blueprint: CampusLibraryChange
+    function isValidLibraryCatalogChange(data) {
+      return data.keys().hasAll([
+          'id',
+          'campusId',
+          'itemType',
+          'title',
+          'category',
+          'isDeleted',
+          'updatedByActorId',
+          'updatedByName',
+          'createdAt',
+          'updatedAtMs'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'campusId',
+          'itemType',
+          'title',
+          'category',
+          'arabicCategory',
+          'code',
+          'author',
+          'volumes',
+          'publisher',
+          'shelf',
+          'isDeleted',
+          'updatedByActorId',
+          'updatedByName',
+          'createdAt',
+          'updatedAtMs'
+        ])
+        && isValidId(data.id)
+        && data.id.size() >= 2
+        && data.campusId == 'ics-academy'
+        && data.itemType is string
+        && (data.itemType == 'kitab' || data.itemType == 'book')
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 240
+        && data.category is string
+        && data.category.size() >= 1
+        && data.category.size() <= 80
+        && (!('arabicCategory' in data) || (data.arabicCategory is string && data.arabicCategory.size() <= 80))
+        && (!('code' in data) || (data.code is string && data.code.size() <= 32))
+        && (!('author' in data) || (data.author is string && data.author.size() <= 160))
+        && (!('volumes' in data) || (data.volumes is string && data.volumes.size() <= 40))
+        && (!('publisher' in data) || (data.publisher is string && data.publisher.size() <= 120))
+        && (!('shelf' in data) || (data.shelf is string && data.shelf.size() <= 80))
+        && data.isDeleted is bool
+        && isPrincipalActorId(data.updatedByActorId)
+        && data.updatedByName is string
+        && data.updatedByName.size() >= 1
+        && data.updatedByName.size() <= 120
+        && data.createdAt is timestamp
+        && data.updatedAtMs is int
+        && data.updatedAtMs > 0;
+    }
+
+    // Collection: /campusLibraryChanges/{itemId}
+    match /campusLibraryChanges/{itemId} {
+      allow get: if isValidId(itemId)
+        && resource != null
+        && existing().campusId == 'ics-academy';
+      allow list: if existing().campusId == 'ics-academy';
+      allow create: if isValidId(itemId)
+        && isValidLibraryCatalogChange(incoming())
+        && incoming().id == itemId
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(itemId)
+        && resource != null
+        && isValidLibraryCatalogChange(incoming())
+        && incoming().id == existing().id
+        && incoming().campusId == existing().campusId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'itemType',
+          'title',
+          'category',
+          'arabicCategory',
+          'code',
+          'author',
+          'volumes',
+          'publisher',
+          'shelf',
+          'isDeleted',
+          'updatedByActorId',
+          'updatedByName',
+          'updatedAtMs'
+        ]);
+      allow delete: if false;
+    }
   }
 }
