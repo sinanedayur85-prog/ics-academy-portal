@@ -18,6 +18,7 @@ import {
   ClipboardCheck,
   Clock,
   Crown,
+  Download,
   FileText,
   FileUp,
   Globe,
@@ -29,6 +30,7 @@ import {
   MessageCircle,
   Pin,
   Plus,
+  Printer,
   RotateCcw,
   Search,
   ShieldAlert,
@@ -148,6 +150,10 @@ import { Panel } from '@/components/dashboard/panel'
 import { ParentReportModal } from '@/components/dashboard/parent-report-modal'
 import { PrincipalSwitcher, ProfileInitialsAvatar } from '@/components/dashboard/student-switcher'
 import { Timetable } from '@/components/dashboard/timetable'
+import {
+  exportAllClassesMasterTimetablePdf,
+  exportClassTimetablePdf,
+} from '@/components/dashboard/timetable-pdf'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -270,6 +276,34 @@ export function PrincipalDashboard() {
   const [editAbsentReason, setEditAbsentReason] = useState<string>(ABSENT_REASONS[0])
   const [editLeaveReason, setEditLeaveReason] = useState<string>(ATTENDANCE_LEAVE_REASONS[0])
   const [attendanceSavedToast, setAttendanceSavedToast] = useState<string | null>(null)
+  const [timetablePdfBusy, setTimetablePdfBusy] = useState<string | null>(null)
+
+  async function handlePrincipalTimetableExport(
+    scope: 'all' | 'class',
+    mode: 'download' | 'print',
+  ) {
+    const busyKey = `${scope}_${mode}`
+    setTimetablePdfBusy(busyKey)
+    try {
+      if (scope === 'all') {
+        await exportAllClassesMasterTimetablePdf({
+          semester: getActiveSemester(),
+          preparedByName: principal.name,
+          mode,
+        })
+      } else {
+        await exportClassTimetablePdf({
+          className: selectedClassName,
+          semester: getActiveSemester(),
+          preparedByName: principal.name,
+          preparedByRole: 'Principal',
+          mode,
+        })
+      }
+    } finally {
+      setTimetablePdfBusy(null)
+    }
+  }
 
   // Leave Action Form (Campus-wide)
   const [leaveStudentId, setLeaveStudentId] = useState<string>(() => students[0]?.id ?? 'std-1')
@@ -4652,38 +4686,97 @@ export function PrincipalDashboard() {
 
             {librarySubTab === 'timetable' && (
               <div className="flex flex-col gap-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-card p-3">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {CLASS_USTHADS.map((u) => {
-                      const active = selectedClassName === u.className
-                      return (
-                        <button
-                          key={u.className}
-                          type="button"
-                          onClick={() => setSelectedClassName(u.className)}
-                          className={cn(
-                            'rounded-full px-3 py-1.5 text-xs font-semibold transition-all active:scale-95',
-                            active
-                              ? 'bg-[#0095F6] text-white'
-                              : 'bg-muted text-muted-foreground hover:text-foreground dark:bg-[#141A1F]',
-                          )}
-                        >
-                          {u.className}
-                        </button>
-                      )
-                    })}
+                <div className="flex flex-col gap-3 rounded-2xl bg-card p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {CLASS_USTHADS.map((u) => {
+                        const active = selectedClassName === u.className
+                        return (
+                          <button
+                            key={u.className}
+                            type="button"
+                            onClick={() => setSelectedClassName(u.className)}
+                            className={cn(
+                              'rounded-full px-3 py-1.5 text-xs font-semibold transition-all active:scale-95',
+                              active
+                                ? 'bg-[#0095F6] text-white'
+                                : 'bg-muted text-muted-foreground hover:text-foreground dark:bg-[#141A1F]',
+                            )}
+                          >
+                            {u.className}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('people')
+                        setPeopleSubTab('timetable')
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-[#0095F6]/15 px-3.5 py-1.5 text-xs font-semibold text-[#0077CC] transition-colors hover:bg-[#0095F6]/25 dark:text-[#0095F6]"
+                    >
+                      <CalendarClock className="size-3.5" aria-hidden="true" />
+                      <span>Edit Timetable</span>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab('people')
-                      setPeopleSubTab('timetable')
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-[#0095F6]/15 px-3.5 py-1.5 text-xs font-semibold text-[#0077CC] transition-colors hover:bg-[#0095F6]/25 dark:text-[#0095F6]"
-                  >
-                    <CalendarClock className="size-3.5" aria-hidden="true" />
-                    <span>Edit Timetable</span>
-                  </button>
+
+                  {/* A4 Landscape 100% Vector PDF & Print Controls */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-2.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={timetablePdfBusy !== null}
+                        onClick={() => void handlePrincipalTimetableExport('all', 'download')}
+                        className="h-8 rounded-full bg-[#0095F6] px-3.5 text-xs font-semibold text-white hover:bg-[#0077CC]"
+                      >
+                        <Download className="mr-1.5 size-3.5" aria-hidden="true" />
+                        {timetablePdfBusy === 'all_download'
+                          ? 'Generating...'
+                          : 'All Classes PDF'}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={timetablePdfBusy !== null}
+                        onClick={() => void handlePrincipalTimetableExport('all', 'print')}
+                        className="h-8 rounded-full px-3 text-xs font-semibold"
+                      >
+                        <Printer className="mr-1.5 size-3.5" aria-hidden="true" />
+                        {timetablePdfBusy === 'all_print' ? 'Preparing...' : 'Print All'}
+                      </Button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={timetablePdfBusy !== null}
+                        onClick={() => void handlePrincipalTimetableExport('class', 'download')}
+                        className="h-8 rounded-full px-3 text-xs font-semibold"
+                      >
+                        <Download className="mr-1.5 size-3.5" aria-hidden="true" />
+                        {timetablePdfBusy === 'class_download'
+                          ? '...'
+                          : `${selectedClassName} PDF`}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={timetablePdfBusy !== null}
+                        onClick={() => void handlePrincipalTimetableExport('class', 'print')}
+                        className="h-8 rounded-full px-2.5 text-xs font-semibold"
+                        title={`Print Class ${selectedClassName} Timetable`}
+                      >
+                        <Printer className="mr-1 size-3.5" aria-hidden="true" />
+                        Print
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
                 <Timetable student={selectedClassRepresentativeStudent} />

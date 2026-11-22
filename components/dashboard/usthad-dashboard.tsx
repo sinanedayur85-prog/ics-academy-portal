@@ -17,6 +17,7 @@ import {
   uploadBytes,
 } from 'firebase/storage'
 import {
+  BookMarked,
   BookOpen,
   CalendarCheck,
   CalendarDays,
@@ -26,6 +27,7 @@ import {
   ClipboardList,
   CloudUpload,
   Coffee,
+  Download,
   FileText,
   Globe,
   GraduationCap,
@@ -38,6 +40,7 @@ import {
   Minus,
   Pin,
   Plus,
+  Printer,
   RotateCcw,
   Search,
   Trash2,
@@ -92,6 +95,7 @@ import {
 import { ClassLeaderAttendanceCard } from '@/components/dashboard/class-leader-attendance-card'
 import {
   CURATED_KITABS,
+  DigitalLibrary,
   addKitabIdToBookmarksStorage,
   deleteKitabPdfBlobLocally,
   notifyDigitalLibraryUpdated,
@@ -113,6 +117,10 @@ import {
 import { Panel, fieldClassName } from '@/components/dashboard/panel'
 import { ParentReportModal } from '@/components/dashboard/parent-report-modal'
 import { ProfileInitialsAvatar, UsthadSwitcher } from '@/components/dashboard/student-switcher'
+import {
+  exportClassTimetablePdf,
+  exportUsthadPersonalTimetablePdf,
+} from '@/components/dashboard/timetable-pdf'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -269,10 +277,13 @@ export function UsthadDashboard() {
   const [mobileTab, setMobileTab] = useState<
     'roster' | 'attendance' | 'leave' | 'chat' | 'notices' | 'library'
   >('roster')
-  const [mobileRosterSubTab, setMobileRosterSubTab] = useState<
-    'students' | 'timetable' | 'academic-hub'
-  >('students')
-  const [mobileLibrarySubTab, setMobileLibrarySubTab] = useState<'kitabs' | 'portal'>('kitabs')
+  const [mobileRosterSubTab, setMobileRosterSubTab] = useState<'students' | 'academic-hub'>(
+    'students',
+  )
+  const [librarySubTab, setLibrarySubTab] = useState<
+    'library' | 'digital-library' | 'timetable' | 'exam-results'
+  >('library')
+  const [timetablePdfBusy, setTimetablePdfBusy] = useState<string | null>(null)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setFirebaseUser(u))
@@ -288,8 +299,8 @@ export function UsthadDashboard() {
         setMobileTab('roster')
         setMobileRosterSubTab('students')
       } else if (hash === 'usthad-timetable') {
-        setMobileTab('roster')
-        setMobileRosterSubTab('timetable')
+        setMobileTab('library')
+        setLibrarySubTab('timetable')
       } else if (hash === 'academic-hub') {
         setMobileTab('roster')
         setMobileRosterSubTab('academic-hub')
@@ -298,18 +309,49 @@ export function UsthadDashboard() {
       else if (hash === 'usthad-leave') setMobileTab('leave')
       else if (hash === 'campus-chat') setMobileTab('chat')
       else if (hash === 'usthad-notices') setMobileTab('notices')
-      else if (hash === 'usthad-kitabs') {
+      else if (hash === 'usthad-library') {
         setMobileTab('library')
-        setMobileLibrarySubTab('kitabs')
+        setLibrarySubTab('library')
+      } else if (hash === 'usthad-kitabs') {
+        setMobileTab('library')
+        setLibrarySubTab('digital-library')
       } else if (hash === 'university-portal') {
         setMobileTab('library')
-        setMobileLibrarySubTab('portal')
+        setLibrarySubTab('exam-results')
       }
     }
     syncHash()
     window.addEventListener('hashchange', syncHash)
     return () => window.removeEventListener('hashchange', syncHash)
   }, [])
+
+  async function handleUsthadTimetableExport(
+    scope: 'personal' | 'class',
+    mode: 'download' | 'print',
+  ) {
+    const busyKey = `${scope}_${mode}`
+    setTimetablePdfBusy(busyKey)
+    try {
+      if (scope === 'personal') {
+        await exportUsthadPersonalTimetablePdf({
+          usthad: baseUsthad,
+          semester: activeSemester,
+          mode,
+        })
+      } else {
+        await exportClassTimetablePdf({
+          className: activeClassName,
+          semester: activeSemester,
+          preparedByName: baseUsthad.name,
+          preparedByRole: isAssignedClassUsthadForActiveClass ? 'Class Usthad' : 'Usthad',
+          highlightUsthad: baseUsthad,
+          mode,
+        })
+      }
+    } finally {
+      setTimetablePdfBusy(null)
+    }
+  }
 
   // Strictly filter students to the logged-in Class Usthad's active assigned class
   const classStudents = useMemo(
@@ -1237,14 +1279,14 @@ export function UsthadDashboard() {
           </div>
         </div>
 
-        {/* Mobile Sub-Switcher on Students Tab: Class Roster vs Timetable vs Tests & Hub */}
+        {/* Mobile Sub-Switcher on Students Tab: Class Roster vs Tests & Hub */}
         {mobileTab === 'roster' ? (
-          <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-card p-1.5 lg:hidden">
+          <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-card p-1.5 lg:hidden">
             <button
               type="button"
               onClick={() => setMobileRosterSubTab('students')}
               className={cn(
-                'flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold transition-all active:scale-[0.98] sm:text-xs',
+                'flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition-all active:scale-[0.98]',
                 mobileRosterSubTab === 'students'
                   ? 'bg-[#0095F6] text-white shadow-xs'
                   : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
@@ -1255,22 +1297,9 @@ export function UsthadDashboard() {
             </button>
             <button
               type="button"
-              onClick={() => setMobileRosterSubTab('timetable')}
-              className={cn(
-                'flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold transition-all active:scale-[0.98] sm:text-xs',
-                mobileRosterSubTab === 'timetable'
-                  ? 'bg-[#0095F6] text-white shadow-xs'
-                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-              )}
-            >
-              <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
-              <span>Timetable</span>
-            </button>
-            <button
-              type="button"
               onClick={() => setMobileRosterSubTab('academic-hub')}
               className={cn(
-                'flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold transition-all active:scale-[0.98] sm:text-xs',
+                'flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition-all active:scale-[0.98]',
                 mobileRosterSubTab === 'academic-hub'
                   ? 'bg-[#0095F6] text-white shadow-xs'
                   : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
@@ -1463,190 +1492,6 @@ export function UsthadDashboard() {
             </div>
           </div>
         </Panel>
-        </div>
-
-        {/* 1B. DEDICATED USTHAD PERSONAL TIMETABLE & ACTIVE CLASS SCHEDULE */}
-        <div
-          className={cn(
-            mobileTab === 'roster' && mobileRosterSubTab === 'timetable'
-              ? 'block'
-              : 'hidden lg:block',
-          )}
-        >
-          <Panel
-            id="usthad-timetable"
-            eyebrow={`Semester ${activeSemester}`}
-            title="Timetable"
-            icon={CalendarDays}
-            action={
-              <span className="inline-flex items-center rounded-full bg-[#0095F6]/15 px-3 py-1 text-xs font-semibold text-[#0077CC] dark:text-[#0095F6] tabular-nums">
-                {allScheduledPeriods.length} Periods
-              </span>
-            }
-          >
-            <div className="flex flex-col gap-6">
-              {/* Personal Chronological Schedule Across All Classes */}
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-display text-sm font-bold text-foreground sm:text-base">
-                    My Schedule
-                  </h3>
-                </div>
-
-                {allScheduledPeriods.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {allScheduledPeriods.map((slot) => {
-                      const isActive =
-                        activeClassName === slot.className &&
-                        selectedAttendancePeriodIndex === slot.periodIndex
-                      return (
-                        <div
-                          key={`tt_${slot.className}_p${slot.periodIndex}`}
-                          className={cn(
-                            'flex flex-col justify-between gap-2.5 rounded-2xl p-3.5 transition-all',
-                            isActive
-                              ? 'bg-[#0095F6]/15'
-                              : 'bg-muted/45 hover:bg-muted/65',
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-2 border-b border-border/35 pb-2">
-                            <span className="rounded-full bg-[#0095F6]/15 px-2.5 py-0.5 font-mono text-[11px] font-bold text-[#0077CC] uppercase dark:text-[#0095F6]">
-                              {slot.className} · {slot.periodLabel}
-                            </span>
-                            <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
-                              {slot.time}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-foreground">{slot.subject}</p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {slot.teacher}
-                            </p>
-                          </div>
-                          <a
-                            href="#usthad-attendance"
-                            onClick={() => {
-                              setActiveClassName(slot.className)
-                              setSelectedAttendancePeriodIndex(slot.periodIndex)
-                              const firstSt = students.find((s) => s.className === slot.className)
-                              if (firstSt) {
-                                setSelectedStudentId(firstSt.id)
-                                setLeaveStudentId(firstSt.id)
-                              }
-                              setMobileTab('attendance')
-                            }}
-                            className="inline-flex h-8 w-full items-center justify-center rounded-full bg-[#0095F6]/15 px-3 text-xs font-semibold text-[#0077CC] transition-all hover:bg-[#0095F6] hover:text-white active:scale-[0.98] dark:text-[#0095F6] dark:hover:text-white"
-                          >
-                            Mark Attendance
-                          </a>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <p className="rounded-2xl bg-muted/40 p-4 text-xs text-muted-foreground">
-                    No periods scheduled this semester.
-                  </p>
-                )}
-              </div>
-
-              {/* Active Class Full Timetable */}
-              <div className="space-y-3 border-t border-border/40 pt-5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-display text-sm font-bold text-foreground sm:text-base">
-                    Class {activeClassName} Schedule
-                  </h3>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {ALL_ACADEMY_CLASS_NAMES.map((clsName) => (
-                      <button
-                        key={`tt_cls_${clsName}`}
-                        type="button"
-                        onClick={() => {
-                          setActiveClassName(clsName)
-                          const firstSt = students.find((s) => s.className === clsName)
-                          if (firstSt) {
-                            setSelectedStudentId(firstSt.id)
-                            setLeaveStudentId(firstSt.id)
-                          }
-                        }}
-                        className={cn(
-                          'rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all active:scale-[0.97]',
-                          activeClassName === clsName
-                            ? 'bg-[#0095F6] text-white'
-                            : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
-                        )}
-                      >
-                        {clsName}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-                  {activeClassTimetable.periods.map((period, idx) => {
-                    const semSlots =
-                      activeSemester === 1
-                        ? activeClassTimetable.semester1
-                        : activeClassTimetable.semester2
-                    const slot = semSlots[idx]
-                    if (!slot) return null
-                    const isNonTeaching = isNonTeachingTimetableSlot(slot)
-                    const isMine =
-                      !isNonTeaching && doesUsthadMatchTeacherName(baseUsthad, slot.teacher)
-                    return (
-                      <div
-                        key={`full_${activeClassName}_p${idx + 1}`}
-                        className={cn(
-                          'flex flex-col justify-between rounded-2xl p-3.5 transition-colors',
-                          isNonTeaching
-                            ? 'bg-muted/25 text-muted-foreground'
-                            : isMine
-                              ? 'bg-[#0095F6]/12'
-                              : 'bg-muted/45',
-                        )}
-                      >
-                        <div className="flex items-center justify-between gap-2 border-b border-border/35 pb-1.5">
-                          <span
-                            className={cn(
-                              'text-xs font-bold uppercase',
-                              isMine
-                                ? 'text-[#0077CC] dark:text-[#0095F6]'
-                                : isNonTeaching
-                                  ? 'text-muted-foreground'
-                                  : 'text-foreground',
-                            )}
-                          >
-                            {period.label}
-                          </span>
-                          <span className="text-[11px] tabular-nums text-muted-foreground">
-                            {period.time}
-                          </span>
-                        </div>
-                        <div className="mt-2 space-y-1">
-                          <p className="text-sm font-semibold text-foreground">{slot.subject}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {isNonTeaching ? (
-                              <span className="inline-flex items-center gap-1">
-                                <Coffee className="size-3" aria-hidden="true" />
-                                {slot.subject}
-                              </span>
-                            ) : (
-                              slot.teacher
-                            )}
-                          </p>
-                          {isMine && (
-                            <span className="inline-flex items-center rounded-full bg-[#0095F6]/15 px-2 py-0.5 text-[10px] font-bold text-[#0077CC] dark:text-[#0095F6]">
-                              • My Period
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-          </Panel>
         </div>
 
         {/* 2. ATTENDANCE STATUS & MONTHLY ATTENDANCE EDITOR */}
@@ -2910,251 +2755,491 @@ export function UsthadDashboard() {
         </Panel>
         </div>
 
-        {/* 5. DIGITAL LIBRARY — ADD KITAB PDF & UNIVERSITY PORTAL */}
-        {mobileTab === 'library' ? (
-          <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-card p-1.5 lg:hidden">
-            <button
-              type="button"
-              onClick={() => setMobileLibrarySubTab('kitabs')}
-              className={cn(
-                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all active:scale-[0.98]',
-                mobileLibrarySubTab === 'kitabs'
-                  ? 'bg-[#0095F6] text-white shadow-xs'
-                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-              )}
-            >
-              <Library className="size-4" aria-hidden="true" />
-              <span>Digital Kitabs</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMobileLibrarySubTab('portal')}
-              className={cn(
-                'flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all active:scale-[0.98]',
-                mobileLibrarySubTab === 'portal'
-                  ? 'bg-[#0095F6] text-white shadow-xs'
-                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-              )}
-            >
-              <Globe className="size-4" aria-hidden="true" />
-              <span>University Portal</span>
-            </button>
-          </div>
-        ) : null}
-
+        {/* 5. LIBRARY HUB — 4 TOP ICONS MATCHING PRINCIPAL & STUDENT LAYOUT (Library, Digital Kitabs, Time Table, Exam Results) */}
         <div
+          id="usthad-library-hub"
           className={cn(
             'flex flex-col gap-5',
-            mobileTab === 'library' && mobileLibrarySubTab === 'kitabs'
-              ? 'flex'
-              : 'hidden lg:flex',
+            mobileTab === 'library' ? 'flex' : 'hidden lg:flex',
           )}
         >
-        <LibraryBooks />
-        <Panel
-          id="usthad-kitabs"
-          eyebrow="Library"
-          title="Upload Kitab"
-          icon={Library}
-          action={
-            <span className="text-xs font-medium tabular-nums text-muted-foreground">
-              {CURATED_KITABS.length + localKitabUploads.length} Kitabs
-            </span>
-          }
-        >
-          <form onSubmit={handleUploadKitabPdf} className="flex flex-col gap-4">
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="usthad-kitab-title" className="text-xs">
-                  Kitab Title *
-                </Label>
-                <input
-                  id="usthad-kitab-title"
-                  type="text"
-                  required
-                  value={kitabTitle}
-                  onChange={(e) => setKitabTitle(e.target.value)}
-                  placeholder="e.g. Minhaj al-Talibin"
-                  className={fieldClassName}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="usthad-kitab-arabic" className="text-xs">
-                  Arabic Title
-                </Label>
-                <input
-                  id="usthad-kitab-arabic"
-                  type="text"
-                  dir="rtl"
-                  value={kitabArabicTitle}
-                  onChange={(e) => setKitabArabicTitle(e.target.value)}
-                  placeholder="منهاج الطالبين وعمدة المفتين"
-                  className={cn(fieldClassName, 'font-arabic text-left')}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="usthad-kitab-author" className="text-xs">
-                  Author *
-                </Label>
-                <input
-                  id="usthad-kitab-author"
-                  type="text"
-                  required
-                  value={kitabAuthor}
-                  onChange={(e) => setKitabAuthor(e.target.value)}
-                  placeholder="e.g. Imam Abu Zakariyya al-Nawawi"
-                  className={fieldClassName}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="usthad-kitab-category" className="text-xs">
-                  Subject Category
-                </Label>
-                <ThemeSelect
-                  id="usthad-kitab-category"
-                  value={kitabCategory}
-                  onChange={(e) => setKitabCategory(e.target.value as KitabCategory)}
-                  className={fieldClassName}
+          {/* 4-Interface Switcher matching Principal & Student Library Layout */}
+          <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-card p-1.5 sm:grid-cols-4">
+            {(
+              [
+                { id: 'library', label: 'Library', icon: BookMarked },
+                { id: 'digital-library', label: 'Digital Kitabs', icon: Library },
+                { id: 'timetable', label: 'Time Table', icon: CalendarDays },
+                { id: 'exam-results', label: 'Exam Results', icon: Globe },
+              ] as const
+            ).map((sub) => {
+              const active = librarySubTab === sub.id
+              return (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => setLibrarySubTab(sub.id)}
+                  className={cn(
+                    'flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2.5 text-xs font-semibold transition-all active:scale-[0.98]',
+                    active
+                      ? 'bg-[#0095F6] text-white'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
                 >
-                  <option value="fiqh">Fiqh & Usul (الْفِقْهُ وَأُصُولُهُ)</option>
-                  <option value="hadith">Hadith Studies (الْحَدِيثُ الشَّرِيفُ)</option>
-                  <option value="tafsir">Tafsir & Ulum (التَّفْسِيرُ وَعُلُومُ الْقُرْآنِ)</option>
-                  <option value="aqeedah">Aqeedah & Tasawwuf (الْعَقِيدَةُ وَالتَّصَوُّفُ)</option>
-                  <option value="nahw">Nahw & Sarf (النَّحْوُ وَالصَّرْفُ)</option>
-                  <option value="history">History & Da&apos;wa (التَّارِيخُ وَالدَّعْوَةُ)</option>
-                </ThemeSelect>
-              </div>
+                  <sub.icon className="size-3.5 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{sub.label}</span>
+                </button>
+              )
+            })}
+          </div>
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="usthad-kitab-pages" className="text-xs">
-                  Pages
-                </Label>
-                <input
-                  id="usthad-kitab-pages"
-                  type="number"
-                  min={1}
-                  max={5000}
-                  value={kitabPages}
-                  onChange={(e) => setKitabPages(e.target.value)}
-                  className={cn(fieldClassName, 'tabular-nums')}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="usthad-kitab-lang" className="text-xs">
-                  Language
-                </Label>
-                <input
-                  id="usthad-kitab-lang"
-                  type="text"
-                  value={kitabLanguage}
-                  onChange={(e) => setKitabLanguage(e.target.value)}
-                  className={fieldClassName}
-                />
-              </div>
+          {librarySubTab === 'library' && (
+            <div id="usthad-library">
+              <LibraryBooks />
             </div>
+          )}
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="usthad-kitab-summary" className="text-xs">
-                  Syllabus Description & Summary *
-                </Label>
-                <input
-                  id="usthad-kitab-summary"
-                  type="text"
-                  required
-                  value={kitabSummary}
-                  onChange={(e) => setKitabSummary(e.target.value)}
-                  placeholder="Brief note on the chapters covered in this PDF edition..."
-                  className={fieldClassName}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="usthad-kitab-file" className="text-xs">
-                  PDF File (Optional — generates formatted PDF if omitted)
-                </Label>
-                <input
-                  ref={fileInputRef}
-                  id="usthad-kitab-file"
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  onChange={(e) => setSelectedPdfFile(e.target.files?.[0] ?? null)}
-                  className="flex h-11 w-full items-center rounded-lg border border-input bg-input/30 px-3 py-2 text-xs text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-foreground"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              {kitabStatusMsg ? (
-                <p className="text-xs font-medium text-lime">{kitabStatusMsg}</p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Uploaded Kitabs are immediately searchable and downloadable in the Student Digital Library.
-                </p>
-              )}
-              <Button
-                type="submit"
-                disabled={
-                  uploadingKitab ||
-                  !kitabTitle.trim() ||
-                  !kitabAuthor.trim() ||
-                  !kitabSummary.trim()
+          {librarySubTab === 'digital-library' && (
+            <div className="flex flex-col gap-5">
+              <Panel
+                id="usthad-kitabs"
+                eyebrow="Library"
+                title="Upload Kitab"
+                icon={Library}
+                action={
+                  <span className="text-xs font-medium tabular-nums text-muted-foreground">
+                    {CURATED_KITABS.length + localKitabUploads.length} Kitabs
+                  </span>
                 }
-                className="h-9 w-full rounded-lg px-4 text-xs font-semibold sm:w-auto disabled:opacity-50"
               >
-                {uploadingKitab ? (
-                  <>
-                    <Loader2 className="mr-1.5 size-3.5 animate-spin" aria-hidden="true" />
-                    Uploading PDF...
-                  </>
-                ) : (
-                  <>
-                    <CloudUpload className="mr-1.5 size-3.5" aria-hidden="true" />
-                    Upload & Index Kitab
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
-
-          {localKitabUploads.length > 0 ? (
-            <div className="mt-5 border-t border-border/40 pt-4">
-              <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Recently Uploaded Kitab PDFs ({localKitabUploads.length})
-              </p>
-              <ul className="grid gap-2.5 sm:grid-cols-2">
-                {localKitabUploads.map((item) => (
-                  <li
-                    key={item.id}
-                    className="flex items-center justify-between gap-3 rounded-2xl bg-muted/50 p-3 text-xs"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <FileText className="size-3.5 shrink-0 text-[#0095F6]" aria-hidden="true" />
-                        <span className="truncate font-semibold text-foreground">{item.title}</span>
-                      </div>
-                      <p className="mt-0.5 truncate text-muted-foreground">
-                        {CATEGORY_LABELS[item.category]} · {item.author}
-                      </p>
+                <form onSubmit={handleUploadKitabPdf} className="flex flex-col gap-4">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="usthad-kitab-title" className="text-xs">
+                        Kitab Title *
+                      </Label>
+                      <input
+                        id="usthad-kitab-title"
+                        type="text"
+                        required
+                        value={kitabTitle}
+                        onChange={(e) => setKitabTitle(e.target.value)}
+                        placeholder="e.g. Minhaj al-Talibin"
+                        className={fieldClassName}
+                      />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteUploadedKitab(item.id)}
-                      aria-label={`Remove ${item.title}`}
-                      className="rounded p-1 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
+
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="usthad-kitab-arabic" className="text-xs">
+                        Arabic Title
+                      </Label>
+                      <input
+                        id="usthad-kitab-arabic"
+                        type="text"
+                        dir="rtl"
+                        value={kitabArabicTitle}
+                        onChange={(e) => setKitabArabicTitle(e.target.value)}
+                        placeholder="منهاج الطالبين وعمدة المفتين"
+                        className={cn(fieldClassName, 'font-arabic text-left')}
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="usthad-kitab-author" className="text-xs">
+                        Author *
+                      </Label>
+                      <input
+                        id="usthad-kitab-author"
+                        type="text"
+                        required
+                        value={kitabAuthor}
+                        onChange={(e) => setKitabAuthor(e.target.value)}
+                        placeholder="e.g. Imam Abu Zakariyya al-Nawawi"
+                        className={fieldClassName}
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="usthad-kitab-category" className="text-xs">
+                        Subject Category
+                      </Label>
+                      <ThemeSelect
+                        id="usthad-kitab-category"
+                        value={kitabCategory}
+                        onChange={(e) => setKitabCategory(e.target.value as KitabCategory)}
+                        className={fieldClassName}
+                      >
+                        <option value="fiqh">Fiqh &amp; Usul (الْفِقْهُ وَأُصُولُهُ)</option>
+                        <option value="hadith">Hadith Studies (الْحَدِيثُ الشَّرِيفُ)</option>
+                        <option value="tafsir">Tafsir &amp; Ulum (التَّفْسِيرُ وَعُلُومُ الْقُرْآنِ)</option>
+                        <option value="aqeedah">Aqeedah &amp; Tasawwuf (الْعَقِيدَةُ وَالتَّصَوُّفُ)</option>
+                        <option value="nahw">Nahw &amp; Sarf (النَّحْوُ وَالصَّرْفُ)</option>
+                        <option value="history">History &amp; Da&apos;wa (التَّارِيخُ وَالدَّعْوَةُ)</option>
+                      </ThemeSelect>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="usthad-kitab-pages" className="text-xs">
+                        Pages
+                      </Label>
+                      <input
+                        id="usthad-kitab-pages"
+                        type="number"
+                        min={1}
+                        max={5000}
+                        value={kitabPages}
+                        onChange={(e) => setKitabPages(e.target.value)}
+                        className={cn(fieldClassName, 'tabular-nums')}
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="usthad-kitab-lang" className="text-xs">
+                        Language
+                      </Label>
+                      <input
+                        id="usthad-kitab-lang"
+                        type="text"
+                        value={kitabLanguage}
+                        onChange={(e) => setKitabLanguage(e.target.value)}
+                        className={fieldClassName}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="usthad-kitab-summary" className="text-xs">
+                        Syllabus Description &amp; Summary *
+                      </Label>
+                      <input
+                        id="usthad-kitab-summary"
+                        type="text"
+                        required
+                        value={kitabSummary}
+                        onChange={(e) => setKitabSummary(e.target.value)}
+                        placeholder="Brief note on the chapters covered in this PDF edition..."
+                        className={fieldClassName}
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="usthad-kitab-file" className="text-xs">
+                        PDF File (Optional — generates formatted PDF if omitted)
+                      </Label>
+                      <input
+                        ref={fileInputRef}
+                        id="usthad-kitab-file"
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        onChange={(e) => setSelectedPdfFile(e.target.files?.[0] ?? null)}
+                        className="flex h-11 w-full items-center rounded-lg border border-input bg-input/30 px-3 py-2 text-xs text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-foreground"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    {kitabStatusMsg ? (
+                      <p className="text-xs font-medium text-lime">{kitabStatusMsg}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Uploaded Kitabs are immediately searchable and downloadable in the Student Digital Library.
+                      </p>
+                    )}
+                    <Button
+                      type="submit"
+                      disabled={
+                        uploadingKitab ||
+                        !kitabTitle.trim() ||
+                        !kitabAuthor.trim() ||
+                        !kitabSummary.trim()
+                      }
+                      className="h-9 w-full rounded-lg px-4 text-xs font-semibold sm:w-auto disabled:opacity-50"
                     >
-                      <Trash2 className="size-3.5" aria-hidden="true" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                      {uploadingKitab ? (
+                        <>
+                          <Loader2 className="mr-1.5 size-3.5 animate-spin" aria-hidden="true" />
+                          Uploading PDF...
+                        </>
+                      ) : (
+                        <>
+                          <CloudUpload className="mr-1.5 size-3.5" aria-hidden="true" />
+                          Upload &amp; Index Kitab
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+
+                {localKitabUploads.length > 0 ? (
+                  <div className="mt-5 border-t border-border/40 pt-4">
+                    <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Recently Uploaded Kitab PDFs ({localKitabUploads.length})
+                    </p>
+                    <ul className="grid gap-2.5 sm:grid-cols-2">
+                      {localKitabUploads.map((item) => (
+                        <li
+                          key={item.id}
+                          className="flex items-center justify-between gap-3 rounded-2xl bg-muted/50 p-3 text-xs"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <FileText className="size-3.5 shrink-0 text-[#0095F6]" aria-hidden="true" />
+                              <span className="truncate font-semibold text-foreground">{item.title}</span>
+                            </div>
+                            <p className="mt-0.5 truncate text-muted-foreground">
+                              {CATEGORY_LABELS[item.category]} · {item.author}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteUploadedKitab(item.id)}
+                            aria-label={`Remove ${item.title}`}
+                            className="rounded p-1 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
+                          >
+                            <Trash2 className="size-3.5" aria-hidden="true" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </Panel>
+
+              <DigitalLibrary student={classStudents[0] ?? students[0]} />
             </div>
-          ) : null}
-        </Panel>
+          )}
+
+          {librarySubTab === 'timetable' && (
+            <Panel
+              id="usthad-timetable"
+              eyebrow={`Semester ${activeSemester}`}
+              title="Time Table"
+              icon={CalendarDays}
+              action={
+                <span className="inline-flex items-center rounded-full bg-[#0095F6]/15 px-3 py-1 text-xs font-semibold text-[#0077CC] dark:text-[#0095F6] tabular-nums">
+                  {allScheduledPeriods.length} Periods
+                </span>
+              }
+            >
+              <div className="flex flex-col gap-6">
+                {/* Personal Chronological Schedule Across All Classes */}
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-display text-sm font-bold text-foreground sm:text-base">
+                      My Schedule
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={timetablePdfBusy !== null}
+                        onClick={() => void handleUsthadTimetableExport('personal', 'download')}
+                        className="h-8 rounded-full bg-[#0095F6] px-3 text-xs font-semibold text-white hover:bg-[#0077CC]"
+                      >
+                        <Download className="mr-1.5 size-3.5" aria-hidden="true" />
+                        {timetablePdfBusy === 'personal_download' ? 'Generating...' : 'Download PDF'}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={timetablePdfBusy !== null}
+                        onClick={() => void handleUsthadTimetableExport('personal', 'print')}
+                        className="h-8 rounded-full px-3 text-xs font-semibold"
+                      >
+                        <Printer className="mr-1.5 size-3.5" aria-hidden="true" />
+                        {timetablePdfBusy === 'personal_print' ? 'Preparing...' : 'Print'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {allScheduledPeriods.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {allScheduledPeriods.map((slot) => {
+                        const isActive =
+                          activeClassName === slot.className &&
+                          selectedAttendancePeriodIndex === slot.periodIndex
+                        return (
+                          <div
+                            key={`tt_${slot.className}_p${slot.periodIndex}`}
+                            className={cn(
+                              'flex flex-col justify-between gap-2.5 rounded-2xl p-3.5 transition-all',
+                              isActive
+                                ? 'bg-[#0095F6]/15'
+                                : 'bg-muted/45 hover:bg-muted/65',
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-2 border-b border-border/35 pb-2">
+                              <span className="rounded-full bg-[#0095F6]/15 px-2.5 py-0.5 font-mono text-[11px] font-bold text-[#0077CC] uppercase dark:text-[#0095F6]">
+                                {slot.className} · {slot.periodLabel}
+                              </span>
+                              <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
+                                {slot.time}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-foreground">{slot.subject}</p>
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                {slot.teacher}
+                              </p>
+                            </div>
+                            <a
+                              href="#usthad-attendance"
+                              onClick={() => {
+                                setActiveClassName(slot.className)
+                                setSelectedAttendancePeriodIndex(slot.periodIndex)
+                                const firstSt = students.find((s) => s.className === slot.className)
+                                if (firstSt) {
+                                  setSelectedStudentId(firstSt.id)
+                                  setLeaveStudentId(firstSt.id)
+                                }
+                                setMobileTab('attendance')
+                              }}
+                              className="inline-flex h-8 w-full items-center justify-center rounded-full bg-[#0095F6]/15 px-3 text-xs font-semibold text-[#0077CC] transition-all hover:bg-[#0095F6] hover:text-white active:scale-[0.98] dark:text-[#0095F6] dark:hover:text-white"
+                            >
+                              Mark Attendance
+                            </a>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <p className="rounded-2xl bg-muted/40 p-4 text-xs text-muted-foreground">
+                      No periods scheduled this semester.
+                    </p>
+                  )}
+                </div>
+
+                {/* Active Class Full Timetable */}
+                <div className="space-y-3 border-t border-border/40 pt-5">
+                  <div className="flex flex-col gap-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="font-display text-sm font-bold text-foreground sm:text-base">
+                        Class {activeClassName} Schedule
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={timetablePdfBusy !== null}
+                          onClick={() => void handleUsthadTimetableExport('class', 'download')}
+                          className="h-8 rounded-full px-3 text-xs font-semibold"
+                        >
+                          <Download className="mr-1.5 size-3.5" aria-hidden="true" />
+                          {timetablePdfBusy === 'class_download'
+                            ? '...'
+                            : `${activeClassName} PDF`}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={timetablePdfBusy !== null}
+                          onClick={() => void handleUsthadTimetableExport('class', 'print')}
+                          className="h-8 rounded-full px-3 text-xs font-semibold"
+                        >
+                          <Printer className="mr-1.5 size-3.5" aria-hidden="true" />
+                          {timetablePdfBusy === 'class_print' ? '...' : 'Print'}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {ALL_ACADEMY_CLASS_NAMES.map((clsName) => (
+                        <button
+                          key={`tt_cls_${clsName}`}
+                          type="button"
+                          onClick={() => {
+                            setActiveClassName(clsName)
+                            const firstSt = students.find((s) => s.className === clsName)
+                            if (firstSt) {
+                              setSelectedStudentId(firstSt.id)
+                              setLeaveStudentId(firstSt.id)
+                            }
+                          }}
+                          className={cn(
+                            'rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all active:scale-[0.97]',
+                            activeClassName === clsName
+                              ? 'bg-[#0095F6] text-white'
+                              : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
+                          )}
+                        >
+                          {clsName}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+                    {activeClassTimetable.periods.map((period, idx) => {
+                      const semSlots =
+                        activeSemester === 1
+                          ? activeClassTimetable.semester1
+                          : activeClassTimetable.semester2
+                      const slot = semSlots[idx]
+                      if (!slot) return null
+                      const isNonTeaching = isNonTeachingTimetableSlot(slot)
+                      const isMine =
+                        !isNonTeaching && doesUsthadMatchTeacherName(baseUsthad, slot.teacher)
+                      return (
+                        <div
+                          key={`full_${activeClassName}_p${idx + 1}`}
+                          className={cn(
+                            'flex flex-col justify-between rounded-2xl p-3.5 transition-colors',
+                            isNonTeaching
+                              ? 'bg-muted/25 text-muted-foreground'
+                              : isMine
+                                ? 'bg-[#0095F6]/12'
+                                : 'bg-muted/45',
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2 border-b border-border/35 pb-1.5">
+                            <span
+                              className={cn(
+                                'text-xs font-bold uppercase',
+                                isMine
+                                  ? 'text-[#0077CC] dark:text-[#0095F6]'
+                                  : isNonTeaching
+                                    ? 'text-muted-foreground'
+                                    : 'text-foreground',
+                              )}
+                            >
+                              {period.label}
+                            </span>
+                            <span className="text-[11px] tabular-nums text-muted-foreground">
+                              {period.time}
+                            </span>
+                          </div>
+                          <div className="mt-2 space-y-1">
+                            <p className="text-sm font-semibold text-foreground">{slot.subject}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {isNonTeaching ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <Coffee className="size-3" aria-hidden="true" />
+                                  {slot.subject}
+                                </span>
+                              ) : (
+                                slot.teacher
+                              )}
+                            </p>
+                            {isMine && (
+                              <span className="inline-flex items-center rounded-full bg-[#0095F6]/15 px-2 py-0.5 text-[10px] font-bold text-[#0077CC] dark:text-[#0095F6]">
+                                • My Period
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </Panel>
+          )}
+
+          {librarySubTab === 'exam-results' && <ExamResultCard />}
         </div>
 
         {/* MONTHLY TESTS, STAR OF THE MONTH, JAMIATHUL HIND SYLLABUS, HOLIDAY & SSF DA'WA LOGS, PRIVATE CONDUCT & ZADUL KHAIR PDF HUB */}
@@ -3189,16 +3274,6 @@ export function UsthadDashboard() {
             mobileFullScreen
             mobileTabActive={mobileTab === 'chat'}
           />
-        </div>
-
-        <div
-          className={cn(
-            mobileTab === 'library' && mobileLibrarySubTab === 'portal'
-              ? 'block'
-              : 'hidden lg:block',
-          )}
-        >
-          <ExamResultCard />
         </div>
         </main>
       </div>
