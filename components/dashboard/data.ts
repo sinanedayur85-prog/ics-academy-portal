@@ -1231,9 +1231,9 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     shortName: 'Usthad Asif Saqafi',
     designation: 'Teaching Usthad',
     institutionalRole: 'Class Usthad',
-    teachingBatches: ['10th', '9th', '8th'],
+    teachingBatches: [],
     className: '10th',
-    fullClassLabel: 'Class 10th & High School',
+    fullClassLabel: 'Teaching Usthad',
     batch: 'High School',
     batchCode: '09',
     specialization: 'Fath al-Mu’in & Hadith Studies',
@@ -1245,9 +1245,9 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
     shortName: 'Usthad Abdul Haseeb Saqafi',
     designation: 'Teaching Usthad',
     institutionalRole: 'Class Usthad',
-    teachingBatches: ['BS 4', 'BS 3', 'BS 2'],
+    teachingBatches: [],
     className: 'BS 4',
-    fullClassLabel: 'Class BS 4, BS 3 & BS 2',
+    fullClassLabel: 'Teaching Usthad',
     batch: 'BS Degree',
     batchCode: '15',
     specialization: 'Al Bahs & Thuhfathul Ikhvan',
@@ -1259,13 +1259,13 @@ export const OFFICIAL_CLASS_USTHADS: ClassUsthad[] = [
  * neither SHAIKHUNA HAMZA USTHAD nor Manager Usthad Muhammed Naeem Saqafi is ever a Class Usthad).
  */
 export const CLASS_USTHADS: ClassUsthad[] = [
-  OFFICIAL_CLASS_USTHADS[6], // 8th (Batch 14) — Usthad Muhammed Hashim Saqafi (UST-14)
+  OFFICIAL_CLASS_USTHADS[6], // 8th (Batch 14) — Usthad Muhammed Hashim Saqafi (UST-14) ONLY
   OFFICIAL_CLASS_USTHADS[5], // 9th (Batch 13) — Usthad Midhlaj Ahsani (UST-13)
   OFFICIAL_CLASS_USTHADS[4], // 10th (Batch 12) — Usthad Favaz Saqafi (UST-12)
   OFFICIAL_CLASS_USTHADS[3], // HS 1 (Batch 11) — Usthad Muhammed Musthafa Saqafi (UST-11)
   {
-    id: 'usthad-10',
-    staffId: 'UST-10',
+    id: 'usthad-06-hs2a',
+    staffId: 'UST-06',
     name: 'Usthad Razaq Saqafi',
     shortName: 'Usthad Razaq Saqafi',
     designation: 'Class Usthad',
@@ -1278,8 +1278,8 @@ export const CLASS_USTHADS: ClassUsthad[] = [
     specialization: 'Qatr al-Nada, Tafsir & Arabic Literature',
   },
   {
-    id: 'usthad-10b',
-    staffId: 'UST-10',
+    id: 'usthad-06-hs2b',
+    staffId: 'UST-06',
     name: 'Usthad Razaq Saqafi',
     shortName: 'Usthad Razaq Saqafi',
     designation: 'Class Usthad',
@@ -1464,16 +1464,42 @@ export function getUsthadTeachingClasses(
   return Array.from(seen)
 }
 
+export function getAssignedClassesForUsthad(
+  usthad: Pick<ClassUsthad, 'id' | 'staffId' | 'name'>,
+): string[] {
+  if (!usthad) return []
+  const targetStaffKey = normalizeAdmissionKey(usthad.staffId)
+  const assignedSet = new Set<string>()
+  for (const cu of CLASS_USTHADS) {
+    if (!cu.staffId || cu.id.startsWith('unassigned-')) continue
+    const cuStaffKey = normalizeAdmissionKey(cu.staffId)
+    if (
+      cu.id === usthad.id ||
+      (targetStaffKey && cuStaffKey && targetStaffKey === cuStaffKey)
+    ) {
+      assignedSet.add(normalizeClassName(cu.className))
+    }
+  }
+  return ALL_ACADEMY_CLASS_NAMES.filter((cls) => assignedSet.has(cls))
+}
+
 export function isUsthadAssignedClassUsthadOfBatch(
-  usthad: ClassUsthad,
+  usthad: Pick<ClassUsthad, 'id' | 'staffId' | 'name' | 'shortName'>,
   className: string,
 ): boolean {
   if (!usthad || !className) return false
-  if (usthad.isPrincipalRole) return true
-  if (usthad.designation === 'Teaching Usthad') return false
   const norm = normalizeClassName(className)
   const classUsthadEntry = CLASS_USTHADS.find((c) => normalizeClassName(c.className) === norm)
-  if (!classUsthadEntry) return false
+  if (
+    !classUsthadEntry ||
+    !classUsthadEntry.staffId ||
+    classUsthadEntry.id.startsWith('unassigned-')
+  ) {
+    return false
+  }
+  const uStaff = normalizeAdmissionKey(usthad.staffId)
+  const cStaff = normalizeAdmissionKey(classUsthadEntry.staffId)
+  if (uStaff && cStaff && uStaff === cStaff) return true
   return doesUsthadMatchTeacherName(usthad, classUsthadEntry.name)
 }
 
@@ -3185,6 +3211,23 @@ export function applyAcademyAdminConfig(config: AcademyAdminConfig): void {
   const nextClassUsthads: ClassUsthad[] = BASE_CLASS_USTHADS_SNAPSHOT.map((baseSlot) => {
     const clsName = baseSlot.className
     const assignedKey = classAssignments[clsName]
+
+    if (assignedKey === '__UNASSIGNED__') {
+      return {
+        ...baseSlot,
+        id: `unassigned-${clsName.toLowerCase().replace(/\s+/g, '')}`,
+        staffId: '',
+        name: 'Unassigned',
+        shortName: 'Unassigned',
+        designation: 'Unassigned',
+        teachingBatches: [],
+        className: clsName,
+        fullClassLabel: `Class ${clsName}`,
+        batch: getBatchLabelForClass(clsName),
+        batchCode: getBatchCodeForClass(clsName),
+      }
+    }
+
     const matchedUsthad = assignedKey
       ? basePlusAddedUsthads.find(
           (u) =>
@@ -3215,29 +3258,33 @@ export function applyAcademyAdminConfig(config: AcademyAdminConfig): void {
     }
   })
 
-  // Update teachingBatches on each official usthad based on their assigned classes
+  // Update teachingBatches on each official usthad strictly from their assigned classes
   for (const offUsthad of basePlusAddedUsthads) {
+    const offStaffKey = normalizeAdmissionKey(offUsthad.staffId)
     const assignedClassesForUsthad = nextClassUsthads
       .filter(
         (cu) =>
-          normalizeAdmissionKey(cu.staffId) === normalizeAdmissionKey(offUsthad.staffId) ||
-          cu.name === offUsthad.name,
+          Boolean(cu.staffId) &&
+          !cu.id.startsWith('unassigned-') &&
+          normalizeAdmissionKey(cu.staffId) === offStaffKey,
       )
       .map((cu) => cu.className)
 
+    offUsthad.teachingBatches = assignedClassesForUsthad
     if (assignedClassesForUsthad.length > 0) {
-      offUsthad.teachingBatches = assignedClassesForUsthad
       offUsthad.className = assignedClassesForUsthad[0]
-      offUsthad.fullClassLabel = `Class ${assignedClassesForUsthad[0]}`
+      offUsthad.fullClassLabel = `Class ${assignedClassesForUsthad.join(' & ')}`
       offUsthad.batch = getBatchLabelForClass(assignedClassesForUsthad[0])
+      offUsthad.batchCode = getBatchCodeForClass(assignedClassesForUsthad[0])
+    } else {
+      offUsthad.fullClassLabel = 'Teaching Usthad'
     }
   }
 
   for (const cu of nextClassUsthads) {
+    if (!cu.staffId || cu.id.startsWith('unassigned-')) continue
     const matchingOff = basePlusAddedUsthads.find(
-      (u) =>
-        normalizeAdmissionKey(u.staffId) === normalizeAdmissionKey(cu.staffId) ||
-        u.name === cu.name,
+      (u) => normalizeAdmissionKey(u.staffId) === normalizeAdmissionKey(cu.staffId),
     )
     if (matchingOff?.teachingBatches) {
       cu.teachingBatches = [...matchingOff.teachingBatches]
@@ -3479,6 +3526,7 @@ export function saveUsthadProfileByPrincipal(input: {
   designation: string
   specialization: string
   assignedClassName?: string
+  assignedClassNames?: string[]
 }): void {
   const current = loadAcademyAdminConfig()
   const cleanName = input.name.trim()
@@ -3486,18 +3534,38 @@ export function saveUsthadProfileByPrincipal(input: {
   const cleanDesignation = input.designation.trim() || 'Class Usthad'
   const cleanSpec = input.specialization.trim() || 'Islamic & Academic Studies'
 
+  const hasExplicitMultiClasses = Array.isArray(input.assignedClassNames)
+  const normalizedTargetClasses = hasExplicitMultiClasses
+    ? Array.from(
+        new Set(
+          (input.assignedClassNames ?? [])
+            .map((c) => normalizeClassName(c))
+            .filter((c) => ALL_ACADEMY_CLASS_NAMES.includes(c)),
+        ),
+      )
+    : input.assignedClassName
+      ? [normalizeClassName(input.assignedClassName)]
+      : null
+
   if (input.usthadId) {
     const existingUsthad = OFFICIAL_CLASS_USTHADS.find((u) => u.id === input.usthadId)
+    const prevAssignedClasses = existingUsthad ? getAssignedClassesForUsthad(existingUsthad) : []
+    const classesChanged =
+      normalizedTargetClasses !== null &&
+      (normalizedTargetClasses.length !== prevAssignedClasses.length ||
+        normalizedTargetClasses.some((c) => !prevAssignedClasses.includes(c)))
+
     if (
       existingUsthad &&
       existingUsthad.name === cleanName &&
       existingUsthad.staffId.toUpperCase() === cleanStaffId &&
       existingUsthad.designation === cleanDesignation &&
       existingUsthad.specialization === cleanSpec &&
-      !input.assignedClassName
+      !classesChanged
     ) {
       return
     }
+
     const nextEdited = {
       ...(current.editedUsthads ?? {}),
       [input.usthadId]: {
@@ -3507,24 +3575,62 @@ export function saveUsthadProfileByPrincipal(input: {
         specialization: cleanSpec,
       },
     }
+
     const nextAssignments = { ...(current.classUsthadAssignments ?? {}) }
-    if (input.assignedClassName) {
-      nextAssignments[normalizeClassName(input.assignedClassName)] = cleanStaffId
+    const oldStaffKey = existingUsthad ? normalizeAdmissionKey(existingUsthad.staffId) : ''
+
+    // If staffId changed, migrate any existing class assignments pointing to old staffId
+    if (oldStaffKey && oldStaffKey !== normalizeAdmissionKey(cleanStaffId)) {
+      for (const cls of Object.keys(nextAssignments)) {
+        if (
+          nextAssignments[cls] === input.usthadId ||
+          normalizeAdmissionKey(nextAssignments[cls]) === oldStaffKey
+        ) {
+          nextAssignments[cls] = cleanStaffId
+        }
+      }
     }
-    saveAcademyAdminConfig({
-      ...current,
-      editedUsthads: nextEdited,
-      classUsthadAssignments: nextAssignments,
-    })
+
+    if (normalizedTargetClasses !== null) {
+      const selectedSet = new Set(normalizedTargetClasses)
+      for (const prevCls of prevAssignedClasses) {
+        if (!selectedSet.has(prevCls)) {
+          nextAssignments[prevCls] = '__UNASSIGNED__'
+        }
+      }
+      for (const nextCls of normalizedTargetClasses) {
+        nextAssignments[nextCls] = cleanStaffId
+      }
+    }
+
+    saveAcademyAdminConfig(
+      {
+        ...current,
+        editedUsthads: nextEdited,
+        classUsthadAssignments: nextAssignments,
+      },
+      classesChanged
+        ? {
+            title: `Class Usthad Updated • ${cleanName}`,
+            message:
+              normalizedTargetClasses && normalizedTargetClasses.length > 0
+                ? `${cleanName} (${cleanStaffId}) is now Class Usthad for ${normalizedTargetClasses.join(', ')}.`
+                : `${cleanName} (${cleanStaffId}) is now updated as Teaching Usthad (no assigned class).`,
+          }
+        : undefined,
+    )
   } else {
-    const targetCls = normalizeClassName(input.assignedClassName || '8th')
+    const initialClasses = normalizedTargetClasses ?? []
+    const targetCls = initialClasses[0] || normalizeClassName(input.assignedClassName || '8th')
     const newId = `usthad-custom-${Date.now()}`
     const newUsthad: UsthadProfileOverride = {
       id: newId,
       staffId: cleanStaffId,
       name: cleanName,
       shortName: cleanName,
-      designation: cleanDesignation,
+      designation:
+        input.designation.trim() ||
+        (initialClasses.length > 0 ? 'Class Usthad' : 'Teaching Usthad'),
       institutionalRole: 'Class Usthad',
       specialization: cleanSpec,
       className: targetCls,
@@ -3532,15 +3638,24 @@ export function saveUsthadProfileByPrincipal(input: {
       batchCode: getBatchCodeForClass(targetCls),
     }
     const nextAdded = [...(current.addedUsthads ?? []), newUsthad]
-    const nextAssignments = {
-      ...(current.classUsthadAssignments ?? {}),
-      ...(input.assignedClassName ? { [targetCls]: cleanStaffId } : {}),
+    const nextAssignments = { ...(current.classUsthadAssignments ?? {}) }
+    for (const cls of initialClasses) {
+      nextAssignments[cls] = cleanStaffId
     }
-    saveAcademyAdminConfig({
-      ...current,
-      addedUsthads: nextAdded,
-      classUsthadAssignments: nextAssignments,
-    })
+    saveAcademyAdminConfig(
+      {
+        ...current,
+        addedUsthads: nextAdded,
+        classUsthadAssignments: nextAssignments,
+      },
+      {
+        title: `New Usthad Added • ${cleanName}`,
+        message:
+          initialClasses.length > 0
+            ? `${cleanName} (${cleanStaffId}) added as Class Usthad for ${initialClasses.join(', ')}.`
+            : `${cleanName} (${cleanStaffId}) added to Academy Faculty.`,
+      },
+    )
   }
 }
 

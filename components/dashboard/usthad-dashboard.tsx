@@ -228,16 +228,25 @@ export function UsthadDashboard() {
     }
   }, [])
 
+  const liveBaseUsthad = useMemo<ClassUsthad>(() => {
+    void configVersion
+    return (
+      OFFICIAL_CLASS_USTHADS.find((u) => u.id === baseUsthad.id) ??
+      CLASS_USTHADS.find((u) => u.id === baseUsthad.id) ??
+      baseUsthad
+    )
+  }, [baseUsthad, configVersion])
+
   const activeSemester = getActiveSemester()
 
   const allScheduledPeriods = useMemo(
-    () => getUsthadScheduledPeriodsAcrossClasses(baseUsthad, activeSemester),
-    [baseUsthad, activeSemester, configVersion],
+    () => getUsthadScheduledPeriodsAcrossClasses(liveBaseUsthad, activeSemester),
+    [liveBaseUsthad, activeSemester, configVersion],
   )
 
   const allTeachingClasses = useMemo(
-    () => getUsthadTeachingClasses(baseUsthad, activeSemester),
-    [baseUsthad, activeSemester, configVersion],
+    () => getUsthadTeachingClasses(liveBaseUsthad, activeSemester),
+    [liveBaseUsthad, activeSemester, configVersion],
   )
 
   const activeClassTimetable = useMemo(
@@ -246,8 +255,8 @@ export function UsthadDashboard() {
   )
 
   const isAssignedClassUsthadForActiveClass = useMemo(
-    () => isUsthadAssignedClassUsthadOfBatch(baseUsthad, activeClassName),
-    [baseUsthad, activeClassName, configVersion],
+    () => isUsthadAssignedClassUsthadOfBatch(liveBaseUsthad, activeClassName),
+    [liveBaseUsthad, activeClassName, configVersion],
   )
 
   const [selectedAttendancePeriodIndex, setSelectedAttendancePeriodIndex] = useState<number>(() => {
@@ -257,21 +266,26 @@ export function UsthadDashboard() {
   })
 
   const usthad = useMemo<ClassUsthad>(() => {
+    void configVersion
     const classMatch = CLASS_USTHADS.find((u) => u.className === activeClassName)
-    if (classMatch && classMatch.name === baseUsthad.name) {
+    if (
+      classMatch &&
+      ((liveBaseUsthad.staffId && classMatch.staffId === liveBaseUsthad.staffId) ||
+        classMatch.name === liveBaseUsthad.name)
+    ) {
       return {
         ...classMatch,
-        id: baseUsthad.id,
-        avatarUrl: baseUsthad.avatarUrl ?? classMatch.avatarUrl,
-        teachingBatches: baseUsthad.teachingBatches ?? classMatch.teachingBatches,
+        id: liveBaseUsthad.id,
+        avatarUrl: liveBaseUsthad.avatarUrl ?? classMatch.avatarUrl,
+        teachingBatches: liveBaseUsthad.teachingBatches ?? classMatch.teachingBatches,
       }
     }
     return {
-      ...baseUsthad,
+      ...liveBaseUsthad,
       className: activeClassName,
       fullClassLabel: `Class ${activeClassName}`,
     }
-  }, [baseUsthad, activeClassName])
+  }, [liveBaseUsthad, activeClassName, configVersion])
 
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null)
   const [mobileTab, setMobileTab] = useState<

@@ -90,6 +90,7 @@ import {
   ensureCleanLaunchStorage,
   formatTargetClassesBadge,
   getActiveSemester,
+  getAssignedClassesForUsthad,
   getClassLeadersForClass,
   getClassSemesterTimetable,
   getClassSemesterTimetableByClassName,
@@ -428,6 +429,9 @@ export function PrincipalDashboard() {
   const [usthadFormStaffId, setUsthadFormStaffId] = useState<string>(() => OFFICIAL_CLASS_USTHADS[0]?.staffId ?? 'UST-07')
   const [usthadFormDesignation, setUsthadFormDesignation] = useState<string>(() => OFFICIAL_CLASS_USTHADS[0]?.designation ?? 'Class Usthad')
   const [usthadFormSpec, setUsthadFormSpec] = useState<string>(() => OFFICIAL_CLASS_USTHADS[0]?.specialization ?? '')
+  const [usthadFormClasses, setUsthadFormClasses] = useState<string[]>(() =>
+    OFFICIAL_CLASS_USTHADS[0] ? getAssignedClassesForUsthad(OFFICIAL_CLASS_USTHADS[0]) : [],
+  )
   const [usthadProfileToast, setUsthadProfileToast] = useState<string | null>(null)
 
   // 3. Class Leader Assignment State
@@ -526,6 +530,7 @@ export function PrincipalDashboard() {
       setUsthadFormStaffId(`UST-${String(OFFICIAL_CLASS_USTHADS.length + 15).padStart(2, '0')}`)
       setUsthadFormDesignation('Class Usthad')
       setUsthadFormSpec('')
+      setUsthadFormClasses([])
       return
     }
     const found = OFFICIAL_CLASS_USTHADS.find((u) => u.id === editingUsthadId)
@@ -534,6 +539,7 @@ export function PrincipalDashboard() {
       setUsthadFormStaffId(found.staffId)
       setUsthadFormDesignation(found.designation)
       setUsthadFormSpec(found.specialization)
+      setUsthadFormClasses(getAssignedClassesForUsthad(found))
     }
   }, [editingUsthadId, configVersion])
 
@@ -808,11 +814,16 @@ export function PrincipalDashboard() {
     if (editingUsthadId === 'NEW') return true
     const current = OFFICIAL_CLASS_USTHADS.find((u) => u.id === editingUsthadId)
     if (!current) return true
+    const currentAssigned = getAssignedClassesForUsthad(current)
+    const assignedClassesChanged =
+      usthadFormClasses.length !== currentAssigned.length ||
+      usthadFormClasses.some((c) => !currentAssigned.includes(c))
     return (
       current.name !== cleanName ||
       current.staffId.toUpperCase() !== cleanStaff ||
       current.designation !== cleanDesig ||
-      current.specialization !== cleanSpec
+      current.specialization !== cleanSpec ||
+      assignedClassesChanged
     )
   }, [
     editingUsthadId,
@@ -820,6 +831,7 @@ export function PrincipalDashboard() {
     usthadFormStaffId,
     usthadFormDesignation,
     usthadFormSpec,
+    usthadFormClasses,
     configVersion,
   ])
 
@@ -2538,8 +2550,10 @@ export function PrincipalDashboard() {
                 >
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {OFFICIAL_CLASS_USTHADS.map((u) => {
+                      const assignedClasses = getAssignedClassesForUsthad(u)
+                      const primaryClass = assignedClasses[0] || u.className
                       const row =
-                        classMatrixRows.find((r) => r.className === u.className) ??
+                        classMatrixRows.find((r) => r.className === primaryClass) ??
                         classMatrixRows[0]
                       const roleBadgeTone =
                         u.institutionalRole === 'Principal'
@@ -2574,9 +2588,9 @@ export function PrincipalDashboard() {
                                 )}
                               </div>
                               <span className="text-xs font-semibold text-[#0077CC] dark:text-[#0095F6]">
-                                {u.teachingBatches && u.teachingBatches.length > 1
-                                  ? u.teachingBatches.join(' & ')
-                                  : u.className}
+                                {assignedClasses.length > 0
+                                  ? assignedClasses.join(' & ')
+                                  : 'Teaching Only'}
                               </span>
                             </div>
 
@@ -2592,9 +2606,9 @@ export function PrincipalDashboard() {
                                 </h3>
                                 <p className="text-xs text-muted-foreground">
                                   {u.designation} •{' '}
-                                  {u.teachingBatches && u.teachingBatches.length > 1
-                                    ? `Class ${u.teachingBatches.join(' & ')}`
-                                    : u.fullClassLabel}
+                                  {assignedClasses.length > 0
+                                    ? `Class ${assignedClasses.join(' & ')}`
+                                    : 'No Assigned Class'}
                                 </p>
                               </div>
                             </div>
@@ -2633,13 +2647,9 @@ export function PrincipalDashboard() {
 
                             <div className="text-[11px] text-muted-foreground tabular-nums">
                               Staff ID: {u.staffId} •{' '}
-                              {u.designation === 'Teaching Usthad' && u.teachingBatches
-                                ? `Teaching Batches: ${u.teachingBatches.join(', ')}`
-                                : `Assigned Class: ${
-                                    u.teachingBatches && u.teachingBatches.length > 1
-                                      ? u.teachingBatches.join(' & ')
-                                      : u.className
-                                  }`}
+                              {assignedClasses.length > 0
+                                ? `Assigned ${assignedClasses.length === 1 ? 'Class' : 'Classes'}: ${assignedClasses.join(', ')}`
+                                : 'Teaching Usthad (No Assigned Class)'}
                             </div>
                           </div>
 
@@ -2804,6 +2814,7 @@ export function PrincipalDashboard() {
                           staffId: usthadFormStaffId,
                           designation: usthadFormDesignation,
                           specialization: usthadFormSpec,
+                          assignedClassNames: usthadFormClasses,
                         })
                         refreshAllCampusData()
                         setUsthadProfileToast(
@@ -2876,6 +2887,76 @@ export function PrincipalDashboard() {
                             placeholder="Class Usthad"
                             className="h-10 rounded-xl text-xs"
                           />
+                        </div>
+                      </div>
+
+                      {/* Multi-Select Assigned Classes (Class Usthad of 0, 1, or Multiple Classes) */}
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <Label className="text-xs">
+                            Assigned Classes (Multiple)
+                          </Label>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-semibold text-[#0077CC] dark:text-[#0095F6] tabular-nums">
+                              {usthadFormClasses.length > 0
+                                ? `${usthadFormClasses.length} selected`
+                                : 'None'}
+                            </span>
+                            {usthadFormClasses.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setUsthadFormClasses([])}
+                                className="text-[11px] font-semibold text-muted-foreground hover:text-destructive"
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                          {ALL_ACADEMY_CLASS_NAMES.map((cls) => {
+                            const selected = usthadFormClasses.includes(cls)
+                            const currentHolder = CLASS_USTHADS.find((cu) => cu.className === cls)
+                            const heldByOther =
+                              !selected &&
+                              Boolean(currentHolder?.staffId) &&
+                              !currentHolder?.id.startsWith('unassigned-') &&
+                              currentHolder?.staffId.toUpperCase() !==
+                                usthadFormStaffId.trim().toUpperCase()
+
+                            return (
+                              <button
+                                key={`edit_u_cls_${cls}`}
+                                type="button"
+                                onClick={() =>
+                                  setUsthadFormClasses((prev) =>
+                                    prev.includes(cls)
+                                      ? prev.filter((item) => item !== cls)
+                                      : ALL_ACADEMY_CLASS_NAMES.filter(
+                                          (name) => name === cls || prev.includes(name),
+                                        ),
+                                  )
+                                }
+                                title={
+                                  heldByOther && currentHolder
+                                    ? `Currently: ${currentHolder.name}`
+                                    : `Toggle Class ${cls}`
+                                }
+                                className={cn(
+                                  'flex items-center justify-center gap-1 rounded-xl px-2.5 py-2 text-xs font-semibold transition-all active:scale-[0.97]',
+                                  selected
+                                    ? 'bg-[#0095F6] text-white'
+                                    : 'bg-muted/70 text-foreground hover:bg-muted',
+                                )}
+                              >
+                                {selected ? (
+                                  <Check className="size-3.5 shrink-0" aria-hidden="true" />
+                                ) : null}
+                                <span>{cls}</span>
+                              </button>
+                            )
+                          })}
                         </div>
                       </div>
 

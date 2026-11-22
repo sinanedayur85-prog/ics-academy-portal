@@ -366,12 +366,12 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
                 <GraduationCap className="size-3.5 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
                 {usthad.teachingBatches && usthad.teachingBatches.length > 1
                   ? 'Assigned Classes'
-                  : 'Class'}
+                  : 'Assigned Class'}
               </dt>
               <dd className="text-right text-xs font-medium text-foreground">
-                {usthad.teachingBatches && usthad.teachingBatches.length > 1
-                  ? `Class ${usthad.teachingBatches.join(' & ')}`
-                  : `Class ${usthad.className} (${usthad.batch})`}
+                {usthad.teachingBatches && usthad.teachingBatches.length > 0
+                  ? `Class ${usthad.teachingBatches.join(', ')}`
+                  : 'Teaching Usthad'}
               </dd>
             </div>
 
