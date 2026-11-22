@@ -101,6 +101,7 @@ import {
   type KitabCategory,
 } from '@/components/dashboard/digital-library'
 import { ExamResultCard } from '@/components/dashboard/exam-result-card'
+import { LibraryBooks } from '@/components/dashboard/library-books'
 import type { SavedLeaveEntry } from '@/components/dashboard/leave-register'
 import { Panel, fieldClassName } from '@/components/dashboard/panel'
 import { ParentReportModal } from '@/components/dashboard/parent-report-modal'
@@ -2879,11 +2880,13 @@ export function UsthadDashboard() {
 
         <div
           className={cn(
+            'flex flex-col gap-5',
             mobileTab === 'library' && mobileLibrarySubTab === 'kitabs'
-              ? 'block'
-              : 'hidden lg:block',
+              ? 'flex'
+              : 'hidden lg:flex',
           )}
         >
+        <LibraryBooks />
         <Panel
           id="usthad-kitabs"
           eyebrow="Library"
