@@ -2370,7 +2370,7 @@ export function PrincipalDashboard() {
                           {SHAIKHUNA_HAMZA_USTHAD.honorificTitle}
                         </span>
                         <span className="inline-flex items-center gap-1 rounded-full bg-popover px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                          No Login ID • Not a Class Usthad
+                          Chief Mudarris
                         </span>
                       </div>
 
@@ -2379,19 +2379,15 @@ export function PrincipalDashboard() {
                           {SHAIKHUNA_HAMZA_USTHAD.name}
                         </h2>
                         <p className="mt-0.5 text-xs font-semibold text-[#0077CC] dark:text-[#0095F6] sm:text-sm">
-                          {SHAIKHUNA_HAMZA_USTHAD.malayalamName} • {SHAIKHUNA_HAMZA_USTHAD.designation}
+                          {SHAIKHUNA_HAMZA_USTHAD.designation}
                         </p>
                       </div>
-
-                      <p className="text-xs leading-relaxed text-muted-foreground">
-                        {SHAIKHUNA_HAMZA_USTHAD.description}
-                      </p>
                     </div>
 
                     <div className="flex flex-col gap-2.5 border-t border-border/35 pt-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-bold text-foreground">
-                          Senior Classes:
+                          Classes:
                         </span>
                         {SHAIKHUNA_HAMZA_USTHAD.valiyaBatches.map((batchName) => (
                           <button
@@ -2409,7 +2405,7 @@ export function PrincipalDashboard() {
                         ))}
                       </div>
                       <p className="text-[11px] text-muted-foreground">
-                        Timetable Dars Only: <strong className="text-foreground">{SHAIKHUNA_HAMZA_USTHAD.specialization}</strong>
+                        Subjects: <strong className="text-foreground">{SHAIKHUNA_HAMZA_USTHAD.specialization}</strong>
                       </p>
                     </div>
                   </div>
@@ -2420,33 +2416,26 @@ export function PrincipalDashboard() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-0.5 text-[11px] font-extrabold tracking-wider text-white uppercase">
                           <Building2 className="size-3.5" aria-hidden="true" />
-                          Institution Manager (മാനേജർ)
+                          Manager
                         </span>
                         <span className="inline-flex items-center gap-1 rounded-full bg-popover px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                          No Login ID • No Classes / Not a Class Usthad
+                          Administration
                         </span>
                       </div>
 
                       <div className="mt-1">
                         <h2 className="font-display text-xl font-bold text-foreground sm:text-2xl">
-                          {ACADEMY_MANAGER.name} (Manager)
+                          {ACADEMY_MANAGER.name}
                         </h2>
                         <p className="mt-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400 sm:text-sm">
                           {ACADEMY_MANAGER.designation}
                         </p>
                       </div>
-
-                      <p className="text-xs leading-relaxed text-muted-foreground">
-                        {ACADEMY_MANAGER.roleSummary}
-                      </p>
                     </div>
 
-                    <div className="flex flex-col gap-1.5 rounded-2xl bg-popover/85 p-3 text-xs">
+                    <div className="rounded-2xl bg-popover/85 p-3 text-xs">
                       <p className="font-semibold text-foreground">
-                        Role: Overall Institutional Governance &amp; Administration
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        ഒരിക്കലും ക്ലാസ് ഉസ്താദ് ആവാറില്ല • ഒരാളുടെയും ക്ലാസ്സിൽ ഉണ്ടാവാറില്ല • ലോഗിൻ ഐഡി ആവശ്യമില്ല.
+                        Institutional Governance &amp; Administration
                       </p>
                     </div>
                   </div>
@@ -2632,8 +2621,8 @@ export function PrincipalDashboard() {
                   {/* 1. Assign Class Usthad to Any Class */}
                   <Panel
                     id="principal-assign-usthad-panel"
-                    eyebrow="Class Charge"
-                    title="Change Class Usthad (ക്ലാസ് ഉസ്താദിനെ മാറ്റാൻ)"
+                    eyebrow="Faculty"
+                    title="Class Usthad"
                     icon={UserCog}
                   >
                     <form
@@ -2643,20 +2632,16 @@ export function PrincipalDashboard() {
                         assignClassUsthadByPrincipal(assignUsthadClass, assignUsthadStaffId)
                         refreshAllCampusData()
                         setUsthadAssignToast(
-                          `Class ${assignUsthadClass} Usthad updated successfully!`,
+                          `Class ${assignUsthadClass} Usthad updated!`,
                         )
                         setTimeout(() => setUsthadAssignToast(null), 4000)
                       }}
                       className="flex flex-col gap-4"
                     >
-                      <p className="text-xs text-muted-foreground">
-                        ഏത് ക്ലാസിന്റെയും ചുമതലയുള്ള ക്ലാസ് ഉസ്താദിനെ ഇവിടെനിന്ന് മാറ്റാവുന്നതാണ്. ഒന്നിലധികം ക്ലാസുകളുടെ ചുമതല ഒരേ ഉസ്താദിന് നൽകാനും സാധിക്കും.
-                      </p>
-
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor="pr-assign-usthad-class" className="text-xs">
-                            Select Class (ക്ലാസ് തിരഞ്ഞെടുക്കുക)
+                            Class
                           </Label>
                           <ThemeSelect
                             id="pr-assign-usthad-class"
@@ -2668,7 +2653,7 @@ export function PrincipalDashboard() {
                               const currentCu = CLASS_USTHADS.find((u) => u.className === cls)
                               return (
                                 <option key={cls} value={cls}>
-                                  Class {cls} (Current: {currentCu?.shortName ?? 'Usthad'})
+                                  Class {cls} ({currentCu?.shortName ?? 'Usthad'})
                                 </option>
                               )
                             })}
@@ -2677,7 +2662,7 @@ export function PrincipalDashboard() {
 
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor="pr-assign-usthad-staff" className="text-xs">
-                            Select Class Usthad (ഉസ്താദിനെ തിരഞ്ഞെടുക്കുക)
+                            Usthad
                           </Label>
                           <ThemeSelect
                             id="pr-assign-usthad-staff"
@@ -2700,9 +2685,7 @@ export function PrincipalDashboard() {
                             {usthadAssignToast}
                           </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground">
-                            Updates Class Usthad across all dashboards
-                          </span>
+                          <span />
                         )}
                         <Button
                           type="submit"
@@ -2710,7 +2693,7 @@ export function PrincipalDashboard() {
                           disabled={!isClassUsthadChanged}
                           className="rounded-xl text-xs font-semibold disabled:opacity-50"
                         >
-                          {isClassUsthadChanged ? 'Save Class Usthad' : 'Saved (No Changes)'}
+                          {isClassUsthadChanged ? 'Save' : 'Saved'}
                         </Button>
                       </div>
                     </form>
@@ -2719,8 +2702,8 @@ export function PrincipalDashboard() {
                   {/* 2. Edit Usthad Details or Add New Usthad */}
                   <Panel
                     id="principal-edit-usthad-panel"
-                    eyebrow="Faculty Profile"
-                    title="Edit / Add Usthad (ഉസ്താദിന്റെ വിവരങ്ങൾ / പുതിയ ഉസ്താദ്)"
+                    eyebrow="Faculty"
+                    title="Edit Usthad"
                     icon={GraduationCap}
                   >
                     <form
@@ -2738,7 +2721,7 @@ export function PrincipalDashboard() {
                         setUsthadProfileToast(
                           editingUsthadId === 'NEW'
                             ? `Added ${usthadFormName.trim()} (${usthadFormStaffId.trim()})!`
-                            : `Updated ${usthadFormName.trim()} profile!`,
+                            : `Updated ${usthadFormName.trim()}!`,
                         )
                         setTimeout(() => setUsthadProfileToast(null), 4000)
                       }}
@@ -2747,7 +2730,7 @@ export function PrincipalDashboard() {
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor="pr-edit-usthad-select" className="text-xs">
-                            Select Usthad or Add New
+                            Usthad
                           </Label>
                           <ThemeSelect
                             id="pr-edit-usthad-select"
@@ -2760,13 +2743,13 @@ export function PrincipalDashboard() {
                                 {u.name} ({u.staffId})
                               </option>
                             ))}
-                            <option value="NEW">+ Add New Usthad (പുതിയ ഉസ്താദിനെ ചേർക്കാൻ)</option>
+                            <option value="NEW">+ Add Usthad</option>
                           </ThemeSelect>
                         </div>
 
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor="pr-usthad-staff-id" className="text-xs">
-                            Staff Login ID
+                            Staff ID
                           </Label>
                           <Input
                             id="pr-usthad-staff-id"
@@ -2782,7 +2765,7 @@ export function PrincipalDashboard() {
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor="pr-usthad-name" className="text-xs">
-                            Usthad Full Name
+                            Full Name
                           </Label>
                           <Input
                             id="pr-usthad-name"
@@ -2810,7 +2793,7 @@ export function PrincipalDashboard() {
 
                       <div className="flex flex-col gap-1.5">
                         <Label htmlFor="pr-usthad-spec" className="text-xs">
-                          Specialization / Subjects Taught
+                          Subjects
                         </Label>
                         <Input
                           id="pr-usthad-spec"
@@ -2827,9 +2810,7 @@ export function PrincipalDashboard() {
                             {usthadProfileToast}
                           </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground">
-                            {editingUsthadId === 'NEW' ? 'Creates new Staff Login ID' : 'Updates Usthad profile'}
-                          </span>
+                          <span />
                         )}
                         <Button
                           type="submit"
@@ -2840,8 +2821,8 @@ export function PrincipalDashboard() {
                           {editingUsthadId === 'NEW'
                             ? 'Add Usthad'
                             : isUsthadProfileChanged
-                              ? 'Save Usthad Profile'
-                              : 'Saved (No Changes)'}
+                              ? 'Save'
+                              : 'Saved'}
                         </Button>
                       </div>
                     </form>
@@ -2856,8 +2837,8 @@ export function PrincipalDashboard() {
                 {/* Principal Class Leader Assignment Panel */}
                 <Panel
                   id="principal-leader-editor"
-                  eyebrow="Assign Leaders"
-                  title="Change Class Leaders (ക്ലാസ് ലീഡർമാരെ മാറ്റാൻ)"
+                  eyebrow="Leaders"
+                  title="Class Leaders"
                   icon={UserCheck}
                 >
                   <form
@@ -2871,20 +2852,16 @@ export function PrincipalDashboard() {
                       })
                       refreshAllCampusData()
                       setLeaderAdminToast(
-                        `Class ${leaderEditClass} Main & Assistant Leaders updated!`,
+                        `Class ${leaderEditClass} leaders updated!`,
                       )
                       setTimeout(() => setLeaderAdminToast(null), 4000)
                     }}
                     className="flex flex-col gap-4"
                   >
-                    <p className="text-xs text-muted-foreground">
-                      ഏത് ക്ലാസിലെയും മെയിൻ ക്ലാസ് ലീഡറെയും (Main Class Leader) അസിസ്റ്റന്റ് ക്ലാസ് ലീഡറെയും (Assistant Class Leader) ആ ക്ലാസിലെ കുട്ടികളിൽ നിന്ന് തിരഞ്ഞെടുത്ത് മാറ്റാവുന്നതാണ്.
-                    </p>
-
                     <div className="grid gap-3 sm:grid-cols-3">
                       <div className="flex flex-col gap-1.5">
                         <Label htmlFor="pr-leader-class" className="text-xs">
-                          Select Class (ക്ലാസ്)
+                          Class
                         </Label>
                         <ThemeSelect
                           id="pr-leader-class"
@@ -2902,7 +2879,7 @@ export function PrincipalDashboard() {
 
                       <div className="flex flex-col gap-1.5">
                         <Label htmlFor="pr-leader-main" className="text-xs text-lime">
-                          Main Class Leader (മെയിൻ ലീഡർ)
+                          Main Leader
                         </Label>
                         <ThemeSelect
                           id="pr-leader-main"
@@ -2922,7 +2899,7 @@ export function PrincipalDashboard() {
 
                       <div className="flex flex-col gap-1.5">
                         <Label htmlFor="pr-leader-assistant" className="text-xs text-cyan">
-                          Assistant Class Leader (അസിസ്റ്റന്റ് ലീഡർ)
+                          Assistant Leader
                         </Label>
                         <ThemeSelect
                           id="pr-leader-assistant"
@@ -2947,9 +2924,7 @@ export function PrincipalDashboard() {
                           {leaderAdminToast}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">
-                          Selected students immediately get Class Leader login &amp; attendance permissions
-                        </span>
+                        <span />
                       )}
                       <Button
                         type="submit"
@@ -2957,7 +2932,7 @@ export function PrincipalDashboard() {
                         disabled={!isClassLeadersChanged}
                         className="rounded-xl text-xs font-semibold disabled:opacity-50"
                       >
-                        {isClassLeadersChanged ? 'Save Class Leaders' : 'Saved (No Changes)'}
+                        {isClassLeadersChanged ? 'Save' : 'Saved'}
                       </Button>
                     </div>
                   </form>
@@ -2966,7 +2941,7 @@ export function PrincipalDashboard() {
                 <Panel
                   id="principal-leaders-panel"
                   eyebrow="Leaders"
-                  title="Class Leaders Directory"
+                  title="Leaders List"
                   icon={UserCheck}
                 >
                   <div className="overflow-x-auto rounded-2xl bg-muted/35">
@@ -3065,12 +3040,8 @@ export function PrincipalDashboard() {
                 {/* Principal Add / Edit / Remove Student Panel */}
                 <Panel
                   id="principal-student-admission-editor"
-                  eyebrow="Admissions & Roster"
-                  title={
-                    editingStudentId
-                      ? 'Edit Student Details (കുട്ടിയുടെ വിവരങ്ങൾ തിരുത്താൻ)'
-                      : 'Add New Student to Academy (പുതിയ കുട്ടിയെ ചേർക്കാൻ)'
-                  }
+                  eyebrow="Students"
+                  title={editingStudentId ? 'Edit Student' : 'Add Student'}
                   icon={Plus}
                   action={
                     (loadAcademyAdminConfig().removedStudentIds?.length ?? 0) > 0 ? (
@@ -3081,13 +3052,13 @@ export function PrincipalDashboard() {
                         onClick={() => {
                           restoreAllRemovedStudentsByPrincipal()
                           refreshAllCampusData()
-                          setStudentAdminToast('Restored all previously removed students!')
+                          setStudentAdminToast('Restored removed students!')
                           setTimeout(() => setStudentAdminToast(null), 4000)
                         }}
                         className="h-8 rounded-xl border-amber-500/40 bg-amber-500/10 px-3 text-xs font-semibold text-amber-500 hover:bg-amber-500/20"
                       >
                         <RotateCcw className="mr-1.5 size-3.5" aria-hidden="true" />
-                        Restore Removed ({loadAcademyAdminConfig().removedStudentIds?.length ?? 0})
+                        Restore ({loadAcademyAdminConfig().removedStudentIds?.length ?? 0})
                       </Button>
                     ) : undefined
                   }
@@ -3123,14 +3094,10 @@ export function PrincipalDashboard() {
                     }}
                     className="flex flex-col gap-4"
                   >
-                    <p className="text-xs text-muted-foreground">
-                      ഏത് ക്ലാസിലേക്കും പുതിയ കുട്ടികളെ ചേർക്കാനും, നിലവിലുള്ളവരുടെ പേര്, അഡ്മിഷൻ നമ്പർ, ക്ലാസ് എന്നിവ മാറ്റാനും, താഴെയുള്ള ലിസ്റ്റിൽ നിന്ന് കുട്ടികളെ ഒഴിവാക്കാനും (Remove) സാധിക്കും.
-                    </p>
-
                     <div className="grid gap-3 sm:grid-cols-3">
                       <div className="flex flex-col gap-1.5">
                         <Label htmlFor="pr-st-form-class" className="text-xs">
-                          Select Class (ക്ലാസ്)
+                          Class
                         </Label>
                         <ThemeSelect
                           id="pr-st-form-class"
@@ -3154,7 +3121,7 @@ export function PrincipalDashboard() {
 
                       <div className="flex flex-col gap-1.5">
                         <Label htmlFor="pr-st-form-name" className="text-xs">
-                          Student Full Name (കുട്ടിയുടെ പേര്)
+                          Full Name
                         </Label>
                         <Input
                           id="pr-st-form-name"
@@ -3168,7 +3135,7 @@ export function PrincipalDashboard() {
 
                       <div className="flex flex-col gap-1.5">
                         <Label htmlFor="pr-st-form-adm" className="text-xs">
-                          Admission Number (അഡ്മിഷൻ നമ്പർ)
+                          Admission No.
                         </Label>
                         <div className="flex items-center gap-1.5">
                           <Input
@@ -3204,9 +3171,7 @@ export function PrincipalDashboard() {
                           {studentAdminToast}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">
-                          New students can immediately log in using their Admission Number
-                        </span>
+                        <span />
                       )}
                       <div className="flex items-center gap-2">
                         {editingStudentId && (
@@ -3223,7 +3188,7 @@ export function PrincipalDashboard() {
                             }}
                             className="rounded-xl text-xs font-semibold"
                           >
-                            Cancel Edit
+                            Cancel
                           </Button>
                         )}
                         <Button
@@ -3235,9 +3200,9 @@ export function PrincipalDashboard() {
                           <Plus className="mr-1 size-3.5" aria-hidden="true" />
                           {editingStudentId
                             ? isStudentFormValidAndChanged
-                              ? 'Save Student Changes'
-                              : 'Saved (No Changes)'
-                            : 'Add Student to Class'}
+                              ? 'Save'
+                              : 'Saved'
+                            : 'Add Student'}
                         </Button>
                       </div>
                     </div>
@@ -3694,13 +3659,13 @@ export function PrincipalDashboard() {
               <div className="flex flex-col gap-6">
                 <Panel
                   id="principal-timetable-editor"
-                  eyebrow="Schedule & Syllabus"
-                  title="Edit Class Timetable & Subjects (ടൈംടേബിളും വിഷയങ്ങളും പുതുക്കാൻ)"
+                  eyebrow="Schedule"
+                  title="Timetable Editor"
                   icon={CalendarClock}
                   action={
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-semibold text-muted-foreground">
-                        Active Academy Semester:
+                        Semester:
                       </span>
                       <div className="inline-flex rounded-full bg-muted/70 p-0.5">
                         {([1, 2] as const).map((sem) => {
@@ -3715,7 +3680,7 @@ export function PrincipalDashboard() {
                                 setActiveSemesterByPrincipal(sem)
                                 setTtEditSemesterTab(sem)
                                 refreshAllCampusData()
-                                setTtAdminToast(`Switched active Academy schedule to Semester ${sem}!`)
+                                setTtAdminToast(`Switched to Semester ${sem}!`)
                                 setTimeout(() => setTtAdminToast(null), 4000)
                               }}
                               className={cn(
@@ -3725,7 +3690,7 @@ export function PrincipalDashboard() {
                                   : 'text-muted-foreground hover:text-foreground',
                               )}
                             >
-                              Semester {sem}
+                              Sem {sem}
                             </button>
                           )
                         })}
@@ -3740,21 +3705,17 @@ export function PrincipalDashboard() {
                       saveClassTimetableByPrincipal(ttEditClass, ttDraft)
                       refreshAllCampusData()
                       setTtAdminToast(
-                        `Saved Class ${ttEditClass} timetable & subjects across all portals!`,
+                        `Saved Class ${ttEditClass} timetable!`,
                       )
                       setTimeout(() => setTtAdminToast(null), 4000)
                     }}
                     className="flex flex-col gap-4"
                   >
-                    <p className="text-xs text-muted-foreground">
-                      ഏത് ക്ലാസിലെയും പീരീഡുകളുടെ എണ്ണവും (5 മുതൽ 12 പീരീഡ് വരെ), സമയവും (Period Time), വിഷയങ്ങളും കിതാബുകളും (Subjects / Kitabs), പഠിപ്പിക്കുന്ന ഉസ്താദുമാരുടെ പേരുകളും ഇവിടെനിന്ന് മാറ്റാവുന്നതാണ്. പുതിയ പീരീഡുകൾ ചേർത്താൽ അവ തനിയെ ഹാജർ ഇടുന്നിടത്തും ടൈംടേബിളിലും വരുന്നതാണ്.
-                    </p>
-
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/45 p-3.5">
                       <div className="flex flex-wrap items-center gap-3">
                         <div className="flex items-center gap-2">
                           <Label htmlFor="pr-tt-class" className="text-xs font-bold">
-                            Select Class:
+                            Class:
                           </Label>
                           <ThemeSelect
                             id="pr-tt-class"

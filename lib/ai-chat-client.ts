@@ -115,7 +115,7 @@ export async function fetchAiChatReply(payload: {
 
   throw new Error(
     lastErrorMsg ||
-      'AI സെർവറുമായി ബന്ധപ്പെടാൻ സാധിച്ചില്ല. ദയവായി ഇന്റർനെറ്റ് കണക്ഷൻ അല്ലെങ്കിൽ സെർവർ ക്രമീകരണം പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക.',
+      'Unable to reach the AI server. Please check your internet connection and try again.',
   )
 }
 
@@ -163,7 +163,7 @@ export async function fetchAiStudyAssistantReply(payload: {
 
   throw new Error(
     lastErrorMsg ||
-      'AI സെർവറുമായി ബന്ധപ്പെടാൻ സാധിച്ചില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.',
+      'Unable to reach the AI server. Please try again shortly.',
   )
 }
 

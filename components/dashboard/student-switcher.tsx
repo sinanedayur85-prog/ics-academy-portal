@@ -236,7 +236,7 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
                   App Video Guide
                 </span>
                 <span className="truncate text-[10.5px] font-medium text-[#0077CC] dark:text-[#38BDF8]">
-                  മലയാളം ശബ്ദ സഹായി • Screen Demo
+                  Voice Guide • Screen Demo
                 </span>
               </span>
             </span>
@@ -406,7 +406,7 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
                   App Video Guide
                 </span>
                 <span className="truncate text-[10.5px] font-medium text-[#0077CC] dark:text-[#38BDF8]">
-                  മലയാളം ശബ്ദ സഹായി • Screen Demo
+                  Voice Guide • Screen Demo
                 </span>
               </span>
             </span>
@@ -602,7 +602,7 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
                   App Video Guide
                 </span>
                 <span className="truncate text-[10.5px] font-medium text-[#0077CC] dark:text-[#38BDF8]">
-                  മലയാളം ശബ്ദ സഹായി • Screen Demo
+                  Voice Guide • Screen Demo
                 </span>
               </span>
             </span>

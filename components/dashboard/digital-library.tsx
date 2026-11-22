@@ -105,15 +105,14 @@ export const KITAB_CATEGORIES: {
   id: 'all' | KitabCategory
   label: string
   arabicLabel: string
-  malayalamLabel: string
 }[] = [
-  { id: 'all', label: 'All Kitabs', arabicLabel: 'جَمِيعُ الْكُتُبِ', malayalamLabel: 'എല്ലാ കിതാബുകളും' },
-  { id: 'fiqh', label: 'Fiqh & Usul', arabicLabel: 'الْفِقْهُ وَأُصُولُهُ', malayalamLabel: 'ഫിഖ്ഹ് & ഉസൂൽ' },
-  { id: 'hadith', label: 'Hadith', arabicLabel: 'الْحَدِيثُ الشَّرِيفُ', malayalamLabel: 'ഹദീസ്' },
-  { id: 'tafsir', label: 'Tafsir', arabicLabel: 'التَّفْسِيرُ وَعُلُومُ الْقُرْآنِ', malayalamLabel: 'തഫ്സീർ' },
-  { id: 'aqeedah', label: 'Aqeedah & Tasawwuf', arabicLabel: 'الْعَقِيدَةُ وَالتَّصَوُّفُ', malayalamLabel: 'അഖീദ & തസ്വവ്വുഫ്' },
-  { id: 'nahw', label: 'Nahw & Sarf', arabicLabel: 'النَّحْوُ وَالصَّرْفُ', malayalamLabel: 'നഹ്‌വ് & സർഫ്' },
-  { id: 'history', label: "History & Da'wa", arabicLabel: 'التَّارِيخُ وَالدَّعْوَةُ', malayalamLabel: 'ചരിത്രം & ദഅ്‌വ' },
+  { id: 'all', label: 'All Kitabs', arabicLabel: 'جَمِيعُ الْكُتُبِ' },
+  { id: 'fiqh', label: 'Fiqh & Usul', arabicLabel: 'الْفِقْهُ وَأُصُولُهُ' },
+  { id: 'hadith', label: 'Hadith', arabicLabel: 'الْحَدِيثُ الشَّرِيفُ' },
+  { id: 'tafsir', label: 'Tafsir', arabicLabel: 'التَّفْسِيرُ وَعُلُومُ الْقُرْآنِ' },
+  { id: 'aqeedah', label: 'Aqeedah & Tasawwuf', arabicLabel: 'الْعَقِيدَةُ وَالتَّصَوُّفُ' },
+  { id: 'nahw', label: 'Nahw & Sarf', arabicLabel: 'النَّحْوُ وَالصَّرْفُ' },
+  { id: 'history', label: "History & Da'wa", arabicLabel: 'التَّارِيخُ وَالدَّعْوَةُ' },
 ]
 
 const CATEGORY_LABELS: Record<KitabCategory, string> = {
@@ -149,7 +148,7 @@ export const CURATED_KITABS: DigitalKitabItem[] = [
       transliteration:
         'Wajaba raf’u hadathin wa izalatu najasin ghayri ma’fuwwin ’anhu fi thawbin wa badanin wa makanin, wa satru ’awratin bima la yasifu lawna al-basharati, wa istiqbalu al-qiblati...',
       malayalamMeaning:
-        'നമസ്കാരം ശരിയാകുന്നതിന് അശുദ്ധി നീക്കലും വസ്ത്രം, ശരീരം, നിസ്കരിക്കുന്ന സ്ഥലം എന്നിവയിൽ നിന്ന് പൊറുക്കപ്പെടാത്ത നജസ് നീക്കലും തൊലിയുടെ നിറം കാണാത്ത വസ്ത്രം കൊണ്ട് ഔറത്ത് മറയ്ക്കലും ഖിബ്‌ലയിലേക്ക് തിരിയലും നിർബന്ധമാണ്.',
+        'For prayer to be valid, one must remove ritual impurity (hadath), cleanse unexcused filth from clothing, body, and place of prayer, cover the awrah with opaque fabric, face the Qiblah, and be certain of the prayer time.',
       englishCommentary:
         'Shaykh Zayn al-Din outlines the foundational prerequisites (Shurut al-Salah) prior to entering the ritual prayer according to the relied-upon position (Mu’tamad) of the Shafi’i school.',
     },
@@ -177,7 +176,7 @@ export const CURATED_KITABS: DigitalKitabItem[] = [
       transliteration:
         'Innama al-a’malu bi-al-niyyat, wa innama li-kulli imri’in ma nawa.',
       malayalamMeaning:
-        'തീർച്ചയായും കർമ്മങ്ങൾ സ്വീകരിക്കപ്പെടുന്നത് നിയ്യത്തുകൾ (ഉദ്ദേശ്യശുദ്ധി) അനുസരിച്ചാണ്. ഓരോ വ്യക്തിക്കും താൻ കരുതിയത് മാത്രമാണ് ലഭിക്കുക.',
+        'Verily, actions are judged only by intentions, and every person shall receive only what they intended.',
       englishCommentary:
         'Imam al-Nawawi opens Riyad as-Salihin with the hadith of Umar ibn al-Khattab to remind seekers of sacred knowledge that both outward deeds and inward states depend entirely on sincere intention.',
     },
@@ -205,7 +204,7 @@ export const CURATED_KITABS: DigitalKitabItem[] = [
       transliteration:
         'Iqra’ bi-ismi Rabbika alladhi khalaq: awjada al-qira’ata muftatihan bi-ismi Rabbika... alladhi ’allama bi-al-qalam.',
       malayalamMeaning:
-        'സൃഷ്ടിച്ചവനായ നിന്റെ രക്ഷിതാവിന്റെ നാമത്തിൽ നീ വായിക്കുക. പേന കൊണ്ട് എഴുതാൻ പഠിപ്പിച്ചവനായ രക്ഷിതാവിന്റെ നാമത്തിൽ — മനുഷ്യന് അറിയാത്തത് അവൻ പഠിപ്പിച്ചിരിക്കുന്നു.',
+        'Read in the name of your Lord who created, who taught by the pen, and taught humankind that which they knew not.',
       englishCommentary:
         'Al-Suyuti highlights the linguistic structure of the imperative Iqra’ and emphasizes how divine revelation dignifies written scholarship (al-Qalam) as the primary conduit of human civilization.',
     },
@@ -233,7 +232,7 @@ export const CURATED_KITABS: DigitalKitabItem[] = [
       transliteration:
         'Kalamuna lafzun mufidun kastaqim / wa-ismun wa-fi’lun thumma harfun al-kalim. Bi-al-jarri wa-al-tanwini wa-al-nida wa-al / wa-musnadin li-al-ismi tamyizun hasal.',
       malayalamMeaning:
-        'നഹ്‌വിലെ നമ്മുടെ കലാം എന്നത് "ഇസ്തഖിം" എന്നതുപോലെ പൂർണ്ണമായ അർത്ഥം നൽകുന്ന ലഫ്ള് (ശബ്ദം) ആകുന്നു. ഇസ്മ്, ഫിഅ്ൽ, ഹർഫ് എന്നിവയാണ് കലിമത്തിന്റെ മൂന്ന് ഇനങ്ങൾ.',
+        'In Arabic grammar, Kalam is a meaningful spoken utterance such as "Istaqim" (Be upright). The three parts of speech are Noun (Ism), Verb (Fi’l), and Particle (Harf).',
       englishCommentary:
         'Ibn Malik defines syntactic speech (Kalam) as an articulated utterance conveying a complete, self-contained benefit, then enumerates the five diagnostic markers that distinguish nouns (Ism) from verbs and particles.',
     },
@@ -261,7 +260,7 @@ export const CURATED_KITABS: DigitalKitabItem[] = [
       transliteration:
         'Wa al-fiqhu ma’rifatu al-ahkami al-shar’iyyati allati tariquha al-ijtihad. Wa al-ahkamu sab’atun: al-wajibu, wa al-mandubu, wa al-mubahu, wa al-mahzuru, wa al-makruhu, wa al-sahihu, wa al-batilu.',
       malayalamMeaning:
-        'ഇജ്തിഹാദിലൂടെ എത്തിച്ചേരുന്ന ശരീഅത്ത് വിധികളെക്കുറിച്ചുള്ള അറിവാണ് ഫിഖ്ഹ്. വിധികൾ ഏഴാണ്: വാജിബ്, മൻദൂബ് (സുന്നത്ത്), മുബാഹ്, മഹ്ളൂർ (ഹറാം), മക്‌രൂഹ്, സ്വഹീഹ്, ബാത്വിൽ.',
+        'Fiqh is knowledge of the legal rulings of the Shari’ah derived through juristic reasoning (Ijtihad). The seven rulings are: Wajib, Mandub, Mubah, Mahzur, Makruh, Sahih, and Batil.',
       englishCommentary:
         'Imam al-Juwayni distinguishes between legal knowledge derived through juristic reasoning (Fiqh) and the foundational methodology (Usul al-Fiqh) that governs valid deduction from primary texts.',
     },
@@ -289,7 +288,7 @@ export const CURATED_KITABS: DigitalKitabItem[] = [
       transliteration:
         'Huwa al-tahuru ma’uhu, al-hillu maytatuhu. Akhrajahu al-arba’atu wa sahhahahu Ibn Khuzaymah wa al-Tirmidhi.',
       malayalamMeaning:
-        'സമുദ്രജലത്തെക്കുറിച്ച് നബി(സ) പറഞ്ഞു: അതിലെ വെള്ളം ശുദ്ധീകരിക്കാൻ പറ്റിയതാണ് (ത്വഹൂർ); അതിലെ ചത്ത ജീവികൾ ഭക്ഷിക്കാൻ അനുവദനീയവുമാണ്.',
+        'Regarding seawater, the Prophet (peace be upon him) said: Its water is pure and purifying (Tahur), and its marine creatures are permissible to consume.',
       englishCommentary:
         'Ibn Hajar begins Bulugh al-Maram with this foundational legal tradition establishing that natural water remains pure and purifying unless its taste, color, or smell is altered by an impurity.',
     },
@@ -317,7 +316,7 @@ export const CURATED_KITABS: DigitalKitabItem[] = [
       transliteration:
         'I’lam ayyuha al-harisu ’ala iqtibasi al-’ilmi... inna bidayata al-hidayati hiya al-taqwa al-zahirah wa nihayatuha hiya al-taqwa al-batinah.',
       malayalamMeaning:
-        'അറിവ് നേടാൻ കൊതിക്കുന്ന വിദ്യാർത്ഥിയേ, നീ അറിയുക: മത്സരബുദ്ധിയോ പ്രശസ്തിയോ ആഗ്രഹിച്ചാണ് നീ വിദ്യ തേടുന്നതെങ്കിൽ നീ നിന്റെ ദീനിനെ തകർക്കുകയാണ്. അല്ലാഹുവിന്റെ പ്രീതി കാംക്ഷിച്ചു മാത്രമായിരിക്കണം പഠനം.',
+        'Know, O eager seeker of knowledge: if your pursuit of learning is for rivalry, pride, or outshining peers, you are undermining your faith. Seek knowledge sincerely for the pleasure of Allah alone.',
       englishCommentary:
         'Imam al-Ghazali counsels first-year students to align their daily routine—from waking before dawn to attending study circles—around outward discipline (Taqwa Zahirah) and inward humility.',
     },
@@ -345,7 +344,7 @@ export const CURATED_KITABS: DigitalKitabItem[] = [
       transliteration:
         'Wa kanat hadhihi al-marhalatu marhalata tarbiyatin wa takwinin li-al-ra’ili al-awwali fi Dar al-Arqam ibn Abi al-Arqam...',
       malayalamMeaning:
-        'ദാറുൽ അർഖമിലെ ആദ്യകാല പ്രബോധന ഘട്ടം വിജ്ഞാനവും ആത്മസംസ്കരണവും സഹനവും സമന്വയിപ്പിച്ച ആദർശ വ്യക്തിത്വങ്ങളെ വാർത്തെടുക്കുന്നതിനുള്ള പരിശീലന കളരിയായിരുന്നു.',
+        'The early period in Dar al-Arqam was a formative academy of education, spiritual purification, and perseverance for the first generation of believers.',
       englishCommentary:
         'Examines how early Prophetic Da’wa combined intellectual clarity, moral integrity, and institutional mentorship in Dar al-Arqam.',
     },
@@ -2053,9 +2052,9 @@ export function DigitalLibrary({ student }: { student: Student }) {
 
                     <div className="rounded-2xl bg-muted/40 p-4">
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Malayalam Meaning
+                        English Translation
                       </p>
-                      <p className="font-malayalam mt-2 text-sm leading-relaxed text-foreground/90">
+                      <p className="mt-2 text-sm leading-relaxed text-foreground/90">
                         {activeReaderKitab.excerpt.malayalamMeaning}
                       </p>
                     </div>

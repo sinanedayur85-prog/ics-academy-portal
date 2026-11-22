@@ -855,7 +855,7 @@ export function LibraryBooks({
                   placeholder={
                     formState.type === 'kitab'
                       ? 'e.g. فتح المعين بشرح قرة العين'
-                      : 'e.g. ഇസ്‌ലാമിക ചരിത്രം / History of Islam'
+                      : 'e.g. History of Islam'
                   }
                   className={cn(
                     fieldClassName,

@@ -355,28 +355,28 @@ function buildInitialSeededAcademicRecords(): CampusAcademicRecord[] {
       })
     })
 
-    // 5. Seed Jamiathul Hind (ജാമിഅതുൽ ഹിന്ദ്) Monthly Syllabus & Kitab Page Tracker records for each timetable period
+    // 5. Seed Jamiathul Hind Monthly Syllabus & Kitab Page Tracker records for each timetable period
     const semTimetable = getClassSemesterTimetableByClassName(className)
     const sampleChapterRanges = [
       {
-        fromChapter: 'ബാബു ശുറൂത്തി സ്വലാത്ത് (Ch. 1: Shurut al-Salah)',
-        toChapter: 'ബാബു സ്വലാത്തുൽ ജമാഅത്ത് (Ch. 4: Salat al-Jama’ah)',
+        fromChapter: 'Ch. 1: Shurut al-Salah',
+        toChapter: 'Ch. 4: Salat al-Jama’ah',
       },
       {
-        fromChapter: 'ബാബുൽ ഇഅ്റാബി വൽ ബിനാഅ് (Ch. 1: Al-I’rab wa al-Bina)',
-        toChapter: 'ബാബുൽ മഅ്രിഫത്തി വൻ നകിറ (Ch. 3: Al-Ma’rifah wa al-Nakirah)',
+        fromChapter: 'Ch. 1: Al-I’rab wa al-Bina',
+        toChapter: 'Ch. 3: Al-Ma’rifah wa al-Nakirah',
       },
       {
-        fromChapter: 'കിതാബുൽ ഇൽമ് — ഹദീസ് 1 (Kitab al-Ilm: Hadith 1)',
-        toChapter: 'ബാബു ഫള്ലുൽ ഇൽമ് — ഹദീസ് 35 (Hadith 35)',
+        fromChapter: 'Kitab al-Ilm: Hadith 1',
+        toChapter: 'Bab Fadl al-Ilm: Hadith 35',
       },
       {
-        fromChapter: 'സൂറത്തു യാസീൻ — ആയത്ത് 1 (Surah Yasin: Ayah 1)',
-        toChapter: 'സൂറത്തു യാസീൻ — ആയത്ത് 40 (Surah Yasin: Ayah 40)',
+        fromChapter: 'Surah Yasin: Ayah 1',
+        toChapter: 'Surah Yasin: Ayah 40',
       },
       {
-        fromChapter: 'അൽ അഹ്കാമുള്ളാഹി (Ch. 1: Al-Ahkam al-Taklifiyyah)',
-        toChapter: 'അൽ ആം വൽ ഖാസ്വ് (Ch. 3: Al-Amm wa al-Khass)',
+        fromChapter: 'Ch. 1: Al-Ahkam al-Taklifiyyah',
+        toChapter: 'Ch. 3: Al-Amm wa al-Khass',
       },
     ]
     const samplePageTargets = [
@@ -394,7 +394,7 @@ function buildInitialSeededAcademicRecords(): CampusAcademicRecord[] {
       const pages = samplePageTargets[pIdx % samplePageTargets.length]
       const chapterRange = sampleChapterRanges[pIdx % sampleChapterRanges.length]
       const formattedChapterRange =
-        `${chapterRange.fromChapter} മുതൽ ${chapterRange.toChapter} വരെ`.slice(0, 120)
+        `${chapterRange.fromChapter} to ${chapterRange.toChapter}`.slice(0, 120)
       const isComplete = pages.completed >= pages.total && pages.total > 0
       const cleanBatchSlug = className.replace(/\s+/g, '_').toLowerCase()
       records.push({
@@ -1164,16 +1164,172 @@ export function computeStudentZadulKhairSummary(
   }
 }
 
+const ZADUL_KHAIR_ARABIC_DUA = 'بارك الله في أموالكم وأهليكم، وزادكم من فضله'
+const ZADUL_KHAIR_DUA_TRANSLATION =
+  'May Allah bless your wealth and family, and increase you from His bounty.'
+
+async function renderArabicDuaBannerDataUrl(): Promise<string | null> {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return null
+  try {
+    if (document.fonts) {
+      await Promise.race([
+        Promise.allSettled([
+          document.fonts.ready,
+          document.fonts.load('600 66px "KFGQPC Uthman Taha Naskh"', ZADUL_KHAIR_ARABIC_DUA),
+          document.fonts.load('400 66px "KFGQPC Uthman Taha Naskh"', ZADUL_KHAIR_ARABIC_DUA),
+        ]),
+        new Promise((resolve) => window.setTimeout(resolve, 1800)),
+      ])
+    }
+
+    const width = 1860
+    const height = 240
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+
+    const drawRoundedRect = (x: number, y: number, w: number, h: number, r: number) => {
+      ctx.beginPath()
+      ctx.moveTo(x + r, y)
+      ctx.lineTo(x + w - r, y)
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+      ctx.lineTo(x + w, y + h - r)
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+      ctx.lineTo(x + r, y + h)
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+      ctx.lineTo(x, y + r)
+      ctx.quadraticCurveTo(x, y, x + r, y)
+      ctx.closePath()
+    }
+
+    // Soft serene emerald-ivory card fill
+    const bgGrad = ctx.createLinearGradient(0, 0, width, height)
+    bgGrad.addColorStop(0, '#F0FDF4')
+    bgGrad.addColorStop(0.5, '#ECFDF5')
+    bgGrad.addColorStop(1, '#F0FDF4')
+    drawRoundedRect(6, 6, width - 12, height - 12, 26)
+    ctx.fillStyle = bgGrad
+    ctx.fill()
+
+    // Outer emerald hairline border
+    ctx.lineWidth = 3.5
+    ctx.strokeStyle = '#10B981'
+    ctx.stroke()
+
+    // Delicate inner ornamental double-frame
+    drawRoundedRect(18, 18, width - 36, height - 36, 18)
+    ctx.lineWidth = 1.6
+    ctx.strokeStyle = 'rgba(4, 120, 87, 0.28)'
+    ctx.stroke()
+
+    // Subtle decorative divider line & ornament at top
+    const centerX = width / 2
+    ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(centerX - 340, 44)
+    ctx.lineTo(centerX - 36, 44)
+    ctx.moveTo(centerX + 36, 44)
+    ctx.lineTo(centerX + 340, 44)
+    ctx.stroke()
+
+    // Small diamond ornament in center of top rule
+    ctx.fillStyle = '#047857'
+    ctx.beginPath()
+    ctx.moveTo(centerX, 34)
+    ctx.lineTo(centerX + 10, 44)
+    ctx.lineTo(centerX, 54)
+    ctx.lineTo(centerX - 10, 44)
+    ctx.closePath()
+    ctx.fill()
+
+    // Calligraphic Arabic Dua rendered in the app's official KFGQPC Uthman Taha Naskh font
+    ctx.save()
+    ctx.direction = 'rtl'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#081E21'
+    ctx.font = '600 72px "KFGQPC Uthman Taha Naskh", "Tajawal", "Amiri", serif'
+    ctx.fillText(ZADUL_KHAIR_ARABIC_DUA, centerX, 120)
+    ctx.restore()
+
+    // Warm English meaning beneath
+    ctx.save()
+    ctx.direction = 'ltr'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#047857'
+    ctx.font = '500 24px "Poppins", system-ui, -apple-system, sans-serif'
+    ctx.fillText(ZADUL_KHAIR_DUA_TRANSLATION, centerX, 192)
+    ctx.restore()
+
+    const url = canvas.toDataURL('image/png')
+    canvas.width = 0
+    canvas.height = 0
+    return url
+  } catch {
+    return null
+  }
+}
+
+async function renderPdfArrayBufferToJpgBlob(pdfBytes: ArrayBuffer): Promise<Blob> {
+  const [pdfjsLib, workerMod] = await Promise.all([
+    import('pdfjs-dist'),
+    import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
+  ])
+  if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = workerMod.default
+  }
+
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBytes) })
+  const pdfDoc = await loadingTask.promise
+  try {
+    const page = await pdfDoc.getPage(1)
+    const viewport = page.getViewport({ scale: 2.6 })
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(viewport.width)
+    canvas.height = Math.round(viewport.height)
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Unable to initialize canvas for JPG export.')
+
+    // Crisp pure white paper background for JPEG
+    ctx.fillStyle = '#FFFFFF'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    await page.render({
+      canvasContext: ctx,
+      viewport,
+      canvas,
+    }).promise
+
+    const jpgBlob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('Failed to encode JPG image.'))),
+        'image/jpeg',
+        0.95,
+      )
+    })
+
+    canvas.width = 0
+    canvas.height = 0
+    return jpgBlob
+  } finally {
+    await loadingTask.destroy()
+  }
+}
+
 /**
  * Generates and downloads/prints an Official ICS Academy Manhappatta
- * Zadul Khair (زاد الخير) Individual Student Voluntary Household Contribution Receipt & Monthly Ledger PDF.
+ * Zadul Khair (زاد الخير) Individual Student Voluntary Household Contribution Receipt & Monthly Ledger (PDF or JPG).
  */
 export async function exportStudentZadulKhairReceiptPdf(params: {
   student: Student
   selectedMonth: string
   record: CampusAcademicRecord
   historyRecords: CampusAcademicRecord[]
-  mode: 'download' | 'print'
+  mode: 'download' | 'jpg' | 'print'
 }): Promise<void> {
   const { student, selectedMonth, record, historyRecords, mode } = params
   const summary = computeStudentZadulKhairSummary(student.id, selectedMonth, historyRecords)
@@ -1505,6 +1661,14 @@ export async function exportStudentZadulKhairReceiptPdf(params: {
     y + 5.4,
   )
 
+  // 6. Calligraphic Arabic Blessing Dua Card for Donors
+  const duaBannerDataUrl = await renderArabicDuaBannerDataUrl()
+  if (duaBannerDataUrl) {
+    const duaY = Math.min(236, Math.max(y + 12.5, 234))
+    const duaH = 24
+    pdf.addImage(duaBannerDataUrl, 'PNG', margin, duaY, contentWidth, duaH)
+  }
+
   // Signature & Verification Footer at bottom of page
   const footerY = 266
   pdf.setDrawColor(203, 213, 225)
@@ -1529,14 +1693,19 @@ export async function exportStudentZadulKhairReceiptPdf(params: {
     { align: 'center' },
   )
 
-  const blob = pdf.output('blob')
   const safeName = student.name.replace(/[^a-zA-Z0-9_-]/g, '_')
-  const fileName = `ICS_Zadul_Khair_Receipt_${student.admissionNo}_${safeName}.pdf`
+  const baseFileName = `ICS_Zadul_Khair_Receipt_${student.admissionNo}_${safeName}`
 
-  if (mode === 'print') {
-    await printPdfBlobOnDevice(blob, fileName)
+  if (mode === 'jpg') {
+    const pdfArrayBuffer = pdf.output('arraybuffer')
+    const jpgBlob = await renderPdfArrayBufferToJpgBlob(pdfArrayBuffer)
+    await downloadBlobOnDevice(jpgBlob, `${baseFileName}.jpg`, 'image/jpeg')
+  } else if (mode === 'print') {
+    const blob = pdf.output('blob')
+    await printPdfBlobOnDevice(blob, `${baseFileName}.pdf`)
   } else {
-    await downloadBlobOnDevice(blob, fileName, 'application/pdf')
+    const blob = pdf.output('blob')
+    await downloadBlobOnDevice(blob, `${baseFileName}.pdf`, 'application/pdf')
   }
 }
 

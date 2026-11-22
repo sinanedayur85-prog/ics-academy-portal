@@ -236,11 +236,8 @@ export function StarOfTheMonthSpotlight({
             Star of the Month · Class {summary.className}
           </p>
           <h3 className="mt-1 font-display text-xl font-bold tracking-tight text-foreground sm:text-2xl dark:text-white">
-            {summary.monthLabel} Academic & Attendance Excellence
+            {summary.monthLabel} Top Performer
           </h3>
-          <p className="mt-0.5 text-xs text-muted-foreground dark:text-slate-300">
-            Automatically selected from Monthly/Unit Test Marks (70% weight) + Monthly Attendance (30% weight)
-          </p>
         </div>
 
         {onSelectMonth && (
@@ -343,37 +340,48 @@ export function extractSyllabusChapterRange(row: CampusAcademicRecord): {
   const ansFrom = row.answers?.fromChapter?.trim()
   const ansTo = row.answers?.toChapter?.trim()
   if (ansFrom || ansTo) {
-    const f = ansFrom || 'ഒന്നാം അദ്ധ്യായം'
-    const t = ansTo || 'നിശ്ചയിച്ച അദ്ധ്യായം'
+    const f = ansFrom || 'Chapter 1'
+    const t = ansTo || 'Target Chapter'
     return {
       fromChapter: f,
       toChapter: t,
-      formattedRange: `${f} മുതൽ ${t} വരെ`,
+      formattedRange: `${f} to ${t}`,
     }
   }
 
   const raw = (row.subjectOrCategory || '').trim()
-  if (raw.includes(' മുതൽ ')) {
-    const [left, rightRaw] = raw.split(' മുതൽ ')
-    const right = (rightRaw || '').replace(/\s*വരെ$/, '').trim()
+  if (raw.includes(' to ')) {
+    const [left, right] = raw.split(' to ')
     return {
-      fromChapter: left.trim() || 'ഒന്നാം അദ്ധ്യായം',
-      toChapter: right || 'നിശ്ചയിച്ച അദ്ധ്യായം',
+      fromChapter: left.trim() || 'Chapter 1',
+      toChapter: (right || '').trim() || 'Target Chapter',
       formattedRange: raw,
     }
   }
 
+  if (raw.includes(' \u0D2E\u0D41\u0D24\u0D7D ')) {
+    const [left, rightRaw] = raw.split(' \u0D2E\u0D41\u0D24\u0D7D ')
+    const right = (rightRaw || '').replace(/\s*\u0D35\u0D30\u0D46$/, '').trim()
+    const cleanLeft = left.trim() || 'Chapter 1'
+    const cleanRight = right || 'Target Chapter'
+    return {
+      fromChapter: cleanLeft,
+      toChapter: cleanRight,
+      formattedRange: `${cleanLeft} to ${cleanRight}`,
+    }
+  }
+
   return {
-    fromChapter: raw || 'ഒന്നാം അദ്ധ്യായം (Starting Chapter)',
-    toChapter: 'നിശ്ചയിച്ച അദ്ധ്യായം (Ending Chapter)',
-    formattedRange: raw || 'അദ്ധ്യായം രേഖപ്പെടുത്തിയിട്ടില്ല',
+    fromChapter: raw || 'Chapter 1',
+    toChapter: 'Target Chapter',
+    formattedRange: raw || 'Not recorded',
   }
 }
 
 export function formatSyllabusChapterRange(fromChapter: string, toChapter: string): string {
-  const f = fromChapter.trim() || 'ഒന്നാം അദ്ധ്യായം'
-  const t = toChapter.trim() || 'നിശ്ചയിച്ച അദ്ധ്യായം'
-  return `${f} മുതൽ ${t} വരെ`.slice(0, 120)
+  const f = fromChapter.trim() || 'Chapter 1'
+  const t = toChapter.trim() || 'Target Chapter'
+  return `${f} to ${t}`.slice(0, 120)
 }
 
 export function buildClassSyllabusRows(
@@ -426,9 +434,9 @@ export function buildClassSyllabusRows(
     const fallbackRange = novFallback
       ? extractSyllabusChapterRange(novFallback)
       : {
-          fromChapter: 'ഒന്നാം അദ്ധ്യായം (Chapter 1)',
-          toChapter: 'മൂന്നാം അദ്ധ്യായം (Chapter 3)',
-          formattedRange: 'ഒന്നാം അദ്ധ്യായം (Chapter 1) മുതൽ മൂന്നാം അദ്ധ്യായം (Chapter 3) വരെ',
+          fromChapter: 'Chapter 1',
+          toChapter: 'Chapter 3',
+          formattedRange: 'Chapter 1 to Chapter 3',
         }
 
     byId.set(deterministicId, {
@@ -688,7 +696,7 @@ function ClassZadulKhairManager({
 
   async function handleExportSingleStudentReceipt(
     row: (typeof studentRows)[number],
-    mode: 'download' | 'print',
+    mode: 'download' | 'jpg' | 'print',
   ) {
     setPdfBusyKey(`${row.student.id}_${mode}`)
     try {
@@ -701,7 +709,7 @@ function ClassZadulKhairManager({
         studentName: row.student.name,
         admissionNo: row.student.admissionNo,
         month: selectedMonth,
-        title: 'Zadul Khair (زاد الخير) Voluntary Household Contribution',
+        title: 'Zadul Khair Voluntary Household Contribution',
         subjectOrCategory: selectedMonthLabel,
         remarks: row.remarks,
         status: row.isRecorded ? 'received' : 'not_recorded',
@@ -737,14 +745,11 @@ function ClassZadulKhairManager({
       <div className="flex flex-col justify-between gap-4 rounded-2xl bg-muted/45 p-4 sm:flex-row sm:items-center sm:p-5">
         <div>
           <p className="text-xs font-semibold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
-            زاد الخير · Voluntary Zadul Khair Class Ledger ({actorRoleLabel})
+            Zadul Khair · {actorRoleLabel}
           </p>
           <h4 className="mt-1 font-display text-lg font-bold text-foreground">
-            Class {normClass} Household Contributions ({selectedMonthLabel})
+            Class {normClass} Ledger ({selectedMonthLabel})
           </h4>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Record any voluntary household charity amount directly—no fixed quota or dues. Saves live across Student, Class Leader, Usthad &amp; Principal portals.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -935,10 +940,34 @@ function ClassZadulKhairManager({
                       variant="outline"
                       disabled={pdfBusyKey !== null}
                       onClick={() => handleExportSingleStudentReceipt(row, 'download')}
-                      className="h-8 rounded-full px-2.5 text-xs"
-                      title="Download Student Zadul Khair Receipt PDF"
+                      className="h-8 rounded-full px-2.5 text-[11px] font-semibold"
+                      title="Download Receipt PDF"
                     >
-                      <Download className="size-3.5" aria-hidden="true" />
+                      <Download className="mr-1 size-3" aria-hidden="true" />
+                      {pdfBusyKey === `${row.student.id}_download` ? '...' : 'PDF'}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={pdfBusyKey !== null}
+                      onClick={() => handleExportSingleStudentReceipt(row, 'jpg')}
+                      className="h-8 rounded-full px-2.5 text-[11px] font-semibold"
+                      title="Download Receipt JPG"
+                    >
+                      <ImageIcon className="mr-1 size-3" aria-hidden="true" />
+                      {pdfBusyKey === `${row.student.id}_jpg` ? '...' : 'JPG'}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={pdfBusyKey !== null}
+                      onClick={() => handleExportSingleStudentReceipt(row, 'print')}
+                      className="h-8 rounded-full px-2 text-xs"
+                      title="Print Receipt"
+                    >
+                      <Printer className="size-3.5" aria-hidden="true" />
                     </Button>
                   </div>
                 </td>
@@ -1046,9 +1075,9 @@ export function StudentAcademicHub({
       const existingRange = extractSyllabusChapterRange(row)
       const draft = syllabusEdits[row.id]
       const fromChapter =
-        (draft?.fromChapter ?? existingRange.fromChapter).trim() || 'ഒന്നാം അദ്ധ്യായം'
+        (draft?.fromChapter ?? existingRange.fromChapter).trim() || 'Chapter 1'
       const toChapter =
-        (draft?.toChapter ?? existingRange.toChapter).trim() || 'നിശ്ചയിച്ച അദ്ധ്യായം'
+        (draft?.toChapter ?? existingRange.toChapter).trim() || 'Target Chapter'
       const formattedChapterRange = formatSyllabusChapterRange(fromChapter, toChapter)
       const totalPages = Math.max(0, Math.min(1000, Number(draft?.totalPages ?? row.totalMarks ?? 0)))
       const completedPages = Math.max(
@@ -1084,8 +1113,8 @@ export function StudentAcademicHub({
 
       publishCampusNotification({
         type: 'notice',
-        title: `ജാമിഅതുൽ ഹിന്ദ് സിലബസ് അപ്ഡേറ്റ് • Class ${normClass}`,
-        message: `${student.name} (Class Leader) updated "${row.title}" (${row.studentName}): "${fromChapter}" മുതൽ "${toChapter}" വരെ — ആകെ ${totalPages} പേജ്, എടുത്തത് ${completedPages} പേജ്, ബാക്കി ${remainingPages} പേജ്.`,
+        title: `Syllabus Update · Class ${normClass}`,
+        message: `${student.name} (Class Leader) updated "${row.title}" (${row.studentName}): ${fromChapter} to ${toChapter} — Target: ${totalPages}p, Completed: ${completedPages}p, Remaining: ${remainingPages}p.`,
         targetClass: normClass,
         targetStaffOnly: true,
         actorId: student.id,
@@ -1094,7 +1123,7 @@ export function StudentAcademicHub({
       })
 
       setStatusBanner(
-        `✅ "${row.title}" ജാമിഅതുൽ ഹിന്ദ് സിലബസ് (${fromChapter} മുതൽ ${toChapter} വരെ) സേവ് ചെയ്ത് ${row.studentName}-നെ അറിയിച്ചു! (ആകെ: ${totalPages} പേജ് · എടുത്തത്: ${completedPages} · ബാക്കി: ${remainingPages} പേജ്)`,
+        `Saved "${row.title}" (${fromChapter} to ${toChapter}) and notified ${row.studentName}.`,
       )
     } finally {
       setSavingSyllabusId(null)
@@ -1137,7 +1166,7 @@ export function StudentAcademicHub({
         fromChapter,
         toChapter,
       },
-      description: `Jamiathul Hind Monthly Syllabus target for Class ${normClass}.`,
+      description: `Monthly syllabus target for Class ${normClass}.`,
       remarks: `Added by Class Leader ${student.name}.`,
       status: completedPages >= totalPages ? 'verified' : 'active',
       actorId: student.id,
@@ -1153,8 +1182,8 @@ export function StudentAcademicHub({
 
     publishCampusNotification({
       type: 'notice',
-      title: `പുതിയ കിതാബ് സിലബസ് • Class ${normClass}`,
-      message: `${student.name} (Class Leader) added "${customRecord.title}" for ${matchedUsthad.name}: "${fromChapter}" മുതൽ "${toChapter}" വരെ (${totalPages} പേജ്, ബാക്കി ${remainingPages} പേജ്).`,
+      title: `New Kitab Syllabus · Class ${normClass}`,
+      message: `${student.name} (Class Leader) added "${customRecord.title}" for ${matchedUsthad.name}: ${fromChapter} to ${toChapter} (${totalPages} pages, ${remainingPages} remaining).`,
       targetClass: normClass,
       targetStaffOnly: true,
       actorId: student.id,
@@ -1167,7 +1196,7 @@ export function StudentAcademicHub({
     setNewKitabToChapter('')
     setShowAddKitabForm(false)
     setStatusBanner(
-      `✅ പുതിയ കിതാബ് "${customRecord.title}" (${fromChapter} മുതൽ ${toChapter} വരെ) ചേർത്തു, ${matchedUsthad.name}-ന് അറിയിപ്പ് അയച്ചു!`,
+      `Added "${customRecord.title}" (${fromChapter} to ${toChapter}) and notified ${matchedUsthad.name}.`,
     )
   }
 
@@ -1428,7 +1457,7 @@ export function StudentAcademicHub({
     setStatusBanner('You have acknowledged the Usthad’s confidential guidance note.')
   }
 
-  async function handleExportMyZadulKhairPdf(mode: 'download' | 'print') {
+  async function handleExportMyZadulKhairPdf(mode: 'download' | 'jpg' | 'print') {
     setPdfBusyId(`${currentMonthZadulKhair.id}_${mode}`)
     try {
       await exportStudentZadulKhairReceiptPdf({
@@ -1456,7 +1485,7 @@ export function StudentAcademicHub({
       {/* 2. Main Student Academic, Syllabus, Da'wa, Conduct & Zadul Khair Panel */}
       <Panel
         id="student-academic-hub-panel"
-        title="Jamiathul Hind Syllabus, Monthly Tests, Holiday Da'wa & Zadul Khair"
+        title="Academic Hub"
         eyebrow={`Class ${student.className} · ${student.name}${isClassLeader ? ' (Class Leader)' : ''}`}
         icon={Trophy}
       >
@@ -1476,10 +1505,7 @@ export function StudentAcademicHub({
             )}
           >
             <BookOpen className="size-3.5" aria-hidden="true" />
-            <span>
-              Jamiathul Hind Syllabus ({classSyllabusRows.length})
-              {isClassLeader ? ' • ക്ലാസ്സ് ലീഡർ അപ്ഡേഷൻ' : ''}
-            </span>
+            <span>Syllabus ({classSyllabusRows.length})</span>
           </button>
 
           <button
@@ -1496,7 +1522,7 @@ export function StudentAcademicHub({
             )}
           >
             <ClipboardCheck className="size-3.5" aria-hidden="true" />
-            <span>Monthly / Unit Tests ({classUnitTests.length})</span>
+            <span>Unit Tests ({classUnitTests.length})</span>
           </button>
 
           <button
@@ -1513,7 +1539,7 @@ export function StudentAcademicHub({
             )}
           >
             <Sparkles className="size-3.5" aria-hidden="true" />
-            <span>Holiday & SSF Da&apos;wa / Ziyarat ({myHolidayLogs.length})</span>
+            <span>Da&apos;wa Logs ({myHolidayLogs.length})</span>
           </button>
 
           <button
@@ -1530,7 +1556,7 @@ export function StudentAcademicHub({
             )}
           >
             <HeartHandshake className="size-3.5" aria-hidden="true" />
-            <span>Zadul Khair (زاد الخير) & PDF</span>
+            <span>Zadul Khair</span>
           </button>
 
           <button
@@ -1547,7 +1573,7 @@ export function StudentAcademicHub({
             )}
           >
             <Lock className="size-3.5" aria-hidden="true" />
-            <span>Private Usthad Advisory</span>
+            <span>Advisory</span>
             {unacknowledgedDisciplineCount > 0 && (
               <span className="rounded-full bg-red-500 px-1.5 py-0.5 font-mono text-[10px] font-bold text-white tabular-nums">
                 {unacknowledgedDisciplineCount}
@@ -1575,16 +1601,11 @@ export function StudentAcademicHub({
             <div className="flex flex-col justify-between gap-4 rounded-2xl bg-[#0095F6]/10 p-4 sm:flex-row sm:items-center sm:p-5">
               <div>
                 <p className="text-xs font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
-                  ജാമിഅതുൽ ഹിന്ദ് മാസ സിലബസ് · Jamiathul Hind Monthly Syllabus Updation
+                  Monthly Syllabus
                 </p>
                 <h4 className="mt-1 font-display text-lg font-bold text-foreground sm:text-xl">
-                  Class {normClass} — കിതാബുകളും അദ്ധ്യായങ്ങളും (മുതൽ – വരെ) പേജ് കണക്കും
+                  Class {normClass} Syllabus
                 </h4>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {isClassLeader
-                    ? 'ക്ലാസ്സ് ലീഡർക്ക് ജാമിഅതുൽ ഹിന്ദ് നിശ്ചയിച്ച പ്രകാരം ഏത് അദ്ധ്യായം മുതൽ ഏത് അദ്ധ്യായം വരെ എടുക്കണം, എത്ര പേജാണ് എടുക്കേണ്ടത്, എത്ര പേജ് എടുത്തു എന്നിവ രേഖപ്പെടുത്തി ഉസ്താദുമാരെ അറിയിക്കാം.'
-                    : 'ജാമിഅതുൽ ഹിന്ദ് നിശ്ചയിച്ച പ്രകാരം ഓരോ കിതാബിലും ഏത് അദ്ധ്യായം മുതൽ ഏത് അദ്ധ്യായം വരെ എടുക്കണം എന്നും പേജ് കണക്കും താഴെ കാണാം.'}
-                </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -1609,7 +1630,7 @@ export function StudentAcademicHub({
                     className="rounded-full bg-[#0095F6] text-xs font-semibold text-white hover:bg-[#0077CC]"
                   >
                     <Plus className="mr-1.5 size-3.5" aria-hidden="true" />
-                    {showAddKitabForm ? 'Close Form' : 'Add Kitab / Subject'}
+                    {showAddKitabForm ? 'Close' : 'Add Kitab'}
                   </Button>
                 )}
               </div>
@@ -1619,7 +1640,7 @@ export function StudentAcademicHub({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="rounded-2xl bg-muted/45 p-4">
                 <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                  ആകെ എടുക്കേണ്ട പേജുകൾ (Total Target Pages)
+                  Target Pages
                 </p>
                 <p className="mt-1 font-display text-2xl font-bold text-foreground tabular-nums">
                   {classSyllabusTotals.totalTarget}{' '}
@@ -1629,21 +1650,21 @@ export function StudentAcademicHub({
 
               <div className="rounded-2xl bg-emerald-500/12 p-4">
                 <p className="text-[11px] font-semibold tracking-wider text-emerald-700 uppercase dark:text-emerald-400">
-                  ഇതുവരെ എടുത്ത പേജുകൾ (Completed Pages)
+                  Completed
                 </p>
                 <p className="mt-1 font-display text-2xl font-bold text-emerald-700 tabular-nums dark:text-emerald-400">
                   {classSyllabusTotals.totalCompleted}{' '}
-                  <span className="text-xs font-normal opacity-80">Pages Completed</span>
+                  <span className="text-xs font-normal opacity-80">Pages</span>
                 </p>
               </div>
 
               <div className="rounded-2xl bg-amber-500/12 p-4">
                 <p className="text-[11px] font-semibold tracking-wider text-amber-800 uppercase dark:text-amber-300">
-                  ഇനി എടുക്കാനുള്ള പേജുകൾ (Remaining Pages)
+                  Remaining
                 </p>
                 <p className="mt-1 font-display text-2xl font-bold text-amber-700 tabular-nums dark:text-amber-300">
                   {classSyllabusTotals.totalRemaining}{' '}
-                  <span className="text-xs font-normal opacity-80">Pages Remaining</span>
+                  <span className="text-xs font-normal opacity-80">Pages</span>
                 </p>
               </div>
             </div>
@@ -1655,11 +1676,11 @@ export function StudentAcademicHub({
                 className="space-y-4 rounded-2xl bg-muted/45 p-4 sm:p-5"
               >
                 <h5 className="font-display text-sm font-bold text-foreground">
-                  പുതിയ കിതാബ് / വിഷയം ചേർക്കുക (Add Kitab to Class {normClass} Monthly Syllabus)
+                  Add Kitab · Class {normClass}
                 </h5>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="space-y-1">
-                    <Label className="text-xs">കിതാബ് / വിഷയം (Kitab / Subject Name) *</Label>
+                    <Label className="text-xs">Kitab / Subject *</Label>
                     <Input
                       value={newKitabName}
                       onChange={(e) => setNewKitabName(e.target.value)}
@@ -1668,7 +1689,7 @@ export function StudentAcademicHub({
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">വിഷയം എടുക്കുന്ന ഉസ്താദ് (Teaching Usthad) *</Label>
+                    <Label className="text-xs">Usthad *</Label>
                     <ThemeSelect
                       value={newKitabUsthadId}
                       onChange={(e) => setNewKitabUsthadId(e.target.value)}
@@ -1682,11 +1703,11 @@ export function StudentAcademicHub({
                     </ThemeSelect>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">പിരീഡ് (Period Label)</Label>
+                    <Label className="text-xs">Period</Label>
                     <Input
                       value={newKitabPeriodLabel}
                       onChange={(e) => setNewKitabPeriodLabel(e.target.value)}
-                      placeholder="e.g., Period 6 / Extra Kitab"
+                      placeholder="e.g., Period 6"
                     />
                   </div>
                 </div>
@@ -1694,28 +1715,28 @@ export function StudentAcademicHub({
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="space-y-1">
                     <Label className="text-xs font-semibold text-[#0077CC] dark:text-[#0095F6]">
-                      ഏത് അദ്ധ്യായം മുതൽ (From Chapter) *
+                      From Chapter *
                     </Label>
                     <Input
                       value={newKitabFromChapter}
                       onChange={(e) => setNewKitabFromChapter(e.target.value)}
-                      placeholder="തുടങ്ങേണ്ട അദ്ധ്യായം..."
+                      placeholder="Starting chapter..."
                       required
                     />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs font-semibold text-[#0077CC] dark:text-[#0095F6]">
-                      ഏത് അദ്ധ്യായം വരെ (Up to Chapter) *
+                      To Chapter *
                     </Label>
                     <Input
                       value={newKitabToChapter}
                       onChange={(e) => setNewKitabToChapter(e.target.value)}
-                      placeholder="അവസാനിക്കേണ്ട അദ്ധ്യായം..."
+                      placeholder="Ending chapter..."
                       required
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">എത്ര പേജാണ് എടുക്കേണ്ടത് (Target Pages)</Label>
+                    <Label className="text-xs">Target Pages</Label>
                     <Input
                       type="number"
                       min={1}
@@ -1725,7 +1746,7 @@ export function StudentAcademicHub({
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">എത്ര പേജ് എടുത്തു (Completed Pages)</Label>
+                    <Label className="text-xs">Completed Pages</Label>
                     <Input
                       type="number"
                       min={0}
@@ -1742,7 +1763,7 @@ export function StudentAcademicHub({
                     className="rounded-full bg-[#0095F6] text-xs font-semibold text-white hover:bg-[#0077CC]"
                   >
                     <Send className="mr-1.5 size-3.5" aria-hidden="true" />
-                    സേവ് ചെയ്ത് ഉസ്താദിനെ അറിയിക്കുക (Save & Notify Usthad)
+                    Save & Notify
                   </Button>
                 </div>
               </form>
@@ -1775,7 +1796,7 @@ export function StudentAcademicHub({
                             {row.admissionNo || 'Period'}
                           </span>
                           <span className="text-xs font-semibold text-muted-foreground">
-                            ഉസ്താദ്: <strong className="text-foreground">{row.studentName}</strong>
+                            Usthad: <strong className="text-foreground">{row.studentName}</strong>
                           </span>
                         </div>
                         <h5 className="mt-1.5 font-display text-base font-bold text-foreground sm:text-lg">
@@ -1785,19 +1806,19 @@ export function StudentAcademicHub({
 
                       <div className="flex flex-wrap items-center gap-2.5 text-xs tabular-nums">
                         <div className="rounded-xl bg-card px-3 py-1.5">
-                          <span className="text-muted-foreground">എടുക്കേണ്ടത്: </span>
+                          <span className="text-muted-foreground">Target: </span>
                           <strong className="font-mono text-sm text-foreground">
                             {totalPagesVal}p
                           </strong>
                         </div>
                         <div className="rounded-xl bg-emerald-500/12 px-3 py-1.5">
-                          <span className="text-emerald-700 dark:text-emerald-400">എടുത്തത്: </span>
+                          <span className="text-emerald-700 dark:text-emerald-400">Done: </span>
                           <strong className="font-mono text-sm text-emerald-700 dark:text-emerald-400">
                             {completedPagesVal}p
                           </strong>
                         </div>
                         <div className="rounded-xl bg-amber-500/12 px-3 py-1.5">
-                          <span className="text-amber-800 dark:text-amber-300">ഇനി ബാക്കി: </span>
+                          <span className="text-amber-800 dark:text-amber-300">Left: </span>
                           <strong className="font-mono text-sm text-amber-700 dark:text-amber-300">
                             {remainingPagesVal}p
                           </strong>
@@ -1805,22 +1826,22 @@ export function StudentAcademicHub({
                       </div>
                     </div>
 
-                    {/* Jamiathul Hind Chapter Range Box (ഏത് അദ്ധ്യായം മുതൽ → ഏത് അദ്ധ്യായം വരെ) */}
+                    {/* Chapter Range Box */}
                     <div className="mt-3 grid gap-2.5 rounded-xl bg-card/80 p-3 sm:grid-cols-2">
                       <div>
                         <span className="block text-[10px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
-                          ഏത് അദ്ധ്യായം മുതൽ (From Chapter)
+                          From Chapter
                         </span>
                         <p className="mt-0.5 text-xs font-semibold text-foreground">
-                          {fromChapterVal || 'രേഖപ്പെടുത്തിയിട്ടില്ല'}
+                          {fromChapterVal || 'Not recorded'}
                         </p>
                       </div>
                       <div className="border-t border-border/40 pt-2 sm:border-t-0 sm:border-l sm:pl-3 sm:pt-0">
                         <span className="block text-[10px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
-                          ഏത് അദ്ധ്യായം വരെ (Up to Chapter)
+                          To Chapter
                         </span>
                         <p className="mt-0.5 text-xs font-semibold text-foreground">
-                          {toChapterVal || 'രേഖപ്പെടുത്തിയിട്ടില്ല'}
+                          {toChapterVal || 'Not recorded'}
                         </p>
                       </div>
                     </div>
@@ -1828,11 +1849,9 @@ export function StudentAcademicHub({
                     {/* Progress bar */}
                     <div className="mt-3">
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground tabular-nums">
-                        <span>
-                          ജാമിഅതുൽ ഹിന്ദ് സിലബസ് പുരോഗതി (Monthly Page Progress)
-                        </span>
+                        <span>Page Progress</span>
                         <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-400">
-                          {progressPct}% Completed ({completedPagesVal}/{totalPagesVal} Pages)
+                          {progressPct}% ({completedPagesVal}/{totalPagesVal} Pages)
                         </span>
                       </div>
                       <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -1848,7 +1867,7 @@ export function StudentAcademicHub({
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="space-y-1">
                             <Label className="text-[11px] font-semibold text-[#0077CC] dark:text-[#0095F6]">
-                              ഏത് അദ്ധ്യായം മുതൽ (From Chapter — തുടങ്ങേണ്ട അദ്ധ്യായം)
+                              From Chapter
                             </Label>
                             <Input
                               value={fromChapterVal}
@@ -1864,14 +1883,14 @@ export function StudentAcademicHub({
                                   },
                                 }))
                               }
-                              placeholder="ഏത് അദ്ധ്യായം മുതൽ..."
+                              placeholder="Starting chapter..."
                               className="h-9 text-xs"
                             />
                           </div>
 
                           <div className="space-y-1">
                             <Label className="text-[11px] font-semibold text-[#0077CC] dark:text-[#0095F6]">
-                              ഏത് അദ്ധ്യായം വരെ (Up to Chapter — അവസാനിക്കേണ്ട അദ്ധ്യായം)
+                              To Chapter
                             </Label>
                             <Input
                               value={toChapterVal}
@@ -1887,7 +1906,7 @@ export function StudentAcademicHub({
                                   },
                                 }))
                               }
-                              placeholder="ഏത് അദ്ധ്യായം വരെ..."
+                              placeholder="Ending chapter..."
                               className="h-9 text-xs"
                             />
                           </div>
@@ -1896,7 +1915,7 @@ export function StudentAcademicHub({
                         <div className="grid gap-3 sm:grid-cols-12 sm:items-end">
                           <div className="space-y-1 sm:col-span-4">
                             <Label className="text-[11px] text-muted-foreground">
-                              എത്ര പേജാണ് എടുക്കേണ്ടത് (Target Pages)
+                              Target Pages
                             </Label>
                             <Input
                               type="number"
@@ -1921,7 +1940,7 @@ export function StudentAcademicHub({
 
                           <div className="space-y-1 sm:col-span-4">
                             <Label className="text-[11px] text-emerald-700 dark:text-emerald-400">
-                              എത്ര പേജ് എടുത്തു (Completed Pages)
+                              Completed Pages
                             </Label>
                             <Input
                               type="number"
@@ -2570,18 +2589,15 @@ export function StudentAcademicHub({
                 <div className="flex flex-col justify-between gap-4 rounded-2xl bg-muted/45 p-4 sm:flex-row sm:items-center sm:p-5">
                   <div>
                     <p className="text-xs font-semibold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
-                      زاد الخير · Zadul Khair Voluntary Household Contribution
+                      Zadul Khair Receipt
                     </p>
                     <h4 className="mt-1 font-display text-lg font-bold text-foreground sm:text-xl">
                       {student.name} ({student.admissionNo})
                     </h4>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Voluntary household charity contribution statement &amp; official computerized receipt PDF (2026–27).
-                    </p>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <div className="w-44">
+                    <div className="w-40">
                       <ThemeSelect
                         value={selectedMonth}
                         onChange={(e) => setSelectedMonth(e.target.value)}
@@ -2602,9 +2618,18 @@ export function StudentAcademicHub({
                       className="rounded-full bg-[#0095F6] text-xs font-semibold text-white hover:bg-[#0077CC]"
                     >
                       <Download className="mr-1.5 size-3.5" aria-hidden="true" />
-                      {pdfBusyId?.endsWith('_download')
-                        ? 'Preparing PDF...'
-                        : 'Download Official Receipt PDF'}
+                      {pdfBusyId?.endsWith('_download') ? 'Preparing PDF...' : 'Download PDF'}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={pdfBusyId !== null}
+                      onClick={() => handleExportMyZadulKhairPdf('jpg')}
+                      className="rounded-full text-xs font-semibold"
+                    >
+                      <ImageIcon className="mr-1.5 size-3.5" aria-hidden="true" />
+                      {pdfBusyId?.endsWith('_jpg') ? 'Saving JPG...' : 'Download JPG'}
                     </Button>
                     <Button
                       type="button"
@@ -2615,7 +2640,7 @@ export function StudentAcademicHub({
                       className="rounded-full text-xs"
                     >
                       <Printer className="mr-1.5 size-3.5" aria-hidden="true" />
-                      Print Receipt
+                      Print
                     </Button>
                   </div>
                 </div>
@@ -2906,8 +2931,8 @@ export function UsthadAcademicHub({
     try {
       const draft = usthadSyllabusEdits[row.id]
       const chapter = allowFullEdit
-        ? (draft?.chapter ?? row.subjectOrCategory ?? '').trim() || 'നിശ്ചയിച്ച അദ്ധ്യായം'
-        : row.subjectOrCategory || 'നിശ്ചയിച്ച അദ്ധ്യായം'
+        ? (draft?.chapter ?? row.subjectOrCategory ?? '').trim() || 'Target Chapter'
+        : row.subjectOrCategory || 'Target Chapter'
       const totalPages = allowFullEdit
         ? Math.max(0, Math.min(1000, Number(draft?.totalPages ?? row.totalMarks ?? 0)))
         : Math.max(0, Math.min(1000, Number(row.totalMarks ?? 0)))
@@ -2939,8 +2964,8 @@ export function UsthadAcademicHub({
 
       publishCampusNotification({
         type: 'notice',
-        title: `കിതാബ് പേജ് അപ്ഡേറ്റ് • Class ${row.className}`,
-        message: `${actorName} updated "${row.title}" (Class ${row.className}): എടുത്ത പേജ് ${completedPages}/${totalPages} (ഇനി ബാക്കി: ${remainingPages} പേജ്).`,
+        title: `Syllabus Update · Class ${row.className}`,
+        message: `${actorName} updated "${row.title}" (Class ${row.className}): ${completedPages}/${totalPages} pages completed (${remainingPages} remaining).`,
         targetClass: row.className,
         actorId,
         actorName,
@@ -2948,7 +2973,7 @@ export function UsthadAcademicHub({
       })
 
       setToastMessage(
-        `✅ Class ${row.className} "${row.title}" പേജ് കണക്ക് അപ്ഡേറ്റ് ചെയ്തു! (എടുത്തത്: ${completedPages} പേജ് · ഇനി എടുക്കാനുള്ളത്: ${remainingPages} പേജ്)`,
+        `Updated "${row.title}" (Class ${row.className}): ${completedPages}/${totalPages} pages completed.`,
       )
     } finally {
       setSavingSyllabusId(null)
@@ -3271,8 +3296,8 @@ export function UsthadAcademicHub({
       {/* 2. Usthad / Principal Control Hub */}
       <Panel
         id="usthad-academic-hub-panel"
-        title={`Class ${normClass} — Jamiathul Hind Syllabus, Monthly Tests, Holiday Da'wa & Zadul Khair`}
-        eyebrow={`Managed by ${actorName} (${role === 'principal' ? 'Principal' : 'Usthad'})`}
+        title={`Class ${normClass} Hub`}
+        eyebrow={`${actorName} · ${role === 'principal' ? 'Principal' : 'Usthad'}`}
         icon={Trophy}
       >
         <div className="flex flex-wrap items-center gap-2 border-b border-border/40 pb-4">
@@ -3288,8 +3313,7 @@ export function UsthadAcademicHub({
           >
             <BookOpen className="size-3.5" aria-hidden="true" />
             <span>
-              Jamiathul Hind Syllabus & My Subjects (
-              {myTeachingSyllabusRows.length || activeClassSyllabusRows.length})
+              Syllabus ({myTeachingSyllabusRows.length || activeClassSyllabusRows.length})
             </span>
           </button>
 
@@ -3304,7 +3328,7 @@ export function UsthadAcademicHub({
             )}
           >
             <ClipboardCheck className="size-3.5" aria-hidden="true" />
-            <span>Monthly / Unit Tests & Grading ({classTests.length})</span>
+            <span>Unit Tests ({classTests.length})</span>
           </button>
 
           <button
@@ -3318,7 +3342,7 @@ export function UsthadAcademicHub({
             )}
           >
             <Sparkles className="size-3.5" aria-hidden="true" />
-            <span>Holiday & SSF Da&apos;wa Logs ({classHolidayLogs.length})</span>
+            <span>Da&apos;wa Logs ({classHolidayLogs.length})</span>
           </button>
 
           <button
@@ -3332,7 +3356,7 @@ export function UsthadAcademicHub({
             )}
           >
             <ShieldAlert className="size-3.5" aria-hidden="true" />
-            <span>Private Student Discipline ({classDisciplineNotes.length})</span>
+            <span>Conduct ({classDisciplineNotes.length})</span>
           </button>
 
           <button
@@ -3346,7 +3370,7 @@ export function UsthadAcademicHub({
             )}
           >
             <HeartHandshake className="size-3.5" aria-hidden="true" />
-            <span>Zadul Khair (زاد الخير) Ledger & PDF</span>
+            <span>Zadul Khair</span>
           </button>
         </div>
 
@@ -3363,7 +3387,7 @@ export function UsthadAcademicHub({
           </div>
         )}
 
-        {/* USTHAD TAB 0: JAMIATHUL HIND MONTHLY SYLLABUS & MY TEACHING SUBJECTS ACROSS CLASSES */}
+        {/* USTHAD TAB 0: MONTHLY SYLLABUS & MY TEACHING SUBJECTS */}
         {activeTab === 'syllabus' && (
           <div className="mt-5 space-y-6">
             {/* Section A: My Teaching Subjects Across All Classes */}
@@ -3372,14 +3396,11 @@ export function UsthadAcademicHub({
                 <div className="flex flex-col justify-between gap-3 border-b border-border/40 pb-3.5 sm:flex-row sm:items-center">
                   <div>
                     <p className="text-xs font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
-                      എൻ്റെ ക്ലാസ്സുകളും വിഷയങ്ങളും · My Teaching Subjects Across All Classes
+                      My Subjects
                     </p>
                     <h4 className="mt-1 font-display text-base font-bold text-foreground sm:text-lg">
-                      {actorName} — ജാമിഅതുൽ ഹിന്ദ് മാസ സിലബസ് & പേജ് കണക്ക് ({myTeachingSyllabusRows.length} Subjects)
+                      Monthly Syllabus ({myTeachingSyllabusRows.length})
                     </h4>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      നിങ്ങൾ വിവിധ ക്ലാസ്സുകളിൽ എടുക്കുന്ന കിതാബുകൾ, ക്ലാസ്സ് ലീഡർ രേഖപ്പെടുത്തിയ ജാമിഅതുൽ ഹിന്ദ് അദ്ധ്യായം (ഏത് മുതൽ ഏത് വരെ), എടുക്കേണ്ട പേജ്, എടുത്ത പേജ്, ഇനി എടുക്കാനുള്ള പേജ് എന്നിവ ഇവിടെ കാണാം. എടുത്ത പേജുകളുടെ എണ്ണം അപ്ഡേറ്റ് ചെയ്യാം.
-                    </p>
                   </div>
 
                   <div className="w-44 shrink-0">
@@ -3433,7 +3454,7 @@ export function UsthadAcademicHub({
                           <div className="mt-2 grid gap-2 rounded-xl bg-muted/45 p-2.5 sm:grid-cols-2">
                             <div>
                               <span className="block text-[10px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
-                                ഏത് അദ്ധ്യായം മുതൽ (From)
+                                From
                               </span>
                               <p className="mt-0.5 text-xs font-semibold text-foreground">
                                 {parsedRange.fromChapter}
@@ -3441,7 +3462,7 @@ export function UsthadAcademicHub({
                             </div>
                             <div className="border-t border-border/40 pt-1.5 sm:border-t-0 sm:border-l sm:pl-2.5 sm:pt-0">
                               <span className="block text-[10px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
-                                ഏത് അദ്ധ്യായം വരെ (Up To)
+                                To
                               </span>
                               <p className="mt-0.5 text-xs font-semibold text-foreground">
                                 {parsedRange.toChapter}
@@ -3452,7 +3473,7 @@ export function UsthadAcademicHub({
                           <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs tabular-nums">
                             <div className="rounded-xl bg-muted/45 p-2">
                               <span className="block text-[10px] text-muted-foreground">
-                                എടുക്കേണ്ടത്
+                                Target
                               </span>
                               <strong className="font-mono text-sm text-foreground">
                                 {totalPagesVal}p
@@ -3460,7 +3481,7 @@ export function UsthadAcademicHub({
                             </div>
                             <div className="rounded-xl bg-emerald-500/12 p-2">
                               <span className="block text-[10px] text-emerald-700 dark:text-emerald-400">
-                                എടുത്തത്
+                                Done
                               </span>
                               <strong className="font-mono text-sm text-emerald-700 dark:text-emerald-400">
                                 {completedPagesVal}p
@@ -3468,7 +3489,7 @@ export function UsthadAcademicHub({
                             </div>
                             <div className="rounded-xl bg-amber-500/12 p-2">
                               <span className="block text-[10px] text-amber-800 dark:text-amber-300">
-                                ഇനി ബാക്കി
+                                Left
                               </span>
                               <strong className="font-mono text-sm text-amber-700 dark:text-amber-300">
                                 {remainingPagesVal}p
@@ -3480,7 +3501,7 @@ export function UsthadAcademicHub({
                         <div className="mt-3.5 flex items-end gap-2 border-t border-border/40 pt-3">
                           <div className="flex-1 space-y-1">
                             <Label className="text-[11px] font-semibold text-foreground">
-                              എത്ര പേജ് എടുത്തു (Update Completed Pages):
+                              Completed Pages
                             </Label>
                             <Input
                               type="number"
@@ -3511,7 +3532,7 @@ export function UsthadAcademicHub({
                             className="h-9 rounded-full bg-[#0095F6] px-4 text-xs font-semibold text-white hover:bg-[#0077CC]"
                           >
                             <Check className="mr-1.5 size-3.5" aria-hidden="true" />
-                            {savingSyllabusId === row.id ? 'Saving...' : 'Save Pages'}
+                            {savingSyllabusId === row.id ? 'Saving...' : 'Save'}
                           </Button>
                         </div>
                       </div>
@@ -3524,26 +3545,21 @@ export function UsthadAcademicHub({
             {/* Section B: Full Class Syllabus Table for Active Class */}
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h4 className="font-display text-base font-bold text-foreground">
-                    Class {normClass} — Complete Jamiathul Hind Monthly Syllabus ({selectedMonth})
-                  </h4>
-                  <p className="text-xs text-muted-foreground">
-                    All subjects in Class {normClass} with prescribed chapter range (ഏത് മുതൽ ഏത് വരെ), target pages, completed pages, and remaining pages.
-                  </p>
-                </div>
+                <h4 className="font-display text-base font-bold text-foreground">
+                  Class {normClass} Syllabus ({selectedMonth})
+                </h4>
               </div>
 
               <div className="overflow-x-auto rounded-2xl bg-muted/35">
                 <table className="w-full text-left text-xs">
                   <thead className="border-b border-border/40 bg-muted/50 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                     <tr>
-                      <th className="px-3.5 py-3">Period & Kitab</th>
-                      <th className="px-3.5 py-3">Teaching Usthad</th>
-                      <th className="px-3.5 py-3">ഏത് അദ്ധ്യായം മുതൽ – ഏത് വരെ</th>
-                      <th className="px-3.5 py-3">എടുക്കേണ്ടത്</th>
-                      <th className="px-3.5 py-3">എടുത്ത പേജ്</th>
-                      <th className="px-3.5 py-3">ഇനി ബാക്കി</th>
+                      <th className="px-3.5 py-3">Kitab</th>
+                      <th className="px-3.5 py-3">Usthad</th>
+                      <th className="px-3.5 py-3">Chapters</th>
+                      <th className="px-3.5 py-3">Target</th>
+                      <th className="px-3.5 py-3">Done</th>
+                      <th className="px-3.5 py-3">Left</th>
                       <th className="px-3.5 py-3 text-right">Action</th>
                     </tr>
                   </thead>
@@ -3576,20 +3592,20 @@ export function UsthadAcademicHub({
                             <div className="space-y-0.5 text-xs">
                               <p>
                                 <span className="font-semibold text-[#0077CC] dark:text-[#0095F6]">
-                                  മുതൽ:
+                                  From:
                                 </span>{' '}
                                 {parsedRange.fromChapter}
                               </p>
                               <p>
                                 <span className="font-semibold text-[#0077CC] dark:text-[#0095F6]">
-                                  വരെ:
+                                  To:
                                 </span>{' '}
                                 {parsedRange.toChapter}
                               </p>
                             </div>
                           </td>
                           <td className="px-3.5 py-3 font-mono font-bold text-foreground">
-                            {totalVal} പേജ്
+                            {totalVal}p
                           </td>
                           <td className="px-3.5 py-3">
                             {canEditThisSubject ? (
@@ -3613,12 +3629,12 @@ export function UsthadAcademicHub({
                               />
                             ) : (
                               <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
-                                {completedVal} പേജ്
+                                {completedVal}p
                               </span>
                             )}
                           </td>
                           <td className="px-3.5 py-3 font-mono font-bold text-amber-700 dark:text-amber-300">
-                            {remainingVal} പേജ്
+                            {remainingVal}p
                           </td>
                           <td className="px-3.5 py-3 text-right">
                             {canEditThisSubject ? (

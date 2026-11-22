@@ -605,7 +605,7 @@ export function ClassLeaderAttendanceCard({
     setConfirmDeleteOpen(false)
     setJustSubmittedMessage(
       isUpdatingExisting
-        ? `${activePeriod.label} (${activePeriod.subject}) ഹാജർ തിരുത്തി സേവ് ചെയ്തു (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`
+        ? `${activePeriod.label} (${activePeriod.subject}) attendance updated (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`
         : `${activePeriod.label} (${activePeriod.subject}) attendance submitted (${summaryCounts.present} Present, ${summaryCounts.absent} Absent, ${summaryCounts.leave} Leave).`,
     )
   }
@@ -632,7 +632,7 @@ export function ClassLeaderAttendanceCard({
     setDraftReasons(nextReasons)
     setConfirmDeleteOpen(false)
     setJustSubmittedMessage(
-      `${activePeriod.label} (${activePeriod.subject}) സബ്മിറ്റ് ചെയ്ത ഹാജർ പൂർണ്ണമായി ഡിലീറ്റ് ചെയ്തു (Reset to Pending).`,
+      `${activePeriod.label} (${activePeriod.subject}) attendance deleted and reset to Pending.`,
     )
   }
 
@@ -816,7 +816,7 @@ export function ClassLeaderAttendanceCard({
                         )}
                       >
                         {isOwnedByRestrictedUsthad ? (
-                          '• എൻ്റെ പിരീഡ്'
+                          '• My Period'
                         ) : (
                           <>
                             <Lock className="size-2.5" aria-hidden="true" />
@@ -844,7 +844,7 @@ export function ClassLeaderAttendanceCard({
                   {activePeriod.label} ({activePeriod.subject}) • {activePeriod.time}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  ഇത് ഒരു ഇടവേള / ഫ്രീ പിരീഡാണ് ({activePeriod.subject}). ഈ സമയത്ത് വിദ്യാർത്ഥികളുടെ ഹാജർ രേഖപ്പെടുത്തേണ്ടതില്ല.
+                  Break / Free period ({activePeriod.subject}). No attendance needed.
                 </p>
               </div>
             </div>
@@ -862,7 +862,7 @@ export function ClassLeaderAttendanceCard({
                   onClick={() => setSelectedPeriodIndex(nextTeaching.index)}
                   className="shrink-0 rounded-full bg-[#0095F6] px-4 text-xs font-semibold text-white hover:bg-[#0077CC]"
                 >
-                  {restrictedUsthad ? 'എൻ്റെ പിരീഡിലേക്ക് പോകുക' : `${nextTeaching.label}-ലേക്ക് പോകുക`}
+                  {restrictedUsthad ? 'My Period' : `Go to ${nextTeaching.label}`}
                 </Button>
               )
             })()}
@@ -879,11 +879,11 @@ export function ClassLeaderAttendanceCard({
               />
               <div className="space-y-1">
                 <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                  {activePeriod.label} ({activePeriod.subject}) — ടൈംടേബിൾ പ്രകാരം{' '}
-                  <span className="underline">{activePeriod.teacher}</span> എടുക്കുന്ന പിരീഡാണ്
+                  {activePeriod.label} ({activePeriod.subject}) — Assigned to{' '}
+                  <span className="underline">{activePeriod.teacher}</span>
                 </p>
                 <p className="text-xs text-amber-800/90 dark:text-amber-300/90">
-                  നിശ്ചയിച്ച ടൈംടേബിളിലെ ഉസ്താദിനും ({activePeriod.teacher}) ഈ ക്ലാസ്സിലെ ക്ലാസ്സ് ലീഡർക്കും മാത്രമേ ഈ പിരീഡിൻ്റെ ഹാജർ രേഖപ്പെടുത്താനും തിരുത്താനും അനുവാദമുള്ളൂ. നിങ്ങളുടെ സ്വന്തം പിരീഡ് മുകളിൽ നിന്ന് തിരഞ്ഞെടുക്കുക.
+                  Only {activePeriod.teacher} or the Class Leader can edit attendance for this period.
                 </p>
               </div>
             </div>
@@ -899,7 +899,7 @@ export function ClassLeaderAttendanceCard({
                 }}
                 className="shrink-0 rounded-full bg-[#0095F6] px-4 text-xs font-semibold text-white hover:bg-[#0077CC]"
               >
-                എൻ്റെ പിരീഡിലേക്ക് പോകുക
+                My Period
               </Button>
             )}
           </div>
@@ -918,14 +918,14 @@ export function ClassLeaderAttendanceCard({
           <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
             <div>
               <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                {activePeriod.label} Session Control • Select Session Status
+                {activePeriod.label} Status
               </p>
-              <p className="mt-0.5 text-sm text-foreground">
-                ടൈംടേബിളിലെ ഉസ്താദിനും ക്ലാസ്സ് ലീഡർക്കും മാത്രം ഹാജർ നിയന്ത്രണം. ക്ലാസ്സ് നടന്നില്ലെങ്കിൽ{' '}
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Select{' '}
                 <strong className="text-red-600 dark:text-red-400">
                   &ldquo;Class Not Held&rdquo;
                 </strong>{' '}
-                തിരഞ്ഞെടുക്കുക.
+                if this session did not take place.
               </p>
             </div>
 
@@ -1090,7 +1090,7 @@ export function ClassLeaderAttendanceCard({
                 >
                   {existingSubmission.sessionStatus === 'not-held'
                     ? `Marked as Class Not Held by ${existingSubmission.markedNotHeldBy ?? existingSubmission.submittedByName} • Reason: ${existingSubmission.notHeldReason ?? NOT_HELD_REASONS[0]}`
-                    : `ആദ്യം സബ്മിറ്റ് ചെയ്തത് (Submitted by): ${existingSubmission.submittedByName}${
+                    : `Submitted by: ${existingSubmission.submittedByName}${
                         existingSubmission.submittedByRole
                           ? ` (${existingSubmission.submittedByRole})`
                           : isStaffViewer || existingSubmission.submittedByLeaderId === leaderId
@@ -1106,7 +1106,7 @@ export function ClassLeaderAttendanceCard({
                   <p className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-[#0077CC] dark:text-[#0095F6] tabular-nums">
                     <History className="size-3.5 shrink-0" aria-hidden="true" />
                     <span>
-                      തിരുത്തിയത് (Corrected by):{' '}
+                      Edited by:{' '}
                       <strong className="font-semibold">{existingSubmission.lastEditedByName}</strong>
                       {existingSubmission.lastEditedByRole
                         ? ` (${existingSubmission.lastEditedByRole})`
@@ -1121,7 +1121,7 @@ export function ClassLeaderAttendanceCard({
                         minute: '2-digit',
                       })}
                       {existingSubmission.editCount && existingSubmission.editCount > 1
-                        ? ` • ${existingSubmission.editCount} തവണ തിരുത്തി`
+                        ? ` • Edited ${existingSubmission.editCount} times`
                         : ''}
                     </span>
                   </p>
@@ -1481,7 +1481,7 @@ export function ClassLeaderAttendanceCard({
               confirmDeleteOpen ? (
                 <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-red-500/12 px-3 py-1.5">
                   <span className="text-xs font-semibold text-red-600 dark:text-red-300">
-                    ഈ പീരീഡ് ഹാജർ പൂർണ്ണമായി ഡിലീറ്റ് ചെയ്യണോ?
+                    Delete attendance for this period?
                   </span>
                   <button
                     type="button"
@@ -1510,7 +1510,7 @@ export function ClassLeaderAttendanceCard({
                   className="h-11 rounded-full bg-red-500/12 px-4 text-xs font-semibold text-red-600 hover:bg-red-500/20 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 whitespace-nowrap shrink-0"
                 >
                   <Trash2 className="mr-1.5 size-4" aria-hidden="true" />
-                  Delete Submitted Attendance
+                  Delete Attendance
                 </Button>
               )
             ) : null}
@@ -1534,12 +1534,12 @@ export function ClassLeaderAttendanceCard({
               ) : existingSubmission && !hasUnsavedChanges ? (
                 <>
                   <Check className="mr-2 size-4" aria-hidden="true" />
-                  {activePeriod.label} Saved (മാറ്റം വരുത്തിയാൽ വീണ്ടും സേവ് ചെയ്യാം)
+                  {activePeriod.label} Saved
                 </>
               ) : isSessionNotHeld ? (
                 <>
                   <Ban className="mr-2 size-4" aria-hidden="true" />
-                  Record {activePeriod.label} as Class Not Held
+                  Record {activePeriod.label} Not Held
                 </>
               ) : (
                 <>

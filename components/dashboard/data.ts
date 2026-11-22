@@ -1042,7 +1042,7 @@ export type SupremeScholarProfile = {
 
 /**
  * Supreme Scholar & Patron above all Usthads at ICS Academy Manhappatta:
- * SHAIKHUNA HAMZA USTHAD (ശൈഖുനാ മഞ്ഞപ്പറ്റ ഹംസ ഉസ്താദ്)
+ * SHAIKHUNA HAMZA USTHAD (Shaikhuna Manhappatta Hamza Usthad)
  * - Never a Class Usthad and does NOT require a Login ID.
  * - Teaches classes in the two senior ("VALIYA") batches: BS 5 • Batch 05 & BS 4 • Batch 06 (appears in Timetables).
  */

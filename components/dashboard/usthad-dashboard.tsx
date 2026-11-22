@@ -1421,12 +1421,12 @@ export function UsthadDashboard() {
         >
           <Panel
             id="usthad-timetable"
-            eyebrow={`${baseUsthad.name} · Semester ${activeSemester}`}
-            title="എൻ്റെ ടൈംടേബിളും ക്ലാസ്സ് ഷെഡ്യൂളും"
+            eyebrow={`Semester ${activeSemester}`}
+            title="Timetable"
             icon={CalendarDays}
             action={
               <span className="inline-flex items-center rounded-full bg-[#0095F6]/15 px-3 py-1 text-xs font-semibold text-[#0077CC] dark:text-[#0095F6] tabular-nums">
-                {allScheduledPeriods.length} Scheduled Periods
+                {allScheduledPeriods.length} Periods
               </span>
             }
           >
@@ -1434,14 +1434,9 @@ export function UsthadDashboard() {
               {/* Personal Chronological Schedule Across All Classes */}
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <h3 className="font-display text-sm font-bold text-foreground sm:text-base">
-                      എൻ്റെ സ്വന്തം ടൈംടേബിൾ (My Teaching Schedule Across Classes)
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      സമയക്രമത്തിൽ താങ്കൾ എടുക്കുന്ന എല്ലാ ക്ലാസ്സുകളിലെയും പിരീഡുകൾ താഴെ കാണാം.
-                    </p>
-                  </div>
+                  <h3 className="font-display text-sm font-bold text-foreground sm:text-base">
+                    My Schedule
+                  </h3>
                 </div>
 
                 {allScheduledPeriods.length > 0 ? (
@@ -1496,7 +1491,7 @@ export function UsthadDashboard() {
                   </div>
                 ) : (
                   <p className="rounded-2xl bg-muted/40 p-4 text-xs text-muted-foreground">
-                    ഈ സെമസ്റ്ററിൽ താങ്കൾക്ക് നേരിട്ടുള്ള പിരീഡുകളൊന്നും ഷെഡ്യൂൾ ചെയ്തിട്ടില്ല.
+                    No periods scheduled this semester.
                   </p>
                 )}
               </div>
@@ -1504,14 +1499,9 @@ export function UsthadDashboard() {
               {/* Active Class Full Timetable */}
               <div className="space-y-3 border-t border-border/40 pt-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <h3 className="font-display text-sm font-bold text-foreground sm:text-base">
-                      Class {activeClassName} — മുഴുവൻ ടൈംടേബിൾ (Full Class Schedule)
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      താങ്കളുടെ പിരീഡുകൾ നീല നിറത്തിൽ ഹൈലൈറ്റ് ചെയ്തിട്ടുണ്ട്.
-                    </p>
-                  </div>
+                  <h3 className="font-display text-sm font-bold text-foreground sm:text-base">
+                    Class {activeClassName} Schedule
+                  </h3>
                   <div className="flex flex-wrap items-center gap-1.5">
                     {ALL_ACADEMY_CLASS_NAMES.map((clsName) => (
                       <button
@@ -1592,7 +1582,7 @@ export function UsthadDashboard() {
                           </p>
                           {isMine && (
                             <span className="inline-flex items-center rounded-full bg-[#0095F6]/15 px-2 py-0.5 text-[10px] font-bold text-[#0077CC] dark:text-[#0095F6]">
-                              • എൻ്റെ പിരീഡ്
+                              • My Period
                             </span>
                           )}
                         </div>
@@ -2044,14 +2034,11 @@ export function UsthadDashboard() {
             <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
               <div>
                 <p className="text-[11px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
-                  എൻ്റെ പിരീഡുകൾ · My Scheduled Teaching Periods Across Classes
+                  My Periods
                 </p>
                 <h3 className="mt-0.5 font-display text-base font-bold text-foreground sm:text-lg">
-                  {baseUsthad.name} — Select Your Period to Mark Attendance ({allScheduledPeriods.length} Periods)
+                  Teaching Periods ({allScheduledPeriods.length})
                 </h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  നിങ്ങൾ വിവിധ ക്ലാസ്സുകളിൽ എടുക്കുന്ന പിരീഡുകൾ താഴെ കാണാം. ഏത് പിരീഡിലാണോ ക്ലാസ്സ് എടുക്കുന്നത് അതിൽ ക്ലിക്ക് ചെയ്ത് ആ പിരീഡിന്റെ ഹാജർ മാത്രം രേഖപ്പെടുത്താം.
-                </p>
               </div>
             </div>
 
@@ -2141,7 +2128,7 @@ export function UsthadDashboard() {
             <div className="flex flex-col gap-5 xl:col-span-7">
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Students Currently On Leave ({studentsCurrentlyOnLeave.length})
+                  On Leave ({studentsCurrentlyOnLeave.length})
                 </h3>
                 {studentsCurrentlyOnLeave.length === 0 ? (
                   <div className="mt-2.5 flex items-center gap-2.5 rounded-2xl bg-emerald-500/12 p-4 text-xs text-emerald-700 dark:text-emerald-400">
@@ -2402,12 +2389,12 @@ export function UsthadDashboard() {
               className="flex flex-col gap-4 rounded-2xl bg-muted/40 p-4 xl:col-span-5"
             >
               <h3 className="text-sm font-semibold text-foreground">
-                Publish New Notice
+                New Notice
               </h3>
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="notice-title-input" className="text-xs">
-                  Notice Title *
+                  Title *
                 </Label>
                 <input
                   id="notice-title-input"
@@ -2902,7 +2889,7 @@ export function UsthadDashboard() {
             <div className="grid gap-4 md:grid-cols-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="usthad-kitab-title" className="text-xs">
-                  Kitab Title (English / Transliteration) *
+                  Kitab Title *
                 </Label>
                 <input
                   id="usthad-kitab-title"
@@ -2917,7 +2904,7 @@ export function UsthadDashboard() {
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="usthad-kitab-arabic" className="text-xs">
-                  Arabic Title (العنوان بالعربية)
+                  Arabic Title
                 </Label>
                 <input
                   id="usthad-kitab-arabic"
@@ -2932,7 +2919,7 @@ export function UsthadDashboard() {
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="usthad-kitab-author" className="text-xs">
-                  Author (Scholar) *
+                  Author *
                 </Label>
                 <input
                   id="usthad-kitab-author"
