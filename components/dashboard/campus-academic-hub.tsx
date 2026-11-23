@@ -161,6 +161,60 @@ function getMultilingualTextProps(
   }
 }
 
+function getSyllabusFieldRtlProps(text?: string): {
+  dir: 'rtl' | 'ltr' | 'auto'
+  lang?: 'ar' | 'ur' | 'ml' | 'en'
+  isRtl: boolean
+  inputClass: string
+  displayClass: string
+} {
+  const raw = (text ?? '').trim()
+  if (!raw) {
+    return {
+      dir: 'auto',
+      lang: undefined,
+      isRtl: false,
+      inputClass: 'text-xs',
+      displayClass: 'text-xs text-left',
+    }
+  }
+  const hasAr = ARABIC_SCRIPT_RE.test(raw)
+  const startsWithAr = /^[\s"'«»()[\]0-9\u0660-\u0669-]*[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(
+    raw,
+  )
+  const mlProps = getMultilingualTextProps(raw)
+  if (mlProps.isRtl || (hasAr && startsWithAr)) {
+    const isUr = URDU_SPECIFIC_RE.test(raw)
+    return {
+      dir: 'rtl',
+      lang: isUr ? 'ur' : 'ar',
+      isRtl: true,
+      inputClass: isUr
+        ? 'font-urdu text-right text-sm leading-loose'
+        : 'font-arabic text-right text-sm leading-relaxed',
+      displayClass: isUr
+        ? 'font-urdu text-right text-sm leading-loose'
+        : 'font-arabic text-right text-sm leading-relaxed',
+    }
+  }
+  if (mlProps.lang === 'ml') {
+    return {
+      dir: 'ltr',
+      lang: 'ml',
+      isRtl: false,
+      inputClass: 'font-malayalam text-left text-xs',
+      displayClass: 'font-malayalam text-left text-xs leading-relaxed',
+    }
+  }
+  return {
+    dir: 'ltr',
+    lang: 'en',
+    isRtl: false,
+    inputClass: 'text-left text-xs',
+    displayClass: 'text-left text-xs',
+  }
+}
+
 function renderMultilingualInline(text?: string, isParentRtl = false): React.ReactNode {
   if (!text) return text
   const normalizedText = text.replace(/ദാ?അ്\s*വാ?/g, 'ദഅ്\u200cവ')
@@ -341,21 +395,22 @@ export function extractSyllabusChapterRange(row: CampusAcademicRecord): {
   const ansFrom = row.answers?.fromChapter?.trim()
   const ansTo = row.answers?.toChapter?.trim()
   if (ansFrom || ansTo) {
-    const f = ansFrom || 'Chapter 1'
-    const t = ansTo || 'Target Chapter'
+    const f = ansFrom || ''
+    const t = ansTo || ''
     return {
       fromChapter: f,
       toChapter: t,
-      formattedRange: `${f} to ${t}`,
+      formattedRange: f && t ? `${f} to ${t}` : f || t || 'Not recorded',
     }
   }
 
   const raw = (row.subjectOrCategory || '').trim()
   if (raw.includes(' to ')) {
-    const [left, right] = raw.split(' to ')
+    const [left, ...rest] = raw.split(' to ')
+    const right = rest.join(' to ').trim()
     return {
-      fromChapter: left.trim() || 'Chapter 1',
-      toChapter: (right || '').trim() || 'Target Chapter',
+      fromChapter: left.trim(),
+      toChapter: right,
       formattedRange: raw,
     }
   }
@@ -363,26 +418,27 @@ export function extractSyllabusChapterRange(row: CampusAcademicRecord): {
   if (raw.includes(' \u0D2E\u0D41\u0D24\u0D7D ')) {
     const [left, rightRaw] = raw.split(' \u0D2E\u0D41\u0D24\u0D7D ')
     const right = (rightRaw || '').replace(/\s*\u0D35\u0D30\u0D46$/, '').trim()
-    const cleanLeft = left.trim() || 'Chapter 1'
-    const cleanRight = right || 'Target Chapter'
+    const cleanLeft = left.trim()
+    const cleanRight = right
     return {
       fromChapter: cleanLeft,
       toChapter: cleanRight,
-      formattedRange: `${cleanLeft} to ${cleanRight}`,
+      formattedRange: cleanLeft && cleanRight ? `${cleanLeft} to ${cleanRight}` : cleanLeft || cleanRight || 'Not recorded',
     }
   }
 
   return {
-    fromChapter: raw || 'Chapter 1',
-    toChapter: 'Target Chapter',
+    fromChapter: raw,
+    toChapter: '',
     formattedRange: raw || 'Not recorded',
   }
 }
 
 export function formatSyllabusChapterRange(fromChapter: string, toChapter: string): string {
-  const f = fromChapter.trim() || 'Chapter 1'
-  const t = toChapter.trim() || 'Target Chapter'
-  return `${f} to ${t}`.slice(0, 120)
+  const f = fromChapter.trim()
+  const t = toChapter.trim()
+  if (f && t) return `${f} to ${t}`.slice(0, 120)
+  return (f || t || 'Not recorded').slice(0, 120)
 }
 
 export function buildClassSyllabusRows(
@@ -423,7 +479,7 @@ export function buildClassSyllabusRows(
       return
     }
 
-    // Fallback to November 2026 chapter template if switching months
+    // Fallback to previous month template if switching months
     const novFallback = allRecords.find(
       (r) =>
         r.recordKind === 'monthly_syllabus' &&
@@ -435,9 +491,9 @@ export function buildClassSyllabusRows(
     const fallbackRange = novFallback
       ? extractSyllabusChapterRange(novFallback)
       : {
-          fromChapter: 'Chapter 1',
-          toChapter: 'Chapter 3',
-          formattedRange: 'Chapter 1 to Chapter 3',
+          fromChapter: '',
+          toChapter: '',
+          formattedRange: 'Not recorded',
         }
 
     byId.set(deterministicId, {
@@ -1046,10 +1102,8 @@ export function StudentAcademicHub({
     try {
       const existingRange = extractSyllabusChapterRange(row)
       const draft = syllabusEdits[row.id]
-      const fromChapter =
-        (draft?.fromChapter ?? existingRange.fromChapter).trim() || 'Chapter 1'
-      const toChapter =
-        (draft?.toChapter ?? existingRange.toChapter).trim() || 'Target Chapter'
+      const fromChapter = (draft?.fromChapter ?? existingRange.fromChapter).trim()
+      const toChapter = (draft?.toChapter ?? existingRange.toChapter).trim()
       const formattedChapterRange = formatSyllabusChapterRange(fromChapter, toChapter)
       const totalPages = Math.max(0, Math.min(1000, Number(draft?.totalPages ?? row.totalMarks ?? 0)))
       const completedPages = Math.max(
@@ -1061,9 +1115,11 @@ export function StudentAcademicHub({
         (draft?.remarks ?? row.remarks ?? '').trim() ||
         `Updated by Class Leader ${student.name}: ${completedPages}/${totalPages} pages (${remainingPages} remaining).`
 
+      const matchedTeacher = findUsthadForTeacherName(row.studentName || '')
       const updatedRecord: CampusAcademicRecord = {
         ...row,
         className: normClass,
+        studentId: matchedTeacher?.id || row.studentId,
         month: selectedMonth,
         subjectOrCategory: formattedChapterRange,
         answers: {
@@ -1083,10 +1139,17 @@ export function StudentAcademicHub({
 
       await upsertCampusAcademicRecord(updatedRecord)
 
+      setSyllabusEdits((prev) => {
+        if (!(row.id in prev)) return prev
+        const next = { ...prev }
+        delete next[row.id]
+        return next
+      })
+
       publishCampusNotification({
         type: 'notice',
         title: `Syllabus Update · Class ${normClass}`,
-        message: `${student.name} (Class Leader) updated "${row.title}" (${row.studentName}): ${fromChapter} to ${toChapter} — Target: ${totalPages}p, Completed: ${completedPages}p, Remaining: ${remainingPages}p.`,
+        message: `${student.name} (Class Leader) updated "${row.title}" (${row.studentName}): ${formattedChapterRange} — Target: ${totalPages}p, Completed: ${completedPages}p, Remaining: ${remainingPages}p.`,
         targetClass: normClass,
         targetStaffOnly: true,
         actorId: student.id,
@@ -1095,7 +1158,7 @@ export function StudentAcademicHub({
       })
 
       setStatusBanner(
-        `Saved "${row.title}" (${fromChapter} to ${toChapter}) and notified ${row.studentName}.`,
+        `Saved "${row.title}" and notified ${row.studentName}.`,
       )
     } finally {
       setSavingSyllabusId(null)
@@ -1661,12 +1724,20 @@ export function StudentAcademicHub({
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Kitab / Subject *</Label>
-                    <Input
-                      value={newKitabName}
-                      onChange={(e) => setNewKitabName(e.target.value)}
-                      placeholder="e.g., Fath al-Mu'in / Minhaj"
-                      required
-                    />
+                    {(() => {
+                      const titleRtl = getSyllabusFieldRtlProps(newKitabName)
+                      return (
+                        <Input
+                          dir={titleRtl.dir}
+                          lang={titleRtl.lang}
+                          value={newKitabName}
+                          onChange={(e) => setNewKitabName(e.target.value)}
+                          placeholder="e.g., Fath al-Mu'in / فتح المعين"
+                          required
+                          className={titleRtl.inputClass}
+                        />
+                      )
+                    })()}
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Usthad *</Label>
@@ -1695,25 +1766,41 @@ export function StudentAcademicHub({
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="space-y-1">
                     <Label className="text-xs font-semibold text-[#0077CC] dark:text-[#0095F6]">
-                      From Chapter *
+                      From *
                     </Label>
-                    <Input
-                      value={newKitabFromChapter}
-                      onChange={(e) => setNewKitabFromChapter(e.target.value)}
-                      placeholder="Starting chapter..."
-                      required
-                    />
+                    {(() => {
+                      const fromRtl = getSyllabusFieldRtlProps(newKitabFromChapter)
+                      return (
+                        <Input
+                          dir={fromRtl.dir}
+                          lang={fromRtl.lang}
+                          value={newKitabFromChapter}
+                          onChange={(e) => setNewKitabFromChapter(e.target.value)}
+                          placeholder="Start line / من قوله..."
+                          required
+                          className={fromRtl.inputClass}
+                        />
+                      )
+                    })()}
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs font-semibold text-[#0077CC] dark:text-[#0095F6]">
-                      To Chapter *
+                      To *
                     </Label>
-                    <Input
-                      value={newKitabToChapter}
-                      onChange={(e) => setNewKitabToChapter(e.target.value)}
-                      placeholder="Ending chapter..."
-                      required
-                    />
+                    {(() => {
+                      const toRtl = getSyllabusFieldRtlProps(newKitabToChapter)
+                      return (
+                        <Input
+                          dir={toRtl.dir}
+                          lang={toRtl.lang}
+                          value={newKitabToChapter}
+                          onChange={(e) => setNewKitabToChapter(e.target.value)}
+                          placeholder="End line / إلى قوله..."
+                          required
+                          className={toRtl.inputClass}
+                        />
+                      )
+                    })()}
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Target Pages</Label>
@@ -1764,6 +1851,10 @@ export function StudentAcademicHub({
                     ? Math.min(100, Math.round((completedPagesVal / totalPagesVal) * 100))
                     : 0
 
+                const fromRtl = getSyllabusFieldRtlProps(fromChapterVal)
+                const toRtl = getSyllabusFieldRtlProps(toChapterVal)
+                const titleRtl = getSyllabusFieldRtlProps(row.title)
+
                 return (
                   <div
                     key={row.id}
@@ -1779,7 +1870,14 @@ export function StudentAcademicHub({
                             Usthad: <strong className="text-foreground">{row.studentName}</strong>
                           </span>
                         </div>
-                        <h5 className="mt-1.5 font-display text-base font-bold text-foreground sm:text-lg">
+                        <h5
+                          dir={titleRtl.dir}
+                          lang={titleRtl.lang}
+                          className={cn(
+                            'mt-1.5 text-base font-bold text-foreground sm:text-lg',
+                            titleRtl.isRtl ? 'font-arabic text-right' : 'font-display',
+                          )}
+                        >
                           {row.title}
                         </h5>
                       </div>
@@ -1806,22 +1904,40 @@ export function StudentAcademicHub({
                       </div>
                     </div>
 
-                    {/* Chapter Range Box */}
+                    {/* Syllabus Portion Range Box */}
                     <div className="mt-3 grid gap-2.5 rounded-xl bg-card/80 p-3 sm:grid-cols-2">
                       <div>
                         <span className="block text-[10px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
-                          From Chapter
+                          From
                         </span>
-                        <p className="mt-0.5 text-xs font-semibold text-foreground">
-                          {fromChapterVal || 'Not recorded'}
+                        <p
+                          dir={fromRtl.dir}
+                          lang={fromRtl.lang}
+                          className={cn(
+                            'mt-0.5 break-words font-semibold text-foreground',
+                            fromRtl.displayClass,
+                          )}
+                        >
+                          {fromChapterVal
+                            ? renderMultilingualInline(fromChapterVal, fromRtl.isRtl)
+                            : 'Not recorded'}
                         </p>
                       </div>
                       <div className="border-t border-border/40 pt-2 sm:border-t-0 sm:border-l sm:pl-3 sm:pt-0">
                         <span className="block text-[10px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
-                          To Chapter
+                          To
                         </span>
-                        <p className="mt-0.5 text-xs font-semibold text-foreground">
-                          {toChapterVal || 'Not recorded'}
+                        <p
+                          dir={toRtl.dir}
+                          lang={toRtl.lang}
+                          className={cn(
+                            'mt-0.5 break-words font-semibold text-foreground',
+                            toRtl.displayClass,
+                          )}
+                        >
+                          {toChapterVal
+                            ? renderMultilingualInline(toChapterVal, toRtl.isRtl)
+                            : 'Not recorded'}
                         </p>
                       </div>
                     </div>
@@ -1847,9 +1963,11 @@ export function StudentAcademicHub({
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="space-y-1">
                             <Label className="text-[11px] font-semibold text-[#0077CC] dark:text-[#0095F6]">
-                              From Chapter
+                              From
                             </Label>
                             <Input
+                              dir={fromRtl.dir}
+                              lang={fromRtl.lang}
                               value={fromChapterVal}
                               onChange={(e) =>
                                 setSyllabusEdits((prev) => ({
@@ -1863,16 +1981,18 @@ export function StudentAcademicHub({
                                   },
                                 }))
                               }
-                              placeholder="Starting chapter..."
-                              className="h-9 text-xs"
+                              placeholder="Start line / من قوله..."
+                              className={cn('h-9', fromRtl.inputClass)}
                             />
                           </div>
 
                           <div className="space-y-1">
                             <Label className="text-[11px] font-semibold text-[#0077CC] dark:text-[#0095F6]">
-                              To Chapter
+                              To
                             </Label>
                             <Input
+                              dir={toRtl.dir}
+                              lang={toRtl.lang}
                               value={toChapterVal}
                               onChange={(e) =>
                                 setSyllabusEdits((prev) => ({
@@ -1886,8 +2006,8 @@ export function StudentAcademicHub({
                                   },
                                 }))
                               }
-                              placeholder="Ending chapter..."
-                              className="h-9 text-xs"
+                              placeholder="End line / إلى قوله..."
+                              className={cn('h-9', toRtl.inputClass)}
                             />
                           </div>
                         </div>
@@ -2887,7 +3007,8 @@ export function UsthadAcademicHub({
     if (usthad) return usthad
     return (
       OFFICIAL_CLASS_USTHADS.find((u) => u.id === actorId || u.name === actorName) ??
-      CLASS_USTHADS.find((u) => u.id === actorId || u.name === actorName)
+      CLASS_USTHADS.find((u) => u.id === actorId || u.name === actorName) ??
+      OFFICIAL_CLASS_USTHADS.find((u) => doesUsthadMatchTeacherName(u, actorName))
     )
   }, [usthad, actorId, actorName])
 
@@ -2940,8 +3061,8 @@ export function UsthadAcademicHub({
     try {
       const draft = usthadSyllabusEdits[row.id]
       const chapter = allowFullEdit
-        ? (draft?.chapter ?? row.subjectOrCategory ?? '').trim() || 'Target Chapter'
-        : row.subjectOrCategory || 'Target Chapter'
+        ? (draft?.chapter ?? row.subjectOrCategory ?? '').trim() || 'Not recorded'
+        : row.subjectOrCategory || 'Not recorded'
       const totalPages = allowFullEdit
         ? Math.max(0, Math.min(1000, Number(draft?.totalPages ?? row.totalMarks ?? 0)))
         : Math.max(0, Math.min(1000, Number(row.totalMarks ?? 0)))
@@ -2954,8 +3075,10 @@ export function UsthadAcademicHub({
         (draft?.remarks ?? row.remarks ?? '').trim() ||
         `Updated by ${actorName}: ${completedPages}/${totalPages} pages completed (${remainingPages} pages remaining).`
 
+      const matchedTeacher = findUsthadForTeacherName(row.studentName || '')
       const updatedRecord: CampusAcademicRecord = {
         ...row,
+        studentId: matchedTeacher?.id || row.studentId,
         month: selectedMonth,
         subjectOrCategory: chapter,
         totalMarks: totalPages,
@@ -2970,6 +3093,13 @@ export function UsthadAcademicHub({
       }
 
       await upsertCampusAcademicRecord(updatedRecord)
+
+      setUsthadSyllabusEdits((prev) => {
+        if (!(row.id in prev)) return prev
+        const next = { ...prev }
+        delete next[row.id]
+        return next
+      })
 
       publishCampusNotification({
         type: 'notice',
@@ -3490,6 +3620,10 @@ export function UsthadAcademicHub({
                         ? Math.min(100, Math.round((completedPagesVal / totalPagesVal) * 100))
                         : 0
 
+                    const fromRtl = getSyllabusFieldRtlProps(parsedRange.fromChapter)
+                    const toRtl = getSyllabusFieldRtlProps(parsedRange.toChapter)
+                    const titleRtl = getSyllabusFieldRtlProps(row.title)
+
                     return (
                       <div
                         key={row.id}
@@ -3505,7 +3639,14 @@ export function UsthadAcademicHub({
                             </span>
                           </div>
 
-                          <h5 className="mt-2 font-display text-base font-bold text-foreground">
+                          <h5
+                            dir={titleRtl.dir}
+                            lang={titleRtl.lang}
+                            className={cn(
+                              'mt-2 text-base font-bold text-foreground',
+                              titleRtl.isRtl ? 'font-arabic text-right' : 'font-display',
+                            )}
+                          >
                             {row.title}
                           </h5>
 
@@ -3514,16 +3655,34 @@ export function UsthadAcademicHub({
                               <span className="block text-[10px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
                                 From
                               </span>
-                              <p className="mt-0.5 text-xs font-semibold text-foreground">
-                                {parsedRange.fromChapter}
+                              <p
+                                dir={fromRtl.dir}
+                                lang={fromRtl.lang}
+                                className={cn(
+                                  'mt-0.5 break-words font-semibold text-foreground',
+                                  fromRtl.displayClass,
+                                )}
+                              >
+                                {parsedRange.fromChapter
+                                  ? renderMultilingualInline(parsedRange.fromChapter, fromRtl.isRtl)
+                                  : 'Not recorded'}
                               </p>
                             </div>
                             <div className="border-t border-border/40 pt-1.5 sm:border-t-0 sm:border-l sm:pl-2.5 sm:pt-0">
                               <span className="block text-[10px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
                                 To
                               </span>
-                              <p className="mt-0.5 text-xs font-semibold text-foreground">
-                                {parsedRange.toChapter}
+                              <p
+                                dir={toRtl.dir}
+                                lang={toRtl.lang}
+                                className={cn(
+                                  'mt-0.5 break-words font-semibold text-foreground',
+                                  toRtl.displayClass,
+                                )}
+                              >
+                                {parsedRange.toChapter
+                                  ? renderMultilingualInline(parsedRange.toChapter, toRtl.isRtl)
+                                  : 'Not recorded'}
                               </p>
                             </div>
                           </div>
@@ -3614,7 +3773,7 @@ export function UsthadAcademicHub({
                     <tr>
                       <th className="px-3.5 py-3">Kitab</th>
                       <th className="px-3.5 py-3">Usthad</th>
-                      <th className="px-3.5 py-3">Chapters</th>
+                      <th className="px-3.5 py-3">Portion (From – To)</th>
                       <th className="px-3.5 py-3">Target</th>
                       <th className="px-3.5 py-3">Done</th>
                       <th className="px-3.5 py-3">Left</th>
@@ -3624,6 +3783,9 @@ export function UsthadAcademicHub({
                   <tbody className="divide-y divide-border/40 tabular-nums">
                     {activeClassSyllabusRows.map((row) => {
                       const parsedRange = extractSyllabusChapterRange(row)
+                      const fromRtl = getSyllabusFieldRtlProps(parsedRange.fromChapter)
+                      const toRtl = getSyllabusFieldRtlProps(parsedRange.toChapter)
+                      const titleRtl = getSyllabusFieldRtlProps(row.title)
                       const canEditThisSubject =
                         role === 'principal' ||
                         row.studentId === actorId ||
@@ -3641,25 +3803,50 @@ export function UsthadAcademicHub({
                             <span className="font-mono text-[11px] font-bold text-[#0077CC] dark:text-[#0095F6]">
                               {row.admissionNo}
                             </span>
-                            <p className="font-semibold text-foreground">{row.title}</p>
+                            <p
+                              dir={titleRtl.dir}
+                              lang={titleRtl.lang}
+                              className={cn(
+                                'font-semibold text-foreground',
+                                titleRtl.isRtl && 'font-arabic text-right text-sm',
+                              )}
+                            >
+                              {row.title}
+                            </p>
                           </td>
                           <td className="px-3.5 py-3 font-medium text-foreground">
                             {row.studentName}
                           </td>
                           <td className="px-3.5 py-3 text-foreground">
-                            <div className="space-y-0.5 text-xs">
-                              <p>
-                                <span className="font-semibold text-[#0077CC] dark:text-[#0095F6]">
-                                  From:
-                                </span>{' '}
-                                {parsedRange.fromChapter}
-                              </p>
-                              <p>
-                                <span className="font-semibold text-[#0077CC] dark:text-[#0095F6]">
-                                  To:
-                                </span>{' '}
-                                {parsedRange.toChapter}
-                              </p>
+                            <div className="space-y-1 text-xs">
+                              <div>
+                                <span className="block text-[10px] font-semibold text-[#0077CC] uppercase dark:text-[#0095F6]">
+                                  From
+                                </span>
+                                <p
+                                  dir={fromRtl.dir}
+                                  lang={fromRtl.lang}
+                                  className={cn('font-medium text-foreground', fromRtl.displayClass)}
+                                >
+                                  {parsedRange.fromChapter
+                                    ? renderMultilingualInline(parsedRange.fromChapter, fromRtl.isRtl)
+                                    : 'Not recorded'}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="block text-[10px] font-semibold text-[#0077CC] uppercase dark:text-[#0095F6]">
+                                  To
+                                </span>
+                                <p
+                                  dir={toRtl.dir}
+                                  lang={toRtl.lang}
+                                  className={cn('font-medium text-foreground', toRtl.displayClass)}
+                                >
+                                  {parsedRange.toChapter
+                                    ? renderMultilingualInline(parsedRange.toChapter, toRtl.isRtl)
+                                    : 'Not recorded'}
+                                </p>
+                              </div>
                             </div>
                           </td>
                           <td className="px-3.5 py-3 font-mono font-bold text-foreground">
