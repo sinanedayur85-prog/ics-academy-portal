@@ -132,7 +132,7 @@ jobs:
             gradleContent = gradleContent.replace(/versionName\s+"[^"]*"/, 'versionName "1.0.' + runNum + '"');
             if (!gradleContent.includes('com.google.firebase:firebase-messaging')) {
               gradleContent = gradleContent.replace(
-                /dependencies\s*\{/,
+                /^dependencies\s*\{/m,
                 "dependencies {\n    implementation platform('com.google.firebase:firebase-bom:33.7.0')\n    implementation 'com.google.firebase:firebase-messaging'"
               );
             }
@@ -546,7 +546,7 @@ jobs:
               }
 
               @Override
-              protected void onStop() {
+              public void onStop() {
                   activityInForeground = false;
                   super.onStop();
                   try {
@@ -1043,7 +1043,7 @@ jobs:
                   }
                   if (body == null) return;
 
-                  Set<String> seen = new HashSet<>(prefs.getStringSet("seenNotifIds", new HashSet<>()));
+                  Set<String> seen = new HashSet<String>(prefs.getStringSet("seenNotifIds", new HashSet<String>()));
                   boolean seenChanged = false;
                   long nowMs = System.currentTimeMillis();
                   long lastActiveMs = prefs.getLong("lastActiveMs", 0L);
@@ -1381,7 +1381,7 @@ jobs:
 
                       if (notifId != null && !notifId.trim().isEmpty()) {
                           SharedPreferences prefs = getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
-                          Set<String> seen = new HashSet<>(prefs.getStringSet("seenNotifIds", new HashSet<>()));
+                          Set<String> seen = new HashSet<String>(prefs.getStringSet("seenNotifIds", new HashSet<String>()));
                           seen.add(notifId.trim());
                           prefs.edit().putStringSet("seenNotifIds", seen).apply();
                       }
