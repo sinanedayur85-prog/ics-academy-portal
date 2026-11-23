@@ -37,45 +37,82 @@ function sanitizeClassTopic(rawClass) {
   return slug ? `ics_class_${slug}` : ''
 }
 
+function normalizePrivateKey(raw) {
+  if (typeof raw !== 'string') return ''
+  let key = raw.trim()
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
+    key = key.slice(1, -1).trim()
+  }
+  key = key.replace(/\\\\n/g, '\n').replace(/\\n/g, '\n').replace(/\r\n/g, '\n').trim()
+  return key
+}
+
 function loadServiceAccountCredentials() {
   const envProjectId = (process.env.FCM_PROJECT_ID || '').trim()
   const fallbackProjectId = isValidProjectId(envProjectId) ? envProjectId : 'ics-academy-push'
 
-  const rawJson = (
-    process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
-    process.env.FCM_SERVICE_ACCOUNT_JSON ||
-    ''
-  ).trim()
+  const rawEnvCandidates = [
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
+    process.env.FCM_SERVICE_ACCOUNT_JSON,
+    process.env.FIREBASE_SERVICE_ACCOUNT,
+    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON,
+  ]
+  const rawJson = (rawEnvCandidates.find((v) => typeof v === 'string' && v.trim().length > 0) || '').trim()
 
   if (rawJson) {
-    try {
-      const jsonText = rawJson.startsWith('{')
-        ? rawJson
-        : Buffer.from(rawJson, 'base64').toString('utf8')
-      const parsed = JSON.parse(jsonText)
-      const clientEmail = typeof parsed.client_email === 'string' ? parsed.client_email.trim() : ''
-      const privateKey =
-        typeof parsed.private_key === 'string'
-          ? parsed.private_key.replace(/\\n/g, '\n').trim()
-          : ''
-      const projectId = isValidProjectId(parsed.project_id)
-        ? parsed.project_id.trim()
-        : fallbackProjectId
-      if (clientEmail && privateKey.includes('BEGIN PRIVATE KEY')) {
-        return { projectId, clientEmail, privateKey }
-      }
-    } catch {
-      // Fall through to split env vars
+    let candidate = rawJson
+    if (
+      (candidate.startsWith('"') && candidate.endsWith('"')) ||
+      (candidate.startsWith("'") && candidate.endsWith("'"))
+    ) {
+      candidate = candidate.slice(1, -1).trim()
     }
+
+    const attempts = [candidate]
+    if (!candidate.startsWith('{')) {
+      try {
+        attempts.push(Buffer.from(candidate, 'base64').toString('utf8').trim())
+      } catch {
+        // Ignore base64 decode failure
+      }
+    }
+
+    for (const text of attempts) {
+      try {
+        const parsed = JSON.parse(text)
+        const obj = typeof parsed === 'string' ? JSON.parse(parsed) : parsed
+        const clientEmail = typeof obj?.client_email === 'string' ? obj.client_email.trim() : ''
+        const privateKey = normalizePrivateKey(obj?.private_key || '')
+        const projectId = isValidProjectId(obj?.project_id)
+          ? obj.project_id.trim()
+          : fallbackProjectId
+        if (clientEmail && privateKey.includes('BEGIN PRIVATE KEY')) {
+          return { creds: { projectId, clientEmail, privateKey }, reason: 'ready' }
+        }
+      } catch {
+        // Vercel UI sometimes turns \n into literal newlines inside JSON strings — extract fields safely
+        const emailMatch = text.match(/"client_email"\s*:\s*"([^"]+)"/)
+        const keyMatch = text.match(/"private_key"\s*:\s*"([\s\S]*?-----END PRIVATE KEY-----[\\n\r\n]*)"/)
+        const projMatch = text.match(/"project_id"\s*:\s*"([^"]+)"/)
+        const clientEmail = emailMatch ? emailMatch[1].trim() : ''
+        const privateKey = keyMatch ? normalizePrivateKey(keyMatch[1]) : ''
+        const projectId =
+          projMatch && isValidProjectId(projMatch[1]) ? projMatch[1].trim() : fallbackProjectId
+        if (clientEmail && privateKey.includes('BEGIN PRIVATE KEY')) {
+          return { creds: { projectId, clientEmail, privateKey }, reason: 'ready' }
+        }
+      }
+    }
+    return { creds: null, reason: 'invalid_json_or_key_format' }
   }
 
   const clientEmail = (process.env.FCM_CLIENT_EMAIL || '').trim()
-  const privateKey = (process.env.FCM_PRIVATE_KEY || '').replace(/\\n/g, '\n').trim()
+  const privateKey = normalizePrivateKey(process.env.FCM_PRIVATE_KEY || '')
   if (clientEmail && privateKey.includes('BEGIN PRIVATE KEY')) {
-    return { projectId: fallbackProjectId, clientEmail, privateKey }
+    return { creds: { projectId: fallbackProjectId, clientEmail, privateKey }, reason: 'ready' }
   }
 
-  return null
+  return { creds: null, reason: 'env_var_missing_in_vercel' }
 }
 
 function base64UrlEncode(input) {
@@ -263,12 +300,13 @@ export default async function handler(req, res) {
     return
   }
 
-  const creds = loadServiceAccountCredentials()
+  const { creds, reason } = loadServiceAccountCredentials()
 
   if (req.method === 'GET') {
     res.status(200).json({
       ok: true,
       configured: Boolean(creds),
+      configReason: reason,
       projectId: creds ? creds.projectId : 'ics-academy-push',
       mode: 'fcm-topics-v1',
     })
@@ -284,6 +322,7 @@ export default async function handler(req, res) {
     res.status(200).json({
       ok: false,
       configured: false,
+      configReason: reason,
       reason: 'FCM credentials not configured on this Vercel deployment yet.',
     })
     return
