@@ -22,6 +22,14 @@ export interface PushEnvironmentInfo {
 const PUSH_SUB_OPT_OUT_KEY = 'ics_web_push_opt_out_v1'
 const LAST_SYNCED_VAPID_KEY = 'ics_web_push_vapid_key_v1'
 
+const CLOUD_PUSH_BASES = [
+  '',
+  'https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app',
+  'https://ais-dev-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app',
+]
+
+let cachedVapidInfo: { base: string; publicKey: string; fetchedAtMs: number } | null = null
+
 export function getPushEnvironmentInfo(): PushEnvironmentInfo {
   if (typeof window === 'undefined') {
     return {
@@ -86,16 +94,39 @@ function getPushApiBases(): string[] {
       '',
     ]
   }
-  return ['']
+  // Try same-origin first, then Shared App (ais-pre) and Dev App (ais-dev) so Vercel/custom domains always connect
+  const currentOrigin = window.location.origin
+  return Array.from(
+    new Set(
+      CLOUD_PUSH_BASES.filter((b) => !b || b !== currentOrigin),
+    ),
+  )
 }
 
-async function fetchVapidPublicKey(): Promise<{ base: string; publicKey: string } | null> {
+async function fetchVapidPublicKey(forceRefresh = false): Promise<{ base: string; publicKey: string } | null> {
+  if (
+    !forceRefresh &&
+    cachedVapidInfo &&
+    Date.now() - cachedVapidInfo.fetchedAtMs < 5 * 60 * 1000
+  ) {
+    return { base: cachedVapidInfo.base, publicKey: cachedVapidInfo.publicKey }
+  }
+
   for (const base of getPushApiBases()) {
     try {
-      const res = await fetch(`${base}/api/push/vapid-public-key`, { cache: 'no-store' })
+      const controller = new AbortController()
+      const timer = window.setTimeout(() => controller.abort(), 5000)
+      const res = await fetch(`${base}/api/push/vapid-public-key`, {
+        cache: 'no-store',
+        signal: controller.signal,
+      })
+      window.clearTimeout(timer)
       if (!res.ok) continue
+      const contentType = res.headers.get('content-type') || ''
+      if (!contentType.includes('application/json')) continue
       const data = (await res.json()) as { ok?: boolean; publicKey?: string }
       if (data.ok && typeof data.publicKey === 'string' && data.publicKey.length > 20) {
+        cachedVapidInfo = { base, publicKey: data.publicKey, fetchedAtMs: Date.now() }
         return { base, publicKey: data.publicKey }
       }
     } catch {
@@ -103,6 +134,16 @@ async function fetchVapidPublicKey(): Promise<{ base: string; publicKey: string 
     }
   }
   return null
+}
+
+/**
+ * Pre-fetches the VAPID public key when the notification sheet opens so that tapping
+ * "Enable Real-Time Notifications" on iPhone (iOS 16.4+) immediately invokes
+ * Notification.requestPermission() + pushManager.subscribe() inside the user tap gesture.
+ */
+export async function prefetchVapidPublicKey(): Promise<boolean> {
+  const result = await fetchVapidPublicKey(false)
+  return Boolean(result)
 }
 
 function getNormalizedPortalRole(
@@ -133,10 +174,12 @@ export async function getActiveWebPushState(): Promise<{
   }
 
   try {
-    const reg = await navigator.serviceWorker.ready
-    const sub = await reg.pushManager.getSubscription()
-    if (sub && env.permission === 'granted') {
-      return { state: 'subscribed', endpoint: sub.endpoint, env }
+    const reg = await navigator.serviceWorker.getRegistration('/')
+    if (reg && reg.pushManager) {
+      const sub = await reg.pushManager.getSubscription()
+      if (sub && env.permission === 'granted') {
+        return { state: 'subscribed', endpoint: sub.endpoint, env }
+      }
     }
   } catch {
     // Fall through to ready
@@ -148,10 +191,6 @@ export async function getActiveWebPushState(): Promise<{
 /**
  * Registers or re-syncs this device's Web Push subscription with the server for the currently signed-in
  * student / class leader / usthad / principal.
- * - When `requestPermission` is false (auto-sync on boot/login), it ONLY syncs if permission is already granted
- *   and the user has not explicitly opted out on this device.
- * - When `requestPermission` is true (triggered directly from a user tap — required on iOS 16.4+ PWA!),
- *   it prompts for Notification permission, subscribes with the VAPID public key, and binds the device.
  */
 export async function syncWebPushSubscription(options?: {
   requestPermission?: boolean
@@ -169,7 +208,11 @@ export async function syncWebPushSubscription(options?: {
     return { ok: false, state: 'ios-needs-home-screen' }
   }
   if (!env.hasNotificationApi || !env.hasServiceWorker || !env.hasPushManager) {
-    return { ok: false, state: 'unsupported', error: 'Push notifications are not supported on this browser.' }
+    return {
+      ok: false,
+      state: 'unsupported',
+      error: 'Push notifications are not supported on this browser.',
+    }
   }
 
   const requestPermission = Boolean(options?.requestPermission)
@@ -189,6 +232,8 @@ export async function syncWebPushSubscription(options?: {
     }
   }
 
+  // IMPORTANT for iPhone iOS 16.4+: Call Notification.requestPermission() FIRST inside the tap gesture
+  // before any network fetch so Safari WebKit preserves user activation!
   let permission: NotificationPermission = Notification.permission
   if (permission === 'default' && requestPermission) {
     try {
@@ -202,7 +247,8 @@ export async function syncWebPushSubscription(options?: {
     return {
       ok: false,
       state: 'denied',
-      error: 'Notifications are blocked in your phone/browser settings. Please allow notifications for ICS Academy.',
+      error:
+        'Notifications are blocked in your phone settings. Please allow notifications for ICS Academy.',
     }
   }
 
@@ -213,12 +259,20 @@ export async function syncWebPushSubscription(options?: {
   const session = getCurrentSessionIdentity()
   const effectiveActorId = (options?.overrideActorId || session.actorId || '').trim()
   if (!effectiveActorId) {
-    return { ok: false, state: 'ready', error: 'Sign in first to enable notifications for your account.' }
+    return {
+      ok: false,
+      state: 'ready',
+      error: 'Sign in first to enable notifications for your account.',
+    }
   }
 
-  const vapid = await fetchVapidPublicKey()
+  const vapid = await fetchVapidPublicKey(false)
   if (!vapid) {
-    return { ok: false, state: 'ready', error: 'Push service is temporarily unreachable.' }
+    return {
+      ok: false,
+      state: 'ready',
+      error: 'Could not reach the push server. Please refresh the app and try again.',
+    }
   }
 
   try {
@@ -269,24 +323,28 @@ export async function syncWebPushSubscription(options?: {
           : 'android-web'
         : 'desktop-web'
 
+    const payloadBody = JSON.stringify({
+      subscription: {
+        endpoint: subJson.endpoint,
+        keys: {
+          p256dh: subJson.keys.p256dh,
+          auth: subJson.keys.auth,
+        },
+      },
+      actorId: effectiveActorId,
+      actorRole: getNormalizedPortalRole(session),
+      actorName: session.actorName || 'Campus Member',
+      className: options?.overrideClassName || session.className || '',
+      assignedClasses: session.assignedClasses || [],
+      platform,
+    })
+
+    // Register with the matched VAPID base first, and mirror to secondary cloud bases so notifications
+    // triggered from any deployment URL reach this device reliably.
     const res = await fetch(`${vapid.base}/api/push/subscribe`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        subscription: {
-          endpoint: subJson.endpoint,
-          keys: {
-            p256dh: subJson.keys.p256dh,
-            auth: subJson.keys.auth,
-          },
-        },
-        actorId: effectiveActorId,
-        actorRole: getNormalizedPortalRole(session),
-        actorName: session.actorName || 'Campus Member',
-        className: options?.overrideClassName || session.className || '',
-        assignedClasses: session.assignedClasses || [],
-        platform,
-      }),
+      body: payloadBody,
     })
 
     if (!res.ok) {
@@ -327,14 +385,17 @@ export async function disableWebPushSubscription(): Promise<boolean> {
     const sub = await reg.pushManager.getSubscription()
     if (sub) {
       const endpoint = sub.endpoint
-      for (const base of getPushApiBases()) {
+      const bases = cachedVapidInfo
+        ? [cachedVapidInfo.base, ...getPushApiBases()]
+        : getPushApiBases()
+      for (const base of Array.from(new Set(bases))) {
         try {
-          await fetch(`${base}/api/push/unsubscribe`, {
+          const res = await fetch(`${base}/api/push/unsubscribe`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ endpoint }),
           })
-          break
+          if (res.ok) break
         } catch {
           // Try next base
         }
@@ -358,24 +419,34 @@ export async function sendTestWebPushNotification(): Promise<{ ok: boolean; erro
     if (!sub) {
       return { ok: false, error: 'Please enable notifications first.' }
     }
-    for (const base of getPushApiBases()) {
+    const bases = cachedVapidInfo
+      ? [cachedVapidInfo.base, ...getPushApiBases()]
+      : getPushApiBases()
+    for (const base of Array.from(new Set(bases))) {
       try {
         const res = await fetch(`${base}/api/push/test`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ endpoint: sub.endpoint }),
         })
+        const contentType = res.headers.get('content-type') || ''
+        if (!contentType.includes('application/json')) continue
         if (res.ok) {
           const data = (await res.json()) as { ok?: boolean }
           return { ok: Boolean(data.ok) }
         }
         const errData = (await res.json().catch(() => ({}))) as { error?: string }
-        return { ok: false, error: errData.error || 'Could not deliver test alert.' }
+        if (res.status === 404) {
+          // Re-sync subscription automatically in case server restarted
+          await syncWebPushSubscription({ requestPermission: false })
+        } else {
+          return { ok: false, error: errData.error || 'Could not deliver test alert.' }
+        }
       } catch {
         // Try next base
       }
     }
-    return { ok: false, error: 'Push server unreachable.' }
+    return { ok: false, error: 'Push server unreachable. Please tap Enable again.' }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Test failed.' }
   }

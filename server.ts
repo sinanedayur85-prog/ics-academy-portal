@@ -6,7 +6,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { GoogleGenAI, ThinkingLevel } from '@google/genai'
 import { createServer as createViteServer } from 'vite'
-import webpush from 'web-push'
+import * as webpush from 'web-push'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -1705,6 +1705,25 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
       }
     }
   }
+
+  app.use('/api/push', (req, res, next) => {
+    const origin = typeof req.headers.origin === 'string' ? req.headers.origin : ''
+    const isAllowedOrigin =
+      !origin ||
+      /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.(run\.app|vercel\.app|netlify\.app)$/i.test(origin) ||
+      /^(capacitor|https?):\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
+    if (origin && isAllowedOrigin) {
+      res.setHeader('Access-Control-Allow-Origin', origin)
+      res.setHeader('Vary', 'Origin')
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    if (req.method === 'OPTIONS') {
+      res.status(204).end()
+      return
+    }
+    next()
+  })
 
   app.get('/api/push/vapid-public-key', (_req, res) => {
     res.setHeader('Content-Type', 'application/json')

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Bell,
   BellOff,
@@ -26,6 +27,7 @@ import {
 import {
   disableWebPushSubscription,
   getActiveWebPushState,
+  prefetchVapidPublicKey,
   sendTestWebPushNotification,
   syncWebPushSubscription,
   type PushSupportState,
@@ -195,10 +197,8 @@ export function CampusNotificationBar({
 
 /**
  * Compact Header Push Notification & PWA Install Control:
- * - Provides the explicit tap gesture required by iPhone iOS 16.4+ Add-to-Home-Screen PWAs
- *   and Android Chrome/PWA to enable real-time background push notifications.
- * - Shows guided "Add to Home Screen" steps for iPhone Safari users and a one-tap Install App
- *   option on Android when not yet installed.
+ * - Portals its modal to document.body so sticky header backdrop-blur never traps or clips it on iOS/Android.
+ * - Pre-fetches the VAPID public key when opened so iPhone iOS 16.4+ keeps the user tap gesture intact.
  */
 export function CampusNotificationBell({
   studentId,
@@ -318,6 +318,187 @@ export function CampusNotificationBell({
   const isSubscribed = pushState === 'subscribed'
   const needsSetup = pushState === 'ready' || pushState === 'ios-needs-home-screen'
 
+  const modalNode =
+    open && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] backdrop-blur-sm"
+            onClick={() => setOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Real-Time Notifications"
+              className="w-full max-w-md max-h-[85dvh] overflow-y-auto rounded-3xl border border-border/70 bg-card p-5 text-card-foreground shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={cn(
+                      'flex size-10 shrink-0 items-center justify-center rounded-2xl',
+                      isSubscribed
+                        ? 'bg-emerald-500/15 text-emerald-500'
+                        : 'bg-[#0095F6]/15 text-[#0095F6]',
+                    )}
+                  >
+                    {isSubscribed ? (
+                      <BellRing className="size-5" />
+                    ) : (
+                      <Bell className="size-5" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold leading-tight">
+                      Real-Time Notifications
+                    </h3>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {ownerLabel}
+                      {ownerSub ? ` · ${ownerSub}` : ''}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  aria-label="Close"
+                  className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {pushState === 'ios-needs-home-screen' ? (
+                  <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs leading-relaxed">
+                    <div className="flex items-center gap-2 font-semibold text-amber-600 dark:text-amber-400">
+                      <Smartphone className="size-4 shrink-0" />
+                      <span>Add ICS Academy to iPhone Home Screen First</span>
+                    </div>
+                    <p className="mt-1.5 text-foreground/85">
+                      On iPhone (iOS 16.4+), real-time notifications when the app is closed work
+                      only after adding the app to your Home Screen:
+                    </p>
+                    <ol className="mt-2.5 space-y-1.5 pl-4 list-decimal text-foreground/90">
+                      <li>
+                        Tap the{' '}
+                        <span className="inline-flex items-center gap-1 font-semibold">
+                          <Share className="inline size-3.5" /> Share
+                        </span>{' '}
+                        button in Safari.
+                      </li>
+                      <li>
+                        Scroll down and tap <strong>Add to Home Screen</strong>, then{' '}
+                        <strong>Add</strong>.
+                      </li>
+                      <li>
+                        Open <strong>ICS Academy</strong> from your Home Screen and tap this Bell
+                        icon to turn on alerts.
+                      </li>
+                    </ol>
+                  </div>
+                ) : isSubscribed ? (
+                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle2 className="size-4 shrink-0" />
+                      <span>Active on This Device</span>
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-foreground/80">
+                      Notices, chats, calls, attendance, leave, unit test and syllabus updates
+                      targeted to your account will arrive in real time—even when the app is closed.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={testBusy}
+                        onClick={() => void handleSendTest()}
+                        className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                      >
+                        <Send className="size-3.5" />
+                        {testBusy ? 'Sending...' : 'Send Test Alert'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleDisablePush()}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border px-3.5 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-60"
+                      >
+                        <BellOff className="size-3.5" />
+                        Turn Off
+                      </button>
+                    </div>
+                  </div>
+                ) : pushState === 'denied' ? (
+                  <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs leading-relaxed text-foreground/90">
+                    <p className="font-semibold text-rose-600 dark:text-rose-400">
+                      Notifications Blocked in Device Settings
+                    </p>
+                    <p className="mt-1">
+                      Open your phone&apos;s Browser / App Settings → Notifications → allow{' '}
+                      <strong>ICS Academy</strong>, then return here and tap Enable.
+                    </p>
+                  </div>
+                ) : pushState === 'unsupported' ? (
+                  <div className="rounded-2xl border border-border bg-muted/50 p-4 text-xs leading-relaxed text-muted-foreground">
+                    This browser does not support background Web Push. On Android use Chrome and
+                    install the app; on iPhone use Safari → Share → Add to Home Screen (iOS 16.4+).
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-[#0095F6]/25 bg-[#0095F6]/8 p-4">
+                    <p className="text-xs leading-relaxed text-foreground/85">
+                      Receive instant alerts on your phone—even when ICS Academy is closed—for
+                      messages, calls, class notices, attendance, leave updates, monthly tests and
+                      syllabus changes meant specifically for you.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void handleEnablePush()}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#0095F6] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0081d6] active:scale-[0.98] disabled:opacity-60"
+                    >
+                      <BellRing className="size-4" />
+                      {busy ? 'Enabling...' : 'Enable Real-Time Notifications'}
+                    </button>
+                  </div>
+                )}
+
+                {!isStandalone && deferredPrompt && (
+                  <button
+                    type="button"
+                    onClick={() => void handleInstallPwa()}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-muted/60 px-4 py-2.5 text-xs font-semibold text-foreground transition hover:bg-muted"
+                  >
+                    <Download className="size-4 text-[#0095F6]" />
+                    Install ICS Academy App on Home Screen
+                  </button>
+                )}
+
+                {!isStandalone && !isIOS && !deferredPrompt && (
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    Tip: For the best Android experience, tap Chrome menu (⋮) →{' '}
+                    <strong>Add to Home screen / Install app</strong>.
+                  </p>
+                )}
+
+                {feedback && (
+                  <div
+                    className={cn(
+                      'rounded-xl px-3.5 py-2.5 text-xs font-medium',
+                      feedback.kind === 'success'
+                        ? 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-rose-500/12 text-rose-600 dark:text-rose-400',
+                    )}
+                  >
+                    {feedback.text}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null
+
   return (
     <>
       <button
@@ -325,6 +506,7 @@ export function CampusNotificationBell({
         onClick={() => {
           setFeedback(null)
           void refreshState()
+          void prefetchVapidPublicKey()
           setOpen(true)
         }}
         title={
@@ -334,7 +516,7 @@ export function CampusNotificationBell({
         }
         aria-label="Notification Settings"
         className={cn(
-          'relative flex size-9 items-center justify-center rounded-full border border-border/60 bg-background/80 text-foreground/80 transition-colors hover:bg-muted hover:text-foreground active:scale-95',
+          'relative flex size-8 sm:size-9 items-center justify-center rounded-full border border-border/60 bg-background/80 text-foreground/80 transition-colors hover:bg-muted hover:text-foreground active:scale-95',
           className,
         )}
       >
@@ -353,180 +535,7 @@ export function CampusNotificationBell({
         )}
       </button>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-[120] flex items-end justify-center bg-black/60 p-3 backdrop-blur-sm sm:items-center"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-3xl border border-border/70 bg-card p-5 text-card-foreground shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div
-                  className={cn(
-                    'flex size-10 shrink-0 items-center justify-center rounded-2xl',
-                    isSubscribed
-                      ? 'bg-emerald-500/15 text-emerald-500'
-                      : 'bg-[#0095F6]/15 text-[#0095F6]',
-                  )}
-                >
-                  {isSubscribed ? (
-                    <BellRing className="size-5" />
-                  ) : (
-                    <Bell className="size-5" />
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold leading-tight">
-                    Real-Time Notifications
-                  </h3>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {ownerLabel}
-                    {ownerSub ? ` · ${ownerSub}` : ''}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Close"
-                className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {pushState === 'ios-needs-home-screen' ? (
-                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs leading-relaxed">
-                  <div className="flex items-center gap-2 font-semibold text-amber-600 dark:text-amber-400">
-                    <Smartphone className="size-4 shrink-0" />
-                    <span>Add ICS Academy to iPhone Home Screen First</span>
-                  </div>
-                  <p className="mt-1.5 text-foreground/85">
-                    On iPhone (iOS 16.4+), real-time notifications when the app is closed work
-                    only after adding the app to your Home Screen:
-                  </p>
-                  <ol className="mt-2.5 space-y-1.5 pl-4 list-decimal text-foreground/90">
-                    <li>
-                      Tap the{' '}
-                      <span className="inline-flex items-center gap-1 font-semibold">
-                        <Share className="inline size-3.5" /> Share
-                      </span>{' '}
-                      button in Safari.
-                    </li>
-                    <li>
-                      Scroll down and tap <strong>Add to Home Screen</strong>, then{' '}
-                      <strong>Add</strong>.
-                    </li>
-                    <li>
-                      Open <strong>ICS Academy</strong> from your Home Screen and tap this Bell
-                      icon to turn on alerts.
-                    </li>
-                  </ol>
-                </div>
-              ) : isSubscribed ? (
-                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle2 className="size-4 shrink-0" />
-                    <span>Active on This Device</span>
-                  </div>
-                  <p className="mt-1 text-xs leading-relaxed text-foreground/80">
-                    Notices, chats, calls, attendance, leave, unit test and syllabus updates
-                    targeted to your account will arrive in real time—even when the app is closed.
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      disabled={testBusy}
-                      onClick={() => void handleSendTest()}
-                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
-                    >
-                      <Send className="size-3.5" />
-                      {testBusy ? 'Sending...' : 'Send Test Alert'}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void handleDisablePush()}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border px-3.5 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-60"
-                    >
-                      <BellOff className="size-3.5" />
-                      Turn Off
-                    </button>
-                  </div>
-                </div>
-              ) : pushState === 'denied' ? (
-                <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs leading-relaxed text-foreground/90">
-                  <p className="font-semibold text-rose-600 dark:text-rose-400">
-                    Notifications Blocked in Device Settings
-                  </p>
-                  <p className="mt-1">
-                    Open your phone&apos;s Browser / App Settings → Notifications → allow{' '}
-                    <strong>ICS Academy</strong>, then return here and tap Enable.
-                  </p>
-                </div>
-              ) : pushState === 'unsupported' ? (
-                <div className="rounded-2xl border border-border bg-muted/50 p-4 text-xs leading-relaxed text-muted-foreground">
-                  This browser does not support background Web Push. On Android use Chrome and
-                  install the app; on iPhone use Safari → Share → Add to Home Screen (iOS 16.4+).
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-[#0095F6]/25 bg-[#0095F6]/8 p-4">
-                  <p className="text-xs leading-relaxed text-foreground/85">
-                    Receive instant alerts on your phone—even when ICS Academy is closed—for
-                    messages, calls, class notices, attendance, leave updates, monthly tests and
-                    syllabus changes meant specifically for you.
-                  </p>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void handleEnablePush()}
-                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#0095F6] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0081d6] active:scale-[0.98] disabled:opacity-60"
-                  >
-                    <BellRing className="size-4" />
-                    {busy ? 'Enabling...' : 'Enable Real-Time Notifications'}
-                  </button>
-                </div>
-              )}
-
-              {/* In-App Install CTA for Android/Desktop browsers when not yet running as installed PWA */}
-              {!isStandalone && deferredPrompt && (
-                <button
-                  type="button"
-                  onClick={() => void handleInstallPwa()}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-muted/60 px-4 py-2.5 text-xs font-semibold text-foreground transition hover:bg-muted"
-                >
-                  <Download className="size-4 text-[#0095F6]" />
-                  Install ICS Academy App on Home Screen
-                </button>
-              )}
-
-              {!isStandalone && !isIOS && !deferredPrompt && (
-                <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  Tip: For the best Android experience, tap Chrome menu (⋮) →{' '}
-                  <strong>Add to Home screen / Install app</strong>.
-                </p>
-              )}
-
-              {feedback && (
-                <div
-                  className={cn(
-                    'rounded-xl px-3.5 py-2.5 text-xs font-medium',
-                    feedback.kind === 'success'
-                      ? 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400'
-                      : 'bg-rose-500/12 text-rose-600 dark:text-rose-400',
-                  )}
-                >
-                  {feedback.text}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {modalNode}
     </>
   )
 }
