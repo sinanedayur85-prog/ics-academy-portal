@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "651500102494",
+    "project_id": "ics-academy-push",
+    "storage_bucket": "ics-academy-push.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:651500102494:android:887e8be63a915a9ca8e5cf",
+        "android_client_info": {
+          "package_name": "com.icsacademy.manhappatta"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBUju1c1xb1y3jbfsLi8lXyai_grgr9afo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

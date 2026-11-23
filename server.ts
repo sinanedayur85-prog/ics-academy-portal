@@ -7,6 +7,9 @@ import { fileURLToPath } from 'url'
 import { GoogleGenAI, ThinkingLevel } from '@google/genai'
 import { createServer as createViteServer } from 'vite'
 import * as webpush from 'web-push'
+import { getApps, initializeApp, type App as FirebaseAdminApp } from 'firebase-admin/app'
+import { getMessaging, type Messaging as FirebaseAdminMessaging } from 'firebase-admin/messaging'
+import fs from 'fs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -1488,7 +1491,16 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
       typeof raw === 'string' &&
       raw.length >= 4 &&
       raw.length <= 64 &&
-      /^(st[d]?|usthad|principal)-[a-zA-Z0-9_-]+$/.test(raw)
+      /^(st[d]?|student|usthad|principal)-[a-zA-Z0-9_-]+$/.test(raw)
+    )
+  }
+
+  function isValidFcmToken(raw: unknown): raw is string {
+    return (
+      typeof raw === 'string' &&
+      raw.length >= 32 &&
+      raw.length <= 512 &&
+      /^[A-Za-z0-9:_-]+$/.test(raw)
     )
   }
 
@@ -1537,6 +1549,83 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
 
   const pushSubscriptionsByEndpoint = new Map<string, StoredPushSubscription>()
 
+  // Native Android APK Real-Time Push via Firebase Cloud Messaging (FCM HTTP v1 + ADC)
+  interface StoredFcmDevice {
+    token: string
+    actorId: string
+    actorRole: 'student' | 'usthad' | 'principal'
+    actorName: string
+    className: string
+    assignedClasses: string[]
+    platform: string
+    updatedAtMs: number
+  }
+
+  const FCM_PROJECT_ID = (process.env.FCM_PROJECT_ID || 'ics-academy-push').trim()
+  const FCM_TOKEN_CACHE_PATH = '/tmp/ics-academy-fcm-tokens.json'
+  let fcmMessaging: FirebaseAdminMessaging | null = null
+
+  try {
+    const existingFcmApp = getApps().find((a) => a.name === 'fcm-push')
+    const fcmApp: FirebaseAdminApp =
+      existingFcmApp || initializeApp({ projectId: FCM_PROJECT_ID }, 'fcm-push')
+    fcmMessaging = getMessaging(fcmApp)
+  } catch (err) {
+    console.error('Firebase Cloud Messaging (FCM) initialization error:', err)
+  }
+
+  const fcmDevicesByToken = new Map<string, StoredFcmDevice>()
+
+  // Restore recently registered Android FCM tokens after container restart if available
+  try {
+    if (fs.existsSync(FCM_TOKEN_CACHE_PATH)) {
+      const raw = fs.readFileSync(FCM_TOKEN_CACHE_PATH, 'utf8')
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (item && isValidFcmToken(item.token) && isValidPushActorId(item.actorId)) {
+            fcmDevicesByToken.set(item.token, {
+              token: item.token,
+              actorId: item.actorId,
+              actorRole:
+                item.actorRole === 'principal' || item.actorRole === 'usthad'
+                  ? item.actorRole
+                  : 'student',
+              actorName: typeof item.actorName === 'string' ? item.actorName.slice(0, 120) : 'Campus Member',
+              className: typeof item.className === 'string' ? item.className.slice(0, 60) : '',
+              assignedClasses: Array.isArray(item.assignedClasses)
+                ? item.assignedClasses.filter((c: unknown): c is string => typeof c === 'string').slice(0, 20)
+                : [],
+              platform: typeof item.platform === 'string' ? item.platform.slice(0, 40) : 'android-apk',
+              updatedAtMs: typeof item.updatedAtMs === 'number' ? item.updatedAtMs : Date.now(),
+            })
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore corrupted cache
+  }
+
+  function persistFcmDevicesCache() {
+    try {
+      const list = Array.from(fcmDevicesByToken.values()).slice(0, 2000)
+      fs.writeFileSync(FCM_TOKEN_CACHE_PATH, JSON.stringify(list), { mode: 0o600 })
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  function pruneOldFcmDevices() {
+    if (fcmDevicesByToken.size <= 2000) return
+    const sorted = Array.from(fcmDevicesByToken.entries()).sort(
+      (a, b) => b[1].updatedAtMs - a[1].updatedAtMs,
+    )
+    for (const [token] of sorted.slice(1600)) {
+      fcmDevicesByToken.delete(token)
+    }
+  }
+
   function pruneOldPushSubscriptions() {
     if (pushSubscriptionsByEndpoint.size <= 1500) return
     const sorted = Array.from(pushSubscriptionsByEndpoint.entries()).sort(
@@ -1548,7 +1637,10 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
   }
 
   function isPushSubscriptionTargeted(
-    sub: StoredPushSubscription,
+    sub: Pick<
+      StoredPushSubscription,
+      'actorId' | 'actorRole' | 'actorName' | 'className' | 'assignedClasses'
+    >,
     notif: ServerCampusNotification,
   ): boolean {
     const myActorId = sub.actorId
@@ -1672,8 +1764,78 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     }
   }
 
+  async function sendFcmMulticast(
+    tokens: string[],
+    payloadObj: {
+      title: string
+      body: string
+      href: string
+      tag: string
+      notificationId: string
+      type: string
+    },
+    urgency: 'normal' | 'high' = 'high',
+  ): Promise<void> {
+    if (!fcmMessaging || tokens.length === 0) return
+    const uniqueTokens = Array.from(new Set(tokens))
+    let prunedAny = false
+    for (let i = 0; i < uniqueTokens.length; i += 500) {
+      const batch = uniqueTokens.slice(i, i + 500)
+      try {
+        const response = await fcmMessaging.sendEachForMulticast({
+          tokens: batch,
+          notification: {
+            title: payloadObj.title,
+            body: payloadObj.body,
+          },
+          data: {
+            title: payloadObj.title,
+            body: payloadObj.body,
+            href: payloadObj.href,
+            tag: payloadObj.tag,
+            notificationId: payloadObj.notificationId,
+            type: payloadObj.type,
+          },
+          android: {
+            priority: 'high',
+            ttl: urgency === 'high' ? 60 * 1000 : 6 * 60 * 60 * 1000,
+            notification: {
+              channelId: 'ics_academy_updates',
+              sound: 'default',
+              defaultSound: true,
+              defaultVibrateTimings: true,
+              tag: payloadObj.tag,
+            },
+          },
+        })
+        if (response.failureCount > 0) {
+          response.responses.forEach((resp, idx) => {
+            if (!resp.success) {
+              const code = resp.error?.code || ''
+              if (
+                code === 'messaging/registration-token-not-registered' ||
+                code === 'messaging/invalid-registration-token'
+              ) {
+                fcmDevicesByToken.delete(batch[idx])
+                prunedAny = true
+              }
+            }
+          })
+        }
+      } catch (err) {
+        console.error('FCM multicast send error:', err instanceof Error ? err.message : err)
+      }
+    }
+    if (prunedAny) {
+      persistFcmDevicesCache()
+    }
+  }
+
   function dispatchWebPushForNotification(notif: ServerCampusNotification) {
-    if (!vapidReady || pushSubscriptionsByEndpoint.size === 0) return
+    const hasWebSubs = vapidReady && pushSubscriptionsByEndpoint.size > 0
+    const hasFcmDevices = Boolean(fcmMessaging) && fcmDevicesByToken.size > 0
+    if (!hasWebSubs && !hasFcmDevices) return
+
     const payload = {
       title: String(notif.title || 'ICS Academy').slice(0, 140),
       body: String(notif.message || 'Open ICS Academy to view details.').slice(0, 320),
@@ -1688,9 +1850,23 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
         ? 'high'
         : 'normal'
 
-    for (const sub of pushSubscriptionsByEndpoint.values()) {
-      if (isPushSubscriptionTargeted(sub, notif)) {
-        void sendWebPushToSubscription(sub, payload, urgency)
+    if (hasWebSubs) {
+      for (const sub of pushSubscriptionsByEndpoint.values()) {
+        if (isPushSubscriptionTargeted(sub, notif)) {
+          void sendWebPushToSubscription(sub, payload, urgency)
+        }
+      }
+    }
+
+    if (hasFcmDevices) {
+      const targetTokens: string[] = []
+      for (const dev of fcmDevicesByToken.values()) {
+        if (isPushSubscriptionTargeted(dev, notif)) {
+          targetTokens.push(dev.token)
+        }
+      }
+      if (targetTokens.length > 0) {
+        void sendFcmMulticast(targetTokens, payload, urgency)
       }
     }
   }
@@ -1702,7 +1878,11 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     callerName: string
     calleeId: string
   }) {
-    if (!vapidReady || pushSubscriptionsByEndpoint.size === 0 || !record.calleeId) return
+    if (!record.calleeId) return
+    const hasWebSubs = vapidReady && pushSubscriptionsByEndpoint.size > 0
+    const hasFcmDevices = Boolean(fcmMessaging) && fcmDevicesByToken.size > 0
+    if (!hasWebSubs && !hasFcmDevices) return
+
     const callLabel = record.callType === 'video' ? 'Incoming Video Call' : 'Incoming Voice Call'
     const payload = {
       title: `${callLabel} — ${record.callerName}`,
@@ -1714,9 +1894,23 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
       requireInteraction: true,
     }
 
-    for (const sub of pushSubscriptionsByEndpoint.values()) {
-      if (sub.actorId === record.calleeId && sub.actorId !== record.callerId) {
-        void sendWebPushToSubscription(sub, payload, 'high')
+    if (hasWebSubs) {
+      for (const sub of pushSubscriptionsByEndpoint.values()) {
+        if (sub.actorId === record.calleeId && sub.actorId !== record.callerId) {
+          void sendWebPushToSubscription(sub, payload, 'high')
+        }
+      }
+    }
+
+    if (hasFcmDevices) {
+      const targetTokens: string[] = []
+      for (const dev of fcmDevicesByToken.values()) {
+        if (dev.actorId === record.calleeId && dev.actorId !== record.callerId) {
+          targetTokens.push(dev.token)
+        }
+      }
+      if (targetTokens.length > 0) {
+        void sendFcmMulticast(targetTokens, payload, 'high')
       }
     }
   }
@@ -1831,6 +2025,88 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     const endpoint = typeof req.body?.endpoint === 'string' ? req.body.endpoint.trim() : ''
     if (endpoint && isValidPushEndpointUrl(endpoint)) {
       pushSubscriptionsByEndpoint.delete(endpoint)
+    }
+    res.json({ ok: true })
+  })
+
+  // Native Android APK FCM Token Registration & Status
+  app.get('/api/push/fcm/status', (_req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    res.setHeader('Cache-Control', 'no-store')
+    res.json({
+      ok: Boolean(fcmMessaging),
+      projectId: FCM_PROJECT_ID,
+      registeredDevices: fcmDevicesByToken.size,
+    })
+  })
+
+  app.post('/api/push/fcm/register', (req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    try {
+      const { token, actorId, actorRole, actorName, className, assignedClasses, platform } =
+        req.body ?? {}
+
+      const cleanToken = typeof token === 'string' ? token.trim() : ''
+      if (!isValidFcmToken(cleanToken)) {
+        res.status(400).json({ error: 'Valid FCM device token is required.' })
+        return
+      }
+      if (!isValidPushActorId(actorId)) {
+        res.status(400).json({ error: 'Valid portal actorId is required.' })
+        return
+      }
+
+      const safeRole: 'student' | 'usthad' | 'principal' =
+        actorRole === 'principal' || actorRole === 'usthad' ? actorRole : 'student'
+      const safeName =
+        typeof actorName === 'string' && actorName.trim()
+          ? actorName.trim().slice(0, 120)
+          : 'Campus Member'
+      const safeClass = typeof className === 'string' ? className.trim().slice(0, 60) : ''
+      const safeAssigned = Array.isArray(assignedClasses)
+        ? assignedClasses
+            .filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
+            .map((c) => c.trim().slice(0, 60))
+            .slice(0, 20)
+        : []
+      const safePlatform =
+        typeof platform === 'string' ? platform.trim().slice(0, 40) : 'android-apk'
+
+      fcmDevicesByToken.set(cleanToken, {
+        token: cleanToken,
+        actorId,
+        actorRole: safeRole,
+        actorName: safeName,
+        className: safeClass,
+        assignedClasses: safeAssigned,
+        platform: safePlatform,
+        updatedAtMs: Date.now(),
+      })
+      pruneOldFcmDevices()
+      persistFcmDevicesCache()
+
+      res.json({
+        ok: true,
+        actorId,
+        actorRole: safeRole,
+        activeAndroidDevicesForActor: Array.from(fcmDevicesByToken.values()).filter(
+          (d) => d.actorId === actorId,
+        ).length,
+      })
+    } catch (err) {
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'Failed to register FCM device.',
+      })
+    }
+  })
+
+  app.post('/api/push/fcm/unregister', (req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    const cleanToken = typeof req.body?.token === 'string' ? req.body.token.trim() : ''
+    if (cleanToken && isValidFcmToken(cleanToken)) {
+      if (fcmDevicesByToken.delete(cleanToken)) {
+        persistFcmDevicesCache()
+      }
     }
     res.json({ ok: true })
   })

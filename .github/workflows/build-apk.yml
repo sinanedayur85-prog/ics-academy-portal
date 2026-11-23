@@ -104,13 +104,41 @@ jobs:
             fs.writeFileSync('android/app/debug.keystore', keystoreBuf);
           }
 
-          // Update versionCode and versionName in android/app/build.gradle
+          // Update versionCode and versionName in android/app/build.gradle + bundle Firebase Cloud Messaging (FCM)
           const runNum = Number(process.env.RUN_NUMBER || 1);
+          const googleServicesSrc = 'android-config/google-services.json';
+          const googleServicesDest = 'android/app/google-services.json';
+          if (fs.existsSync(googleServicesSrc) && fs.existsSync('android/app')) {
+            fs.copyFileSync(googleServicesSrc, googleServicesDest);
+            console.log('Bundled android/app/google-services.json for instant FCM push notifications');
+          }
+
+          const rootGradlePath = 'android/build.gradle';
+          if (fs.existsSync(rootGradlePath)) {
+            let rootGradle = fs.readFileSync(rootGradlePath, 'utf8');
+            if (!rootGradle.includes('com.google.gms:google-services')) {
+              rootGradle = rootGradle.replace(
+                /(classpath\s+['"]com\.android\.tools\.build:gradle:[^'"]+['"])/,
+                "$1\n        classpath 'com.google.gms:google-services:4.4.2'"
+              );
+              fs.writeFileSync(rootGradlePath, rootGradle, 'utf8');
+            }
+          }
+
           const buildGradlePath = 'android/app/build.gradle';
           if (fs.existsSync(buildGradlePath)) {
             let gradleContent = fs.readFileSync(buildGradlePath, 'utf8');
             gradleContent = gradleContent.replace(/versionCode\s+\d+/, 'versionCode ' + (100 + runNum));
             gradleContent = gradleContent.replace(/versionName\s+"[^"]*"/, 'versionName "1.0.' + runNum + '"');
+            if (!gradleContent.includes('com.google.firebase:firebase-messaging')) {
+              gradleContent = gradleContent.replace(
+                /dependencies\s*\{/,
+                "dependencies {\n    implementation platform('com.google.firebase:firebase-bom:33.7.0')\n    implementation 'com.google.firebase:firebase-messaging'"
+              );
+            }
+            if (!gradleContent.includes('com.google.gms.google-services') && fs.existsSync(googleServicesDest)) {
+              gradleContent += "\napply plugin: 'com.google.gms.google-services'\n";
+            }
             fs.writeFileSync(buildGradlePath, gradleContent, 'utf8');
           }
 
@@ -270,7 +298,7 @@ jobs:
             if (!manifest.includes('CampusBackgroundNotificationService')) {
               manifest = manifest.replace(
                 '</application>',
-                '    <service\n            android:name=".CampusBackgroundNotificationService"\n            android:permission="android.permission.BIND_JOB_SERVICE"\n            android:exported="false" />\n        <receiver\n            android:name=".CampusBootReceiver"\n            android:exported="true">\n            <intent-filter>\n                <action android:name="android.intent.action.BOOT_COMPLETED" />\n            </intent-filter>\n        </receiver>\n    </application>'
+                '    <service\n            android:name=".CampusFirebaseMessagingService"\n            android:exported="false">\n            <intent-filter>\n                <action android:name="com.google.firebase.MESSAGING_EVENT" />\n            </intent-filter>\n        </service>\n        <meta-data\n            android:name="com.google.firebase.messaging.default_notification_channel_id"\n            android:value="ics_academy_updates" />\n        <service\n            android:name=".CampusBackgroundNotificationService"\n            android:permission="android.permission.BIND_JOB_SERVICE"\n            android:exported="false" />\n        <receiver\n            android:name=".CampusBootReceiver"\n            android:exported="true">\n            <intent-filter>\n                <action android:name="android.intent.action.BOOT_COMPLETED" />\n            </intent-filter>\n        </receiver>\n    </application>'
               );
             }
             fs.writeFileSync(manifestPath, manifest, 'utf8');
@@ -339,8 +367,13 @@ jobs:
               private static final String CHANNEL_ID = "ics_academy_updates";
               private static final int GROUPED_NOTIFICATION_ID = 1001;
               private static final int REQ_VOICE_RECOGNITION = 2002;
+              private static volatile boolean activityInForeground = false;
               private int lastStatusBarHeightDp = 28;
               private final ArrayList<String> groupedNotificationLines = new ArrayList<>();
+
+              public static boolean isActivityInForeground() {
+                  return activityInForeground;
+              }
 
               @Override
               public void onCreate(Bundle savedInstanceState) {
@@ -349,6 +382,7 @@ jobs:
                   createNotificationChannel();
                   requestAppPermissionsIfNeeded();
                   clearGroupedSystemNotifications();
+                  CampusFirebaseMessagingService.syncCurrentTokenToServer(this);
                   CampusBackgroundNotificationService.schedulePeriodic(this);
 
                   Window window = getWindow();
@@ -493,6 +527,19 @@ jobs:
               }
 
               @Override
+              public void onResume() {
+                  super.onResume();
+                  activityInForeground = true;
+                  clearGroupedSystemNotifications();
+              }
+
+              @Override
+              public void onPause() {
+                  activityInForeground = false;
+                  super.onPause();
+              }
+
+              @Override
               protected void onNewIntent(Intent intent) {
                   super.onNewIntent(intent);
                   clearGroupedSystemNotifications();
@@ -500,6 +547,7 @@ jobs:
 
               @Override
               protected void onStop() {
+                  activityInForeground = false;
                   super.onStop();
                   try {
                       android.content.SharedPreferences prefs = getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
@@ -594,6 +642,7 @@ jobs:
                               editor.putLong("lastActiveMs", System.currentTimeMillis());
                           }
                           editor.apply();
+                          CampusFirebaseMessagingService.syncCurrentTokenToServer(MainActivity.this);
                           CampusBackgroundNotificationService.schedulePeriodic(MainActivity.this);
                       } catch (Exception ignored) {
                       }
@@ -1187,7 +1236,203 @@ jobs:
           `;
           fs.writeFileSync(bootReceiverPath, bootReceiverJava, 'utf8');
 
-          console.log('Successfully configured Android MainActivity, Background Notification Service, styles.xml, and persistent signing key');
+          // 5. Write Native Firebase Cloud Messaging (FCM) Service for 1-second instant closed-app Android push notifications
+          const fcmServicePath = path.join(mainActivityDir, 'CampusFirebaseMessagingService.java');
+          const fcmServiceJava = `package com.icsacademy.manhappatta;
+
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.app.PendingIntent;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+          import android.os.Build;
+
+          import androidx.annotation.NonNull;
+          import androidx.core.app.NotificationCompat;
+
+          import com.google.firebase.messaging.FirebaseMessaging;
+          import com.google.firebase.messaging.FirebaseMessagingService;
+          import com.google.firebase.messaging.RemoteMessage;
+
+          import org.json.JSONArray;
+          import org.json.JSONObject;
+
+          import java.io.OutputStream;
+          import java.net.HttpURLConnection;
+          import java.net.URL;
+          import java.nio.charset.StandardCharsets;
+          import java.util.HashSet;
+          import java.util.Map;
+          import java.util.Set;
+
+          public class CampusFirebaseMessagingService extends FirebaseMessagingService {
+              private static final String CHANNEL_ID = "ics_academy_updates";
+              private static final String[] API_BASES = new String[] {
+                  "https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app",
+                  "https://ais-dev-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app"
+              };
+
+              public static void syncCurrentTokenToServer(final Context context) {
+                  if (context == null) return;
+                  final Context appCtx = context.getApplicationContext();
+                  try {
+                      FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
+                          if (!task.isSuccessful()) return;
+                          String token = task.getResult();
+                          if (token == null || token.trim().isEmpty()) return;
+                          SharedPreferences prefs = appCtx.getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                          prefs.edit().putString("fcmToken", token.trim()).apply();
+                          registerTokenToServerAsync(appCtx, token.trim());
+                      });
+                  } catch (Exception ignored) {
+                  }
+              }
+
+              public static void registerTokenToServerAsync(final Context context, final String token) {
+                  if (context == null || token == null || token.trim().isEmpty()) return;
+                  final Context appCtx = context.getApplicationContext();
+                  new Thread(() -> {
+                      try {
+                          SharedPreferences prefs = appCtx.getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                          String actorId = prefs.getString("actorId", "");
+                          if (actorId == null || actorId.trim().isEmpty()) return;
+
+                          String actorName = prefs.getString("actorName", "");
+                          String role = prefs.getString("role", "student");
+                          String className = prefs.getString("className", "");
+                          String assignedJson = prefs.getString("assignedClassesJson", "[]");
+
+                          JSONObject body = new JSONObject();
+                          body.put("token", token.trim());
+                          body.put("actorId", actorId.trim());
+                          body.put("actorRole", role != null ? role.trim() : "student");
+                          body.put("actorName", actorName != null ? actorName.trim() : "");
+                          body.put("className", className != null ? className.trim() : "");
+                          try {
+                              body.put("assignedClasses", new JSONArray(assignedJson));
+                          } catch (Exception ignored) {
+                              body.put("assignedClasses", new JSONArray());
+                          }
+                          body.put("platform", "android-apk");
+
+                          byte[] payloadBytes = body.toString().getBytes(StandardCharsets.UTF_8);
+
+                          for (String base : API_BASES) {
+                              HttpURLConnection conn = null;
+                              try {
+                                  URL url = new URL(base + "/api/push/fcm/register");
+                                  conn = (HttpURLConnection) url.openConnection();
+                                  conn.setRequestMethod("POST");
+                                  conn.setConnectTimeout(6000);
+                                  conn.setReadTimeout(6000);
+                                  conn.setDoOutput(true);
+                                  conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                                  try (OutputStream os = conn.getOutputStream()) {
+                                      os.write(payloadBytes);
+                                      os.flush();
+                                  }
+                                  int code = conn.getResponseCode();
+                                  if (code >= 200 && code < 300) {
+                                      break;
+                                  }
+                              } catch (Exception ignored) {
+                              } finally {
+                                  if (conn != null) conn.disconnect();
+                              }
+                          }
+                      } catch (Exception ignored) {
+                      }
+                  }).start();
+              }
+
+              @Override
+              public void onNewToken(@NonNull String token) {
+                  super.onNewToken(token);
+                  try {
+                      SharedPreferences prefs = getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                      prefs.edit().putString("fcmToken", token.trim()).apply();
+                      registerTokenToServerAsync(this, token.trim());
+                  } catch (Exception ignored) {
+                  }
+              }
+
+              @Override
+              public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
+                  super.onMessageReceived(remoteMessage);
+                  try {
+                      Map<String, String> data = remoteMessage.getData();
+                      String title = data.get("title");
+                      String body = data.get("body");
+                      String notifId = data.get("notificationId");
+
+                      if ((title == null || title.trim().isEmpty()) && remoteMessage.getNotification() != null) {
+                          title = remoteMessage.getNotification().getTitle();
+                      }
+                      if ((body == null || body.trim().isEmpty()) && remoteMessage.getNotification() != null) {
+                          body = remoteMessage.getNotification().getBody();
+                      }
+                      if (title == null || title.trim().isEmpty()) {
+                          title = "ICS Academy";
+                      }
+                      if (body == null) {
+                          body = "";
+                      }
+
+                      if (notifId != null && !notifId.trim().isEmpty()) {
+                          SharedPreferences prefs = getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                          Set<String> seen = new HashSet<>(prefs.getStringSet("seenNotifIds", new HashSet<>()));
+                          seen.add(notifId.trim());
+                          prefs.edit().putStringSet("seenNotifIds", seen).apply();
+                      }
+
+                      // When app is already open in foreground, CampusNotificationBar handles live alerts & chat-room suppression
+                      if (MainActivity.isActivityInForeground()) {
+                          return;
+                      }
+
+                      NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                      if (manager == null) return;
+
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                          NotificationChannel channel = new NotificationChannel(
+                              CHANNEL_ID,
+                              "ICS Academy Announcements & Attendance",
+                              NotificationManager.IMPORTANCE_HIGH
+                          );
+                          channel.enableVibration(true);
+                          manager.createNotificationChannel(channel);
+                      }
+
+                      Intent intent = new Intent(this, MainActivity.class);
+                      intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                      int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                          ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
+                          : PendingIntent.FLAG_UPDATE_CURRENT;
+                      PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, flags);
+
+                      NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                          .setSmallIcon(getApplicationInfo().icon)
+                          .setContentTitle(title.trim())
+                          .setContentText(body.trim())
+                          .setStyle(new NotificationCompat.BigTextStyle().bigText(body.trim()))
+                          .setPriority(NotificationCompat.PRIORITY_HIGH)
+                          .setDefaults(NotificationCompat.DEFAULT_ALL)
+                          .setAutoCancel(true)
+                          .setContentIntent(pendingIntent);
+
+                      int notifyId = (notifId != null && !notifId.isEmpty())
+                          ? Math.abs(notifId.hashCode())
+                          : (int) (System.currentTimeMillis() & 0x7fffffff);
+                      manager.notify(notifyId, builder.build());
+                  } catch (Exception ignored) {
+                  }
+              }
+          }
+          `;
+          fs.writeFileSync(fcmServicePath, fcmServiceJava, 'utf8');
+
+          console.log('Successfully configured Android MainActivity, FCM Messaging Service, Background Notification Service, styles.xml, and persistent signing key');
           EOF
           node configure-android.cjs
           rm configure-android.cjs
