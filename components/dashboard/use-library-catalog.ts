@@ -5,13 +5,12 @@ import {
   collection,
   doc,
   getDoc,
-  onSnapshot,
+  getDocs,
   query,
   serverTimestamp,
   setDoc,
   updateDoc,
   where,
-  type Unsubscribe,
 } from 'firebase/firestore'
 import {
   BOOK_CATEGORIES,
@@ -120,12 +119,13 @@ function normalizeActorName(raw?: string): string {
   return trimmed.length > 0 ? trimmed : 'Principal'
 }
 
-// Module-level shared real-time Firestore subscription so every dashboard/tab
-// shares a single live snapshot listener and stays in sync instantaneously.
+// Module-level TTL-cached cloud sync so library catalog changes are fetched once
+// per 5 minutes (instead of keeping a permanent Firestore onSnapshot listener open on every device).
+const LIBRARY_SYNC_TTL_MS = 5 * 60 * 1000
 let sharedChanges: ChangeMap = readCachedChanges()
 let hasInitialSnapshot = false
-let activeListenerCount = 0
-let firestoreUnsub: Unsubscribe | null = null
+let lastFetchedAtMs = 0
+let fetchInFlight = false
 const listeners = new Set<() => void>()
 
 function emitChange() {
@@ -160,45 +160,41 @@ function parseSnapshotDoc(docId: string, data: Record<string, unknown>): Library
   }
 }
 
-function startSharedSubscription() {
-  if (firestoreUnsub || typeof window === 'undefined') return
+async function refreshLibraryChangesIfStale() {
+  if (typeof window === 'undefined' || fetchInFlight) return
+  if (lastFetchedAtMs > 0 && Date.now() - lastFetchedAtMs < LIBRARY_SYNC_TTL_MS) return
+
+  fetchInFlight = true
   try {
     const q = query(
       collection(db, COLLECTION_NAME),
       where('campusId', '==', CAMPUS_ID),
     )
-    firestoreUnsub = onSnapshot(
-      q,
-      (snapshot) => {
-        const nextMap: ChangeMap = {}
-        snapshot.forEach((docSnap) => {
-          const parsed = parseSnapshotDoc(docSnap.id, docSnap.data() as Record<string, unknown>)
-          if (parsed) {
-            nextMap[parsed.id] = parsed
-          }
-        })
-        sharedChanges = nextMap
-        hasInitialSnapshot = true
-        emitChange()
-      },
-      (err) => {
-        // Keep cached/base catalog functional if offline or transiently unavailable
-        try {
-          handleFirestoreError(err, OperationType.LIST, COLLECTION_NAME)
-        } catch {
-          // Structured diagnostic already logged by handleFirestoreError
-        }
-      },
-    )
-  } catch {
-    // Fallback gracefully to cached/base catalog
-  }
-}
-
-function stopSharedSubscriptionIfUnused() {
-  if (activeListenerCount <= 0 && firestoreUnsub) {
-    firestoreUnsub()
-    firestoreUnsub = null
+    const snapshot = await getDocs(q)
+    const nextMap: ChangeMap = {}
+    snapshot.forEach((docSnap) => {
+      const parsed = parseSnapshotDoc(docSnap.id, docSnap.data() as Record<string, unknown>)
+      if (parsed) {
+        nextMap[parsed.id] = parsed
+      }
+    })
+    sharedChanges = nextMap
+    hasInitialSnapshot = true
+    lastFetchedAtMs = Date.now()
+    emitChange()
+  } catch (err) {
+    // Pause retries for this TTL window if quota or network temporarily fails, while preserving error diagnostics
+    lastFetchedAtMs = Date.now()
+    const msg = err instanceof Error ? err.message : String(err)
+    if (msg.includes('permission') || msg.includes('insufficient')) {
+      try {
+        handleFirestoreError(err, OperationType.LIST, COLLECTION_NAME)
+      } catch {
+        // Structured diagnostic already logged by handleFirestoreError
+      }
+    }
+  } finally {
+    fetchInFlight = false
   }
 }
 
@@ -395,15 +391,12 @@ export function useLibraryCatalog() {
   useEffect(() => {
     const sync = () => setChanges({ ...sharedChanges })
     listeners.add(sync)
-    activeListenerCount += 1
-    startSharedSubscription()
+    void refreshLibraryChangesIfStale()
     // Sync immediately in case cache changed between render and effect
     sync()
 
     return () => {
       listeners.delete(sync)
-      activeListenerCount = Math.max(0, activeListenerCount - 1)
-      stopSharedSubscriptionIfUnused()
     }
   }, [])
 

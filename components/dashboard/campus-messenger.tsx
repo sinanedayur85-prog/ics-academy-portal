@@ -2451,26 +2451,40 @@ export function CampusMessenger({
       const metaQuery = query(
         collection(db, 'campusChatMeta'),
         where('campusId', '==', 'ics-academy'),
+        limit(60),
       )
-      const unsubMeta = onSnapshot(metaQuery, (snapshot) => {
-        const fsMeta: Record<string, ChatRoomMeta> = {}
-        snapshot.forEach((docSnap) => {
-          knownMetaIdsRef.current.add(docSnap.id)
-          const raw = docSnap.data() as Record<string, unknown>
-          if (!raw || typeof raw.roomId !== 'string') return
-          fsMeta[raw.roomId] = {
-            roomId: raw.roomId,
-            onlyAdminsCanPost: Boolean(raw.onlyAdminsCanPost),
-            pinnedMessageId:
-              typeof raw.pinnedMessageId === 'string' ? raw.pinnedMessageId : null,
-            updatedAtMs:
-              typeof raw.updatedAtMs === 'number' ? raw.updatedAtMs : Date.now(),
+      const unsubMeta = onSnapshot(
+        metaQuery,
+        (snapshot) => {
+          const fsMeta: Record<string, ChatRoomMeta> = {}
+          snapshot.forEach((docSnap) => {
+            knownMetaIdsRef.current.add(docSnap.id)
+            const raw = docSnap.data() as Record<string, unknown>
+            if (!raw || typeof raw.roomId !== 'string') return
+            fsMeta[raw.roomId] = {
+              roomId: raw.roomId,
+              onlyAdminsCanPost: Boolean(raw.onlyAdminsCanPost),
+              pinnedMessageId:
+                typeof raw.pinnedMessageId === 'string' ? raw.pinnedMessageId : null,
+              updatedAtMs:
+                typeof raw.updatedAtMs === 'number' ? raw.updatedAtMs : Date.now(),
+            }
+          })
+          if (Object.keys(fsMeta).length > 0) {
+            mergeIncomingChatStates([{ roomsMeta: fsMeta }])
           }
-        })
-        if (Object.keys(fsMeta).length > 0) {
-          mergeIncomingChatStates([{ roomsMeta: fsMeta }])
-        }
-      })
+        },
+        (error) => {
+          const msg = error instanceof Error ? error.message : String(error)
+          if (msg.includes('permission') || msg.includes('insufficient')) {
+            try {
+              handleFirestoreError(error, OperationType.LIST, 'campusChatMeta')
+            } catch {
+              // Logged cleanly
+            }
+          }
+        },
+      )
       unsubscribes.push(unsubMeta)
     } catch {
       // Ignore listener attach error
@@ -2480,8 +2494,11 @@ export function CampusMessenger({
       const presenceQuery = query(
         collection(db, 'campusChatPresence'),
         where('campusId', '==', 'ics-academy'),
+        limit(80),
       )
-      const unsubPresence = onSnapshot(presenceQuery, (snapshot) => {
+      const unsubPresence = onSnapshot(
+        presenceQuery,
+        (snapshot) => {
         const fsPresence: Record<string, ChatPresenceEntry> = {}
         const fsTyping: Record<string, Record<string, ChatTypingEntry>> = {}
         snapshot.forEach((docSnap) => {
@@ -2513,7 +2530,18 @@ export function CampusMessenger({
           }
         })
         mergeIncomingChatStates([{ presenceMap: fsPresence, typingMap: fsTyping }])
-      })
+        },
+        (error) => {
+          const msg = error instanceof Error ? error.message : String(error)
+          if (msg.includes('permission') || msg.includes('insufficient')) {
+            try {
+              handleFirestoreError(error, OperationType.LIST, 'campusChatPresence')
+            } catch {
+              // Logged cleanly
+            }
+          }
+        },
+      )
       unsubscribes.push(unsubPresence)
     } catch {
       // Ignore listener attach error

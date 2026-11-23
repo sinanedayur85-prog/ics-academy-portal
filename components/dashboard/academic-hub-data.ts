@@ -696,27 +696,33 @@ export async function upsertCampusAcademicRecord(record: CampusAcademicRecord): 
   }
 }
 
-export function subscribeCampusAcademicRecords(
-  onUpdate: (records: CampusAcademicRecord[]) => void,
-): () => void {
-  if (typeof window === 'undefined') return () => {}
+// Module-level shared listener so tab switches & multiple Academic Hub views never attach duplicate Firestore listeners
+let sharedAcademicRefCount = 0
+let sharedAcademicUnsub: (() => void) | null = null
+const sharedAcademicCallbacks = new Set<(records: CampusAcademicRecord[]) => void>()
 
-  const handleLocal = () => {
-    onUpdate(loadCampusAcademicRecords())
+function emitSharedAcademicRecords() {
+  const latest = loadCampusAcademicRecords()
+  for (const cb of sharedAcademicCallbacks) {
+    try {
+      cb(latest)
+    } catch {
+      // Ignore subscriber error
+    }
   }
+}
 
-  window.addEventListener('ics-academic-records-updated', handleLocal)
-
-  let unsubFirestore = () => {}
+function ensureSharedAcademicListener() {
+  if (sharedAcademicUnsub || typeof window === 'undefined') return
   try {
     const q = query(
       collection(db, 'campusAcademicRecords'),
       where('updatedAtMs', '>', 0),
       orderBy('updatedAtMs', 'desc'),
-      limit(350),
+      limit(150),
     )
 
-    unsubFirestore = onSnapshot(
+    sharedAcademicUnsub = onSnapshot(
       q,
       (snapshot) => {
         try {
@@ -788,7 +794,7 @@ export function subscribeCampusAcademicRecords(
             window.localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
             window.localStorage.setItem(SEEDED_VERSION_KEY, '1')
           }
-          onUpdate(loadCampusAcademicRecords())
+          emitSharedAcademicRecords()
         } catch {
           // Ignore snapshot parse error
         }
@@ -807,13 +813,33 @@ export function subscribeCampusAcademicRecords(
   } catch {
     // Ignore listener attach error
   }
+}
+
+export function subscribeCampusAcademicRecords(
+  onUpdate: (records: CampusAcademicRecord[]) => void,
+): () => void {
+  if (typeof window === 'undefined') return () => {}
+
+  const handleLocal = () => {
+    onUpdate(loadCampusAcademicRecords())
+  }
+
+  sharedAcademicCallbacks.add(onUpdate)
+  sharedAcademicRefCount += 1
+  window.addEventListener('ics-academic-records-updated', handleLocal)
+  ensureSharedAcademicListener()
 
   return () => {
     window.removeEventListener('ics-academic-records-updated', handleLocal)
-    try {
-      unsubFirestore()
-    } catch {
-      // Ignore
+    sharedAcademicCallbacks.delete(onUpdate)
+    sharedAcademicRefCount = Math.max(0, sharedAcademicRefCount - 1)
+    if (sharedAcademicRefCount === 0 && sharedAcademicUnsub) {
+      try {
+        sharedAcademicUnsub()
+      } catch {
+        // Ignore
+      }
+      sharedAcademicUnsub = null
     }
   }
 }

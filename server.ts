@@ -6,6 +6,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { GoogleGenAI, ThinkingLevel } from '@google/genai'
 import { createServer as createViteServer } from 'vite'
+import webpush from 'web-push'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -1422,6 +1423,418 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     notifications: [],
   }
 
+  // Real-Time Background Web Push (VAPID) for Android PWA/Chrome & iPhone iOS 16.4+ Add to Home Screen
+  interface StoredPushSubscription {
+    endpoint: string
+    keys: {
+      p256dh: string
+      auth: string
+    }
+    actorId: string
+    actorRole: 'student' | 'usthad' | 'principal'
+    actorName: string
+    className: string
+    assignedClasses: string[]
+    platform: string
+    updatedAtMs: number
+  }
+
+  const ALLOWED_PUSH_HOST_SUFFIXES = [
+    'fcm.googleapis.com',
+    'android.googleapis.com',
+    'web.push.apple.com',
+    '.push.apple.com',
+    'updates.push.services.mozilla.com',
+    '.push.services.mozilla.com',
+    '.notify.windows.com',
+    '.push.samsungosp.com',
+  ]
+
+  function isValidPushEndpointUrl(raw: string): boolean {
+    if (typeof raw !== 'string' || raw.length < 16 || raw.length > 2048) return false
+    try {
+      const parsed = new URL(raw)
+      if (parsed.protocol !== 'https:') return false
+      const host = parsed.hostname.toLowerCase()
+      if (
+        !host ||
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host === '::1' ||
+        host === '169.254.169.254' ||
+        /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)
+      ) {
+        return false
+      }
+      return ALLOWED_PUSH_HOST_SUFFIXES.some((suffix) =>
+        suffix.startsWith('.') ? host.endsWith(suffix) : host === suffix,
+      )
+    } catch {
+      return false
+    }
+  }
+
+  function isValidBase64UrlKey(raw: unknown): raw is string {
+    return (
+      typeof raw === 'string' &&
+      raw.length >= 16 &&
+      raw.length <= 256 &&
+      /^[A-Za-z0-9_-]+={0,2}$/.test(raw)
+    )
+  }
+
+  function isValidPushActorId(raw: unknown): raw is string {
+    return (
+      typeof raw === 'string' &&
+      raw.length >= 4 &&
+      raw.length <= 64 &&
+      /^(st[d]?|usthad|principal)-[a-zA-Z0-9_-]+$/.test(raw)
+    )
+  }
+
+  function normalizePushClassLabel(raw?: string): string {
+    if (!raw || typeof raw !== 'string') return ''
+    return raw
+      .replace(/^class\s+/i, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toUpperCase()
+  }
+
+  const envVapidPublic = (process.env.VAPID_PUBLIC_KEY || '').trim()
+  const envVapidPrivate = (process.env.VAPID_PRIVATE_KEY || '').trim()
+  const envVapidSubject =
+    (process.env.VAPID_SUBJECT || '').trim() || 'mailto:admin@icsacademy.edu'
+
+  let vapidPublicKey = ''
+  let vapidReady = false
+  try {
+    const keys =
+      envVapidPublic && envVapidPrivate
+        ? { publicKey: envVapidPublic, privateKey: envVapidPrivate }
+        : webpush.generateVAPIDKeys()
+    webpush.setVapidDetails(envVapidSubject, keys.publicKey, keys.privateKey)
+    vapidPublicKey = keys.publicKey
+    vapidReady = true
+  } catch (err) {
+    console.error('Web Push VAPID initialization error:', err)
+  }
+
+  const pushSubscriptionsByEndpoint = new Map<string, StoredPushSubscription>()
+
+  function pruneOldPushSubscriptions() {
+    if (pushSubscriptionsByEndpoint.size <= 1500) return
+    const sorted = Array.from(pushSubscriptionsByEndpoint.entries()).sort(
+      (a, b) => b[1].updatedAtMs - a[1].updatedAtMs,
+    )
+    for (const [endpoint] of sorted.slice(1200)) {
+      pushSubscriptionsByEndpoint.delete(endpoint)
+    }
+  }
+
+  function isPushSubscriptionTargeted(
+    sub: StoredPushSubscription,
+    notif: ServerCampusNotification,
+  ): boolean {
+    const myActorId = sub.actorId
+    const myActorName = sub.actorName
+    const isStaff = sub.actorRole === 'usthad' || sub.actorRole === 'principal'
+    const isPrincipal = sub.actorRole === 'principal'
+
+    // 1. Never push back to the sender
+    if (notif.actorId && myActorId && notif.actorId === myActorId) {
+      return false
+    }
+    if (
+      !notif.actorId &&
+      notif.actorName &&
+      myActorName &&
+      notif.actorName.trim().toLowerCase() === myActorName.trim().toLowerCase()
+    ) {
+      return false
+    }
+
+    // 2. Direct 1-on-1 Chat / Specific Recipient / Call Target
+    if (notif.targetRecipientId) {
+      return notif.targetRecipientId === myActorId
+    }
+
+    // 3. Staff Room Group Targeting (Usthads & Principal only)
+    if (notif.targetStaffOnly) {
+      return isStaff
+    }
+
+    const normMyClass = normalizePushClassLabel(sub.className)
+    const normAssigned = sub.assignedClasses.map(normalizePushClassLabel).filter(Boolean)
+    const normTargetClass = normalizePushClassLabel(notif.targetClass)
+    const normTargetClasses = Array.isArray(notif.targetClasses)
+      ? notif.targetClasses.map(normalizePushClassLabel).filter(Boolean)
+      : []
+
+    // 4. Batch Group Chat Targeting
+    if (notif.type === 'chat') {
+      if (normTargetClass && normTargetClass !== 'ALL') {
+        if (!isStaff) {
+          return normMyClass === normTargetClass
+        }
+        return normMyClass === normTargetClass || normAssigned.includes(normTargetClass)
+      }
+      return false
+    }
+
+    // 5. Student / Class Leader targeting
+    if (!isStaff) {
+      if (notif.targetStudentId && notif.targetStudentId !== myActorId) {
+        return false
+      }
+      if (notif.type === 'attendance' || notif.type === 'leave') {
+        return Boolean(notif.targetStudentId && notif.targetStudentId === myActorId)
+      }
+      if (normTargetClasses.length > 0 && !normTargetClasses.includes('ALL')) {
+        if (normMyClass && !normTargetClasses.includes(normMyClass)) {
+          return false
+        }
+      }
+      if (normTargetClass && normTargetClass !== 'ALL') {
+        if (normMyClass && normTargetClass !== normMyClass) {
+          return false
+        }
+      }
+      return true
+    }
+
+    // 6. Usthad (non-Principal) targeting
+    if (!isPrincipal) {
+      if (normTargetClasses.length > 0 && !normTargetClasses.includes('ALL')) {
+        const matchesAny =
+          (normMyClass && normTargetClasses.includes(normMyClass)) ||
+          normAssigned.some((c) => normTargetClasses.includes(c))
+        if (!matchesAny) return false
+      }
+      if (normTargetClass && normTargetClass !== 'ALL') {
+        const matchesSingle =
+          normMyClass === normTargetClass || normAssigned.includes(normTargetClass)
+        if (!matchesSingle) return false
+      }
+    }
+
+    return true
+  }
+
+  async function sendWebPushToSubscription(
+    sub: StoredPushSubscription,
+    payloadObj: {
+      title: string
+      body: string
+      href: string
+      tag: string
+      notificationId: string
+      type: string
+      requireInteraction?: boolean
+    },
+    urgency: 'normal' | 'high' = 'normal',
+  ): Promise<boolean> {
+    if (!vapidReady) return false
+    try {
+      await webpush.sendNotification(
+        {
+          endpoint: sub.endpoint,
+          keys: sub.keys,
+        },
+        JSON.stringify(payloadObj),
+        {
+          TTL: urgency === 'high' ? 60 : 60 * 60 * 6,
+          urgency,
+        },
+      )
+      return true
+    } catch (err: unknown) {
+      const statusCode = (err as { statusCode?: number })?.statusCode
+      if (statusCode === 404 || statusCode === 410) {
+        pushSubscriptionsByEndpoint.delete(sub.endpoint)
+      }
+      return false
+    }
+  }
+
+  function dispatchWebPushForNotification(notif: ServerCampusNotification) {
+    if (!vapidReady || pushSubscriptionsByEndpoint.size === 0) return
+    const payload = {
+      title: String(notif.title || 'ICS Academy').slice(0, 140),
+      body: String(notif.message || 'Open ICS Academy to view details.').slice(0, 320),
+      href: notif.href || '#notices',
+      tag: `ics-notif-${notif.type || 'notice'}-${notif.id}`,
+      notificationId: notif.id,
+      type: notif.type || 'notice',
+      requireInteraction: false,
+    }
+    const urgency: 'normal' | 'high' =
+      notif.type === 'chat' || notif.type === 'leave' || notif.type === 'attendance'
+        ? 'high'
+        : 'normal'
+
+    for (const sub of pushSubscriptionsByEndpoint.values()) {
+      if (isPushSubscriptionTargeted(sub, notif)) {
+        void sendWebPushToSubscription(sub, payload, urgency)
+      }
+    }
+  }
+
+  function dispatchWebPushForIncomingCall(record: {
+    id: string
+    callType: 'voice' | 'video'
+    callerId: string
+    callerName: string
+    calleeId: string
+  }) {
+    if (!vapidReady || pushSubscriptionsByEndpoint.size === 0 || !record.calleeId) return
+    const callLabel = record.callType === 'video' ? 'Incoming Video Call' : 'Incoming Voice Call'
+    const payload = {
+      title: `${callLabel} — ${record.callerName}`,
+      body: 'Tap to open ICS Academy and answer.',
+      href: '#campus-chat',
+      tag: `ics-call-${record.id}`,
+      notificationId: `call_${record.id}`,
+      type: 'call',
+      requireInteraction: true,
+    }
+
+    for (const sub of pushSubscriptionsByEndpoint.values()) {
+      if (sub.actorId === record.calleeId && sub.actorId !== record.callerId) {
+        void sendWebPushToSubscription(sub, payload, 'high')
+      }
+    }
+  }
+
+  app.get('/api/push/vapid-public-key', (_req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    res.setHeader('Cache-Control', 'no-store')
+    res.json({
+      ok: vapidReady,
+      publicKey: vapidPublicKey,
+      persistentEnvConfigured: Boolean(envVapidPublic && envVapidPrivate),
+    })
+  })
+
+  app.post('/api/push/subscribe', (req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    try {
+      const {
+        subscription,
+        actorId,
+        actorRole,
+        actorName,
+        className,
+        assignedClasses,
+        platform,
+      } = req.body ?? {}
+
+      if (!subscription || typeof subscription !== 'object') {
+        res.status(400).json({ error: 'Valid push subscription is required.' })
+        return
+      }
+      const endpoint = typeof subscription.endpoint === 'string' ? subscription.endpoint.trim() : ''
+      const p256dh = subscription.keys?.p256dh
+      const authKey = subscription.keys?.auth
+
+      if (!isValidPushEndpointUrl(endpoint) || !isValidBase64UrlKey(p256dh) || !isValidBase64UrlKey(authKey)) {
+        res.status(400).json({ error: 'Invalid push subscription endpoint or keys.' })
+        return
+      }
+
+      if (!isValidPushActorId(actorId)) {
+        res.status(400).json({ error: 'Valid portal actorId is required.' })
+        return
+      }
+
+      const safeRole: 'student' | 'usthad' | 'principal' =
+        actorRole === 'principal' || actorRole === 'usthad' ? actorRole : 'student'
+      const safeName =
+        typeof actorName === 'string' && actorName.trim()
+          ? actorName.trim().slice(0, 120)
+          : 'Campus Member'
+      const safeClass =
+        typeof className === 'string' ? className.trim().slice(0, 60) : ''
+      const safeAssigned = Array.isArray(assignedClasses)
+        ? assignedClasses
+            .filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
+            .map((c) => c.trim().slice(0, 60))
+            .slice(0, 20)
+        : []
+      const safePlatform =
+        typeof platform === 'string' ? platform.trim().slice(0, 40) : 'web'
+
+      pushSubscriptionsByEndpoint.set(endpoint, {
+        endpoint,
+        keys: { p256dh, auth: authKey },
+        actorId,
+        actorRole: safeRole,
+        actorName: safeName,
+        className: safeClass,
+        assignedClasses: safeAssigned,
+        platform: safePlatform,
+        updatedAtMs: Date.now(),
+      })
+      pruneOldPushSubscriptions()
+
+      res.json({
+        ok: true,
+        actorId,
+        actorRole: safeRole,
+        activeDevicesForActor: Array.from(pushSubscriptionsByEndpoint.values()).filter(
+          (s) => s.actorId === actorId,
+        ).length,
+      })
+    } catch (err) {
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'Failed to register push subscription.',
+      })
+    }
+  })
+
+  app.post('/api/push/unsubscribe', (req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    const endpoint = typeof req.body?.endpoint === 'string' ? req.body.endpoint.trim() : ''
+    if (endpoint && isValidPushEndpointUrl(endpoint)) {
+      pushSubscriptionsByEndpoint.delete(endpoint)
+    }
+    res.json({ ok: true })
+  })
+
+  app.post('/api/push/test', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    try {
+      const endpoint = typeof req.body?.endpoint === 'string' ? req.body.endpoint.trim() : ''
+      if (!endpoint || !isValidPushEndpointUrl(endpoint)) {
+        res.status(400).json({ error: 'Valid push endpoint is required.' })
+        return
+      }
+      const sub = pushSubscriptionsByEndpoint.get(endpoint)
+      if (!sub) {
+        res.status(404).json({ error: 'Device subscription not found. Please enable notifications first.' })
+        return
+      }
+      const delivered = await sendWebPushToSubscription(
+        sub,
+        {
+          title: 'ICS Academy — Notifications Active',
+          body: `Real-time alerts are active for ${sub.actorName}${sub.className ? ` (${sub.className})` : ''}.`,
+          href: '#notices',
+          tag: `ics-test-${Date.now()}`,
+          notificationId: `test_${Date.now()}`,
+          type: 'test',
+          requireInteraction: false,
+        },
+        'high',
+      )
+      res.json({ ok: delivered })
+    } catch (err) {
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'Failed to send test push notification.',
+      })
+    }
+  })
+
   // Real-Time WhatsApp-Style Campus Messenger State (Rooms, Messages, Presence, Typing, Moderation)
   interface ServerChatReplyRef {
     messageId: string
@@ -1659,29 +2072,28 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
             : `notif_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
         const exists = campusState.notifications.some((n) => n.id === safeId)
         if (!exists) {
-          campusState.notifications = [
-            {
-              id: safeId,
-              type: incomingNotif.type || 'notice',
-              title: String(incomingNotif.title).slice(0, 180),
-              message: String(incomingNotif.message || '').slice(0, 500),
-              category: incomingNotif.category,
-              targetClass: incomingNotif.targetClass,
-              targetClasses: Array.isArray(incomingNotif.targetClasses)
-                ? incomingNotif.targetClasses
-                : undefined,
-              targetStudentId: incomingNotif.targetStudentId,
-              targetRecipientId: incomingNotif.targetRecipientId,
-              targetStaffOnly: Boolean(incomingNotif.targetStaffOnly),
-              actorId: incomingNotif.actorId,
-              actorName: incomingNotif.actorName,
-              href: incomingNotif.href || '#notices',
-              createdAt: incomingNotif.createdAt || new Date().toISOString(),
-              createdAtMs: Number(incomingNotif.createdAtMs) || Date.now(),
-            },
-            ...campusState.notifications,
-          ].slice(0, 80)
+          const normalizedNotif: ServerCampusNotification = {
+            id: safeId,
+            type: incomingNotif.type || 'notice',
+            title: String(incomingNotif.title).slice(0, 180),
+            message: String(incomingNotif.message || '').slice(0, 500),
+            category: incomingNotif.category,
+            targetClass: incomingNotif.targetClass,
+            targetClasses: Array.isArray(incomingNotif.targetClasses)
+              ? incomingNotif.targetClasses
+              : undefined,
+            targetStudentId: incomingNotif.targetStudentId,
+            targetRecipientId: incomingNotif.targetRecipientId,
+            targetStaffOnly: Boolean(incomingNotif.targetStaffOnly),
+            actorId: incomingNotif.actorId,
+            actorName: incomingNotif.actorName,
+            href: incomingNotif.href || '#notices',
+            createdAt: incomingNotif.createdAt || new Date().toISOString(),
+            createdAtMs: Number(incomingNotif.createdAtMs) || Date.now(),
+          }
+          campusState.notifications = [normalizedNotif, ...campusState.notifications].slice(0, 80)
           campusState.updatedAtMs = Date.now()
+          dispatchWebPushForNotification(normalizedNotif)
         }
       }
 
@@ -2087,6 +2499,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
             }
             campusState.notifications = [chatNotif, ...campusState.notifications].slice(0, 80)
             campusState.updatedAtMs = now
+            dispatchWebPushForNotification(chatNotif)
           }
         } else {
           // Merge deliveredTo and readBy if message already exists
@@ -2408,6 +2821,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
           updatedAtMs: now,
         }
         campusCallsStore[id] = record
+        dispatchWebPushForIncomingCall(record)
         res.json({ ok: true, call: record })
         return
       }

@@ -4160,7 +4160,7 @@ export function subscribeRealtimeCampusNotificationsAndDelivery(
       collection(db, 'campusNotifications'),
       where('createdAtMs', '>', 0),
       orderBy('createdAtMs', 'desc'),
-      limit(60),
+      limit(25),
     )
 
     const unsubNotif = onSnapshot(
@@ -4278,132 +4278,9 @@ export function subscribeRealtimeCampusNotificationsAndDelivery(
     // Ignore listener attach errors
   }
 
-  try {
-    const msgQuery = query(
-      collection(db, 'campusChatMessages'),
-      where('createdAtMs', '>', 0),
-      orderBy('createdAtMs', 'desc'),
-      limit(80),
-    )
-
-    const unsubMsgs = onSnapshot(
-      msgQuery,
-      (snapshot) => {
-        const session = getCurrentSessionIdentity()
-        const effectiveActorId = overrideStudentId || session.actorId
-        if (!effectiveActorId || (!session.hasDeviceIdentity && !overrideStudentId)) return
-
-        const deliveredNotifSet = loadDeliveredNotifIdsForActor(effectiveActorId)
-        let notifSetModified = false
-        const nowMs = Date.now()
-        const maxAgeMs = 12 * 60 * 60 * 1000
-
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data() as Record<string, unknown>
-          if (!data || typeof data.id !== 'string' || typeof data.roomId !== 'string') return
-          if (data.isDeleted === true) return
-          const senderId = typeof data.senderId === 'string' ? data.senderId : ''
-          if (!senderId || senderId === effectiveActorId) return
-
-          const effectiveSession = {
-            ...session,
-            actorId: effectiveActorId,
-            className: overrideClassName || session.className,
-          }
-          if (!isRoomTargetedToCurrentSession(data.roomId, effectiveSession)) return
-
-          // 1. Immediately record Firestore deliveredTo receipt so sender gets Double Grey Tick (✓✓)
-          const deliveredTo = Array.isArray(data.deliveredTo)
-            ? (data.deliveredTo as string[])
-            : []
-          if (!deliveredTo.includes(effectiveActorId)) {
-            void updateDoc(doc(db, 'campusChatMessages', data.id), {
-              deliveredTo: arrayUnion(effectiveActorId),
-            }).catch(() => {})
-          }
-
-          // 2. Backup real-time chat alert dispatch if notif_chat_<msgId> wasn't fired yet
-          const detNotifId = `notif_chat_${data.id}`
-          const createdAtMs =
-            typeof data.createdAtMs === 'number' ? data.createdAtMs : nowMs
-          if (!deliveredNotifSet.has(detNotifId) && nowMs - createdAtMs <= maxAgeMs) {
-            const roomId = data.roomId
-            const targetRecipientId = roomId.startsWith('direct__')
-              ? effectiveActorId
-              : undefined
-            const targetClass = roomId.startsWith('batch_group__')
-              ? roomId.slice('batch_group__'.length)
-              : undefined
-            const targetStaffOnly = roomId === 'staff_group__usthads' ? true : undefined
-            const senderName =
-              typeof data.senderName === 'string' ? data.senderName : 'Campus Member'
-            const text = typeof data.text === 'string' ? data.text : ''
-            const mediaType = typeof data.mediaType === 'string' ? data.mediaType : 'none'
-            const preview =
-              mediaType === 'pdf'
-                ? `📄 Shared PDF Note: ${String(data.mediaName || 'Document')}`
-                : mediaType === 'voice'
-                  ? `🎤 Sent a Voice Note`
-                  : mediaType === 'image'
-                    ? `📷 Shared Photo${text ? `: ${text.slice(0, 80)}` : ''}`
-                    : text.slice(0, 120)
-
-            const fallbackNotif: CampusNotification = {
-              id: detNotifId,
-              type: 'chat',
-              title: targetClass
-                ? `${senderName} • ${targetClass} Group`
-                : targetStaffOnly
-                  ? `${senderName} • Staff Room`
-                  : `New Message from ${senderName}`,
-              message: preview || 'New message received',
-              targetClass,
-              targetRecipientId,
-              targetStaffOnly,
-              actorId: senderId,
-              actorName: senderName,
-              href: '#campus-chat',
-              createdAt: new Date(createdAtMs).toISOString(),
-              createdAtMs,
-            }
-
-            if (
-              isNotificationVisibleForStudent(
-                fallbackNotif,
-                overrideStudentId,
-                overrideClassName,
-              )
-            ) {
-              deliveredNotifSet.add(detNotifId)
-              notifSetModified = true
-              window.dispatchEvent(
-                new CustomEvent('ics-campus-notification', {
-                  detail: fallbackNotif,
-                }),
-              )
-            }
-          }
-        })
-
-        if (notifSetModified) {
-          saveDeliveredNotifIdsForActor(effectiveActorId, deliveredNotifSet)
-        }
-      },
-      (error) => {
-        const msg = error instanceof Error ? error.message : String(error)
-        if (msg.includes('permission') || msg.includes('insufficient')) {
-          try {
-            handleFirestoreError(error, OperationType.LIST, 'campusChatMessages')
-          } catch {
-            // Logged cleanly
-          }
-        }
-      },
-    )
-    unsubscribes.push(unsubMsgs)
-  } catch {
-    // Ignore listener attach errors
-  }
+  // Note: Chat notifications are already pushed via campusNotifications + /api/campus/sync Web Push,
+  // and live chat messages are subscribed inside CampusMessenger only when chat is open — avoiding
+  // an 80-doc duplicate campusChatMessages Firestore read on every page boot.
 
   return () => {
     for (const unsub of unsubscribes) {

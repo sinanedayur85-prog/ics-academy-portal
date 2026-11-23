@@ -988,13 +988,13 @@ export function CampusCallProvider({
       collection(db, 'campusCalls'),
       where('campusId', '==', 'ics-academy'),
       where('calleeId', '==', actor.id),
-      limit(60),
+      limit(10),
     )
     const callerQuery = query(
       collection(db, 'campusCalls'),
       where('campusId', '==', 'ics-academy'),
       where('callerId', '==', actor.id),
-      limit(60),
+      limit(10),
     )
 
     const unsubCallee = onSnapshot(
@@ -1011,10 +1011,13 @@ export function CampusCallProvider({
         if (batch.length > 0) mergeCallRecords(batch)
       },
       (err) => {
-        try {
-          handleFirestoreError(err, OperationType.LIST, 'campusCalls')
-        } catch {
-          // Graceful degradation to server fallback
+        const msg = err instanceof Error ? err.message : String(err)
+        if (msg.includes('permission') || msg.includes('insufficient')) {
+          try {
+            handleFirestoreError(err, OperationType.LIST, 'campusCalls')
+          } catch {
+            // Graceful degradation to server fallback
+          }
         }
       },
     )
@@ -1033,10 +1036,13 @@ export function CampusCallProvider({
         if (batch.length > 0) mergeCallRecords(batch)
       },
       (err) => {
-        try {
-          handleFirestoreError(err, OperationType.LIST, 'campusCalls')
-        } catch {
-          // Graceful degradation to server fallback
+        const msg = err instanceof Error ? err.message : String(err)
+        if (msg.includes('permission') || msg.includes('insufficient')) {
+          try {
+            handleFirestoreError(err, OperationType.LIST, 'campusCalls')
+          } catch {
+            // Graceful degradation to server fallback
+          }
         }
       },
     )
