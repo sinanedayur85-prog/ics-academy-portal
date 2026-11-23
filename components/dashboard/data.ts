@@ -3869,6 +3869,21 @@ export async function pushCampusSyncToServer(payload: {
   if (typeof window === 'undefined') return
   if (payload.notification) {
     void writeNotificationToFirestore(payload.notification)
+    const dispatchUrls = Array.from(
+      new Set([
+        '/api/push/dispatch',
+        ...(window.location.origin !== 'https://ics-academy-manhappatta.vercel.app'
+          ? ['https://ics-academy-manhappatta.vercel.app/api/push/dispatch']
+          : []),
+      ]),
+    )
+    for (const url of dispatchUrls) {
+      void fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notification: payload.notification }),
+      }).catch(() => {})
+    }
   }
   const bases = Array.from(new Set(getOrderedSyncBases()))
   await Promise.allSettled(

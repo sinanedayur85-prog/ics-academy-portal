@@ -1330,7 +1330,7 @@ export function CampusCallProvider({
           }
         })
 
-        // Dual-sync to Express server
+        // Dual-sync to Express server + instant Vercel FCM push for closed Android APKs
         fetch('/api/campus/call/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1339,6 +1339,20 @@ export function CampusCallProvider({
             callId,
             actorId: me.id,
             call: callRecordBase,
+          }),
+        }).catch(() => {})
+
+        fetch('/api/push/dispatch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            call: {
+              id: callId,
+              callType: callRecordBase.callType,
+              callerId: me.id,
+              callerName: me.name,
+              calleeId: callRecordBase.calleeId,
+            },
           }),
         }).catch(() => {})
 

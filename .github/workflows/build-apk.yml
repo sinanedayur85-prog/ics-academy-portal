@@ -382,6 +382,7 @@ jobs:
                   createNotificationChannel();
                   requestAppPermissionsIfNeeded();
                   clearGroupedSystemNotifications();
+                  CampusFirebaseMessagingService.syncTopicsForIdentity(this);
                   CampusFirebaseMessagingService.syncCurrentTokenToServer(this);
                   CampusBackgroundNotificationService.schedulePeriodic(this);
 
@@ -642,6 +643,7 @@ jobs:
                               editor.putLong("lastActiveMs", System.currentTimeMillis());
                           }
                           editor.apply();
+                          CampusFirebaseMessagingService.syncTopicsForIdentity(MainActivity.this);
                           CampusFirebaseMessagingService.syncCurrentTokenToServer(MainActivity.this);
                           CampusBackgroundNotificationService.schedulePeriodic(MainActivity.this);
                       } catch (Exception ignored) {
@@ -1263,15 +1265,84 @@ jobs:
           import java.net.URL;
           import java.nio.charset.StandardCharsets;
           import java.util.HashSet;
+          import java.util.Locale;
           import java.util.Map;
           import java.util.Set;
 
           public class CampusFirebaseMessagingService extends FirebaseMessagingService {
               private static final String CHANNEL_ID = "ics_academy_updates";
               private static final String[] API_BASES = new String[] {
+                  "https://ics-academy-manhappatta.vercel.app",
                   "https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app",
                   "https://ais-dev-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app"
               };
+
+              private static String sanitizeActorTopic(String actorId) {
+                  if (actorId == null) return "";
+                  String clean = actorId.trim().replaceAll("[^a-zA-Z0-9_-]", "_");
+                  if (clean.length() > 64) clean = clean.substring(0, 64);
+                  return clean.isEmpty() ? "" : ("ics_actor_" + clean);
+              }
+
+              private static String sanitizeClassTopic(String rawClass) {
+                  if (rawClass == null) return "";
+                  String norm = rawClass.replaceFirst("(?i)^class\\\\s+", "").replaceAll("\\\\s+", " ").trim().toUpperCase(Locale.ROOT);
+                  if (norm.isEmpty() || "ALL".equals(norm)) return "";
+                  String slug = norm.replaceAll("[^A-Z0-9]+", "_").replaceAll("^_+|_+$", "");
+                  return slug.isEmpty() ? "" : ("ics_class_" + slug);
+              }
+
+              public static void syncTopicsForIdentity(final Context context) {
+                  if (context == null) return;
+                  final Context appCtx = context.getApplicationContext();
+                  try {
+                      SharedPreferences prefs = appCtx.getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                      String actorId = prefs.getString("actorId", "");
+                      if (actorId == null || actorId.trim().isEmpty()) return;
+
+                      String role = prefs.getString("role", "student");
+                      String className = prefs.getString("className", "");
+                      String assignedJson = prefs.getString("assignedClassesJson", "[]");
+
+                      Set<String> desired = new HashSet<String>();
+                      desired.add("ics_all");
+
+                      String actorTopic = sanitizeActorTopic(actorId);
+                      if (!actorTopic.isEmpty()) desired.add(actorTopic);
+
+                      boolean isPrincipal = "principal".equalsIgnoreCase(role);
+                      boolean isStaff = isPrincipal || "usthad".equalsIgnoreCase(role);
+                      if (isStaff) desired.add("ics_staff");
+                      if (isPrincipal) desired.add("ics_principal");
+
+                      String myClassTopic = sanitizeClassTopic(className);
+                      if (!myClassTopic.isEmpty()) desired.add(myClassTopic);
+
+                      try {
+                          JSONArray arr = new JSONArray(assignedJson);
+                          for (int i = 0; i < arr.length(); i++) {
+                              String ct = sanitizeClassTopic(arr.optString(i, ""));
+                              if (!ct.isEmpty()) desired.add(ct);
+                          }
+                      } catch (Exception ignored) {
+                      }
+
+                      Set<String> previous = new HashSet<String>(prefs.getStringSet("subscribedTopics", new HashSet<String>()));
+                      FirebaseMessaging fm = FirebaseMessaging.getInstance();
+
+                      for (String oldTopic : previous) {
+                          if (!desired.contains(oldTopic)) {
+                              fm.unsubscribeFromTopic(oldTopic);
+                          }
+                      }
+                      for (String topic : desired) {
+                          fm.subscribeToTopic(topic);
+                      }
+
+                      prefs.edit().putStringSet("subscribedTopics", desired).apply();
+                  } catch (Exception ignored) {
+                  }
+              }
 
               public static void syncCurrentTokenToServer(final Context context) {
                   if (context == null) return;

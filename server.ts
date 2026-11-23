@@ -1561,7 +1561,10 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     updatedAtMs: number
   }
 
-  const FCM_PROJECT_ID = (process.env.FCM_PROJECT_ID || 'ics-academy-push').trim()
+  const rawEnvFcmProjectId = (process.env.FCM_PROJECT_ID || '').trim()
+  const FCM_PROJECT_ID = /^[a-z][a-z0-9-]{4,29}$/.test(rawEnvFcmProjectId)
+    ? rawEnvFcmProjectId
+    : 'ics-academy-push'
   const FCM_TOKEN_CACHE_PATH = '/tmp/ics-academy-fcm-tokens.json'
   let fcmMessaging: FirebaseAdminMessaging | null = null
 
@@ -1932,6 +1935,193 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
       return
     }
     next()
+  })
+
+  function sanitizeFcmActorTopic(actorId?: string): string {
+    if (!actorId || !isValidPushActorId(actorId)) return ''
+    return `ics_actor_${actorId.trim().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64)}`
+  }
+
+  function sanitizeFcmClassTopic(rawClass?: string): string {
+    const norm = normalizePushClassLabel(rawClass)
+    if (!norm || norm === 'ALL') return ''
+    const slug = norm.replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+    return slug ? `ics_class_${slug}` : ''
+  }
+
+  function buildServerFcmTargets(notif: Partial<ServerCampusNotification>): Array<{ topic: string } | { condition: string }> {
+    const senderTopic = sanitizeFcmActorTopic(notif.actorId)
+    const excludeSender = (expr: string) =>
+      senderTopic ? `${expr} && !('${senderTopic}' in topics)` : expr
+
+    if (notif.targetRecipientId) {
+      if (notif.actorId && notif.targetRecipientId === notif.actorId) return []
+      const t = sanitizeFcmActorTopic(notif.targetRecipientId)
+      return t ? [{ topic: t }] : []
+    }
+    if (notif.targetStudentId) {
+      if (notif.actorId && notif.targetStudentId === notif.actorId) return []
+      const t = sanitizeFcmActorTopic(notif.targetStudentId)
+      return t ? [{ topic: t }] : []
+    }
+    if (notif.targetStaffOnly) {
+      return senderTopic
+        ? [{ condition: excludeSender("'ics_staff' in topics") }]
+        : [{ topic: 'ics_staff' }]
+    }
+    const classTopics = Array.isArray(notif.targetClasses)
+      ? Array.from(new Set(notif.targetClasses.map((c) => sanitizeFcmClassTopic(c)).filter(Boolean)))
+      : []
+    if (
+      classTopics.length > 0 &&
+      !notif.targetClasses?.some((c) => normalizePushClassLabel(c) === 'ALL')
+    ) {
+      const out: Array<{ topic: string } | { condition: string }> = []
+      for (let i = 0; i < classTopics.length; i += 4) {
+        const chunk = classTopics.slice(i, i + 4)
+        const orExpr = chunk.map((t) => `'${t}' in topics`).join(' || ')
+        out.push({ condition: excludeSender(chunk.length > 1 ? `(${orExpr})` : orExpr) })
+      }
+      return out
+    }
+    const singleClass = sanitizeFcmClassTopic(notif.targetClass)
+    if (singleClass) {
+      return senderTopic
+        ? [{ condition: excludeSender(`'${singleClass}' in topics`) }]
+        : [{ topic: singleClass }]
+    }
+    if (notif.type === 'chat') return []
+    return senderTopic
+      ? [{ condition: excludeSender("'ics_all' in topics") }]
+      : [{ topic: 'ics_all' }]
+  }
+
+  async function sendFcmTopicTargets(
+    targets: Array<{ topic: string } | { condition: string }>,
+    payload: {
+      title: string
+      body: string
+      href: string
+      tag: string
+      notificationId: string
+      type: string
+      senderId?: string
+    },
+    ttlMs: number,
+  ): Promise<{ sent: number; failed: number }> {
+    if (!fcmMessaging || targets.length === 0) return { sent: 0, failed: 0 }
+    const results = await Promise.allSettled(
+      targets.map((target) =>
+        fcmMessaging!.send({
+          ...target,
+          notification: {
+            title: payload.title,
+            body: payload.body,
+          },
+          data: {
+            title: payload.title,
+            body: payload.body,
+            href: payload.href,
+            tag: payload.tag,
+            notificationId: payload.notificationId,
+            type: payload.type,
+            senderId: payload.senderId || '',
+          },
+          android: {
+            priority: 'high',
+            ttl: ttlMs,
+            notification: {
+              channelId: 'ics_academy_updates',
+              sound: 'default',
+              defaultSound: true,
+              defaultVibrateTimings: true,
+              tag: payload.tag,
+            },
+          },
+        }),
+      ),
+    )
+    const sent = results.filter((r) => r.status === 'fulfilled').length
+    return { sent, failed: results.length - sent }
+  }
+
+  app.get('/api/push/dispatch', (_req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    res.setHeader('Cache-Control', 'no-store')
+    res.json({
+      ok: true,
+      configured: Boolean(fcmMessaging),
+      projectId: FCM_PROJECT_ID,
+      mode: 'fcm-topics-v1-adc',
+    })
+  })
+
+  app.post('/api/push/dispatch', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    if (!fcmMessaging) {
+      res.status(200).json({ ok: false, configured: false })
+      return
+    }
+    try {
+      const body = req.body ?? {}
+      if (body.call && typeof body.call === 'object') {
+        const call = body.call
+        const calleeTopic = sanitizeFcmActorTopic(call.calleeId)
+        if (!calleeTopic || (call.callerId && call.callerId === call.calleeId)) {
+          res.json({ ok: true, sent: 0 })
+          return
+        }
+        const callLabel = call.callType === 'video' ? 'Incoming Video Call' : 'Incoming Voice Call'
+        const callerName = String(call.callerName || 'ICS Academy').slice(0, 80)
+        const result = await sendFcmTopicTargets(
+          [{ topic: calleeTopic }],
+          {
+            title: `${callLabel} — ${callerName}`.slice(0, 140),
+            body: 'Tap to open ICS Academy and answer.',
+            href: '#campus-chat',
+            tag: `ics-call-${String(call.id || Date.now()).slice(0, 48)}`,
+            notificationId: `call_${String(call.id || Date.now()).slice(0, 48)}`,
+            type: 'call',
+            senderId: typeof call.callerId === 'string' ? call.callerId.slice(0, 64) : '',
+          },
+          60 * 1000,
+        )
+        res.json({ ok: result.sent > 0, ...result })
+        return
+      }
+      if (body.notification && typeof body.notification === 'object') {
+        const n = body.notification
+        const targets = buildServerFcmTargets(n)
+        if (targets.length === 0) {
+          res.json({ ok: true, sent: 0 })
+          return
+        }
+        const safeType = typeof n.type === 'string' ? n.type.slice(0, 32) : 'notice'
+        const result = await sendFcmTopicTargets(
+          targets,
+          {
+            title: String(n.title || 'ICS Academy').trim().slice(0, 140) || 'ICS Academy',
+            body: String(n.message || 'Open ICS Academy to view details.').trim().slice(0, 320),
+            href: typeof n.href === 'string' && n.href.startsWith('#') ? n.href.slice(0, 80) : '#notices',
+            tag: `ics-notif-${safeType}-${String(n.id || Date.now()).slice(0, 48)}`,
+            notificationId: String(n.id || `notif_${Date.now()}`).slice(0, 64),
+            type: safeType,
+            senderId: typeof n.actorId === 'string' ? n.actorId.slice(0, 64) : '',
+          },
+          safeType === 'chat' || safeType === 'leave' || safeType === 'attendance'
+            ? 30 * 60 * 1000
+            : 6 * 60 * 60 * 1000,
+        )
+        res.json({ ok: result.sent > 0, ...result })
+        return
+      }
+      res.status(400).json({ error: 'notification or call payload is required.' })
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Push dispatch failed',
+      })
+    }
   })
 
   app.get('/api/push/vapid-public-key', (_req, res) => {

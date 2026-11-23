@@ -54,6 +54,10 @@
       "destination": "/api/app/version.js"
     },
     {
+      "source": "/api/push/dispatch",
+      "destination": "/api/push/dispatch.js"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app/api/:path*"
     },
