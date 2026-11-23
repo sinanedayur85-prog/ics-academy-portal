@@ -176,6 +176,20 @@ export function registerOfficialVectorPdfFonts(
         internalEvents.unsubscribe(subKey)
       }
     }
+    // Also disable jsPDF's built-in bidiEngine (doBidiReorder) in postProcessText, which
+    // otherwise re-reverses our already-shaped visual LTR UthmanTN1 Arabic strings and breaks letter connections.
+    // Keep the TrueType Unicode glyph encoder subscriber in postProcessText intact.
+    if (topics && topics.postProcessText && typeof internalEvents.unsubscribe === 'function') {
+      for (const [subKey, entry] of Object.entries(topics.postProcessText)) {
+        const fn = Array.isArray(entry) ? entry[0] : entry
+        if (typeof fn === 'function') {
+          const fnSrc = fn.toString()
+          if (fnSrc.includes('doBidiReorder') || fnSrc.includes('isInputVisual')) {
+            internalEvents.unsubscribe(subKey)
+          }
+        }
+      }
+    }
   }
 
   pdf.addFileToVFS('Poppins-Regular.ttf', assets.regularB64)

@@ -32,6 +32,7 @@ import {
   useLibraryCatalog,
 } from '@/components/dashboard/use-library-catalog'
 import { Panel, fieldClassName } from '@/components/dashboard/panel'
+import { DeleteActionMenu } from '@/components/ui/delete-action-menu'
 import { ThemeSelect } from '@/components/ui/theme-select'
 import { cn } from '@/lib/utils'
 
@@ -1261,15 +1262,11 @@ function BookRow({
               >
                 <Pencil className="size-3.5" aria-hidden="true" />
               </button>
-              <button
-                type="button"
-                onClick={onDelete}
-                aria-label={`Remove ${book.title}`}
-                title="Remove from catalogue"
-                className="flex size-7 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-500 dark:bg-[#141A1F] active:scale-95"
-              >
-                <Trash2 className="size-3.5" aria-hidden="true" />
-              </button>
+              <DeleteActionMenu
+                ariaLabel={`Options for ${book.title}`}
+                buttonClassName="size-7 bg-muted dark:bg-[#141A1F]"
+                onConfirmDelete={onDelete}
+              />
             </div>
           ) : null}
         </div>

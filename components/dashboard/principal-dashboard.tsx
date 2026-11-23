@@ -36,7 +36,6 @@ import {
   ShieldAlert,
   ShieldCheck,
   Sparkles,
-  Trash2,
   Upload,
   UserCheck,
   UserCog,
@@ -62,6 +61,7 @@ import {
 } from 'firebase/storage'
 import { AppUpdateButton } from '@/components/app-update-manager'
 import { BrandLogoMark, BrandWordmark } from '@/components/brand-wordmark'
+import { DeleteActionMenu } from '@/components/ui/delete-action-menu'
 import { ThemeSelect } from '@/components/ui/theme-select'
 import {
   CampusNotificationBar,
@@ -413,7 +413,7 @@ export function PrincipalDashboard() {
   const [studentFormAdmissionNo, setStudentFormAdmissionNo] = useState<string>(() =>
     getNextSuggestedAdmissionNo('8th'),
   )
-  const [confirmRemoveStudentId, setConfirmRemoveStudentId] = useState<string | null>(null)
+  const [activeSemesterToast, setActiveSemesterToast] = useState<string | null>(null)
   const [studentAdminToast, setStudentAdminToast] = useState<string | null>(null)
 
   // 2. Class Usthad Assignment & Usthad Profile Editor State
@@ -3797,43 +3797,17 @@ export function PrincipalDashboard() {
                                     <FileText className="mr-1 size-3" aria-hidden="true" />
                                     Parent PDF
                                   </Button>
-                                  {confirmRemoveStudentId === item.student.id ? (
-                                    <div className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          removeStudentByPrincipal(item.student.id)
-                                          setConfirmRemoveStudentId(null)
-                                          refreshAllCampusData()
-                                          setStudentAdminToast(
-                                            `Removed ${item.student.name} (${item.student.admissionNo}) from roster.`,
-                                          )
-                                          setTimeout(() => setStudentAdminToast(null), 4000)
-                                        }}
-                                        className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-red-700"
-                                      >
-                                        Confirm
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => setConfirmRemoveStudentId(null)}
-                                        className="px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
-                                      >
-                                        Cancel
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => setConfirmRemoveStudentId(item.student.id)}
-                                      className="h-7 rounded-full px-2 text-[11px] font-semibold text-red-500 hover:bg-red-500/10 hover:text-red-600"
-                                      title="Remove Student"
-                                    >
-                                      <Trash2 className="size-3.5" aria-hidden="true" />
-                                    </Button>
-                                  )}
+                                  <DeleteActionMenu
+                                    ariaLabel={`Options for ${item.student.name}`}
+                                    onConfirmDelete={() => {
+                                      removeStudentByPrincipal(item.student.id)
+                                      refreshAllCampusData()
+                                      setStudentAdminToast(
+                                        `Removed ${item.student.name} (${item.student.admissionNo}) from roster.`,
+                                      )
+                                      setTimeout(() => setStudentAdminToast(null), 4000)
+                                    }}
+                                  />
                                 </div>
                               </td>
                             </tr>
@@ -3861,24 +3835,16 @@ export function PrincipalDashboard() {
                       </span>
                       <div className="inline-flex rounded-full bg-muted/70 p-0.5">
                         {([1, 2] as const).map((sem) => {
-                          const isCurrent = getActiveSemester() === sem
+                          const isEditing = ttEditSemesterTab === sem
                           return (
                             <button
                               key={sem}
                               type="button"
-                              disabled={isCurrent}
-                              onClick={() => {
-                                if (isCurrent) return
-                                setActiveSemesterByPrincipal(sem)
-                                setTtEditSemesterTab(sem)
-                                refreshAllCampusData()
-                                setTtAdminToast(`Switched to Semester ${sem}!`)
-                                setTimeout(() => setTtAdminToast(null), 4000)
-                              }}
+                              onClick={() => setTtEditSemesterTab(sem)}
                               className={cn(
                                 'rounded-full px-3 py-1 text-xs font-bold transition-all',
-                                isCurrent
-                                  ? 'bg-[#0095F6] text-white cursor-default'
+                                isEditing
+                                  ? 'bg-[#0095F6] text-white'
                                   : 'text-muted-foreground hover:text-foreground',
                               )}
                             >
@@ -3921,24 +3887,6 @@ export function PrincipalDashboard() {
                               </option>
                             ))}
                           </ThemeSelect>
-                        </div>
-
-                        <div className="inline-flex rounded-full bg-popover p-1">
-                          {([1, 2] as const).map((semTab) => (
-                            <button
-                              key={semTab}
-                              type="button"
-                              onClick={() => setTtEditSemesterTab(semTab)}
-                              className={cn(
-                                'rounded-full px-3 py-1 text-xs font-semibold transition-all',
-                                ttEditSemesterTab === semTab
-                                  ? 'bg-[#0095F6] text-white'
-                                  : 'text-muted-foreground hover:text-foreground',
-                              )}
-                            >
-                              Edit Semester {semTab} Subjects
-                            </button>
-                          ))}
                         </div>
                       </div>
 
@@ -4080,11 +4028,10 @@ export function PrincipalDashboard() {
                                   ))}
                                 </ThemeSelect>
                                 {ttDraft.periods.length > 1 && (
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => {
+                                  <DeleteActionMenu
+                                    ariaLabel={`Options for ${period.label}`}
+                                    buttonClassName="h-9 w-9 rounded-xl"
+                                    onConfirmDelete={() => {
                                       const nextPeriods = ttDraft.periods
                                         .filter((_, pIdx) => pIdx !== idx)
                                         .map((p, newIdx) => ({
@@ -4103,11 +4050,7 @@ export function PrincipalDashboard() {
                                         semester2: nextSem2,
                                       })
                                     }}
-                                    title={`Remove ${period.label}`}
-                                    className="h-9 shrink-0 rounded-xl px-2.5 text-red-500 hover:bg-red-500/10 hover:text-red-600"
-                                  >
-                                    <Trash2 className="size-3.5" aria-hidden="true" />
-                                  </Button>
+                                  />
                                 )}
                               </div>
                             </div>
@@ -4500,15 +4443,10 @@ export function PrincipalDashboard() {
                               <Pin className="mr-1 size-3" aria-hidden="true" />
                               {n.pinned ? 'Unpin' : 'Pin'}
                             </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDeleteCustomNotice(n.id)}
-                              className="h-7 rounded-lg px-2 text-[11px] text-red-500 hover:text-red-600"
-                            >
-                              <Trash2 className="size-3.5" aria-hidden="true" />
-                            </Button>
+                            <DeleteActionMenu
+                              ariaLabel={`Options for ${n.title}`}
+                              onConfirmDelete={() => handleDeleteCustomNotice(n.id)}
+                            />
                           </div>
                         </div>
                       )
@@ -4745,15 +4683,10 @@ export function PrincipalDashboard() {
                             {item.author} • {item.classBatch}
                           </p>
                         </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDeleteUploadedKitab(item.id)}
-                          className="h-7 rounded-lg px-2 text-red-500 hover:text-red-600"
-                        >
-                          <Trash2 className="size-3.5" aria-hidden="true" />
-                        </Button>
+                        <DeleteActionMenu
+                          ariaLabel={`Options for ${item.title}`}
+                          onConfirmDelete={() => handleDeleteUploadedKitab(item.id)}
+                        />
                       </div>
                     ))}
                   </div>
@@ -4768,26 +4701,41 @@ export function PrincipalDashboard() {
             {librarySubTab === 'timetable' && (
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-3 rounded-2xl bg-card p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {CLASS_USTHADS.map((u) => {
-                        const active = selectedClassName === u.className
-                        return (
-                          <button
-                            key={u.className}
-                            type="button"
-                            onClick={() => setSelectedClassName(u.className)}
-                            className={cn(
-                              'rounded-full px-3 py-1.5 text-xs font-semibold transition-all active:scale-95',
-                              active
-                                ? 'bg-[#0095F6] text-white'
-                                : 'bg-muted text-muted-foreground hover:text-foreground dark:bg-[#141A1F]',
-                            )}
-                          >
-                            {u.className}
-                          </button>
-                        )
-                      })}
+                  {/* Live Campus-Wide Active Semester Switcher (Broadcasts to All Student, Class Leader & Usthad Timetables) */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-bold text-foreground">
+                        Active Semester:
+                      </span>
+                      <div className="inline-flex rounded-full bg-muted/70 p-0.5 dark:bg-[#141A1F]">
+                        {([1, 2] as const).map((sem) => {
+                          const isCurrent = getActiveSemester() === sem
+                          return (
+                            <button
+                              key={sem}
+                              type="button"
+                              onClick={() => {
+                                if (isCurrent) return
+                                setActiveSemesterByPrincipal(sem)
+                                setTtEditSemesterTab(sem)
+                                refreshAllCampusData()
+                                setActiveSemesterToast(
+                                  `Active Semester updated to Semester ${sem} across all portals.`,
+                                )
+                                setTimeout(() => setActiveSemesterToast(null), 4000)
+                              }}
+                              className={cn(
+                                'rounded-full px-3.5 py-1 text-xs font-bold transition-all active:scale-95',
+                                isCurrent
+                                  ? 'bg-[#0095F6] text-white'
+                                  : 'text-muted-foreground hover:text-foreground',
+                              )}
+                            >
+                              Sem {sem}
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -4800,6 +4748,33 @@ export function PrincipalDashboard() {
                       <CalendarClock className="size-3.5" aria-hidden="true" />
                       <span>Edit Timetable</span>
                     </button>
+                  </div>
+
+                  {activeSemesterToast && (
+                    <p className="rounded-xl bg-emerald-500/12 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                      {activeSemesterToast}
+                    </p>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {CLASS_USTHADS.map((u) => {
+                      const active = selectedClassName === u.className
+                      return (
+                        <button
+                          key={u.className}
+                          type="button"
+                          onClick={() => setSelectedClassName(u.className)}
+                          className={cn(
+                            'rounded-full px-3 py-1.5 text-xs font-semibold transition-all active:scale-95',
+                            active
+                              ? 'bg-[#0095F6] text-white'
+                              : 'bg-muted text-muted-foreground hover:text-foreground dark:bg-[#141A1F]',
+                          )}
+                        >
+                          {u.className}
+                        </button>
+                      )
+                    })}
                   </div>
 
                   {/* A4 Landscape 100% Vector PDF & Print Controls */}

@@ -25,8 +25,8 @@ import {
   ShieldAlert,
   Sparkles,
   Star,
-  Trash2,
   Trophy,
+  Unlock,
   Upload,
   UserCheck,
 } from 'lucide-react'
@@ -64,6 +64,7 @@ import {
 import { Panel } from '@/components/dashboard/panel'
 import { ProfileInitialsAvatar } from '@/components/dashboard/student-switcher'
 import { Button } from '@/components/ui/button'
+import { DeleteActionMenu } from '@/components/ui/delete-action-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ThemeSelect } from '@/components/ui/theme-select'
@@ -1209,6 +1210,7 @@ export function StudentAcademicHub({
   )
 
   const currentSubmission = currentTest ? mySubmissionsByTestId.get(currentTest.id) : undefined
+  const isSubmissionLocked = Boolean(currentSubmission && !currentSubmission.acknowledged)
 
   useEffect(() => {
     if (currentSubmission?.answers) {
@@ -1281,6 +1283,12 @@ export function StudentAcademicHub({
 
   async function handleSubmitUnitTest() {
     if (!currentTest) return
+    if (isSubmissionLocked) {
+      setStatusBanner(
+        `Re-submission is locked. Please request permission from ${currentTest.actorName || 'your Subject Usthad'} to re-submit.`,
+      )
+      return
+    }
     const questions = currentTest.questions || []
     if (questions.length === 0) return
 
@@ -1329,6 +1337,7 @@ export function StudentAcademicHub({
         obtainedMarks: autoObtained,
         answers: draftAnswers,
         questionMarks: autoQuestionMarks,
+        acknowledged: false,
         isDeleted: false,
         updatedAtMs: Date.now(),
       }
@@ -2091,6 +2100,15 @@ export function StudentAcademicHub({
                             </div>
                           </div>
 
+                          {currentSubmission?.acknowledged && (
+                            <div className="mt-4 flex items-center gap-2 rounded-2xl bg-emerald-500/12 px-3.5 py-2.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                              <Unlock className="size-4 shrink-0" aria-hidden="true" />
+                              <span>
+                                Re-submission approved by {currentTest.actorName || 'Subject Usthad'}. You may update and submit your answers once.
+                              </span>
+                            </div>
+                          )}
+
                           {currentSubmission?.remarks && (
                             <div className="mt-4 rounded-2xl bg-[#0095F6]/10 p-3.5 text-xs">
                               <p className="font-bold text-foreground">
@@ -2184,16 +2202,20 @@ export function StudentAcademicHub({
                                           <button
                                             key={`${q.id}_opt_${optIdx}`}
                                             type="button"
+                                            disabled={isSubmissionLocked}
                                             dir={optLang.dir}
                                             lang={optLang.lang}
-                                            onClick={() =>
+                                            onClick={() => {
+                                              if (isSubmissionLocked) return
                                               setDraftAnswers((prev) => ({
                                                 ...prev,
                                                 [q.id]: String(optIdx),
                                               }))
-                                            }
+                                            }}
                                             className={cn(
-                                              'flex items-center justify-between gap-2 rounded-xl px-3.5 py-2.5 text-xs transition-all active:scale-[0.98]',
+                                              'flex items-center justify-between gap-2 rounded-xl px-3.5 py-2.5 text-xs transition-all',
+                                              !isSubmissionLocked && 'active:scale-[0.98]',
+                                              isSubmissionLocked && 'cursor-not-allowed opacity-85',
                                               optLang.alignClass,
                                               optLang.fontClass,
                                               showCorrect
@@ -2236,22 +2258,25 @@ export function StudentAcademicHub({
                                       <textarea
                                         id={`ans_${q.id}`}
                                         rows={3}
+                                        disabled={isSubmissionLocked}
+                                        readOnly={isSubmissionLocked}
                                         dir={ansLang.dir}
                                         lang={ansLang.lang}
                                         value={studentAns}
-                                        onChange={(e) =>
+                                        onChange={(e) => {
+                                          if (isSubmissionLocked) return
                                           setDraftAnswers((prev) => ({
                                             ...prev,
                                             [q.id]: e.target.value,
                                           }))
-                                        }
+                                        }}
                                         placeholder={
                                           promptLang.isRtl
                                             ? 'اكتب إجابتك هنا...'
                                             : 'Type your clear answer here...'
                                         }
                                         className={cn(
-                                          'w-full rounded-2xl border-0 bg-popover px-3.5 py-2.5 text-xs text-foreground outline-none',
+                                          'w-full rounded-2xl border-0 bg-popover px-3.5 py-2.5 text-xs text-foreground outline-none disabled:cursor-not-allowed disabled:opacity-80',
                                           ansLang.fontClass,
                                           ansLang.alignClass,
                                         )}
@@ -2285,24 +2310,41 @@ export function StudentAcademicHub({
                     })()}
 
                     <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-4">
-                      <p className="text-xs text-muted-foreground">
-                        {currentSubmission
-                          ? `Last submitted on ${currentSubmission.dateString}. You can update and resubmit if needed.`
-                          : 'Verify all MCQ selections and typed answers before submitting.'}
-                      </p>
-                      <Button
-                        type="button"
-                        disabled={isSubmittingTest}
-                        onClick={handleSubmitUnitTest}
-                        className="rounded-full bg-[#0095F6] font-semibold text-white hover:bg-[#0077CC]"
-                      >
-                        <Send className="mr-2 size-4" aria-hidden="true" />
-                        {isSubmittingTest
-                          ? 'Submitting...'
-                          : currentSubmission
-                            ? 'Update & Resubmit Answers'
-                            : 'Submit Test Answers'}
-                      </Button>
+                      {isSubmissionLocked ? (
+                        <>
+                          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Lock className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                            <span>
+                              Submitted on {currentSubmission?.dateString}. Re-submission is locked and requires {currentTest.actorName || 'Subject Usthad'}&apos;s approval.
+                            </span>
+                          </p>
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3.5 py-2 text-xs font-semibold text-muted-foreground">
+                            <Lock className="size-3.5" aria-hidden="true" />
+                            Answers Locked
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-xs text-muted-foreground">
+                            {currentSubmission?.acknowledged
+                              ? `Re-submission approved by ${currentTest.actorName || 'Subject Usthad'}. Submit your updated answers once ready.`
+                              : 'Verify all MCQ selections and typed answers before submitting. Answers lock after submission.'}
+                          </p>
+                          <Button
+                            type="button"
+                            disabled={isSubmittingTest}
+                            onClick={handleSubmitUnitTest}
+                            className="rounded-full bg-[#0095F6] font-semibold text-white hover:bg-[#0077CC]"
+                          >
+                            <Send className="mr-2 size-4" aria-hidden="true" />
+                            {isSubmittingTest
+                              ? 'Submitting...'
+                              : currentSubmission?.acknowledged
+                                ? 'Submit Updated Answers'
+                                : 'Submit Test Answers'}
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -3010,6 +3052,23 @@ export function UsthadAcademicHub({
     [records, activeGradingTest],
   )
 
+  const canManageActiveTestResubmit = useMemo(() => {
+    if (!activeGradingTest) return false
+    if (role === 'principal') return true
+    if (activeGradingTest.actorId === actorId) return true
+    if (
+      activeGradingTest.actorName &&
+      actorName &&
+      activeGradingTest.actorName.trim().toLowerCase() === actorName.trim().toLowerCase()
+    ) {
+      return true
+    }
+    if (resolvedUsthad && activeGradingTest.actorName) {
+      return doesUsthadMatchTeacherName(resolvedUsthad, activeGradingTest.actorName)
+    }
+    return false
+  }, [activeGradingTest, role, actorId, actorName, resolvedUsthad])
+
   // --- 2. Holiday & SSF Da'wa Verification State ---
   const classHolidayLogs = useMemo(
     () =>
@@ -3138,6 +3197,7 @@ export function UsthadAcademicHub({
       totalMarks: activeGradingTest.totalMarks || 20,
       questionMarks: updatedQuestionMarks,
       remarks: remarks || 'Evaluated by Class Usthad.',
+      acknowledged: false,
       actorId,
       updatedAtMs: Date.now(),
     }
@@ -3159,6 +3219,37 @@ export function UsthadAcademicHub({
 
     setToastMessage(
       `Saved marks (${totalObtained}/${activeGradingTest.totalMarks || 20}) for ${sub.studentName}. Star of the Month updated!`,
+    )
+  }
+
+  async function handleToggleStudentResubmitApproval(sub: CampusAcademicRecord) {
+    if (!activeGradingTest || !canManageActiveTestResubmit) return
+    const nextAllowed = !Boolean(sub.acknowledged)
+
+    await upsertCampusAcademicRecord({
+      ...sub,
+      acknowledged: nextAllowed,
+      actorId,
+      updatedAtMs: Date.now(),
+    })
+
+    if (nextAllowed && sub.studentId) {
+      publishCampusNotification({
+        type: 'notice',
+        title: `Re-submission Approved: ${activeGradingTest.title}`,
+        message: `${actorName} allowed you to edit and re-submit your answers for "${activeGradingTest.title}".`,
+        targetClass: normClass,
+        targetStudentId: sub.studentId,
+        actorId,
+        actorName,
+        href: '#academic-hub',
+      })
+    }
+
+    setToastMessage(
+      nextAllowed
+        ? `Allowed ${sub.studentName} to re-submit "${activeGradingTest.title}".`
+        : `Locked re-submission for ${sub.studentName} on "${activeGradingTest.title}".`,
     )
   }
 
@@ -3742,17 +3833,12 @@ export function UsthadAcademicHub({
                               className="h-8 w-20 text-xs tabular-nums"
                             />
                             {newTestQuestions.length > 1 && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                onClick={() =>
+                              <DeleteActionMenu
+                                ariaLabel={`Options for Question #${idx + 1}`}
+                                onConfirmDelete={() =>
                                   setNewTestQuestions((prev) => prev.filter((_, i) => i !== idx))
                                 }
-                                className="h-8 text-xs text-red-500"
-                              >
-                                <Trash2 className="size-3.5" aria-hidden="true" />
-                              </Button>
+                              />
                             )}
                           </div>
                         </div>
@@ -4065,16 +4151,49 @@ export function UsthadAcademicHub({
                                 remarksLang.alignClass,
                               )}
                             />
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => handleSaveStudentGrade(sub)}
-                              className="rounded-full bg-[#0095F6] text-xs font-semibold text-white hover:bg-[#0077CC]"
-                            >
-                              <Check className="mr-1.5 size-3.5" aria-hidden="true" />
-                              Save & Publish Marks
-                            </Button>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {canManageActiveTestResubmit ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => void handleToggleStudentResubmitApproval(sub)}
+                                  className={cn(
+                                    'rounded-full text-xs font-semibold',
+                                    sub.acknowledged
+                                      ? 'border-amber-500/40 bg-amber-500/12 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300'
+                                      : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300',
+                                  )}
+                                >
+                                  {sub.acknowledged ? (
+                                    <>
+                                      <Lock className="mr-1.5 size-3.5" aria-hidden="true" />
+                                      Lock Re-submit
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Unlock className="mr-1.5 size-3.5" aria-hidden="true" />
+                                      Allow Re-submit
+                                    </>
+                                  )}
+                                </Button>
+                              ) : null}
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => handleSaveStudentGrade(sub)}
+                                className="rounded-full bg-[#0095F6] text-xs font-semibold text-white hover:bg-[#0077CC]"
+                              >
+                                <Check className="mr-1.5 size-3.5" aria-hidden="true" />
+                                Save &amp; Publish Marks
+                              </Button>
+                            </div>
                           </div>
+                          {!canManageActiveTestResubmit && (
+                            <p className="mt-2 text-[11px] text-muted-foreground">
+                              Re-submission approval is restricted to {activeGradingTest.actorName || 'Subject Usthad'} or Principal.
+                            </p>
+                          )}
                         </div>
                       )
                     })}
@@ -4318,15 +4437,10 @@ export function UsthadAcademicHub({
                           >
                             {note.acknowledged ? '✓ Acknowledged by Student' : 'Unread by Student'}
                           </span>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteDisciplineNote(note)}
-                            className="h-7 rounded-full px-2 text-red-500"
-                          >
-                            <Trash2 className="size-3.5" aria-hidden="true" />
-                          </Button>
+                          <DeleteActionMenu
+                            ariaLabel={`Options for ${note.title}`}
+                            onConfirmDelete={() => handleDeleteDisciplineNote(note)}
+                          />
                         </div>
                       </div>
                       <h5 className="mt-2 font-display text-sm font-bold text-foreground">

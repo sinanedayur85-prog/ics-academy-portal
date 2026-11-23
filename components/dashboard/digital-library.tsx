@@ -35,7 +35,6 @@ import {
   Plus,
   Search,
   SearchX,
-  Trash2,
   X,
 } from 'lucide-react'
 import { jsPDF } from 'jspdf'
@@ -47,6 +46,7 @@ import {
   shapeArabicLineForUthmanVector,
   splitVectorArabicTextToLines,
 } from '@/components/dashboard/study-note-pdf'
+import { DeleteActionMenu } from '@/components/ui/delete-action-menu'
 import { ThemeSelect } from '@/components/ui/theme-select'
 import { downloadBlobOnDevice } from '@/lib/mobile-pdf'
 import {
@@ -1774,14 +1774,10 @@ export function DigitalLibrary({ student }: { student: Student }) {
                             )}
                           </button>
                           {kitab.isCustomUpload ? (
-                            <button
-                              type="button"
-                              onClick={() => void handleDeleteCustomKitab(kitab)}
-                              aria-label={`Remove ${kitab.title}`}
-                              className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                            >
-                              <Trash2 className="size-3.5" aria-hidden="true" />
-                            </button>
+                            <DeleteActionMenu
+                              ariaLabel={`Options for ${kitab.title}`}
+                              onConfirmDelete={() => void handleDeleteCustomKitab(kitab)}
+                            />
                           ) : null}
                         </div>
                       </div>

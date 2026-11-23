@@ -43,12 +43,12 @@ import {
   Printer,
   RotateCcw,
   Search,
-  Trash2,
   Trophy,
   UserCheck,
   Users,
   X,
 } from 'lucide-react'
+import { DeleteActionMenu } from '@/components/ui/delete-action-menu'
 import { ThemeSelect } from '@/components/ui/theme-select'
 import { AppUpdateButton } from '@/components/app-update-manager'
 import { BrandLogoMark, BrandWordmark } from '@/components/brand-wordmark'
@@ -2136,14 +2136,10 @@ export function UsthadDashboard() {
                             {entry.reason} · {entry.dateString} at {entry.timeString}
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => void handleDeleteLeaveLog(entry)}
-                          aria-label="Delete leave record"
-                          className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
-                        >
-                          <Trash2 className="size-3.5" aria-hidden="true" />
-                        </button>
+                        <DeleteActionMenu
+                          ariaLabel="Options for leave record"
+                          onConfirmDelete={() => void handleDeleteLeaveLog(entry)}
+                        />
                       </li>
                     ))}
                   </ul>
@@ -2749,14 +2745,10 @@ export function UsthadDashboard() {
                             >
                               <Pin className="size-3.5" aria-hidden="true" />
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteCustomNotice(item.id)}
-                              aria-label="Delete notice"
-                              className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
-                            >
-                              <Trash2 className="size-3.5" aria-hidden="true" />
-                            </button>
+                            <DeleteActionMenu
+                              ariaLabel={`Options for ${item.title}`}
+                              onConfirmDelete={() => handleDeleteCustomNotice(item.id)}
+                            />
                           </div>
                         ) : null}
                       </li>
@@ -3005,14 +2997,10 @@ export function UsthadDashboard() {
                               {CATEGORY_LABELS[item.category]} · {item.author}
                             </p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteUploadedKitab(item.id)}
-                            aria-label={`Remove ${item.title}`}
-                            className="rounded p-1 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
-                          >
-                            <Trash2 className="size-3.5" aria-hidden="true" />
-                          </button>
+                          <DeleteActionMenu
+                            ariaLabel={`Options for ${item.title}`}
+                            onConfirmDelete={() => handleDeleteUploadedKitab(item.id)}
+                          />
                         </li>
                       ))}
                     </ul>
