@@ -1503,21 +1503,36 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
 
   const envVapidPublic = (process.env.VAPID_PUBLIC_KEY || '').trim()
   const envVapidPrivate = (process.env.VAPID_PRIVATE_KEY || '').trim()
+  const rawVapidSubject = (process.env.VAPID_SUBJECT || '').trim()
   const envVapidSubject =
-    (process.env.VAPID_SUBJECT || '').trim() || 'mailto:admin@icsacademy.edu'
+    rawVapidSubject.startsWith('mailto:') || rawVapidSubject.startsWith('https://')
+      ? rawVapidSubject
+      : 'mailto:admin@icsacademy.edu'
 
   let vapidPublicKey = ''
   let vapidReady = false
-  try {
-    const keys =
-      envVapidPublic && envVapidPrivate
-        ? { publicKey: envVapidPublic, privateKey: envVapidPrivate }
-        : webpush.generateVAPIDKeys()
-    webpush.setVapidDetails(envVapidSubject, keys.publicKey, keys.privateKey)
-    vapidPublicKey = keys.publicKey
-    vapidReady = true
-  } catch (err) {
-    console.error('Web Push VAPID initialization error:', err)
+  let usingPersistentEnvVapid = false
+
+  if (envVapidPublic && envVapidPrivate) {
+    try {
+      webpush.setVapidDetails(envVapidSubject, envVapidPublic, envVapidPrivate)
+      vapidPublicKey = envVapidPublic
+      vapidReady = true
+      usingPersistentEnvVapid = true
+    } catch {
+      // Configured env keys are invalid or placeholders — fall back to generated keys below
+    }
+  }
+
+  if (!vapidReady) {
+    try {
+      const generated = webpush.generateVAPIDKeys()
+      webpush.setVapidDetails(envVapidSubject, generated.publicKey, generated.privateKey)
+      vapidPublicKey = generated.publicKey
+      vapidReady = true
+    } catch (err) {
+      console.error('Web Push VAPID initialization error:', err)
+    }
   }
 
   const pushSubscriptionsByEndpoint = new Map<string, StoredPushSubscription>()
@@ -1731,7 +1746,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     res.json({
       ok: vapidReady,
       publicKey: vapidPublicKey,
-      persistentEnvConfigured: Boolean(envVapidPublic && envVapidPrivate),
+      persistentEnvConfigured: usingPersistentEnvVapid,
     })
   })
 
