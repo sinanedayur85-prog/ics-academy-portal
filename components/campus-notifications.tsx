@@ -22,6 +22,8 @@ import {
 } from '@/components/dashboard/data'
 import {
   clearGroupedPhoneNotifications,
+  isAndroidNativeApp,
+  syncNativeAndroidNotificationIdentity,
   triggerSystemNotification,
 } from '@/lib/mobile-pdf'
 import {
@@ -61,12 +63,31 @@ export function CampusNotificationBar({
   classNameFilter?: string
 }) {
   useEffect(() => {
-    // Auto-sync Web Push subscription silently if Notification permission is already granted
-    void syncWebPushSubscription({
-      requestPermission: false,
-      overrideActorId: studentId,
-      overrideClassName: classNameFilter,
-    })
+    // Sync signed-in identity to Native Android APK background notification service (zero user clicks needed)
+    const currentSession = getCurrentSessionIdentity()
+    const resolvedActorId = (studentId || currentSession.actorId || '').trim()
+    if (resolvedActorId) {
+      syncNativeAndroidNotificationIdentity({
+        actorId: resolvedActorId,
+        actorName: currentSession.actorName || '',
+        role: currentSession.isPrincipal
+          ? 'principal'
+          : currentSession.isStaff
+            ? 'usthad'
+            : 'student',
+        className: classNameFilter || currentSession.className || '',
+        assignedClasses: currentSession.assignedClasses || [],
+      })
+    }
+
+    // Auto-sync Web Push subscription silently if Notification permission is already granted (iPhone Home Screen PWA & Web)
+    if (!isAndroidNativeApp()) {
+      void syncWebPushSubscription({
+        requestPermission: false,
+        overrideActorId: studentId,
+        overrideClassName: classNameFilter,
+      })
+    }
 
     // Clear iOS/Android app icon badge when the user opens the app
     try {
@@ -95,11 +116,13 @@ export function CampusNotificationBar({
     function handleWakeOrFocus() {
       if (document.visibilityState === 'visible') {
         void pullCampusStateFromServer()
-        void syncWebPushSubscription({
-          requestPermission: false,
-          overrideActorId: studentId,
-          overrideClassName: classNameFilter,
-        })
+        if (!isAndroidNativeApp()) {
+          void syncWebPushSubscription({
+            requestPermission: false,
+            overrideActorId: studentId,
+            overrideClassName: classNameFilter,
+          })
+        }
         try {
           const nav = navigator as Navigator & { clearAppBadge?: () => Promise<void> }
           if (typeof nav.clearAppBadge === 'function') {
@@ -210,6 +233,7 @@ export function CampusNotificationBell({
   className?: string
 }) {
   const [open, setOpen] = useState(false)
+  const [isNativeApk, setIsNativeApk] = useState(false)
   const [pushState, setPushState] = useState<PushSupportState>('ready')
   const [isIOS, setIsIOS] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
@@ -221,6 +245,10 @@ export function CampusNotificationBell({
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
 
   const refreshState = useCallback(async () => {
+    if (isAndroidNativeApp()) {
+      setIsNativeApk(true)
+      return
+    }
     const info = await getActiveWebPushState()
     setPushState(info.state)
     setIsIOS(info.env.isIOS)
@@ -313,6 +341,12 @@ export function CampusNotificationBell({
       setDeferredPrompt(null)
       setIsStandalone(true)
     }
+  }
+
+  // Inside the GitHub Android APK, notifications are managed automatically via the native Android
+  // bridge + background service — keep the header completely clean with no Bell button.
+  if (isNativeApk || isAndroidNativeApp()) {
+    return null
   }
 
   const isSubscribed = pushState === 'subscribed'

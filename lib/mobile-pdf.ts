@@ -13,6 +13,13 @@ export interface ICSNativeBridgeInterface {
   clearWebCacheAndReload?: () => void;
   showNotification?: (title: string, message: string) => void;
   clearNotifications?: () => void;
+  syncNotificationIdentity?: (
+    actorId: string,
+    actorName: string,
+    role: string,
+    className: string,
+    assignedClassesJson: string
+  ) => void;
 }
 
 declare global {
@@ -25,7 +32,32 @@ declare global {
 }
 
 export function isAndroidNativeApp(): boolean {
-  return typeof window !== 'undefined' && Boolean(window.ICSNativeBridge?.saveAndOpenFile);
+  return (
+    typeof window !== 'undefined' &&
+    Boolean(window.ICSNativeBridge || window.Capacitor?.isNativePlatform?.())
+  );
+}
+
+export function syncNativeAndroidNotificationIdentity(identity: {
+  actorId: string;
+  actorName: string;
+  role: string;
+  className: string;
+  assignedClasses: string[];
+}): void {
+  if (typeof window === 'undefined') return;
+  if (!identity.actorId) return;
+  try {
+    window.ICSNativeBridge?.syncNotificationIdentity?.(
+      identity.actorId,
+      identity.actorName || '',
+      identity.role || 'student',
+      identity.className || '',
+      JSON.stringify(Array.isArray(identity.assignedClasses) ? identity.assignedClasses : []),
+    );
+  } catch {
+    // Ignore on older APK builds without syncNotificationIdentity
+  }
 }
 
 export function isMobileDevice(): boolean {

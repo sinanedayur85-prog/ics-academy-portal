@@ -252,17 +252,28 @@ jobs:
             fs.writeFileSync(path.join(v31Dir, 'styles.xml'), v31StylesXml, 'utf8');
           }
 
-          // 2. Ensure AndroidManifest.xml has notification, microphone, camera & legacy storage permissions (without REQUEST_INSTALL_PACKAGES so Play Protect does not flag the app)
+          // 2. Ensure AndroidManifest.xml has notification, boot-completed, microphone, camera & legacy storage permissions + background notification JobService
           const manifestPath = 'android/app/src/main/AndroidManifest.xml';
           if (fs.existsSync(manifestPath)) {
             let manifest = fs.readFileSync(manifestPath, 'utf8');
             if (!manifest.includes('POST_NOTIFICATIONS')) {
               manifest = manifest.replace(
                 '<uses-permission android:name="android.permission.INTERNET" />',
-                '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />'
+                '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />'
               );
-              fs.writeFileSync(manifestPath, manifest, 'utf8');
+            } else if (!manifest.includes('RECEIVE_BOOT_COMPLETED')) {
+              manifest = manifest.replace(
+                '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
+                '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />'
+              );
             }
+            if (!manifest.includes('CampusBackgroundNotificationService')) {
+              manifest = manifest.replace(
+                '</application>',
+                '    <service\n            android:name=".CampusBackgroundNotificationService"\n            android:permission="android.permission.BIND_JOB_SERVICE"\n            android:exported="false" />\n        <receiver\n            android:name=".CampusBootReceiver"\n            android:exported="true">\n            <intent-filter>\n                <action android:name="android.intent.action.BOOT_COMPLETED" />\n            </intent-filter>\n        </receiver>\n    </application>'
+              );
+            }
+            fs.writeFileSync(manifestPath, manifest, 'utf8');
           }
 
           // 3. Write MainActivity.java with Edge-to-Edge Status Bar + Native Notifications + PDF/Print + Safe Browser APK Updater Bridge
@@ -338,6 +349,7 @@ jobs:
                   createNotificationChannel();
                   requestAppPermissionsIfNeeded();
                   clearGroupedSystemNotifications();
+                  CampusBackgroundNotificationService.schedulePeriodic(this);
 
                   Window window = getWindow();
                   window.getDecorView().setBackgroundColor(Color.parseColor("#0A0B0E"));
@@ -486,6 +498,18 @@ jobs:
                   clearGroupedSystemNotifications();
               }
 
+              @Override
+              protected void onStop() {
+                  super.onStop();
+                  try {
+                      android.content.SharedPreferences prefs = getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                      prefs.edit().putLong("lastActiveMs", System.currentTimeMillis()).apply();
+                  } catch (Exception ignored) {
+                  }
+                  CampusBackgroundNotificationService.schedulePeriodic(this);
+                  CampusBackgroundNotificationService.scheduleQuickCheck(this);
+              }
+
               private void clearGroupedSystemNotifications() {
                   synchronized (groupedNotificationLines) {
                       groupedNotificationLines.clear();
@@ -547,6 +571,32 @@ jobs:
                   @JavascriptInterface
                   public void clearNotifications() {
                       runOnUiThread(() -> clearGroupedSystemNotifications());
+                  }
+
+                  @JavascriptInterface
+                  public void syncNotificationIdentity(
+                      final String actorId,
+                      final String actorName,
+                      final String role,
+                      final String className,
+                      final String assignedClassesJson
+                  ) {
+                      try {
+                          if (actorId == null || actorId.trim().isEmpty()) return;
+                          android.content.SharedPreferences prefs = getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                          android.content.SharedPreferences.Editor editor = prefs.edit()
+                              .putString("actorId", actorId.trim())
+                              .putString("actorName", actorName != null ? actorName.trim() : "")
+                              .putString("role", role != null ? role.trim() : "student")
+                              .putString("className", className != null ? className.trim() : "")
+                              .putString("assignedClassesJson", assignedClassesJson != null ? assignedClassesJson : "[]");
+                          if (!prefs.contains("lastActiveMs")) {
+                              editor.putLong("lastActiveMs", System.currentTimeMillis());
+                          }
+                          editor.apply();
+                          CampusBackgroundNotificationService.schedulePeriodic(MainActivity.this);
+                      } catch (Exception ignored) {
+                      }
                   }
 
                   @JavascriptInterface
@@ -778,7 +828,366 @@ jobs:
           }
           `;
           fs.writeFileSync(mainActivityPath, mainActivityJava, 'utf8');
-          console.log('Successfully configured Android MainActivity, styles.xml, and persistent signing key');
+
+          // 4. Write Native Closed-App Background Notification JobService + BootReceiver (zero extra Gradle dependencies)
+          const bgServicePath = path.join(mainActivityDir, 'CampusBackgroundNotificationService.java');
+          const bgServiceJava = `package com.icsacademy.manhappatta;
+
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.app.PendingIntent;
+          import android.app.job.JobInfo;
+          import android.app.job.JobParameters;
+          import android.app.job.JobScheduler;
+          import android.app.job.JobService;
+          import android.content.ComponentName;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+          import android.os.Build;
+
+          import androidx.core.app.NotificationCompat;
+
+          import org.json.JSONArray;
+          import org.json.JSONObject;
+
+          import java.io.BufferedReader;
+          import java.io.InputStreamReader;
+          import java.net.HttpURLConnection;
+          import java.net.URL;
+          import java.net.URLEncoder;
+          import java.util.ArrayList;
+          import java.util.HashSet;
+          import java.util.Locale;
+          import java.util.Set;
+
+          public class CampusBackgroundNotificationService extends JobService {
+              private static final int PERIODIC_JOB_ID = 4101;
+              private static final int QUICK_JOB_ID = 4102;
+              private static final String CHANNEL_ID = "ics_academy_updates";
+              private static final int BG_NOTIFICATION_ID = 1001;
+              private static final String[] API_BASES = new String[] {
+                  "https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app",
+                  "https://ais-dev-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app"
+              };
+
+              public static void schedulePeriodic(Context context) {
+                  try {
+                      SharedPreferences prefs = context.getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                      String actorId = prefs.getString("actorId", "");
+                      if (actorId == null || actorId.trim().isEmpty()) return;
+
+                      JobScheduler scheduler = (JobScheduler) context.getSystemService(Context.JOB_SCHEDULER_SERVICE);
+                      if (scheduler == null) return;
+
+                      ComponentName serviceName = new ComponentName(context, CampusBackgroundNotificationService.class);
+                      JobInfo.Builder builder = new JobInfo.Builder(PERIODIC_JOB_ID, serviceName)
+                          .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                          .setPersisted(true)
+                          .setPeriodic(15 * 60 * 1000L);
+                      scheduler.schedule(builder.build());
+                  } catch (Exception ignored) {
+                  }
+              }
+
+              public static void scheduleQuickCheck(Context context) {
+                  try {
+                      SharedPreferences prefs = context.getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                      String actorId = prefs.getString("actorId", "");
+                      if (actorId == null || actorId.trim().isEmpty()) return;
+
+                      JobScheduler scheduler = (JobScheduler) context.getSystemService(Context.JOB_SCHEDULER_SERVICE);
+                      if (scheduler == null) return;
+
+                      ComponentName serviceName = new ComponentName(context, CampusBackgroundNotificationService.class);
+                      JobInfo.Builder builder = new JobInfo.Builder(QUICK_JOB_ID, serviceName)
+                          .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                          .setMinimumLatency(45 * 1000L)
+                          .setOverrideDeadline(3 * 60 * 1000L);
+                      scheduler.schedule(builder.build());
+                  } catch (Exception ignored) {
+                  }
+              }
+
+              @Override
+              public boolean onStartJob(final JobParameters params) {
+                  new Thread(() -> {
+                      try {
+                          checkAndNotify();
+                      } catch (Exception ignored) {
+                      } finally {
+                          jobFinished(params, false);
+                      }
+                  }).start();
+                  return true;
+              }
+
+              @Override
+              public boolean onStopJob(JobParameters params) {
+                  return true;
+              }
+
+              private String normalizeClass(String raw) {
+                  if (raw == null) return "";
+                  return raw.replaceFirst("(?i)^class\\\\s+", "").replaceAll("\\\\s+", " ").trim().toUpperCase(Locale.ROOT);
+              }
+
+              private String httpGet(String urlStr) {
+                  HttpURLConnection conn = null;
+                  try {
+                      URL url = new URL(urlStr);
+                      conn = (HttpURLConnection) url.openConnection();
+                      conn.setRequestMethod("GET");
+                      conn.setConnectTimeout(6000);
+                      conn.setReadTimeout(6000);
+                      conn.setUseCaches(false);
+                      int code = conn.getResponseCode();
+                      if (code < 200 || code >= 300) return null;
+                      StringBuilder sb = new StringBuilder();
+                      try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"))) {
+                          String line;
+                          while ((line = reader.readLine()) != null) {
+                              sb.append(line);
+                          }
+                      }
+                      return sb.toString();
+                  } catch (Exception e) {
+                      return null;
+                  } finally {
+                      if (conn != null) conn.disconnect();
+                  }
+              }
+
+              private void checkAndNotify() {
+                  SharedPreferences prefs = getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                  String actorId = prefs.getString("actorId", "");
+                  if (actorId == null || actorId.trim().isEmpty()) return;
+
+                  String actorName = prefs.getString("actorName", "");
+                  String role = prefs.getString("role", "student");
+                  String className = prefs.getString("className", "");
+                  String assignedJson = prefs.getString("assignedClassesJson", "[]");
+                  boolean isPrincipal = "principal".equalsIgnoreCase(role);
+                  boolean isStaff = isPrincipal || "usthad".equalsIgnoreCase(role);
+
+                  ArrayList<String> assignedClasses = new ArrayList<>();
+                  try {
+                      JSONArray arr = new JSONArray(assignedJson);
+                      for (int i = 0; i < arr.length(); i++) {
+                          String norm = normalizeClass(arr.optString(i, ""));
+                          if (!norm.isEmpty()) assignedClasses.add(norm);
+                      }
+                  } catch (Exception ignored) {
+                  }
+                  String normMyClass = normalizeClass(className);
+
+                  String body = null;
+                  for (String base : API_BASES) {
+                      try {
+                          String q = base + "/api/campus/state?actorId=" + URLEncoder.encode(actorId, "UTF-8")
+                              + "&className=" + URLEncoder.encode(className, "UTF-8")
+                              + "&isStaff=" + (isStaff ? "true" : "false");
+                          body = httpGet(q);
+                          if (body != null && body.startsWith("{")) break;
+                      } catch (Exception ignored) {
+                      }
+                  }
+                  if (body == null) return;
+
+                  Set<String> seen = new HashSet<>(prefs.getStringSet("seenNotifIds", new HashSet<>()));
+                  boolean seenChanged = false;
+                  long nowMs = System.currentTimeMillis();
+                  long lastActiveMs = prefs.getLong("lastActiveMs", 0L);
+                  long cutoffMs = lastActiveMs > 0L ? Math.max(nowMs - (12L * 60L * 60L * 1000L), lastActiveMs - 30_000L) : (nowMs - (12L * 60L * 60L * 1000L));
+                  ArrayList<String> newTitles = new ArrayList<>();
+                  ArrayList<String> newMessages = new ArrayList<>();
+
+                  try {
+                      JSONObject root = new JSONObject(body);
+                      JSONArray notifs = root.optJSONArray("notifications");
+                      if (notifs == null) return;
+
+                      for (int i = notifs.length() - 1; i >= 0; i--) {
+                          JSONObject n = notifs.optJSONObject(i);
+                          if (n == null) continue;
+                          String id = n.optString("id", "");
+                          if (id.isEmpty() || seen.contains(id)) continue;
+
+                          long createdAtMs = n.optLong("createdAtMs", nowMs);
+                          if (createdAtMs < cutoffMs) {
+                              seen.add(id);
+                              seenChanged = true;
+                              continue;
+                          }
+
+                          if (isTargeted(n, actorId, actorName, isStaff, isPrincipal, normMyClass, assignedClasses)) {
+                              seen.add(id);
+                              seenChanged = true;
+                              String t = n.optString("title", "ICS Academy");
+                              String m = n.optString("message", "");
+                              newTitles.add(t);
+                              newMessages.add(m);
+                          }
+                      }
+                  } catch (Exception ignored) {
+                  }
+
+                  if (seenChanged) {
+                      // Cap stored seen IDs to last 150
+                      if (seen.size() > 150) {
+                          ArrayList<String> trimmed = new ArrayList<>(seen);
+                          seen = new HashSet<>(trimmed.subList(trimmed.size() - 120, trimmed.size()));
+                      }
+                      prefs.edit().putStringSet("seenNotifIds", seen).apply();
+                  }
+
+                  if (!newTitles.isEmpty()) {
+                      postNativeBackgroundNotification(newTitles, newMessages);
+                  }
+              }
+
+              private boolean isTargeted(
+                  JSONObject n,
+                  String myActorId,
+                  String myActorName,
+                  boolean isStaff,
+                  boolean isPrincipal,
+                  String normMyClass,
+                  ArrayList<String> normAssigned
+              ) {
+                  String senderId = n.optString("actorId", "");
+                  String senderName = n.optString("actorName", "");
+                  if (!senderId.isEmpty() && senderId.equals(myActorId)) return false;
+                  if (senderId.isEmpty() && !senderName.isEmpty() && !myActorName.isEmpty()
+                      && senderName.trim().equalsIgnoreCase(myActorName.trim())) return false;
+
+                  String targetRecipientId = n.optString("targetRecipientId", "");
+                  if (!targetRecipientId.isEmpty()) return targetRecipientId.equals(myActorId);
+
+                  if (n.optBoolean("targetStaffOnly", false)) return isStaff;
+
+                  String type = n.optString("type", "notice");
+                  String normTargetClass = normalizeClass(n.optString("targetClass", ""));
+                  ArrayList<String> normTargetClasses = new ArrayList<>();
+                  JSONArray tcArr = n.optJSONArray("targetClasses");
+                  if (tcArr != null) {
+                      for (int i = 0; i < tcArr.length(); i++) {
+                          String c = normalizeClass(tcArr.optString(i, ""));
+                          if (!c.isEmpty()) normTargetClasses.add(c);
+                      }
+                  }
+
+                  if ("chat".equals(type)) {
+                      if (!normTargetClass.isEmpty() && !"ALL".equals(normTargetClass)) {
+                          if (!isStaff) return normMyClass.equals(normTargetClass);
+                          return normMyClass.equals(normTargetClass) || normAssigned.contains(normTargetClass);
+                      }
+                      return false;
+                  }
+
+                  if (!isStaff) {
+                      String targetStudentId = n.optString("targetStudentId", "");
+                      if (!targetStudentId.isEmpty() && !targetStudentId.equals(myActorId)) return false;
+                      if ("attendance".equals(type) || "leave".equals(type)) {
+                          return !targetStudentId.isEmpty() && targetStudentId.equals(myActorId);
+                      }
+                      if (!normTargetClasses.isEmpty() && !normTargetClasses.contains("ALL")) {
+                          if (!normMyClass.isEmpty() && !normTargetClasses.contains(normMyClass)) return false;
+                      }
+                      if (!normTargetClass.isEmpty() && !"ALL".equals(normTargetClass)) {
+                          if (!normMyClass.isEmpty() && !normMyClass.equals(normTargetClass)) return false;
+                      }
+                      return true;
+                  }
+
+                  if (!isPrincipal) {
+                      if (!normTargetClasses.isEmpty() && !normTargetClasses.contains("ALL")) {
+                          boolean matchAny = (!normMyClass.isEmpty() && normTargetClasses.contains(normMyClass));
+                          if (!matchAny) {
+                              for (String a : normAssigned) {
+                                  if (normTargetClasses.contains(a)) { matchAny = true; break; }
+                              }
+                          }
+                          if (!matchAny) return false;
+                      }
+                      if (!normTargetClass.isEmpty() && !"ALL".equals(normTargetClass)) {
+                          if (!normMyClass.equals(normTargetClass) && !normAssigned.contains(normTargetClass)) return false;
+                      }
+                  }
+                  return true;
+              }
+
+              private void postNativeBackgroundNotification(ArrayList<String> titles, ArrayList<String> messages) {
+                  try {
+                      NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                      if (manager == null) return;
+
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                          NotificationChannel channel = new NotificationChannel(
+                              CHANNEL_ID,
+                              "ICS Academy Announcements & Attendance",
+                              NotificationManager.IMPORTANCE_HIGH
+                          );
+                          channel.enableVibration(true);
+                          manager.createNotificationChannel(channel);
+                      }
+
+                      Intent intent = new Intent(this, MainActivity.class);
+                      intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                      int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                          ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
+                          : PendingIntent.FLAG_UPDATE_CURRENT;
+                      PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, flags);
+
+                      int count = titles.size();
+                      String headerTitle = count == 1 ? titles.get(0) : ("ICS Academy • " + count + " New Updates");
+                      String latestMsg = messages.get(count - 1);
+                      String preview = count == 1 ? latestMsg : (titles.get(count - 1) + ": " + latestMsg);
+
+                      NotificationCompat.InboxStyle inbox = new NotificationCompat.InboxStyle().setBigContentTitle(headerTitle);
+                      int start = Math.max(0, count - 8);
+                      for (int i = start; i < count; i++) {
+                          String line = messages.get(i).isEmpty() ? titles.get(i) : (titles.get(i) + ": " + messages.get(i));
+                          inbox.addLine(line);
+                      }
+
+                      NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                          .setSmallIcon(getApplicationInfo().icon)
+                          .setContentTitle(headerTitle)
+                          .setContentText(preview)
+                          .setStyle(inbox)
+                          .setNumber(count)
+                          .setPriority(NotificationCompat.PRIORITY_HIGH)
+                          .setAutoCancel(true)
+                          .setContentIntent(pendingIntent);
+
+                      manager.notify(BG_NOTIFICATION_ID, builder.build());
+                  } catch (Exception ignored) {
+                  }
+              }
+          }
+          `;
+          fs.writeFileSync(bgServicePath, bgServiceJava, 'utf8');
+
+          const bootReceiverPath = path.join(mainActivityDir, 'CampusBootReceiver.java');
+          const bootReceiverJava = `package com.icsacademy.manhappatta;
+
+          import android.content.BroadcastReceiver;
+          import android.content.Context;
+          import android.content.Intent;
+
+          public class CampusBootReceiver extends BroadcastReceiver {
+              @Override
+              public void onReceive(Context context, Intent intent) {
+                  if (intent != null && Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
+                      CampusBackgroundNotificationService.schedulePeriodic(context);
+                  }
+              }
+          }
+          `;
+          fs.writeFileSync(bootReceiverPath, bootReceiverJava, 'utf8');
+
+          console.log('Successfully configured Android MainActivity, Background Notification Service, styles.xml, and persistent signing key');
           EOF
           node configure-android.cjs
           rm configure-android.cjs
