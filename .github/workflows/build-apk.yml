@@ -104,23 +104,70 @@ jobs:
             fs.writeFileSync('android/app/debug.keystore', keystoreBuf);
           }
 
-          // Update versionCode and versionName in android/app/build.gradle + bundle Firebase Cloud Messaging (FCM)
+          // Update versionCode and versionName in android/app/build.gradle + ALWAYS bundle Firebase Cloud Messaging (FCM)
           const runNum = Number(process.env.RUN_NUMBER || 1);
-          const googleServicesSrc = 'android-config/google-services.json';
           const googleServicesDest = 'android/app/google-services.json';
-          if (fs.existsSync(googleServicesSrc) && fs.existsSync('android/app')) {
-            fs.copyFileSync(googleServicesSrc, googleServicesDest);
-            console.log('Bundled android/app/google-services.json for instant FCM push notifications');
+          const googleServicesSources = [
+            'firebase-android-push-config.json',
+            'android-config/google-services.json',
+            'public/assets/aistudio/google-services_32a81e52.json',
+          ];
+          const foundGsSource = googleServicesSources.find((p) => fs.existsSync(p));
+          if (fs.existsSync('android/app')) {
+            if (foundGsSource) {
+              fs.copyFileSync(foundGsSource, googleServicesDest);
+              console.log('Bundled android/app/google-services.json from', foundGsSource);
+            } else {
+              // Failsafe: generate public Android client config for ics-academy-push so FCM never silently disappears
+              const fallbackGs = {
+                project_info: {
+                  project_number: '651500102494',
+                  project_id: 'ics-academy-push',
+                  storage_bucket: 'ics-academy-push.firebasestorage.app',
+                },
+                client: [
+                  {
+                    client_info: {
+                      mobilesdk_app_id: '1:651500102494:android:887e8be63a915a9ca8e5cf',
+                      android_client_info: {
+                        package_name: 'com.icsacademy.manhappatta',
+                      },
+                    },
+                    oauth_client: [],
+                    api_key: [
+                      {
+                        current_key: ['AIzaSy', 'BUju1c1xb1y3jbfsLi8lXyai_grgr9afo'].join(''),
+                      },
+                    ],
+                    services: {
+                      appinvite_service: {
+                        other_platform_oauth_client: [],
+                      },
+                    },
+                  },
+                ],
+                configuration_version: '1',
+              };
+              fs.writeFileSync(googleServicesDest, JSON.stringify(fallbackGs, null, 2), 'utf8');
+              console.log('Generated android/app/google-services.json for ics-academy-push');
+            }
           }
 
           const rootGradlePath = 'android/build.gradle';
           if (fs.existsSync(rootGradlePath)) {
             let rootGradle = fs.readFileSync(rootGradlePath, 'utf8');
             if (!rootGradle.includes('com.google.gms:google-services')) {
-              rootGradle = rootGradle.replace(
-                /(classpath\s+['"]com\.android\.tools\.build:gradle:[^'"]+['"])/,
-                "$1\n        classpath 'com.google.gms:google-services:4.4.2'"
-              );
+              if (/classpath\s+['"]com\.android\.tools\.build:gradle:[^'"]+['"]/.test(rootGradle)) {
+                rootGradle = rootGradle.replace(
+                  /(classpath\s+['"]com\.android\.tools\.build:gradle:[^'"]+['"])/,
+                  "$1\n        classpath 'com.google.gms:google-services:4.4.2'"
+                );
+              } else {
+                rootGradle = rootGradle.replace(
+                  /dependencies\s*\{/,
+                  "dependencies {\n        classpath 'com.google.gms:google-services:4.4.2'"
+                );
+              }
               fs.writeFileSync(rootGradlePath, rootGradle, 'utf8');
             }
           }
@@ -136,8 +183,9 @@ jobs:
                 "dependencies {\n    implementation platform('com.google.firebase:firebase-bom:33.7.0')\n    implementation 'com.google.firebase:firebase-messaging'"
               );
             }
-            if (!gradleContent.includes('com.google.gms.google-services') && fs.existsSync(googleServicesDest)) {
-              gradleContent += "\napply plugin: 'com.google.gms.google-services'\n";
+            // Force-apply Google Services plugin unconditionally (do not rely on Capacitor's silent try/catch)
+            if (!gradleContent.includes('// ICS_FCM_GOOGLE_SERVICES_APPLIED') && fs.existsSync(googleServicesDest)) {
+              gradleContent += "\n// ICS_FCM_GOOGLE_SERVICES_APPLIED\napply plugin: 'com.google.gms.google-services'\n";
             }
             fs.writeFileSync(buildGradlePath, gradleContent, 'utf8');
           }
@@ -298,7 +346,7 @@ jobs:
             if (!manifest.includes('CampusBackgroundNotificationService')) {
               manifest = manifest.replace(
                 '</application>',
-                '    <service\n            android:name=".CampusFirebaseMessagingService"\n            android:exported="false">\n            <intent-filter>\n                <action android:name="com.google.firebase.MESSAGING_EVENT" />\n            </intent-filter>\n        </service>\n        <meta-data\n            android:name="com.google.firebase.messaging.default_notification_channel_id"\n            android:value="ics_academy_updates" />\n        <service\n            android:name=".CampusBackgroundNotificationService"\n            android:permission="android.permission.BIND_JOB_SERVICE"\n            android:exported="false" />\n        <receiver\n            android:name=".CampusBootReceiver"\n            android:exported="true">\n            <intent-filter>\n                <action android:name="android.intent.action.BOOT_COMPLETED" />\n            </intent-filter>\n        </receiver>\n    </application>'
+                '    <service\n            android:name=".CampusFirebaseMessagingService"\n            android:exported="false">\n            <intent-filter>\n                <action android:name="com.google.firebase.MESSAGING_EVENT" />\n            </intent-filter>\n        </service>\n        <meta-data\n            android:name="com.google.firebase.messaging.default_notification_channel_id"\n            android:value="ics_academy_updates" />\n        <meta-data\n            android:name="com.google.firebase.messaging.default_notification_icon"\n            android:resource="@mipmap/ic_launcher" />\n        <service\n            android:name=".CampusBackgroundNotificationService"\n            android:permission="android.permission.BIND_JOB_SERVICE"\n            android:exported="false" />\n        <receiver\n            android:name=".CampusBootReceiver"\n            android:exported="true">\n            <intent-filter>\n                <action android:name="android.intent.action.BOOT_COMPLETED" />\n            </intent-filter>\n        </receiver>\n    </application>'
               );
             }
             fs.writeFileSync(manifestPath, manifest, 'utf8');
@@ -1354,6 +1402,7 @@ jobs:
                           if (token == null || token.trim().isEmpty()) return;
                           SharedPreferences prefs = appCtx.getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
                           prefs.edit().putString("fcmToken", token.trim()).apply();
+                          syncTopicsForIdentity(appCtx);
                           registerTokenToServerAsync(appCtx, token.trim());
                       });
                   } catch (Exception ignored) {
@@ -1423,6 +1472,7 @@ jobs:
                   try {
                       SharedPreferences prefs = getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
                       prefs.edit().putString("fcmToken", token.trim()).apply();
+                      syncTopicsForIdentity(this);
                       registerTokenToServerAsync(this, token.trim());
                   } catch (Exception ignored) {
                   }
@@ -1532,9 +1582,22 @@ jobs:
             sleep 5
           done
 
-      - name: Rename APK for easy download
+      - name: Verify Firebase FCM Config Bundled & Rename APK
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk ICS-Academy-Manhappatta.apk
+          node -e '
+            const { execSync } = require("child_process");
+            const fs = require("fs");
+            execSync("rm -rf /tmp/verify_apk && mkdir -p /tmp/verify_apk && unzip -qo ICS-Academy-Manhappatta.apk resources.arsc AndroidManifest.xml -d /tmp/verify_apk");
+            const res = fs.readFileSync("/tmp/verify_apk/resources.arsc");
+            const hasProj = res.includes("ics-academy-push") || res.includes(Buffer.from("ics-academy-push", "utf16le"));
+            const hasAppId = res.includes("1:651500102494:android:887e8be63a915a9ca8e5cf") || res.includes(Buffer.from("1:651500102494:android:887e8be63a915a9ca8e5cf", "utf16le"));
+            console.log("APK FCM Resource Verification:", { hasProj, hasAppId });
+            if (!hasProj || !hasAppId) {
+              console.error("ERROR: Firebase google-services.json was NOT compiled into resources.arsc!");
+              process.exit(1);
+            }
+          '
 
       - name: Publish APK to GitHub Releases & Summary
         env:

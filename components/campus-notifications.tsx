@@ -63,10 +63,10 @@ export function CampusNotificationBar({
   classNameFilter?: string
 }) {
   useEffect(() => {
-    // Sync signed-in identity to Native Android APK background notification service (zero user clicks needed)
-    const currentSession = getCurrentSessionIdentity()
-    const resolvedActorId = (studentId || currentSession.actorId || '').trim()
-    if (resolvedActorId) {
+    const syncAndroidIdentityNow = () => {
+      const currentSession = getCurrentSessionIdentity()
+      const resolvedActorId = (studentId || currentSession.actorId || '').trim()
+      if (!resolvedActorId) return
       syncNativeAndroidNotificationIdentity({
         actorId: resolvedActorId,
         actorName: currentSession.actorName || '',
@@ -79,6 +79,10 @@ export function CampusNotificationBar({
         assignedClasses: currentSession.assignedClasses || [],
       })
     }
+
+    // Sync signed-in identity to Native Android APK FCM & background notification service (zero user clicks needed)
+    syncAndroidIdentityNow()
+    const androidSyncRetry = window.setTimeout(syncAndroidIdentityNow, 1500)
 
     // Auto-sync Web Push subscription silently if Notification permission is already granted (iPhone Home Screen PWA & Web)
     if (!isAndroidNativeApp()) {
@@ -115,6 +119,7 @@ export function CampusNotificationBar({
 
     function handleWakeOrFocus() {
       if (document.visibilityState === 'visible') {
+        syncAndroidIdentityNow()
         void pullCampusStateFromServer()
         if (!isAndroidNativeApp()) {
           void syncWebPushSubscription({
@@ -205,6 +210,7 @@ export function CampusNotificationBar({
     window.addEventListener('ics-campus-notification', handleIncoming)
     return () => {
       unsubscribeRealtime()
+      window.clearTimeout(androidSyncRetry)
       window.clearInterval(timer)
       window.removeEventListener('focus', handleWakeOrFocus)
       document.removeEventListener('visibilitychange', handleWakeOrFocus)
