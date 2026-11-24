@@ -67,6 +67,8 @@ export interface ParsedNotificationTarget {
   href: string;
   baseHash: string;
   roomId?: string;
+  callId?: string;
+  callAction?: 'accept' | 'decline';
 }
 
 const PENDING_NOTIF_HREF_KEY = 'ics_pending_notif_href_v1';
@@ -113,6 +115,8 @@ export function parseNotificationHref(rawHref?: string | null): ParsedNotificati
   if (!baseHash || !VALID_NOTIFICATION_HASHES.has(baseHash)) return null;
 
   let roomId: string | undefined;
+  let callId: string | undefined;
+  let callAction: 'accept' | 'decline' | undefined;
   if (qIdx >= 0) {
     try {
       const params = new URLSearchParams(withoutHash.slice(qIdx + 1));
@@ -120,16 +124,31 @@ export function parseNotificationHref(rawHref?: string | null): ParsedNotificati
       if (rawRoom && /^[a-zA-Z0-9_-]{3,160}$/.test(rawRoom.trim())) {
         roomId = rawRoom.trim();
       }
+      const rawCallId = params.get('callId');
+      if (rawCallId && /^[a-zA-Z0-9_-]{4,96}$/.test(rawCallId.trim())) {
+        callId = rawCallId.trim();
+      }
+      const rawCallAction = params.get('callAction');
+      if (rawCallAction === 'accept' || rawCallAction === 'decline') {
+        callAction = rawCallAction;
+      }
     } catch {
       // Ignore malformed query string
     }
   }
 
-  const normalizedHref = roomId ? `#${baseHash}?room=${encodeURIComponent(roomId)}` : `#${baseHash}`;
+  const queryParts: string[] = [];
+  if (roomId) queryParts.push(`room=${encodeURIComponent(roomId)}`);
+  if (callId) queryParts.push(`callId=${encodeURIComponent(callId)}`);
+  if (callAction) queryParts.push(`callAction=${encodeURIComponent(callAction)}`);
+  const normalizedHref = queryParts.length > 0 ? `#${baseHash}?${queryParts.join('&')}` : `#${baseHash}`;
+
   return {
     href: normalizedHref,
     baseHash,
     roomId,
+    callId,
+    callAction,
   };
 }
 

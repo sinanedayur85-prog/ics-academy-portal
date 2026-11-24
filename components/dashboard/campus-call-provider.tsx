@@ -13,6 +13,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  getDoc,
   limit,
   onSnapshot,
   query,
@@ -45,7 +46,40 @@ import {
   students,
 } from '@/components/dashboard/data'
 import { db, handleFirestoreError, OperationType } from '@/src/lib/firebase'
+import {
+  parseNotificationHref,
+  peekPendingNotificationHref,
+  type ParsedNotificationTarget,
+} from '@/lib/mobile-pdf'
 import { cn } from '@/lib/utils'
+
+function dispatchCallPushSignal(callPayload: {
+  id: string
+  roomId: string
+  callType: CallMediaType
+  callerId: string
+  callerName: string
+  callerSubtitle?: string
+  calleeId: string
+  action?: 'ring' | 'cancel'
+}) {
+  if (typeof window === 'undefined') return
+  const isNativeOrLocal =
+    Boolean((window as unknown as { ICSNativeBridge?: unknown }).ICSNativeBridge) ||
+    window.location.protocol === 'capacitor:' ||
+    window.location.hostname === 'localhost'
+  const endpoints = isNativeOrLocal
+    ? ['https://ics-academy-manhappatta.vercel.app/api/push/dispatch', '/api/push/dispatch']
+    : ['/api/push/dispatch']
+  const body = JSON.stringify({ call: callPayload })
+  for (const url of endpoints) {
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    }).catch(() => {})
+  }
+}
 
 export type CallMediaType = 'voice' | 'video'
 export type CampusCallStatus =
@@ -1342,19 +1376,16 @@ export function CampusCallProvider({
           }),
         }).catch(() => {})
 
-        fetch('/api/push/dispatch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            call: {
-              id: callId,
-              callType: callRecordBase.callType,
-              callerId: me.id,
-              callerName: me.name,
-              calleeId: callRecordBase.calleeId,
-            },
-          }),
-        }).catch(() => {})
+        dispatchCallPushSignal({
+          id: callId,
+          roomId,
+          callType: callRecordBase.callType,
+          callerId: me.id,
+          callerName: me.name,
+          callerSubtitle: callRecordBase.callerSubtitle || '',
+          calleeId: callRecordBase.calleeId,
+          action: 'ring',
+        })
 
         // Subscribe directly to this call doc for fastest SDP/ICE delivery
         activeCallUnsubRef.current = onSnapshot(
@@ -1377,6 +1408,15 @@ export function CampusCallProvider({
           const cur = activeCallRef.current
           if (!cur || cur.id !== callId || cur.status === 'connected') return
           void syncTerminalStatus(callId, 'missed', 0)
+          dispatchCallPushSignal({
+            id: callId,
+            roomId,
+            callType: effectiveType,
+            callerId: me.id,
+            callerName: me.name,
+            calleeId: peer.id,
+            action: 'cancel',
+          })
           void postCallCardMessage({
             id: callId,
             roomId,
@@ -1568,6 +1608,17 @@ export function CampusCallProvider({
     setActiveCall(null)
 
     await syncTerminalStatus(current.id, finalStatus, durationSec)
+    if (current.direction === 'outgoing' && !wasConnected) {
+      dispatchCallPushSignal({
+        id: current.id,
+        roomId: current.roomId,
+        callType: current.callType,
+        callerId: me.id,
+        callerName: me.name,
+        calleeId: current.peer.id,
+        action: 'cancel',
+      })
+    }
 
     const callerId =
       record?.callerId || (current.direction === 'outgoing' ? me.id : current.peer.id)
@@ -1590,6 +1641,111 @@ export function CampusCallProvider({
       calleeId,
     })
   }, [cleanupMediaAndPc, postCallCardMessage, syncTerminalStatus])
+
+  const pendingNativeCallActionRef = useRef<{ callId: string; action: 'accept' | 'decline' } | null>(null)
+  const acceptIncomingCallRef = useRef(acceptIncomingCall)
+  acceptIncomingCallRef.current = acceptIncomingCall
+
+  // Handle native Android full-screen IncomingCallActivity Accept/Decline or call notification taps
+  useEffect(() => {
+    if (typeof window === 'undefined' || !actor.id) return
+
+    const handleCallDeepLink = (rawHref?: string | null) => {
+      const parsed = parseNotificationHref(rawHref)
+      if (!parsed?.callId) return
+      const targetCallId = parsed.callId
+      const targetAction = parsed.callAction
+
+      if (targetAction === 'accept') {
+        pendingNativeCallActionRef.current = { callId: targetCallId, action: 'accept' }
+      } else if (targetAction === 'decline') {
+        pendingNativeCallActionRef.current = null
+        handledCallIdsRef.current.add(targetCallId)
+        setIncomingCall((prev) => (prev?.id === targetCallId ? null : prev))
+        void syncTerminalStatus(targetCallId, 'declined', 0)
+        return
+      }
+
+      if (incomingCallRef.current?.id === targetCallId && targetAction === 'accept') {
+        pendingNativeCallActionRef.current = null
+        void acceptIncomingCallRef.current()
+        return
+      }
+
+      // Immediately fetch the exact call doc from Firestore so cold-start Accept answers in <300ms
+      void getDoc(doc(db, 'campusCalls', targetCallId))
+        .then((snap) => {
+          if (!snap.exists()) return
+          const rec = parseFirestoreCallDoc(snap.id, snap.data() as Record<string, unknown>)
+          if (rec) {
+            mergeCallRecords([rec])
+          }
+        })
+        .catch(() => {})
+    }
+
+    handleCallDeepLink(window.location.hash)
+    handleCallDeepLink(peekPendingNotificationHref())
+
+    const onNotifNav = (e: Event) => {
+      const custom = e as CustomEvent<ParsedNotificationTarget>
+      if (custom.detail?.href) handleCallDeepLink(custom.detail.href)
+    }
+    const onNativeOpen = (e: Event) => {
+      const custom = e as CustomEvent<{ href?: string }>
+      if (custom.detail?.href) handleCallDeepLink(custom.detail.href)
+    }
+    const onHash = () => handleCallDeepLink(window.location.hash)
+
+    window.addEventListener('ics-notification-navigate', onNotifNav)
+    window.addEventListener('ics-notification-open', onNativeOpen)
+    window.addEventListener('hashchange', onHash)
+    return () => {
+      window.removeEventListener('ics-notification-navigate', onNotifNav)
+      window.removeEventListener('ics-notification-open', onNativeOpen)
+      window.removeEventListener('hashchange', onHash)
+    }
+  }, [actor.id, mergeCallRecords, syncTerminalStatus])
+
+  // Auto-answer immediately when the targeted ringing call loads after native Accept tap
+  useEffect(() => {
+    if (!incomingCall) return
+    const pending = pendingNativeCallActionRef.current
+    if (pending && pending.callId === incomingCall.id && pending.action === 'accept') {
+      pendingNativeCallActionRef.current = null
+      void acceptIncomingCallRef.current()
+    }
+  }, [incomingCall])
+
+  // Phone-style repeating vibration while in-app full-screen incoming call screen is ringing
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return
+    if (!incomingCall || activeCall) {
+      try {
+        navigator.vibrate(0)
+      } catch {
+        // Ignore
+      }
+      return
+    }
+    const vibratePulse = () => {
+      try {
+        navigator.vibrate([450, 350, 450])
+      } catch {
+        // Ignore
+      }
+    }
+    vibratePulse()
+    const timer = window.setInterval(vibratePulse, 2000)
+    return () => {
+      window.clearInterval(timer)
+      try {
+        navigator.vibrate(0)
+      } catch {
+        // Ignore
+      }
+    }
+  }, [incomingCall, activeCall])
 
   const toggleMute = useCallback(() => {
     const stream = localStreamRef.current
@@ -2059,19 +2215,19 @@ export function CampusCallProvider({
         </div>
       )}
 
-      {/* 3. GLOBAL INCOMING CALL OVERLAY (Rings across every screen in the app) */}
+      {/* 3. GLOBAL FULL-SCREEN INCOMING CALL OVERLAY (Rings across every screen like a real phone call) */}
       {incomingCall && !activeCall && (
         <div
           role="alertdialog"
           aria-modal="true"
           aria-label={`Incoming ${incomingCall.callType} call from ${incomingCall.callerName}`}
-          className="fixed inset-0 z-[90] flex h-[100dvh] w-full flex-col justify-between overflow-hidden bg-black px-6 pt-[calc(var(--safe-top)+1.75rem)] pb-[calc(var(--safe-bottom)+2.25rem)] text-white"
+          className="fixed inset-0 z-[9999] flex h-[100dvh] w-full flex-col justify-between overflow-hidden bg-[#06090D] px-6 pt-[calc(var(--safe-top)+2rem)] pb-[calc(var(--safe-bottom)+2.75rem)] text-white"
         >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_32%,rgba(0,149,246,0.20),transparent_65%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(16,185,129,0.22),transparent_65%)]" />
 
           {/* Top label */}
           <div className="relative z-10 flex flex-col items-center text-center">
-            <span className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-[#0095F6]">
+            <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-400">
               {incomingCall.callType === 'video' ? (
                 <Video className="size-4" />
               ) : (
@@ -2083,15 +2239,15 @@ export function CampusCallProvider({
 
           {/* Caller focal identity */}
           <div className="relative z-10 flex flex-col items-center text-center">
-            <div className="relative flex size-32 items-center justify-center rounded-full bg-[#0095F6]/20 text-4xl font-bold text-white shadow-2xl">
+            <div className="relative flex size-36 items-center justify-center rounded-full border-2 border-emerald-400/50 bg-emerald-500/20 text-4xl font-bold text-white shadow-2xl shadow-emerald-950/60">
               {getInitials(incomingCall.callerName)}
-              <span className="pointer-events-none absolute -inset-3 rounded-full bg-[#0095F6]/15 animate-ping" />
-              <span className="pointer-events-none absolute -inset-6 rounded-full bg-[#0095F6]/10 animate-pulse" />
+              <span className="pointer-events-none absolute -inset-4 rounded-full border border-emerald-400/30 animate-ping" />
+              <span className="pointer-events-none absolute -inset-8 rounded-full bg-emerald-500/10 animate-pulse" />
             </div>
-            <h2 className="mt-7 max-w-xs truncate text-3xl font-bold tracking-tight text-white">
+            <h2 className="mt-8 max-w-xs truncate text-3xl font-bold tracking-tight text-white">
               {incomingCall.callerName}
             </h2>
-            <p className="mt-1.5 text-sm text-white/70">
+            <p className="mt-1.5 text-sm text-white/75">
               {incomingCall.callerSubtitle ||
                 (incomingCall.callerRole === 'principal'
                   ? 'Principal'
@@ -2099,37 +2255,37 @@ export function CampusCallProvider({
                     ? 'Class Usthad'
                     : 'Student')}
             </p>
-            <p className="mt-3 text-xs font-medium tracking-wide text-[#0095F6]">
+            <p className="mt-3 text-sm font-medium tracking-wide text-emerald-400 animate-pulse">
               Ringing...
             </p>
           </div>
 
-          {/* Bottom Accept / Decline thumb controls */}
+          {/* Bottom Accept / Decline native phone-style thumb controls */}
           <div className="relative z-10 mx-auto flex w-full max-w-xs items-center justify-between px-4">
             <button
               type="button"
               onClick={() => void declineIncomingCall()}
-              className="flex flex-col items-center gap-2.5"
+              className="flex flex-col items-center gap-3"
             >
-              <span className="flex size-16 items-center justify-center rounded-full bg-rose-600 text-white shadow-xl shadow-rose-950/60 transition-transform active:scale-95 hover:bg-rose-500">
-                <PhoneOff className="size-7" />
+              <span className="flex size-[72px] items-center justify-center rounded-full bg-rose-600 text-white shadow-2xl shadow-rose-950/70 transition-transform active:scale-95 hover:bg-rose-500">
+                <PhoneOff className="size-8" />
               </span>
-              <span className="text-xs font-semibold text-white/90">Decline</span>
+              <span className="text-sm font-semibold text-white/90">Decline</span>
             </button>
 
             <button
               type="button"
               onClick={() => void acceptIncomingCall()}
-              className="flex flex-col items-center gap-2.5"
+              className="flex flex-col items-center gap-3"
             >
-              <span className="flex size-16 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xl shadow-emerald-950/60 transition-transform active:scale-95 hover:bg-emerald-400 animate-bounce">
+              <span className="flex size-[72px] items-center justify-center rounded-full bg-emerald-500 text-white shadow-2xl shadow-emerald-950/70 transition-transform active:scale-95 hover:bg-emerald-400 animate-bounce">
                 {incomingCall.callType === 'video' ? (
-                  <Video className="size-7" />
+                  <Video className="size-8" />
                 ) : (
-                  <Phone className="size-7" />
+                  <Phone className="size-8" />
                 )}
               </span>
-              <span className="text-xs font-semibold text-white/90">Accept</span>
+              <span className="text-sm font-semibold text-white/90">Accept</span>
             </button>
           </div>
         </div>

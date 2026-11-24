@@ -58,6 +58,22 @@
       "destination": "/api/push/dispatch.js"
     },
     {
+      "source": "/api/push/vapid-public-key",
+      "destination": "/api/push/web.js?action=vapid-public-key"
+    },
+    {
+      "source": "/api/push/subscribe",
+      "destination": "/api/push/web.js?action=subscribe"
+    },
+    {
+      "source": "/api/push/unsubscribe",
+      "destination": "/api/push/web.js?action=unsubscribe"
+    },
+    {
+      "source": "/api/push/test",
+      "destination": "/api/push/web.js?action=test"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app/api/:path*"
     },

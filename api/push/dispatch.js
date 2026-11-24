@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { dispatchWebPushToMatchingSubs } from './_push-web-store.js'
 
 let cachedAccessToken = null
 let cachedAccessTokenExpiryMs = 0
@@ -283,6 +284,12 @@ async function sendFcmV1Message(creds, accessToken, target, payload, ttlSeconds)
         type: payload.type,
         senderId: payload.senderId || '',
         messageId: payload.messageId || '',
+        callId: payload.callId || '',
+        callType: payload.callType || '',
+        callerName: payload.callerName || '',
+        callerSubtitle: payload.callerSubtitle || '',
+        roomId: payload.roomId || '',
+        callAction: payload.callAction || '',
       },
       android: {
         priority: 'HIGH',
@@ -345,21 +352,13 @@ export default async function handler(req, res) {
     return
   }
 
-  if (!creds) {
-    res.status(200).json({
-      ok: false,
-      configured: false,
-      configReason: reason,
-      reason: 'FCM credentials not configured on this Vercel deployment yet.',
-    })
-    return
-  }
-
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {}
     let targets = []
     let payload = null
+    let webPushFilter = null
     let ttlSeconds = 3600
+    let skipWebPush = false
 
     if (body.call && typeof body.call === 'object') {
       const call = body.call
@@ -368,22 +367,49 @@ export default async function handler(req, res) {
         res.status(200).json({ ok: true, sent: 0 })
         return
       }
-      const callLabel = call.callType === 'video' ? 'Incoming Video Call' : 'Incoming Voice Call'
-      const callerName = String(call.callerName || 'ICS Academy').slice(0, 80)
+      const safeCallId =
+        typeof call.id === 'string' && /^[a-zA-Z0-9_-]{4,96}$/.test(call.id.trim())
+          ? call.id.trim()
+          : `call_${Date.now()}`
+      const safeCallType = call.callType === 'video' ? 'video' : 'voice'
+      const callAction = call.action === 'cancel' ? 'cancel' : 'ring'
+      const callLabel = safeCallType === 'video' ? 'Incoming Video Call' : 'Incoming Voice Call'
+      const callerName = String(call.callerName || 'ICS Academy').trim().slice(0, 80) || 'ICS Academy'
+      const callerSubtitle = String(call.callerSubtitle || '').trim().slice(0, 80)
       targets = [{ topic: calleeTopic }]
       const safeCallRoom =
         typeof call.roomId === 'string' && /^[a-zA-Z0-9_-]{3,96}$/.test(call.roomId.trim())
           ? call.roomId.trim()
           : ''
+      const callHref = safeCallRoom
+        ? `#campus-chat?room=${encodeURIComponent(safeCallRoom)}&callId=${encodeURIComponent(safeCallId)}`
+        : `#campus-chat?callId=${encodeURIComponent(safeCallId)}`
+
       payload = {
-        title: `${callLabel} — ${callerName}`.slice(0, 140),
-        body: 'Tap to open ICS Academy and answer.',
-        href: safeCallRoom ? `#campus-chat?room=${encodeURIComponent(safeCallRoom)}` : '#campus-chat',
-        tag: `ics-call-${String(call.id || Date.now()).slice(0, 48)}`,
-        notificationId: `call_${String(call.id || Date.now()).slice(0, 48)}`,
-        type: 'call',
+        title: callAction === 'cancel' ? 'Call Ended' : `${callLabel} — ${callerName}`.slice(0, 140),
+        body:
+          callAction === 'cancel'
+            ? `${callerName} ended the call.`
+            : `${callerName} is calling you on ICS Academy`,
+        href: callHref,
+        tag: `ics-call-${safeCallId.slice(0, 48)}`,
+        notificationId: `call_${safeCallId.slice(0, 48)}`,
+        type: callAction === 'cancel' ? 'call_cancel' : 'call',
         senderId: typeof call.callerId === 'string' ? call.callerId.slice(0, 64) : '',
+        callId: safeCallId,
+        callType: safeCallType,
+        callerName,
+        callerSubtitle,
+        roomId: safeCallRoom,
+        callAction,
+        requireInteraction: callAction !== 'cancel',
       }
+      webPushFilter = {
+        type: 'call',
+        senderId: payload.senderId,
+        targetRecipientId: typeof call.calleeId === 'string' ? call.calleeId.trim() : '',
+      }
+      skipWebPush = callAction === 'cancel'
       ttlSeconds = 60
     } else if (body.notification && typeof body.notification === 'object') {
       const n = body.notification
@@ -398,10 +424,6 @@ export default async function handler(req, res) {
       ])
       const safeType = allowedTypes.has(n.type) ? n.type : 'notice'
       targets = buildFcmTargetsForNotification({ ...n, type: safeType })
-      if (targets.length === 0) {
-        res.status(200).json({ ok: true, sent: 0 })
-        return
-      }
       const rawNotifId = String(n.id || `notif_${Date.now()}`).slice(0, 64)
       const derivedChatMsgId =
         typeof n.chatMessageId === 'string' && /^[a-zA-Z0-9_-]{4,128}$/.test(n.chatMessageId.trim())
@@ -411,8 +433,8 @@ export default async function handler(req, res) {
             : ''
       const rawHref = typeof n.href === 'string' ? n.href.trim() : ''
       const safeHref =
-        rawHref.startsWith('#') && /^#[a-zA-Z0-9_?=&%-]{1,119}$/.test(rawHref)
-          ? rawHref.slice(0, 120)
+        rawHref.startsWith('#') && /^#[a-zA-Z0-9_?=&%-]{1,219}$/.test(rawHref)
+          ? rawHref.slice(0, 220)
           : safeType === 'chat'
             ? '#campus-chat'
             : '#notices'
@@ -425,6 +447,20 @@ export default async function handler(req, res) {
         type: safeType,
         senderId: typeof n.actorId === 'string' ? n.actorId.slice(0, 64) : '',
         messageId: derivedChatMsgId,
+        requireInteraction: false,
+      }
+      webPushFilter = {
+        type: safeType,
+        senderId: payload.senderId,
+        targetRecipientId: typeof n.targetRecipientId === 'string' ? n.targetRecipientId.trim() : '',
+        targetStudentId: typeof n.targetStudentId === 'string' ? n.targetStudentId.trim() : '',
+        targetStaffOnly: Boolean(n.targetStaffOnly),
+        targetClass: typeof n.targetClass === 'string' ? n.targetClass.trim() : '',
+        targetClasses: Array.isArray(n.targetClasses) ? n.targetClasses : [],
+      }
+      if (targets.length === 0) {
+        res.status(200).json({ ok: true, sent: 0 })
+        return
       }
       ttlSeconds = 259200
     } else {
@@ -432,14 +468,36 @@ export default async function handler(req, res) {
       return
     }
 
-    const accessToken = await getGoogleFcmAccessToken(creds)
-    const results = await Promise.allSettled(
-      targets.map((t) => sendFcmV1Message(creds, accessToken, t, payload, ttlSeconds)),
-    )
-    const sent = results.filter((r) => r.status === 'fulfilled').length
-    const failed = results.length - sent
+    const fcmPromise = (async () => {
+      if (!creds || targets.length === 0) return { sent: 0, failed: 0 }
+      const accessToken = await getGoogleFcmAccessToken(creds)
+      const results = await Promise.allSettled(
+        targets.map((t) => sendFcmV1Message(creds, accessToken, t, payload, ttlSeconds)),
+      )
+      const sent = results.filter((r) => r.status === 'fulfilled').length
+      return { sent, failed: results.length - sent }
+    })()
 
-    res.status(200).json({ ok: sent > 0, sent, failed })
+    const webPushPromise = skipWebPush
+      ? Promise.resolve({ sent: 0, failed: 0, matched: 0 })
+      : dispatchWebPushToMatchingSubs(
+          payload,
+          webPushFilter,
+          'high',
+          Math.min(ttlSeconds, 86400),
+        ).catch(() => ({ sent: 0, failed: 0, matched: 0 }))
+
+    const [fcmResult, webPushResult] = await Promise.all([fcmPromise, webPushPromise])
+    const totalSent = fcmResult.sent + webPushResult.sent
+    const totalFailed = fcmResult.failed + webPushResult.failed
+
+    res.status(200).json({
+      ok: totalSent > 0 || Boolean(creds),
+      sent: totalSent,
+      failed: totalFailed,
+      fcm: fcmResult,
+      webPush: webPushResult,
+    })
   } catch (err) {
     res.status(500).json({
       ok: false,

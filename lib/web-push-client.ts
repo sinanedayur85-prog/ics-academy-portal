@@ -24,6 +24,7 @@ const LAST_SYNCED_VAPID_KEY = 'ics_web_push_vapid_key_v1'
 
 const CLOUD_PUSH_BASES = [
   '',
+  'https://ics-academy-manhappatta.vercel.app',
   'https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app',
   'https://ais-dev-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app',
 ]
@@ -89,12 +90,13 @@ function getPushApiBases(): string[] {
 
   if (isCapacitorOrLocal) {
     return [
+      'https://ics-academy-manhappatta.vercel.app',
       'https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app',
       'https://ais-dev-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app',
       '',
     ]
   }
-  // Try same-origin first, then Shared App (ais-pre) and Dev App (ais-dev) so Vercel/custom domains always connect
+  // Try same-origin first, then production Vercel, then Cloud Run mirrors
   const currentOrigin = window.location.origin
   return Array.from(
     new Set(
@@ -427,7 +429,7 @@ export async function sendTestWebPushNotification(): Promise<{ ok: boolean; erro
         const res = await fetch(`${base}/api/push/test`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ endpoint: sub.endpoint }),
+          body: JSON.stringify({ endpoint: sub.endpoint, subscription: sub.toJSON() }),
         })
         const contentType = res.headers.get('content-type') || ''
         if (!contentType.includes('application/json')) continue
