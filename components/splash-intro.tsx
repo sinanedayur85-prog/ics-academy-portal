@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { peekPendingNotificationHref } from '@/lib/mobile-pdf'
 import { cn } from '@/lib/utils'
 
 // Model 4 (4.5s) duration + brief hold before entering the app
@@ -46,16 +47,31 @@ const LOGO_PATHS = [
 ]
 
 export function SplashIntro() {
-  const [visible, setVisible] = useState(true)
+  const [visible, setVisible] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true
+    const loggedIn = window.localStorage.getItem('isAuthenticated') === 'true'
+    if (loggedIn && peekPendingNotificationHref()) {
+      return false
+    }
+    return true
+  })
   const [typedTitleCount, setTypedTitleCount] = useState(0)
   const [isTypingTitle, setIsTypingTitle] = useState(false)
 
   useEffect(() => {
+    const dismissOnNotif = () => setVisible(false)
+    window.addEventListener('ics-notification-open', dismissOnNotif)
+    window.addEventListener('ics-notification-navigate', dismissOnNotif)
+
     const timer = window.setTimeout(() => {
       setVisible(false)
     }, SPLASH_DURATION_MS)
 
-    return () => window.clearTimeout(timer)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('ics-notification-open', dismissOnNotif)
+      window.removeEventListener('ics-notification-navigate', dismissOnNotif)
+    }
   }, [])
 
   // Keyboard Typewriter animation ONLY for "ICS ACADEMY" (Model 4 timing)

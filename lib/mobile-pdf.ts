@@ -12,7 +12,10 @@ export interface ICSNativeBridgeInterface {
   downloadAndInstallApk?: (apkUrl: string) => void;
   clearWebCacheAndReload?: () => void;
   showNotification?: (title: string, message: string) => void;
+  showNotificationWithHref?: (title: string, message: string, href: string) => void;
   clearNotifications?: () => void;
+  peekPendingNotificationHref?: () => string;
+  consumePendingNotificationHref?: () => string;
   syncNotificationIdentity?: (
     actorId: string,
     actorName: string,
@@ -58,6 +61,188 @@ export function syncNativeAndroidNotificationIdentity(identity: {
   } catch {
     // Ignore on older APK builds without syncNotificationIdentity
   }
+}
+
+export interface ParsedNotificationTarget {
+  href: string;
+  baseHash: string;
+  roomId?: string;
+}
+
+const PENDING_NOTIF_HREF_KEY = 'ics_pending_notif_href_v1';
+const PENDING_NOTIF_TS_KEY = 'ics_pending_notif_ts_v1';
+const PENDING_NOTIF_ROOM_KEY = 'ics_pending_notif_room_v1';
+
+const VALID_NOTIFICATION_HASHES = new Set([
+  'campus-chat',
+  'notices',
+  'usthad-notices',
+  'attendance',
+  'class-attendance',
+  'usthad-attendance',
+  'leave',
+  'usthad-leave',
+  'academic-hub',
+  'timetable',
+  'usthad-timetable',
+  'digital-library',
+  'library',
+  'usthad-library',
+  'usthad-kitabs',
+  'university-portal',
+  'gemini-chatbot',
+  'class-roster',
+]);
+
+export function parseNotificationHref(rawHref?: string | null): ParsedNotificationTarget | null {
+  if (!rawHref || typeof rawHref !== 'string') return null;
+  let cleaned = rawHref.trim();
+  if (!cleaned) return null;
+  if (cleaned.startsWith('/#')) cleaned = cleaned.slice(1);
+  if (!cleaned.startsWith('#')) {
+    const hashIdx = cleaned.indexOf('#');
+    if (hashIdx >= 0) {
+      cleaned = cleaned.slice(hashIdx);
+    } else {
+      cleaned = `#${cleaned}`;
+    }
+  }
+  const withoutHash = cleaned.slice(1);
+  const qIdx = withoutHash.indexOf('?');
+  const baseHash = (qIdx >= 0 ? withoutHash.slice(0, qIdx) : withoutHash).trim();
+  if (!baseHash || !VALID_NOTIFICATION_HASHES.has(baseHash)) return null;
+
+  let roomId: string | undefined;
+  if (qIdx >= 0) {
+    try {
+      const params = new URLSearchParams(withoutHash.slice(qIdx + 1));
+      const rawRoom = params.get('room');
+      if (rawRoom && /^[a-zA-Z0-9_-]{3,160}$/.test(rawRoom.trim())) {
+        roomId = rawRoom.trim();
+      }
+    } catch {
+      // Ignore malformed query string
+    }
+  }
+
+  const normalizedHref = roomId ? `#${baseHash}?room=${encodeURIComponent(roomId)}` : `#${baseHash}`;
+  return {
+    href: normalizedHref,
+    baseHash,
+    roomId,
+  };
+}
+
+export function peekPendingNotificationHref(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const nativeHref = window.ICSNativeBridge?.peekPendingNotificationHref?.();
+    const parsedNative = parseNotificationHref(nativeHref);
+    if (parsedNative) return parsedNative.href;
+  } catch {
+    // Ignore on older APKs
+  }
+  try {
+    const saved = window.sessionStorage.getItem(PENDING_NOTIF_HREF_KEY);
+    const savedTs = Number(window.sessionStorage.getItem(PENDING_NOTIF_TS_KEY) || '0');
+    if (saved && Date.now() - savedTs < 60_000) {
+      const parsedSaved = parseNotificationHref(saved);
+      if (parsedSaved) return parsedSaved.href;
+    }
+  } catch {
+    // Ignore
+  }
+  const parsedHash = parseNotificationHref(window.location.hash);
+  if (parsedHash) return parsedHash.href;
+  return null;
+}
+
+export function consumePendingNotificationHref(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const nativeHref = window.ICSNativeBridge?.consumePendingNotificationHref?.();
+    const parsedNative = parseNotificationHref(nativeHref);
+    if (parsedNative) return parsedNative.href;
+  } catch {
+    // Ignore on older APKs
+  }
+  try {
+    const saved = window.sessionStorage.getItem(PENDING_NOTIF_HREF_KEY);
+    const savedTs = Number(window.sessionStorage.getItem(PENDING_NOTIF_TS_KEY) || '0');
+    window.sessionStorage.removeItem(PENDING_NOTIF_HREF_KEY);
+    window.sessionStorage.removeItem(PENDING_NOTIF_TS_KEY);
+    if (saved && Date.now() - savedTs < 60_000) {
+      const parsedSaved = parseNotificationHref(saved);
+      if (parsedSaved) return parsedSaved.href;
+    }
+  } catch {
+    // Ignore
+  }
+  return null;
+}
+
+export function peekPendingNotificationChatRoomId(): string | null {
+  if (typeof window === 'undefined') return null;
+  const fromHash = parseNotificationHref(window.location.hash);
+  if (fromHash?.baseHash === 'campus-chat' && fromHash.roomId) {
+    return fromHash.roomId;
+  }
+  try {
+    const raw = window.sessionStorage.getItem(PENDING_NOTIF_ROOM_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as { roomId?: string; ts?: number };
+      if (parsed?.roomId && Date.now() - (parsed.ts || 0) < 30_000) {
+        return parsed.roomId;
+      }
+    }
+  } catch {
+    // Ignore
+  }
+  return null;
+}
+
+export function clearPendingNotificationChatRoomId(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(PENDING_NOTIF_ROOM_KEY);
+  } catch {
+    // Ignore
+  }
+}
+
+export function dispatchNotificationNavigation(rawHref?: string | null): boolean {
+  if (typeof window === 'undefined') return false;
+  // Only deep-link directly into dashboard sections/chats when user is already logged in
+  if (window.localStorage.getItem('isAuthenticated') !== 'true') {
+    return false;
+  }
+  const parsed = parseNotificationHref(rawHref);
+  if (!parsed) return false;
+
+  try {
+    window.sessionStorage.setItem(PENDING_NOTIF_HREF_KEY, parsed.href);
+    window.sessionStorage.setItem(PENDING_NOTIF_TS_KEY, String(Date.now()));
+    if (parsed.baseHash === 'campus-chat' && parsed.roomId) {
+      window.sessionStorage.setItem(
+        PENDING_NOTIF_ROOM_KEY,
+        JSON.stringify({ roomId: parsed.roomId, ts: Date.now() }),
+      );
+    }
+  } catch {
+    // Ignore storage issues
+  }
+
+  try {
+    if (window.location.hash !== parsed.href) {
+      window.location.hash = parsed.href;
+    }
+  } catch {
+    // Ignore hash error
+  }
+
+  window.dispatchEvent(new CustomEvent('ics-notification-navigate', { detail: parsed }));
+  clearGroupedPhoneNotifications();
+  return true;
 }
 
 export function isMobileDevice(): boolean {
@@ -206,6 +391,14 @@ export function triggerSystemNotification(
   saveQueuedPhoneNotifications(nextQueue);
 
   // 1. Native Android APK status-bar notification (uses single fixed ID + InboxStyle + setOnlyAlertOnce(true))
+  if (window.ICSNativeBridge?.showNotificationWithHref) {
+    try {
+      window.ICSNativeBridge.showNotificationWithHref(cleanTitle, cleanMessage, href || '#notices');
+      return;
+    } catch {
+      // Fallback below
+    }
+  }
   if (window.ICSNativeBridge?.showNotification) {
     try {
       window.ICSNativeBridge.showNotification(cleanTitle, cleanMessage);

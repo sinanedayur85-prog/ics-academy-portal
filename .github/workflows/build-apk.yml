@@ -442,10 +442,14 @@ jobs:
           import java.util.ArrayList;
 
           public class MainActivity extends BridgeActivity {
+              public static final String EXTRA_TARGET_HREF = "ics_target_href";
               private static final String CHANNEL_ID = "ics_academy_updates";
               private static final int GROUPED_NOTIFICATION_ID = 1001;
               private static final int REQ_VOICE_RECOGNITION = 2002;
+              private static final long PENDING_HREF_TTL_MS = 60_000L;
               private static volatile boolean activityInForeground = false;
+              private static volatile String pendingNotificationHref = "";
+              private static volatile long pendingNotificationTsMs = 0L;
               private int lastStatusBarHeightDp = 28;
               private final ArrayList<String> groupedNotificationLines = new ArrayList<>();
 
@@ -453,10 +457,109 @@ jobs:
                   return activityInForeground;
               }
 
+              public static String sanitizeTargetHref(String raw) {
+                  if (raw == null) return "";
+                  String clean = raw.trim();
+                  if (clean.length() < 2 || clean.length() > 120) return "";
+                  if (!clean.startsWith("#")) return "";
+                  if (!clean.matches("^#[a-zA-Z0-9_?=&%-]{1,119}$")) return "";
+                  return clean;
+              }
+
+              private void storePendingNotificationHref(String safeHref) {
+                  long nowMs = System.currentTimeMillis();
+                  pendingNotificationHref = safeHref;
+                  pendingNotificationTsMs = nowMs;
+                  try {
+                      android.content.SharedPreferences prefs = getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                      prefs.edit()
+                          .putString("pendingNotificationHref", safeHref)
+                          .putLong("pendingNotificationTsMs", nowMs)
+                          .apply();
+                  } catch (Exception ignored) {
+                  }
+              }
+
+              private void clearPendingNotificationHref() {
+                  pendingNotificationHref = "";
+                  pendingNotificationTsMs = 0L;
+                  try {
+                      android.content.SharedPreferences prefs = getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                      prefs.edit()
+                          .remove("pendingNotificationHref")
+                          .remove("pendingNotificationTsMs")
+                          .apply();
+                  } catch (Exception ignored) {
+                  }
+              }
+
+              private String readPendingNotificationHref(boolean consume) {
+                  String href = pendingNotificationHref;
+                  long ts = pendingNotificationTsMs;
+                  if (href == null || href.isEmpty()) {
+                      try {
+                          android.content.SharedPreferences prefs = getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                          href = prefs.getString("pendingNotificationHref", "");
+                          ts = prefs.getLong("pendingNotificationTsMs", 0L);
+                      } catch (Exception ignored) {
+                          href = "";
+                          ts = 0L;
+                      }
+                  }
+                  String safe = sanitizeTargetHref(href);
+                  if (safe.isEmpty() || (ts > 0L && (System.currentTimeMillis() - ts) > PENDING_HREF_TTL_MS)) {
+                      clearPendingNotificationHref();
+                      return "";
+                  }
+                  if (consume) {
+                      clearPendingNotificationHref();
+                  }
+                  return safe;
+              }
+
+              private void dispatchNotificationHrefToWebView(final WebView webView, final String safeHref) {
+                  if (webView == null || safeHref == null || safeHref.isEmpty()) return;
+                  final String escaped = safeHref
+                      .replace("\\\\", "\\\\\\\\")
+                      .replace("'", "\\\\'")
+                      .replace("\\n", "");
+                  final String js = "try{window.dispatchEvent(new CustomEvent('ics-notification-open',{detail:{href:'" + escaped + "'}}));}catch(e){}";
+                  webView.post(() -> webView.evaluateJavascript(js, null));
+              }
+
+              private void captureNotificationIntent(Intent intent, boolean dispatchImmediately) {
+                  if (intent == null) return;
+                  try {
+                      String rawHref = intent.getStringExtra(EXTRA_TARGET_HREF);
+                      if (rawHref == null || rawHref.trim().isEmpty()) {
+                          rawHref = intent.getStringExtra("href");
+                      }
+                      String safeHref = sanitizeTargetHref(rawHref);
+                      if (safeHref.isEmpty()) return;
+
+                      intent.removeExtra(EXTRA_TARGET_HREF);
+                      intent.removeExtra("href");
+                      storePendingNotificationHref(safeHref);
+
+                      if (dispatchImmediately && this.bridge != null && this.bridge.getWebView() != null) {
+                          final WebView webView = this.bridge.getWebView();
+                          dispatchNotificationHrefToWebView(webView, safeHref);
+                          webView.postDelayed(() -> {
+                              String stillPending = readPendingNotificationHref(false);
+                              if (!stillPending.isEmpty()) {
+                                  dispatchNotificationHrefToWebView(webView, stillPending);
+                              }
+                          }, 350);
+                      }
+                  } catch (Exception ignored) {
+                  }
+              }
+
               @Override
               public void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
 
+                  captureNotificationIntent(getIntent(), false);
                   createNotificationChannel();
                   requestAppPermissionsIfNeeded();
                   clearGroupedSystemNotifications();
@@ -534,6 +637,21 @@ jobs:
                       webView.postDelayed(() -> injectStatusBarHeight(webView, lastStatusBarHeightDp), 1200);
                       webView.postDelayed(() -> injectStatusBarHeight(webView, lastStatusBarHeightDp), 2500);
                       webView.postDelayed(() -> injectStatusBarHeight(webView, lastStatusBarHeightDp), 4500);
+
+                      if (!readPendingNotificationHref(false).isEmpty()) {
+                          webView.postDelayed(() -> {
+                              String pending = readPendingNotificationHref(false);
+                              if (!pending.isEmpty()) {
+                                  dispatchNotificationHrefToWebView(webView, pending);
+                              }
+                          }, 700);
+                          webView.postDelayed(() -> {
+                              String pending = readPendingNotificationHref(false);
+                              if (!pending.isEmpty()) {
+                                  dispatchNotificationHrefToWebView(webView, pending);
+                              }
+                          }, 1800);
+                      }
                   }
               }
 
@@ -621,7 +739,9 @@ jobs:
               @Override
               protected void onNewIntent(Intent intent) {
                   super.onNewIntent(intent);
+                  setIntent(intent);
                   clearGroupedSystemNotifications();
+                  captureNotificationIntent(intent, true);
               }
 
               @Override
@@ -729,11 +849,28 @@ jobs:
                   }
 
                   @JavascriptInterface
+                  public String peekPendingNotificationHref() {
+                      return readPendingNotificationHref(false);
+                  }
+
+                  @JavascriptInterface
+                  public String consumePendingNotificationHref() {
+                      return readPendingNotificationHref(true);
+                  }
+
+                  @JavascriptInterface
                   public void showNotification(final String title, final String message) {
+                      showNotificationWithHref(title, message, "#notices");
+                  }
+
+                  @JavascriptInterface
+                  public void showNotificationWithHref(final String title, final String message, final String href) {
                       runOnUiThread(() -> {
                           try {
                               String safeTitle = (title != null && !title.trim().isEmpty()) ? title.trim() : "ICS Academy";
                               String safeMessage = (message != null) ? message.trim() : "";
+                              String safeHref = sanitizeTargetHref(href);
+                              if (safeHref.isEmpty()) safeHref = "#notices";
                               String combinedLine = safeMessage.isEmpty() ? safeTitle : (safeTitle + ": " + safeMessage);
 
                               int totalCount;
@@ -749,10 +886,11 @@ jobs:
 
                               Intent intent = new Intent(MainActivity.this, MainActivity.class);
                               intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                              intent.putExtra(EXTRA_TARGET_HREF, safeHref);
                               int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
                                   ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
                                   : PendingIntent.FLAG_UPDATE_CURRENT;
-                              PendingIntent pendingIntent = PendingIntent.getActivity(MainActivity.this, 0, intent, flags);
+                              PendingIntent pendingIntent = PendingIntent.getActivity(MainActivity.this, GROUPED_NOTIFICATION_ID, intent, flags);
 
                               String headerTitle = totalCount == 1
                                   ? safeTitle
@@ -1132,6 +1270,7 @@ jobs:
                   long cutoffMs = lastActiveMs > 0L ? Math.max(nowMs - (12L * 60L * 60L * 1000L), lastActiveMs - 30_000L) : (nowMs - (12L * 60L * 60L * 1000L));
                   ArrayList<String> newTitles = new ArrayList<>();
                   ArrayList<String> newMessages = new ArrayList<>();
+                  String latestTargetHref = "#notices";
 
                   try {
                       JSONObject root = new JSONObject(body);
@@ -1158,6 +1297,16 @@ jobs:
                               String m = n.optString("message", "");
                               newTitles.add(t);
                               newMessages.add(m);
+                              String safeHref = MainActivity.sanitizeTargetHref(n.optString("href", ""));
+                              if (safeHref.isEmpty()) {
+                                  String nType = n.optString("type", "notice");
+                                  if ("chat".equals(nType) || "call".equals(nType)) safeHref = "#campus-chat";
+                                  else if ("attendance".equals(nType)) safeHref = "#attendance";
+                                  else if ("leave".equals(nType)) safeHref = "#leave";
+                                  else if ("exam".equals(nType) || "marks".equals(nType)) safeHref = "#academic-hub";
+                                  else safeHref = "#notices";
+                              }
+                              latestTargetHref = safeHref;
                           }
                       }
                   } catch (Exception ignored) {
@@ -1173,7 +1322,7 @@ jobs:
                   }
 
                   if (!newTitles.isEmpty()) {
-                      postNativeBackgroundNotification(newTitles, newMessages);
+                      postNativeBackgroundNotification(newTitles, newMessages, latestTargetHref);
                   }
               }
 
@@ -1248,7 +1397,7 @@ jobs:
                   return true;
               }
 
-              private void postNativeBackgroundNotification(ArrayList<String> titles, ArrayList<String> messages) {
+              private void postNativeBackgroundNotification(ArrayList<String> titles, ArrayList<String> messages, String targetHref) {
                   try {
                       NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                       if (manager == null) return;
@@ -1263,12 +1412,15 @@ jobs:
                           manager.createNotificationChannel(channel);
                       }
 
+                      String safeHref = MainActivity.sanitizeTargetHref(targetHref);
+                      if (safeHref.isEmpty()) safeHref = "#notices";
                       Intent intent = new Intent(this, MainActivity.class);
                       intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                      intent.putExtra(MainActivity.EXTRA_TARGET_HREF, safeHref);
                       int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
                           ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
                           : PendingIntent.FLAG_UPDATE_CURRENT;
-                      PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, flags);
+                      PendingIntent pendingIntent = PendingIntent.getActivity(this, BG_NOTIFICATION_ID, intent, flags);
 
                       int count = titles.size();
                       String headerTitle = count == 1 ? titles.get(0) : ("ICS Academy • " + count + " New Updates");
@@ -1681,6 +1833,16 @@ jobs:
                           prefs.edit().putStringSet("seenNotifIds", seen).apply();
                       }
 
+                      String rawHref = data.get("href");
+                      String safeHref = MainActivity.sanitizeTargetHref(rawHref);
+                      if (safeHref.isEmpty()) {
+                          if ("chat".equals(type) || "call".equals(type)) safeHref = "#campus-chat";
+                          else if ("attendance".equals(type)) safeHref = "#attendance";
+                          else if ("leave".equals(type)) safeHref = "#leave";
+                          else if ("exam".equals(type) || "marks".equals(type)) safeHref = "#academic-hub";
+                          else safeHref = "#notices";
+                      }
+
                       // 1. Display the crisp white-icon Android system notification IMMEDIATELY when app is closed/background
                       if (!MainActivity.isActivityInForeground()) {
                           NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
@@ -1695,12 +1857,17 @@ jobs:
                                   manager.createNotificationChannel(channel);
                               }
 
+                              int notifyId = (notifId != null && !notifId.isEmpty())
+                                  ? Math.abs(notifId.hashCode())
+                                  : (int) (System.currentTimeMillis() & 0x7fffffff);
+
                               Intent intent = new Intent(this, MainActivity.class);
                               intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                              intent.putExtra(MainActivity.EXTRA_TARGET_HREF, safeHref);
                               int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
                                   ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
                                   : PendingIntent.FLAG_UPDATE_CURRENT;
-                              PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, flags);
+                              PendingIntent pendingIntent = PendingIntent.getActivity(this, notifyId, intent, flags);
 
                               NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                                   .setSmallIcon(R.drawable.ic_stat_ics)
@@ -1713,9 +1880,6 @@ jobs:
                                   .setAutoCancel(true)
                                   .setContentIntent(pendingIntent);
 
-                              int notifyId = (notifId != null && !notifId.isEmpty())
-                                  ? Math.abs(notifId.hashCode())
-                                  : (int) (System.currentTimeMillis() & 0x7fffffff);
                               manager.notify(notifyId, builder.build());
                           }
                       }

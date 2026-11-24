@@ -91,7 +91,14 @@ import {
   type Student,
 } from '@/components/dashboard/data'
 import { buildKitabPdfBlob, CURATED_KITABS } from '@/components/dashboard/digital-library'
-import { clearGroupedPhoneNotifications, unlockNotificationAudio } from '@/lib/mobile-pdf'
+import {
+  clearGroupedPhoneNotifications,
+  clearPendingNotificationChatRoomId,
+  parseNotificationHref,
+  peekPendingNotificationChatRoomId,
+  unlockNotificationAudio,
+  type ParsedNotificationTarget,
+} from '@/lib/mobile-pdf'
 import { db, handleFirestoreError, OperationType } from '@/src/lib/firebase'
 import { cn } from '@/lib/utils'
 
@@ -1014,7 +1021,16 @@ export function CampusMessenger({
 
   // Keep default room and per-actor "Delete for me" list synced when student/usthad switches profile
   useEffect(() => {
-    setSelectedRoomId(makeBatchRoomId(actor.className))
+    const pendingRoom = peekPendingNotificationChatRoomId()
+    if (pendingRoom) {
+      setSelectedRoomId(pendingRoom)
+      setMobileShowChatPane(true)
+      setCategoryFilter('all')
+      setSearchQuery('')
+      clearPendingNotificationChatRoomId()
+    } else {
+      setSelectedRoomId(makeBatchRoomId(actor.className))
+    }
     setStudentBatchFilter(actor.className)
     setDeleteModalMessages([])
     setSelectedMessageIds([])
@@ -1037,6 +1053,40 @@ export function CampusMessenger({
       }
     }
   }, [actor.className, actor.id])
+
+  // Open the exact chat room directly when user taps a chat notification (warm or cold start)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const openRoomFromTarget = (rawHref?: string | null) => {
+      const parsed = parseNotificationHref(rawHref || window.location.hash)
+      const roomId =
+        parsed?.baseHash === 'campus-chat' && parsed.roomId
+          ? parsed.roomId
+          : peekPendingNotificationChatRoomId()
+      if (!roomId) return
+      setSelectedRoomId(roomId)
+      setMobileShowChatPane(true)
+      setCategoryFilter('all')
+      setSearchQuery('')
+      clearPendingNotificationChatRoomId()
+      clearGroupedPhoneNotifications()
+    }
+
+    const onNotifNavigate = (e: Event) => {
+      const custom = e as CustomEvent<ParsedNotificationTarget>
+      if (custom.detail?.baseHash === 'campus-chat') {
+        openRoomFromTarget(custom.detail.href)
+      }
+    }
+    const onHashChange = () => openRoomFromTarget(window.location.hash)
+
+    window.addEventListener('ics-notification-navigate', onNotifNavigate)
+    window.addEventListener('hashchange', onHashChange)
+    return () => {
+      window.removeEventListener('ics-notification-navigate', onNotifNavigate)
+      window.removeEventListener('hashchange', onHashChange)
+    }
+  }, [])
 
   // Composer & WhatsApp Multi-Selection / Info / Forward / Starred State
   const [inputText, setInputText] = useState('')
@@ -3004,6 +3054,7 @@ export function CampusMessenger({
 
       const deterministicNotifId = `notif_chat_${msgId}`
       const roomSnapshot = activeRoom
+      const roomDeepLinkHref = `#campus-chat?room=${encodeURIComponent(roomSnapshot.roomId)}`
 
       const dispatchChatPushNotification = () => {
         // 1. Direct 1-on-1 Chat (Strictly notify ONLY the target recipient)
@@ -3019,7 +3070,7 @@ export function CampusMessenger({
             targetRecipientId: roomSnapshot.peerId,
             actorId: actor.id,
             actorName: actor.name,
-            href: '#campus-chat',
+            href: roomDeepLinkHref,
           })
         }
         // 2. Class Batch Group Chat (Notify ONLY members & Class Usthad of that batch, excluding sender)
@@ -3032,7 +3083,7 @@ export function CampusMessenger({
             targetClass: roomSnapshot.batchName,
             actorId: actor.id,
             actorName: actor.name,
-            href: '#campus-chat',
+            href: roomDeepLinkHref,
           })
         }
         // 3. Staff Room Group Chat (Notify ONLY Usthads & Principal, excluding sender)
@@ -3045,7 +3096,7 @@ export function CampusMessenger({
             targetStaffOnly: true,
             actorId: actor.id,
             actorName: actor.name,
-            href: '#campus-chat',
+            href: roomDeepLinkHref,
           })
         }
       }
@@ -4066,6 +4117,7 @@ export function CampusMessenger({
                 : forwardedMsg.text.slice(0, 120)
 
         const deterministicNotifId = `notif_chat_${msgId}`
+        const forwardedRoomDeepLinkHref = `#campus-chat?room=${encodeURIComponent(targetRoomId)}`
         const dispatchForwardedPush = () => {
           if (isDirect && directPeerId) {
             publishCampusNotification({
@@ -4076,7 +4128,7 @@ export function CampusMessenger({
               targetRecipientId: directPeerId,
               actorId: actor.id,
               actorName: actor.name,
-              href: '#campus-chat',
+              href: forwardedRoomDeepLinkHref,
             })
           } else if (isBatch && batchName) {
             publishCampusNotification({
@@ -4087,7 +4139,7 @@ export function CampusMessenger({
               targetClass: batchName,
               actorId: actor.id,
               actorName: actor.name,
-              href: '#campus-chat',
+              href: forwardedRoomDeepLinkHref,
             })
           } else if (isStaffRoom) {
             publishCampusNotification({
@@ -4098,7 +4150,7 @@ export function CampusMessenger({
               targetStaffOnly: true,
               actorId: actor.id,
               actorName: actor.name,
-              href: '#campus-chat',
+              href: forwardedRoomDeepLinkHref,
             })
           }
         }

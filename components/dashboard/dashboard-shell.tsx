@@ -41,6 +41,7 @@ import { NoticeBoard } from '@/components/dashboard/notice-board'
 import { StudentAvatar, StudentSwitcher } from '@/components/dashboard/student-switcher'
 import { Timetable } from '@/components/dashboard/timetable'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { parseNotificationHref, type ParsedNotificationTarget } from '@/lib/mobile-pdf'
 import { cn } from '@/lib/utils'
 
 const studentNavItems = [
@@ -107,15 +108,16 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
     leaderInfo.roleTitle
   const navItems = isClassLeader ? classLeaderNavItems : studentNavItems
 
-  // Automatically sync hash navigation (from notification banners or badges) to mobile tabs
+  // Automatically sync hash navigation & Android/Web notification taps directly to the exact tab & section
   useEffect(() => {
-    const syncHashToMobileTab = () => {
+    const applyTargetHash = (rawHref?: string | null) => {
       if (typeof window === 'undefined') return
-      const hash = window.location.hash.replace('#', '')
+      const parsed = parseNotificationHref(rawHref || window.location.hash)
+      const hash = parsed?.baseHash || window.location.hash.replace('#', '').split('?')[0]
       if (!hash) return
-      if (hash === 'notices' || hash === 'academic-hub') {
+      if (hash === 'notices' || hash === 'usthad-notices' || hash === 'academic-hub') {
         setMobileTab('home')
-      } else if (hash === 'attendance') {
+      } else if (hash === 'attendance' || hash === 'usthad-attendance') {
         setMobileTab('attendance')
         setMobileAttendanceSubTab('personal')
       } else if (hash === 'class-attendance') {
@@ -125,22 +127,58 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
         setMobileTab('campus-chat')
       } else if (hash === 'gemini-chatbot') {
         setMobileTab('chatbot')
-      } else if (hash === 'leave') {
+      } else if (hash === 'leave' || hash === 'usthad-leave') {
         setMobileTab('leave')
       } else if (
         hash === 'digital-library' ||
+        hash === 'usthad-kitabs' ||
         hash === 'library' ||
+        hash === 'usthad-library' ||
         hash === 'timetable' ||
+        hash === 'usthad-timetable' ||
         hash === 'university-portal'
       ) {
         setMobileTab('library')
-        setMobileResourceSubTab(hash)
+        const mappedSub =
+          hash === 'usthad-kitabs'
+            ? 'digital-library'
+            : hash === 'usthad-library'
+              ? 'library'
+              : hash === 'usthad-timetable'
+                ? 'timetable'
+                : (hash as 'digital-library' | 'library' | 'timetable' | 'university-portal')
+        setMobileResourceSubTab(mappedSub)
       }
+
+      const scrollTargetId =
+        hash === 'usthad-notices'
+          ? 'notices'
+          : hash === 'usthad-leave'
+            ? 'leave'
+            : hash === 'usthad-attendance'
+              ? 'attendance'
+              : hash
+      window.setTimeout(() => {
+        const el = document.getElementById(scrollTargetId)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 120)
+    }
+
+    const syncHashToMobileTab = () => applyTargetHash(window.location.hash)
+    const handleNotifNavigate = (e: Event) => {
+      const custom = e as CustomEvent<ParsedNotificationTarget>
+      applyTargetHash(custom.detail?.href)
     }
 
     syncHashToMobileTab()
     window.addEventListener('hashchange', syncHashToMobileTab)
-    return () => window.removeEventListener('hashchange', syncHashToMobileTab)
+    window.addEventListener('ics-notification-navigate', handleNotifNavigate)
+    return () => {
+      window.removeEventListener('hashchange', syncHashToMobileTab)
+      window.removeEventListener('ics-notification-navigate', handleNotifNavigate)
+    }
   }, [])
 
   const selectMobileTab = (tab: MobileTabId) => {

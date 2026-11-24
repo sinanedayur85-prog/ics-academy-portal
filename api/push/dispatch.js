@@ -371,10 +371,14 @@ export default async function handler(req, res) {
       const callLabel = call.callType === 'video' ? 'Incoming Video Call' : 'Incoming Voice Call'
       const callerName = String(call.callerName || 'ICS Academy').slice(0, 80)
       targets = [{ topic: calleeTopic }]
+      const safeCallRoom =
+        typeof call.roomId === 'string' && /^[a-zA-Z0-9_-]{3,96}$/.test(call.roomId.trim())
+          ? call.roomId.trim()
+          : ''
       payload = {
         title: `${callLabel} — ${callerName}`.slice(0, 140),
         body: 'Tap to open ICS Academy and answer.',
-        href: '#campus-chat',
+        href: safeCallRoom ? `#campus-chat?room=${encodeURIComponent(safeCallRoom)}` : '#campus-chat',
         tag: `ics-call-${String(call.id || Date.now()).slice(0, 48)}`,
         notificationId: `call_${String(call.id || Date.now()).slice(0, 48)}`,
         type: 'call',
@@ -405,10 +409,17 @@ export default async function handler(req, res) {
           : safeType === 'chat' && rawNotifId.startsWith('notif_chat_')
             ? rawNotifId.slice('notif_chat_'.length).trim()
             : ''
+      const rawHref = typeof n.href === 'string' ? n.href.trim() : ''
+      const safeHref =
+        rawHref.startsWith('#') && /^#[a-zA-Z0-9_?=&%-]{1,119}$/.test(rawHref)
+          ? rawHref.slice(0, 120)
+          : safeType === 'chat'
+            ? '#campus-chat'
+            : '#notices'
       payload = {
         title: String(n.title || 'ICS Academy').trim().slice(0, 140) || 'ICS Academy',
         body: String(n.message || 'Open ICS Academy to view details.').trim().slice(0, 320),
-        href: typeof n.href === 'string' && n.href.startsWith('#') ? n.href.slice(0, 80) : '#notices',
+        href: safeHref,
         tag: `ics-notif-${safeType}-${String(n.id || Date.now()).slice(0, 48)}`,
         notificationId: rawNotifId,
         type: safeType,

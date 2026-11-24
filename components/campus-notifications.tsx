@@ -22,6 +22,8 @@ import {
 } from '@/components/dashboard/data'
 import {
   clearGroupedPhoneNotifications,
+  consumePendingNotificationHref,
+  dispatchNotificationNavigation,
   isAndroidNativeApp,
   syncNativeAndroidNotificationIdentity,
   triggerSystemNotification,
@@ -117,9 +119,30 @@ export function CampusNotificationBar({
       }
     }, 6000)
 
+    const routePendingNotificationIfAny = () => {
+      const pendingHref = consumePendingNotificationHref()
+      if (pendingHref) {
+        dispatchNotificationNavigation(pendingHref)
+      }
+    }
+
+    // Check immediately if the app was launched by tapping an Android/Web notification
+    routePendingNotificationIfAny()
+    const pendingNotifRetry = window.setTimeout(routePendingNotificationIfAny, 450)
+
+    function handleNativeNotificationOpen(e: Event) {
+      const custom = e as CustomEvent<{ href?: string }>
+      const targetHref = custom.detail?.href || consumePendingNotificationHref()
+      if (targetHref) {
+        dispatchNotificationNavigation(targetHref)
+      }
+    }
+    window.addEventListener('ics-notification-open', handleNativeNotificationOpen)
+
     function handleWakeOrFocus() {
       if (document.visibilityState === 'visible') {
         syncAndroidIdentityNow()
+        routePendingNotificationIfAny()
         void pullCampusStateFromServer()
         if (!isAndroidNativeApp()) {
           void syncWebPushSubscription({
@@ -157,11 +180,7 @@ export function CampusNotificationBar({
         }
         void pullCampusStateFromServer()
       } else if (data.type === 'ICS_NAVIGATE_HASH' && data.href) {
-        try {
-          window.location.hash = data.href
-        } catch {
-          // Ignore
-        }
+        dispatchNotificationNavigation(data.href)
       }
     }
     if ('serviceWorker' in navigator) {
@@ -211,7 +230,9 @@ export function CampusNotificationBar({
     return () => {
       unsubscribeRealtime()
       window.clearTimeout(androidSyncRetry)
+      window.clearTimeout(pendingNotifRetry)
       window.clearInterval(timer)
+      window.removeEventListener('ics-notification-open', handleNativeNotificationOpen)
       window.removeEventListener('focus', handleWakeOrFocus)
       document.removeEventListener('visibilitychange', handleWakeOrFocus)
       window.removeEventListener('ics-campus-notification', handleIncoming)

@@ -104,6 +104,7 @@ import {
   type DigitalKitabItem,
   type KitabCategory,
 } from '@/components/dashboard/digital-library'
+import { parseNotificationHref, type ParsedNotificationTarget } from '@/lib/mobile-pdf'
 import { ExamResultCard } from '@/components/dashboard/exam-result-card'
 import { LibraryBooks } from '@/components/dashboard/library-books'
 import {
@@ -305,38 +306,67 @@ export function UsthadDashboard() {
   }, [])
 
   useEffect(() => {
-    const syncHash = () => {
+    const applyTargetHash = (rawHref?: string | null) => {
       if (typeof window === 'undefined') return
-      const hash = window.location.hash.replace('#', '')
+      const parsed = parseNotificationHref(rawHref || window.location.hash)
+      const hash = parsed?.baseHash || window.location.hash.replace('#', '').split('?')[0]
       if (!hash) return
+      let scrollTargetId = hash
       if (hash === 'class-roster') {
         setMobileTab('roster')
         setMobileRosterSubTab('students')
-      } else if (hash === 'usthad-timetable') {
+      } else if (hash === 'usthad-timetable' || hash === 'timetable') {
         setMobileTab('library')
         setLibrarySubTab('timetable')
+        scrollTargetId = 'usthad-timetable'
       } else if (hash === 'academic-hub') {
         setMobileTab('roster')
         setMobileRosterSubTab('academic-hub')
-      } else if (hash === 'usthad-attendance' || hash === 'class-attendance')
+      } else if (hash === 'usthad-attendance' || hash === 'class-attendance' || hash === 'attendance') {
         setMobileTab('attendance')
-      else if (hash === 'usthad-leave') setMobileTab('leave')
-      else if (hash === 'campus-chat') setMobileTab('chat')
-      else if (hash === 'usthad-notices') setMobileTab('notices')
-      else if (hash === 'usthad-library') {
+        scrollTargetId = 'usthad-attendance'
+      } else if (hash === 'usthad-leave' || hash === 'leave') {
+        setMobileTab('leave')
+        scrollTargetId = 'usthad-leave'
+      } else if (hash === 'campus-chat') {
+        setMobileTab('chat')
+      } else if (hash === 'usthad-notices' || hash === 'notices') {
+        setMobileTab('notices')
+        scrollTargetId = 'usthad-notices'
+      } else if (hash === 'usthad-library' || hash === 'library') {
         setMobileTab('library')
         setLibrarySubTab('library')
-      } else if (hash === 'usthad-kitabs') {
+        scrollTargetId = 'usthad-library'
+      } else if (hash === 'usthad-kitabs' || hash === 'digital-library') {
         setMobileTab('library')
         setLibrarySubTab('digital-library')
+        scrollTargetId = 'usthad-kitabs'
       } else if (hash === 'university-portal') {
         setMobileTab('library')
         setLibrarySubTab('exam-results')
       }
+
+      window.setTimeout(() => {
+        const el = document.getElementById(scrollTargetId)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 120)
     }
+
+    const syncHash = () => applyTargetHash(window.location.hash)
+    const handleNotifNavigate = (e: Event) => {
+      const custom = e as CustomEvent<ParsedNotificationTarget>
+      applyTargetHash(custom.detail?.href)
+    }
+
     syncHash()
     window.addEventListener('hashchange', syncHash)
-    return () => window.removeEventListener('hashchange', syncHash)
+    window.addEventListener('ics-notification-navigate', handleNotifNavigate)
+    return () => {
+      window.removeEventListener('hashchange', syncHash)
+      window.removeEventListener('ics-notification-navigate', handleNotifNavigate)
+    }
   }, [])
 
   async function handleUsthadTimetableExport(

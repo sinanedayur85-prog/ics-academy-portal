@@ -124,6 +124,7 @@ import {
   type PeriodAttendanceSubmission,
   type Student,
 } from '@/components/dashboard/data'
+import { parseNotificationHref, type ParsedNotificationTarget } from '@/lib/mobile-pdf'
 import {
   DigitalLibrary,
   addKitabIdToBookmarksStorage,
@@ -235,6 +236,63 @@ export function PrincipalDashboard() {
   const [librarySubTab, setLibrarySubTab] = useState<PrincipalLibrarySubTab>('library')
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString)
   const [configVersion, setConfigVersion] = useState<number>(0)
+
+  // Deep-link already-logged-in Principal directly to the exact tab/section when tapping a notification
+  useEffect(() => {
+    const applyTargetHash = (rawHref?: string | null) => {
+      if (typeof window === 'undefined') return
+      const parsed = parseNotificationHref(rawHref || window.location.hash)
+      const hash = parsed?.baseHash || window.location.hash.replace('#', '').split('?')[0]
+      if (!hash) return
+      if (hash === 'campus-chat') {
+        setActiveTab('chat')
+      } else if (hash === 'notices' || hash === 'usthad-notices') {
+        setActiveTab('notices')
+      } else if (
+        hash === 'attendance' ||
+        hash === 'class-attendance' ||
+        hash === 'usthad-attendance' ||
+        hash === 'leave' ||
+        hash === 'usthad-leave' ||
+        hash === 'academic-hub'
+      ) {
+        setActiveTab('monitor')
+      } else if (hash === 'timetable' || hash === 'usthad-timetable') {
+        setActiveTab('library')
+        setLibrarySubTab('timetable')
+      } else if (hash === 'library' || hash === 'usthad-library') {
+        setActiveTab('library')
+        setLibrarySubTab('library')
+      } else if (hash === 'digital-library' || hash === 'usthad-kitabs') {
+        setActiveTab('library')
+        setLibrarySubTab('digital-library')
+      } else if (hash === 'university-portal') {
+        setActiveTab('library')
+        setLibrarySubTab('exam-results')
+      }
+
+      window.setTimeout(() => {
+        const el = document.getElementById(hash)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 120)
+    }
+
+    const syncHash = () => applyTargetHash(window.location.hash)
+    const handleNotifNavigate = (e: Event) => {
+      const custom = e as CustomEvent<ParsedNotificationTarget>
+      applyTargetHash(custom.detail?.href)
+    }
+
+    syncHash()
+    window.addEventListener('hashchange', syncHash)
+    window.addEventListener('ics-notification-navigate', handleNotifNavigate)
+    return () => {
+      window.removeEventListener('hashchange', syncHash)
+      window.removeEventListener('ics-notification-navigate', handleNotifNavigate)
+    }
+  }, [])
 
   // Selected class for deep inspection & period control (defaults to Principal's own assigned class)
   const [selectedClassName, setSelectedClassName] = useState<string>(
