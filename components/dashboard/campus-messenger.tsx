@@ -1961,6 +1961,8 @@ export function CampusMessenger({
                   }
                 : {
                     ...sm,
+                    imageQuality: sm.imageQuality ?? existing?.imageQuality,
+                    imageDimensions: sm.imageDimensions ?? existing?.imageDimensions,
                     deliveredTo: mergedDeliveredTo,
                     deliveredAtMap: mergedDeliveredAtMap,
                     readBy: mergedReadBy,
@@ -2972,21 +2974,6 @@ export function CampusMessenger({
       setPhotoQualityToast(null)
       setShowAttachMenu(false)
 
-      // Persist directly to Firestore for instant cross-domain delivery & WhatsApp ticks (<200ms)
-      void (async () => {
-        try {
-          const safeMediaUrl = await prepareMediaUrlForFirestore(
-            newMsg.mediaType,
-            newMsg.mediaUrl,
-          )
-          const fsPayload = buildFirestoreChatMessagePayload(newMsg, safeMediaUrl)
-          await setDoc(doc(db, 'campusChatMessages', newMsg.id), fsPayload)
-          firestoreMessageIdsRef.current.add(newMsg.id)
-        } catch {
-          // Fallback to HTTP sync already dispatched below
-        }
-      })()
-
       void syncPresenceToFirestore({
         isOnline: true,
         roomId: activeRoom.roomId,
@@ -3016,50 +3003,70 @@ export function CampusMessenger({
                     : newMsg.text.slice(0, 120)
 
       const deterministicNotifId = `notif_chat_${msgId}`
+      const roomSnapshot = activeRoom
 
-      // 1. Direct 1-on-1 Chat (Student <-> Usthad, Student <-> Student, Usthad <-> Usthad)
-      // Strictly notify ONLY the target recipient (peerId)
-      if (
-        (activeRoom.type === 'direct_usthad' || activeRoom.type === 'direct_student') &&
-        activeRoom.peerId
-      ) {
-        publishCampusNotification({
-          id: deterministicNotifId,
-          type: 'chat',
-          title: `New Message from ${actor.name}`,
-          message: preview,
-          targetRecipientId: activeRoom.peerId,
-          actorId: actor.id,
-          actorName: actor.name,
-          href: '#campus-chat',
-        })
+      const dispatchChatPushNotification = () => {
+        // 1. Direct 1-on-1 Chat (Strictly notify ONLY the target recipient)
+        if (
+          (roomSnapshot.type === 'direct_usthad' || roomSnapshot.type === 'direct_student') &&
+          roomSnapshot.peerId
+        ) {
+          publishCampusNotification({
+            id: deterministicNotifId,
+            type: 'chat',
+            title: `New Message from ${actor.name}`,
+            message: preview,
+            targetRecipientId: roomSnapshot.peerId,
+            actorId: actor.id,
+            actorName: actor.name,
+            href: '#campus-chat',
+          })
+        }
+        // 2. Class Batch Group Chat (Notify ONLY members & Class Usthad of that batch, excluding sender)
+        else if (roomSnapshot.type === 'batch_group' && roomSnapshot.batchName) {
+          publishCampusNotification({
+            id: deterministicNotifId,
+            type: 'chat',
+            title: `${actor.name} • ${roomSnapshot.batchName} Group`,
+            message: preview,
+            targetClass: roomSnapshot.batchName,
+            actorId: actor.id,
+            actorName: actor.name,
+            href: '#campus-chat',
+          })
+        }
+        // 3. Staff Room Group Chat (Notify ONLY Usthads & Principal, excluding sender)
+        else if (roomSnapshot.type === 'staff_group') {
+          publishCampusNotification({
+            id: deterministicNotifId,
+            type: 'chat',
+            title: `${actor.name} • Staff Room`,
+            message: preview,
+            targetStaffOnly: true,
+            actorId: actor.id,
+            actorName: actor.name,
+            href: '#campus-chat',
+          })
+        }
       }
-      // 2. Class Batch Group Chat (Notify ONLY members & Class Usthad of that batch, excluding sender)
-      else if (activeRoom.type === 'batch_group' && activeRoom.batchName) {
-        publishCampusNotification({
-          id: deterministicNotifId,
-          type: 'chat',
-          title: `${actor.name} • ${activeRoom.batchName} Group`,
-          message: preview,
-          targetClass: activeRoom.batchName,
-          actorId: actor.id,
-          actorName: actor.name,
-          href: '#campus-chat',
-        })
-      }
-      // 3. Staff Room Group Chat (Notify ONLY Usthads & Principal, excluding sender)
-      else if (activeRoom.type === 'staff_group') {
-        publishCampusNotification({
-          id: deterministicNotifId,
-          type: 'chat',
-          title: `${actor.name} • Staff Room`,
-          message: preview,
-          targetStaffOnly: true,
-          actorId: actor.id,
-          actorName: actor.name,
-          href: '#campus-chat',
-        })
-      }
+
+      // Persist directly to Firestore FIRST so when recipient's phone wakes via FCM to send
+      // its background 2-tick delivery ACK, the Firestore chat document is guaranteed to exist.
+      void (async () => {
+        try {
+          const safeMediaUrl = await prepareMediaUrlForFirestore(
+            newMsg.mediaType,
+            newMsg.mediaUrl,
+          )
+          const fsPayload = buildFirestoreChatMessagePayload(newMsg, safeMediaUrl)
+          await setDoc(doc(db, 'campusChatMessages', newMsg.id), fsPayload)
+          firestoreMessageIdsRef.current.add(newMsg.id)
+        } catch {
+          // Fallback to HTTP sync already dispatched above
+        } finally {
+          dispatchChatPushNotification()
+        }
+      })()
     },
     [
       activeRoom,
@@ -4043,20 +4050,6 @@ export function CampusMessenger({
           [targetRoomId]: [...(prev[targetRoomId] ?? []), forwardedMsg],
         }))
 
-        void (async () => {
-          try {
-            const safeMediaUrl = await prepareMediaUrlForFirestore(
-              forwardedMsg.mediaType,
-              forwardedMsg.mediaUrl,
-            )
-            const fsPayload = buildFirestoreChatMessagePayload(forwardedMsg, safeMediaUrl)
-            await setDoc(doc(db, 'campusChatMessages', forwardedMsg.id), fsPayload)
-            firestoreMessageIdsRef.current.add(forwardedMsg.id)
-          } catch {
-            // Fallback already handled via HTTP sync
-          }
-        })()
-
         void sendChatActionToServer({
           action: 'send_message',
           roomId: targetRoomId,
@@ -4069,44 +4062,62 @@ export function CampusMessenger({
             : forwardedMsg.mediaType === 'voice'
               ? `🎤 Forwarded Voice Note`
               : forwardedMsg.mediaType === 'image'
-                ? `📷 Forwarded Photo${forwardedMsg.text ? `: ${forwardedMsg.text.slice(0, 80)}` : ''}`
+                ? `📷 Forwarded ${forwardedMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo${forwardedMsg.text ? `: ${forwardedMsg.text.slice(0, 80)}` : ''}`
                 : forwardedMsg.text.slice(0, 120)
 
         const deterministicNotifId = `notif_chat_${msgId}`
-        if (isDirect && directPeerId) {
-          publishCampusNotification({
-            id: deterministicNotifId,
-            type: 'chat',
-            title: `New Message from ${actor.name}`,
-            message: preview,
-            targetRecipientId: directPeerId,
-            actorId: actor.id,
-            actorName: actor.name,
-            href: '#campus-chat',
-          })
-        } else if (isBatch && batchName) {
-          publishCampusNotification({
-            id: deterministicNotifId,
-            type: 'chat',
-            title: `${actor.name} • ${batchName} Group`,
-            message: preview,
-            targetClass: batchName,
-            actorId: actor.id,
-            actorName: actor.name,
-            href: '#campus-chat',
-          })
-        } else if (isStaffRoom) {
-          publishCampusNotification({
-            id: deterministicNotifId,
-            type: 'chat',
-            title: `${actor.name} • Staff Room`,
-            message: preview,
-            targetStaffOnly: true,
-            actorId: actor.id,
-            actorName: actor.name,
-            href: '#campus-chat',
-          })
+        const dispatchForwardedPush = () => {
+          if (isDirect && directPeerId) {
+            publishCampusNotification({
+              id: deterministicNotifId,
+              type: 'chat',
+              title: `New Message from ${actor.name}`,
+              message: preview,
+              targetRecipientId: directPeerId,
+              actorId: actor.id,
+              actorName: actor.name,
+              href: '#campus-chat',
+            })
+          } else if (isBatch && batchName) {
+            publishCampusNotification({
+              id: deterministicNotifId,
+              type: 'chat',
+              title: `${actor.name} • ${batchName} Group`,
+              message: preview,
+              targetClass: batchName,
+              actorId: actor.id,
+              actorName: actor.name,
+              href: '#campus-chat',
+            })
+          } else if (isStaffRoom) {
+            publishCampusNotification({
+              id: deterministicNotifId,
+              type: 'chat',
+              title: `${actor.name} • Staff Room`,
+              message: preview,
+              targetStaffOnly: true,
+              actorId: actor.id,
+              actorName: actor.name,
+              href: '#campus-chat',
+            })
+          }
         }
+
+        void (async () => {
+          try {
+            const safeMediaUrl = await prepareMediaUrlForFirestore(
+              forwardedMsg.mediaType,
+              forwardedMsg.mediaUrl,
+            )
+            const fsPayload = buildFirestoreChatMessagePayload(forwardedMsg, safeMediaUrl)
+            await setDoc(doc(db, 'campusChatMessages', forwardedMsg.id), fsPayload)
+            firestoreMessageIdsRef.current.add(forwardedMsg.id)
+          } catch {
+            // Fallback already handled via HTTP sync
+          } finally {
+            dispatchForwardedPush()
+          }
+        })()
       }
     }
 
@@ -5830,7 +5841,8 @@ export function CampusMessenger({
                             ? 'rounded-[22px] rounded-tl-[5px]'
                             : 'rounded-[22px] rounded-l-[5px]'
 
-                  const showBelowGroupMeta = isLastInGroup || isStarred || isPinned
+                  const isHdPhoto = isImageMessage && msg.imageQuality === 'hd'
+                  const showBelowGroupMeta = isLastInGroup || isStarred || isPinned || isHdPhoto
 
                   return (
                     <div
@@ -6301,7 +6313,7 @@ export function CampusMessenger({
                             </div>
                           )}
 
-                          {/* Media Attachment: Borderless Instagram-Curved Photo with Preserved HD Badge */}
+                          {/* Media Attachment: Borderless Instagram-Curved Photo */}
                           {msg.mediaType === 'image' && msg.mediaUrl && (
                             <div className="relative overflow-hidden rounded-[20px]">
                               <button
@@ -6329,20 +6341,6 @@ export function CampusMessenger({
                                   className="block max-h-80 w-full rounded-[20px] object-cover"
                                 />
                               </button>
-
-                              {/* Preserved HD Badge on Bottom-Left of Photo */}
-                              {msg.imageQuality === 'hd' && (
-                                <span
-                                  title={
-                                    msg.imageDimensions
-                                      ? `HD Photo (${msg.imageDimensions})`
-                                      : 'HD Quality Photo'
-                                  }
-                                  className="pointer-events-none absolute bottom-2 left-2.5 inline-flex items-center justify-center rounded-md border border-white/80 bg-black/60 px-1.5 py-0.5 font-poppins text-[9px] font-bold tracking-wider text-white backdrop-blur-[2px]"
-                                >
-                                  HD
-                                </span>
-                              )}
                             </div>
                           )}
 
@@ -6632,14 +6630,26 @@ export function CampusMessenger({
                         </div>
                       </div>
 
-                      {/* Clean Below-Group IST Timestamp, Star/Pin & Read Ticks */}
+                      {/* Clean Below-Group HD Indicator, IST Timestamp, Star/Pin & Read Ticks */}
                       {showBelowGroupMeta && (
                         <div
                           className={cn(
-                            'mt-1 flex items-center gap-1 text-[10px] text-muted-foreground/80 dark:text-zinc-500',
+                            'mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground/80 dark:text-zinc-500',
                             isMine ? 'justify-end pr-1' : 'justify-start pl-9',
                           )}
                         >
+                          {isHdPhoto && (
+                            <span
+                              title={
+                                msg.imageDimensions
+                                  ? `HD Photo (${msg.imageDimensions})`
+                                  : 'HD Quality Photo'
+                              }
+                              className="inline-flex items-center justify-center rounded-[4px] border border-emerald-600/50 bg-emerald-500/10 px-1.5 py-[1px] font-poppins text-[9px] font-extrabold leading-tight tracking-wider text-emerald-700 dark:border-emerald-400/50 dark:bg-emerald-400/15 dark:text-emerald-300"
+                            >
+                              HD
+                            </span>
+                          )}
                           {isStarred && (
                             <Star
                               className="size-2.5 fill-amber-400 text-amber-500 dark:text-amber-400"

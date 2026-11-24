@@ -2786,7 +2786,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
         const senderIdStr = String(message.senderId || actorId || 'unknown').slice(0, 120)
         const senderNameStr = String(message.senderName || actorName || 'Member').slice(0, 120)
 
-        // Check if recipient peer in a direct chat is currently online; if so, include them in deliveredTo immediately
+        // Keep deliveredTo strictly sender-only until the recipient's device actually receives the message online
         const initialDelivered = new Set<string>(
           Array.isArray(message.deliveredTo) ? message.deliveredTo : [senderIdStr],
         )
@@ -2795,19 +2795,6 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
           message.deliveredAtMap && typeof message.deliveredAtMap === 'object'
             ? { ...(message.deliveredAtMap as Record<string, number>) }
             : {}
-        if (roomId.startsWith('direct__')) {
-          const parts = roomId.split('__')
-          const peerId = parts[1] === senderIdStr ? parts[2] : parts[1]
-          if (peerId) {
-            const peerPresence = campusChatState.presenceMap[peerId]
-            if (peerPresence && now - peerPresence.lastSeenMs < 20000) {
-              initialDelivered.add(peerId)
-              if (!initialDeliveredAtMap[peerId]) {
-                initialDeliveredAtMap[peerId] = now
-              }
-            }
-          }
-        }
 
         const initialReadBy = new Set<string>(
           Array.isArray(message.readBy) ? message.readBy : [senderIdStr],

@@ -267,13 +267,13 @@ function buildFcmTargetsForNotification(notif) {
 
 async function sendFcmV1Message(creds, accessToken, target, payload, ttlSeconds) {
   const endpoint = `https://fcm.googleapis.com/v1/projects/${creds.projectId}/messages:send`
+  // High-priority data-only FCM message guarantees Android's CampusFirebaseMessagingService.onMessageReceived()
+  // ALWAYS runs even when the app is completely closed (as long as the phone has internet ON).
+  // This lets the device display our pure-white silhouette notification icon AND immediately send
+  // a real WhatsApp-style 2-tick delivery ACK to Firestore (never firing when internet is OFF).
   const fcmBody = {
     message: {
       ...target,
-      notification: {
-        title: payload.title,
-        body: payload.body,
-      },
       data: {
         title: payload.title,
         body: payload.body,
@@ -282,19 +282,11 @@ async function sendFcmV1Message(creds, accessToken, target, payload, ttlSeconds)
         notificationId: payload.notificationId,
         type: payload.type,
         senderId: payload.senderId || '',
+        messageId: payload.messageId || '',
       },
       android: {
         priority: 'HIGH',
         ttl: `${ttlSeconds}s`,
-        notification: {
-          channel_id: 'ics_academy_updates',
-          sound: 'default',
-          default_sound: true,
-          default_vibrate_timings: true,
-          notification_priority: 'PRIORITY_MAX',
-          visibility: 'PUBLIC',
-          tag: payload.tag,
-        },
       },
     },
   }
@@ -406,16 +398,24 @@ export default async function handler(req, res) {
         res.status(200).json({ ok: true, sent: 0 })
         return
       }
+      const rawNotifId = String(n.id || `notif_${Date.now()}`).slice(0, 64)
+      const derivedChatMsgId =
+        typeof n.chatMessageId === 'string' && /^[a-zA-Z0-9_-]{4,128}$/.test(n.chatMessageId.trim())
+          ? n.chatMessageId.trim()
+          : safeType === 'chat' && rawNotifId.startsWith('notif_chat_')
+            ? rawNotifId.slice('notif_chat_'.length).trim()
+            : ''
       payload = {
         title: String(n.title || 'ICS Academy').trim().slice(0, 140) || 'ICS Academy',
         body: String(n.message || 'Open ICS Academy to view details.').trim().slice(0, 320),
         href: typeof n.href === 'string' && n.href.startsWith('#') ? n.href.slice(0, 80) : '#notices',
         tag: `ics-notif-${safeType}-${String(n.id || Date.now()).slice(0, 48)}`,
-        notificationId: String(n.id || `notif_${Date.now()}`).slice(0, 64),
+        notificationId: rawNotifId,
         type: safeType,
         senderId: typeof n.actorId === 'string' ? n.actorId.slice(0, 64) : '',
+        messageId: derivedChatMsgId,
       }
-      ttlSeconds = safeType === 'chat' || safeType === 'leave' || safeType === 'attendance' ? 1800 : 21600
+      ttlSeconds = 259200
     } else {
       res.status(400).json({ error: 'notification or call payload is required.' })
       return

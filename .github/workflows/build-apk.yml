@@ -218,12 +218,12 @@ jobs:
               }
             }
 
-            // Set adaptive icon background color to #FFFFFF (pure white like YT Create & YT Studio)
+            // Set adaptive icon background color to #FFFFFF + notification accent color (#009245)
             const valuesDir = path.join(resDir, 'values');
             fs.mkdirSync(valuesDir, { recursive: true });
             fs.writeFileSync(
               path.join(valuesDir, 'ic_launcher_background.xml'),
-              `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#FFFFFF</color>\n</resources>\n`,
+              `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#FFFFFF</color>\n    <color name="ics_notification_accent">#009245</color>\n</resources>\n`,
               'utf8'
             );
 
@@ -265,6 +265,36 @@ jobs:
 
             const drawableDir = path.join(resDir, 'drawable');
             fs.mkdirSync(drawableDir, { recursive: true });
+
+            // Pure white monochrome ICS Academy silhouette icon (transparent background, zero circle/box)
+            // for crisp Android status bar & notification bar branding
+            const icStatIcsXml = `<?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="512"
+              android:viewportHeight="512">
+              <group
+                  android:translateX="82.5"
+                  android:translateY="20"
+                  android:scaleX="0.92"
+                  android:scaleY="0.92">
+                  <path
+                      android:fillColor="#FFFFFFFF"
+                      android:pathData="M 133.5,74.94 C 124.97,103.64 125.17,118.9 138.01,146.36 C 97.57,191.81 51.69,233.52 38.62,295.7 C 34.61,314.79 34.97,331.51 34.91,350.75 C 23.84,324.9 13.26,303.78 11.82,274.74 C 7.98,197.29 85.2,128.03 133.5,74.94 Z" />
+                  <path
+                      android:fillColor="#FFFFFFFF"
+                      android:pathData="M 144.19,154.98 C 153.4,165.61 162.66,177.78 170.06,189.73 C 122.77,260.51 57.3,361.05 118.1,443.78 C 134.48,466.06 159.95,484.38 186.3,492.69 C 202.45,497.79 217.34,497.23 233.58,499.6 C 218.41,500.46 205.5,502.1 190.11,500.47 C 108.01,491.8 70.95,427.16 38.6,359.6 C 38.94,346.52 38.61,335.2 40.58,322.07 C 51.25,251.09 96.35,204.26 144.19,154.98 Z" />
+                  <path
+                      android:fillColor="#FFFFFFFF"
+                      android:pathData="M 192.26,11.05 C 208.8,38.99 219.45,65.35 238.74,93.05 C 276.74,147.62 341.68,200.08 358.45,266.29 C 363.81,287.43 365.27,304.81 362.54,326.51 C 356.13,377.52 309.16,461.06 258.1,478.21 C 202.98,496.71 140.31,461.33 119.39,408.9 C 110.51,386.66 110.63,365.56 113.2,342.22 C 118.16,297.25 143.81,266.34 161.48,227.52 C 159.47,246.69 156.79,262.64 159.01,282.2 C 166.04,344.17 210.3,387.72 271.68,396.48 C 288.23,398.85 301.01,397.08 317.26,396.33 C 314.82,386.74 314.16,376.54 311.46,366.74 C 305.22,344.06 295.53,325.17 282.88,305.49 C 266,279.24 244.32,254.97 223.83,231.49 C 194.36,197.72 141.08,148.01 145.78,99.68 C 148.14,75.41 164.33,56.8 176.76,37.01 C 182.13,28.46 186.93,19.55 192.26,11.05 Z" />
+                  <path
+                      android:fillColor="#FFFFFFFF"
+                      android:pathData="M 231.52,256.23 C 266.84,297.83 295.46,330.73 307.55,385.55 C 259.98,386.53 230.11,375.7 197.52,340.5 C 221.23,309.34 224.7,293.91 231.52,256.23 Z" />
+              </group>
+          </vector>`;
+            fs.writeFileSync(path.join(drawableDir, 'ic_stat_ics.xml'), icStatIcsXml, 'utf8');
+
             fs.writeFileSync(path.join(drawableDir, 'ics_splash_logo.png'), fgIconBuf);
             const launchSplashXml = `<?xml version="1.0" encoding="utf-8"?>
           <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
@@ -346,7 +376,7 @@ jobs:
             if (!manifest.includes('CampusBackgroundNotificationService')) {
               manifest = manifest.replace(
                 '</application>',
-                '    <service\n            android:name=".CampusFirebaseMessagingService"\n            android:exported="false">\n            <intent-filter>\n                <action android:name="com.google.firebase.MESSAGING_EVENT" />\n            </intent-filter>\n        </service>\n        <meta-data\n            android:name="com.google.firebase.messaging.default_notification_channel_id"\n            android:value="ics_academy_updates" />\n        <meta-data\n            android:name="com.google.firebase.messaging.default_notification_icon"\n            android:resource="@mipmap/ic_launcher" />\n        <service\n            android:name=".CampusBackgroundNotificationService"\n            android:permission="android.permission.BIND_JOB_SERVICE"\n            android:exported="false" />\n        <receiver\n            android:name=".CampusBootReceiver"\n            android:exported="true">\n            <intent-filter>\n                <action android:name="android.intent.action.BOOT_COMPLETED" />\n            </intent-filter>\n        </receiver>\n    </application>'
+                '    <service\n            android:name=".CampusFirebaseMessagingService"\n            android:exported="false">\n            <intent-filter>\n                <action android:name="com.google.firebase.MESSAGING_EVENT" />\n            </intent-filter>\n        </service>\n        <meta-data\n            android:name="com.google.firebase.messaging.default_notification_channel_id"\n            android:value="ics_academy_updates" />\n        <meta-data\n            android:name="com.google.firebase.messaging.default_notification_icon"\n            android:resource="@drawable/ic_stat_ics" />\n        <meta-data\n            android:name="com.google.firebase.messaging.default_notification_color"\n            android:resource="@color/ics_notification_accent" />\n        <service\n            android:name=".CampusBackgroundNotificationService"\n            android:permission="android.permission.BIND_JOB_SERVICE"\n            android:exported="false" />\n        <receiver\n            android:name=".CampusBootReceiver"\n            android:exported="true">\n            <intent-filter>\n                <action android:name="android.intent.action.BOOT_COMPLETED" />\n            </intent-filter>\n        </receiver>\n    </application>'
               );
             }
             fs.writeFileSync(manifestPath, manifest, 'utf8');
@@ -741,7 +771,8 @@ jobs:
                               }
 
                               NotificationCompat.Builder builder = new NotificationCompat.Builder(MainActivity.this, CHANNEL_ID)
-                                  .setSmallIcon(getApplicationInfo().icon)
+                                  .setSmallIcon(R.drawable.ic_stat_ics)
+                                  .setColor(Color.parseColor("#009245"))
                                   .setContentTitle(headerTitle)
                                   .setContentText(contentPreview)
                                   .setStyle(inboxStyle)
@@ -943,6 +974,7 @@ jobs:
           import android.content.Context;
           import android.content.Intent;
           import android.content.SharedPreferences;
+          import android.graphics.Color;
           import android.os.Build;
 
           import androidx.core.app.NotificationCompat;
@@ -1251,7 +1283,8 @@ jobs:
                       }
 
                       NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                          .setSmallIcon(getApplicationInfo().icon)
+                          .setSmallIcon(R.drawable.ic_stat_ics)
+                          .setColor(Color.parseColor("#009245"))
                           .setContentTitle(headerTitle)
                           .setContentText(preview)
                           .setStyle(inbox)
@@ -1287,6 +1320,21 @@ jobs:
           fs.writeFileSync(bootReceiverPath, bootReceiverJava, 'utf8');
 
           // 5. Write Native Firebase Cloud Messaging (FCM) Service for 1-second instant closed-app Android push notifications
+          //    + real WhatsApp-style background 2-tick delivery receipts when internet is ON (and 1 tick when offline)
+          let fsProjectId = '';
+          let fsDatabaseId = '';
+          let fsApiKey = '';
+          try {
+            if (fs.existsSync('firebase-applet-config.json')) {
+              const appletCfg = JSON.parse(fs.readFileSync('firebase-applet-config.json', 'utf8'));
+              fsProjectId = String(appletCfg.projectId || '').trim();
+              fsDatabaseId = String(appletCfg.firestoreDatabaseId || '(default)').trim();
+              fsApiKey = String(appletCfg.apiKey || '').trim();
+            }
+          } catch (e) {
+            console.warn('Could not read firebase-applet-config.json for delivery ACK:', e.message);
+          }
+
           const fcmServicePath = path.join(mainActivityDir, 'CampusFirebaseMessagingService.java');
           const fcmServiceJava = `package com.icsacademy.manhappatta;
 
@@ -1296,6 +1344,7 @@ jobs:
           import android.content.Context;
           import android.content.Intent;
           import android.content.SharedPreferences;
+          import android.graphics.Color;
           import android.os.Build;
 
           import androidx.annotation.NonNull;
@@ -1319,6 +1368,9 @@ jobs:
 
           public class CampusFirebaseMessagingService extends FirebaseMessagingService {
               private static final String CHANNEL_ID = "ics_academy_updates";
+              private static final String FIRESTORE_PROJECT_ID = "${fsProjectId}";
+              private static final String FIRESTORE_DB_ID = "${fsDatabaseId}";
+              private static final String FIRESTORE_API_KEY = "${fsApiKey}";
               private static final String[] API_BASES = new String[] {
                   "https://ics-academy-manhappatta.vercel.app",
                   "https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app",
@@ -1466,6 +1518,116 @@ jobs:
                   }).start();
               }
 
+              private static void acknowledgeChatDeliverySync(final String messageId, final String actorId) {
+                  if (messageId == null || actorId == null) return;
+                  final String cleanMsgId = messageId.trim();
+                  final String cleanActorId = actorId.trim();
+                  if (!cleanMsgId.matches("^[a-zA-Z0-9_-]{4,128}$")) return;
+                  if (!cleanActorId.matches("^[a-zA-Z0-9_-]{4,64}$")) return;
+                  if (FIRESTORE_PROJECT_ID.isEmpty() || FIRESTORE_DB_ID.isEmpty() || FIRESTORE_API_KEY.isEmpty()) return;
+
+                  final String docName = "projects/" + FIRESTORE_PROJECT_ID
+                      + "/databases/" + FIRESTORE_DB_ID
+                      + "/documents/campusChatMessages/" + cleanMsgId;
+                  final String commitUrl = "https://firestore.googleapis.com/v1/projects/" + FIRESTORE_PROJECT_ID
+                      + "/databases/" + FIRESTORE_DB_ID
+                      + "/documents:commit?key=" + FIRESTORE_API_KEY;
+
+                  for (int attempt = 0; attempt < 2; attempt++) {
+                      HttpURLConnection conn = null;
+                      try {
+                          long nowMs = System.currentTimeMillis();
+
+                          JSONObject tsField = new JSONObject();
+                          tsField.put("integerValue", String.valueOf(nowMs));
+
+                          JSONObject actorTsMap = new JSONObject();
+                          actorTsMap.put(cleanActorId, tsField);
+
+                          JSONObject mapValueObj = new JSONObject();
+                          mapValueObj.put("fields", actorTsMap);
+
+                          JSONObject deliveredAtField = new JSONObject();
+                          deliveredAtField.put("mapValue", mapValueObj);
+
+                          JSONObject docFields = new JSONObject();
+                          docFields.put("deliveredAtMap", deliveredAtField);
+
+                          JSONObject updateDoc = new JSONObject();
+                          updateDoc.put("name", docName);
+                          updateDoc.put("fields", docFields);
+
+                          JSONArray fieldPaths = new JSONArray();
+                          fieldPaths.put("deliveredAtMap.\`" + cleanActorId + "\`");
+                          JSONObject updateMask = new JSONObject();
+                          updateMask.put("fieldPaths", fieldPaths);
+
+                          JSONObject actorStrVal = new JSONObject();
+                          actorStrVal.put("stringValue", cleanActorId);
+                          JSONArray appendValues = new JSONArray();
+                          appendValues.put(actorStrVal);
+                          JSONObject appendObj = new JSONObject();
+                          appendObj.put("values", appendValues);
+
+                          JSONObject transform = new JSONObject();
+                          transform.put("fieldPath", "deliveredTo");
+                          transform.put("appendMissingElements", appendObj);
+                          JSONArray transforms = new JSONArray();
+                          transforms.put(transform);
+
+                          JSONObject precondition = new JSONObject();
+                          precondition.put("exists", true);
+
+                          JSONObject write = new JSONObject();
+                          write.put("update", updateDoc);
+                          write.put("updateMask", updateMask);
+                          write.put("updateTransforms", transforms);
+                          write.put("currentDocument", precondition);
+
+                          JSONArray writes = new JSONArray();
+                          writes.put(write);
+
+                          JSONObject root = new JSONObject();
+                          root.put("writes", writes);
+
+                          byte[] payloadBytes = root.toString().getBytes(StandardCharsets.UTF_8);
+
+                          URL url = new URL(commitUrl);
+                          conn = (HttpURLConnection) url.openConnection();
+                          conn.setRequestMethod("POST");
+                          conn.setConnectTimeout(4500);
+                          conn.setReadTimeout(4500);
+                          conn.setDoOutput(true);
+                          conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                          try (OutputStream os = conn.getOutputStream()) {
+                              os.write(payloadBytes);
+                              os.flush();
+                          }
+                          int code = conn.getResponseCode();
+                          if (code >= 200 && code < 300) {
+                              return;
+                          }
+                          if (attempt == 0 && (code == 403 || code == 404 || code >= 500)) {
+                              try {
+                                  Thread.sleep(1200L);
+                              } catch (InterruptedException ignored) {
+                              }
+                          } else {
+                              return;
+                          }
+                      } catch (Exception ignored) {
+                          if (attempt == 0) {
+                              try {
+                                  Thread.sleep(1000L);
+                              } catch (InterruptedException ignored2) {
+                              }
+                          }
+                      } finally {
+                          if (conn != null) conn.disconnect();
+                      }
+                  }
+              }
+
               @Override
               public void onNewToken(@NonNull String token) {
                   super.onNewToken(token);
@@ -1486,6 +1648,19 @@ jobs:
                       String title = data.get("title");
                       String body = data.get("body");
                       String notifId = data.get("notificationId");
+                      String type = data.get("type");
+                      String senderId = data.get("senderId");
+                      String messageId = data.get("messageId");
+
+                      SharedPreferences prefs = getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                      String myActorId = prefs.getString("actorId", "");
+                      if (myActorId != null) myActorId = myActorId.trim();
+                      if (senderId != null) senderId = senderId.trim();
+
+                      // Never notify or self-ack our own messages
+                      if (senderId != null && !senderId.isEmpty() && senderId.equals(myActorId)) {
+                          return;
+                      }
 
                       if ((title == null || title.trim().isEmpty()) && remoteMessage.getNotification() != null) {
                           title = remoteMessage.getNotification().getTitle();
@@ -1501,51 +1676,65 @@ jobs:
                       }
 
                       if (notifId != null && !notifId.trim().isEmpty()) {
-                          SharedPreferences prefs = getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
                           Set<String> seen = new HashSet<String>(prefs.getStringSet("seenNotifIds", new HashSet<String>()));
                           seen.add(notifId.trim());
                           prefs.edit().putStringSet("seenNotifIds", seen).apply();
                       }
 
-                      // When app is already open in foreground, CampusNotificationBar handles live alerts & chat-room suppression
-                      if (MainActivity.isActivityInForeground()) {
-                          return;
+                      // 1. Display the crisp white-icon Android system notification IMMEDIATELY when app is closed/background
+                      if (!MainActivity.isActivityInForeground()) {
+                          NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                          if (manager != null) {
+                              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                  NotificationChannel channel = new NotificationChannel(
+                                      CHANNEL_ID,
+                                      "ICS Academy Announcements & Attendance",
+                                      NotificationManager.IMPORTANCE_HIGH
+                                  );
+                                  channel.enableVibration(true);
+                                  manager.createNotificationChannel(channel);
+                              }
+
+                              Intent intent = new Intent(this, MainActivity.class);
+                              intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                              int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                                  ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
+                                  : PendingIntent.FLAG_UPDATE_CURRENT;
+                              PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, flags);
+
+                              NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                                  .setSmallIcon(R.drawable.ic_stat_ics)
+                                  .setColor(Color.parseColor("#009245"))
+                                  .setContentTitle(title.trim())
+                                  .setContentText(body.trim())
+                                  .setStyle(new NotificationCompat.BigTextStyle().bigText(body.trim()))
+                                  .setPriority(NotificationCompat.PRIORITY_HIGH)
+                                  .setDefaults(NotificationCompat.DEFAULT_ALL)
+                                  .setAutoCancel(true)
+                                  .setContentIntent(pendingIntent);
+
+                              int notifyId = (notifId != null && !notifId.isEmpty())
+                                  ? Math.abs(notifId.hashCode())
+                                  : (int) (System.currentTimeMillis() & 0x7fffffff);
+                              manager.notify(notifyId, builder.build());
+                          }
                       }
 
-                      NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                      if (manager == null) return;
+                      // 2. Real WhatsApp-style 2-tick delivery ACK: ONLY fires because this device's internet is ON
+                      //    and FCM actually delivered this chat message to the device!
+                      String resolvedMsgId = (messageId != null && !messageId.trim().isEmpty())
+                          ? messageId.trim()
+                          : (notifId != null && notifId.startsWith("notif_chat_")
+                              ? notifId.substring("notif_chat_".length()).trim()
+                              : "");
 
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                          NotificationChannel channel = new NotificationChannel(
-                              CHANNEL_ID,
-                              "ICS Academy Announcements & Attendance",
-                              NotificationManager.IMPORTANCE_HIGH
-                          );
-                          channel.enableVibration(true);
-                          manager.createNotificationChannel(channel);
+                      if ("chat".equals(type)
+                          && !resolvedMsgId.isEmpty()
+                          && myActorId != null
+                          && !myActorId.isEmpty()
+                          && !myActorId.equals(senderId)) {
+                          acknowledgeChatDeliverySync(resolvedMsgId, myActorId);
                       }
-
-                      Intent intent = new Intent(this, MainActivity.class);
-                      intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                      int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                          ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
-                          : PendingIntent.FLAG_UPDATE_CURRENT;
-                      PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, flags);
-
-                      NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                          .setSmallIcon(getApplicationInfo().icon)
-                          .setContentTitle(title.trim())
-                          .setContentText(body.trim())
-                          .setStyle(new NotificationCompat.BigTextStyle().bigText(body.trim()))
-                          .setPriority(NotificationCompat.PRIORITY_HIGH)
-                          .setDefaults(NotificationCompat.DEFAULT_ALL)
-                          .setAutoCancel(true)
-                          .setContentIntent(pendingIntent);
-
-                      int notifyId = (notifId != null && !notifId.isEmpty())
-                          ? Math.abs(notifId.hashCode())
-                          : (int) (System.currentTimeMillis() & 0x7fffffff);
-                      manager.notify(notifyId, builder.build());
                   } catch (Exception ignored) {
                   }
               }
@@ -1592,9 +1781,11 @@ jobs:
             const res = fs.readFileSync("/tmp/verify_apk/resources.arsc");
             const hasProj = res.includes("ics-academy-push") || res.includes(Buffer.from("ics-academy-push", "utf16le"));
             const hasAppId = res.includes("1:651500102494:android:887e8be63a915a9ca8e5cf") || res.includes(Buffer.from("1:651500102494:android:887e8be63a915a9ca8e5cf", "utf16le"));
-            console.log("APK FCM Resource Verification:", { hasProj, hasAppId });
-            if (!hasProj || !hasAppId) {
-              console.error("ERROR: Firebase google-services.json was NOT compiled into resources.arsc!");
+            const apkListing = execSync("unzip -l ICS-Academy-Manhappatta.apk").toString("utf8");
+            const hasWhiteStatIcon = apkListing.includes("ic_stat_ics.xml");
+            console.log("APK FCM & Icon Verification:", { hasProj, hasAppId, hasWhiteStatIcon });
+            if (!hasProj || !hasAppId || !hasWhiteStatIcon) {
+              console.error("ERROR: Firebase FCM config or ic_stat_ics.xml white notification icon missing from APK!");
               process.exit(1);
             }
           '
