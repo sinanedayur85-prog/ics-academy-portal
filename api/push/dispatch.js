@@ -47,10 +47,26 @@ function normalizePrivateKey(raw) {
   return key
 }
 
+function extractPemKey(raw) {
+  const normalized = normalizePrivateKey(raw)
+  const pemMatch = normalized.match(
+    /-----BEGIN (?:RSA )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA )?PRIVATE KEY-----/,
+  )
+  return pemMatch ? `${pemMatch[0].trim()}\n` : ''
+}
+
 function loadServiceAccountCredentials() {
   const envProjectId = (process.env.FCM_PROJECT_ID || '').trim()
   const fallbackProjectId = isValidProjectId(envProjectId) ? envProjectId : 'ics-academy-push'
 
+  // 1. Check dedicated split env vars first (cleanest option in Vercel UI)
+  const splitEmail = (process.env.FCM_CLIENT_EMAIL || '').trim()
+  const splitKey = extractPemKey(process.env.FCM_PRIVATE_KEY || '')
+  if (splitEmail && splitKey) {
+    return { creds: { projectId: fallbackProjectId, clientEmail: splitEmail, privateKey: splitKey }, reason: 'ready' }
+  }
+
+  // 2. Check full Service Account JSON env vars
   const rawEnvCandidates = [
     process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
     process.env.FCM_SERVICE_ACCOUNT_JSON,
@@ -77,39 +93,58 @@ function loadServiceAccountCredentials() {
       }
     }
 
+    let sawGoogleServices = false
+    let sawEmail = false
+    let sawKey = false
+
     for (const text of attempts) {
+      if (text.includes('mobilesdk_app_id') || text.includes('"project_info"')) {
+        sawGoogleServices = true
+      }
+
       try {
         const parsed = JSON.parse(text)
         const obj = typeof parsed === 'string' ? JSON.parse(parsed) : parsed
         const clientEmail = typeof obj?.client_email === 'string' ? obj.client_email.trim() : ''
-        const privateKey = normalizePrivateKey(obj?.private_key || '')
+        const privateKey = extractPemKey(obj?.private_key || '')
         const projectId = isValidProjectId(obj?.project_id)
           ? obj.project_id.trim()
           : fallbackProjectId
-        if (clientEmail && privateKey.includes('BEGIN PRIVATE KEY')) {
+        if (clientEmail) sawEmail = true
+        if (privateKey) sawKey = true
+        if (clientEmail && privateKey) {
           return { creds: { projectId, clientEmail, privateKey }, reason: 'ready' }
         }
       } catch {
-        // Vercel UI sometimes turns \n into literal newlines inside JSON strings — extract fields safely
-        const emailMatch = text.match(/"client_email"\s*:\s*"([^"]+)"/)
-        const keyMatch = text.match(/"private_key"\s*:\s*"([\s\S]*?-----END PRIVATE KEY-----[\\n\r\n]*)"/)
-        const projMatch = text.match(/"project_id"\s*:\s*"([^"]+)"/)
+        // Recover cleanly even if Vercel UI mangled JSON quotes/newlines
+        const unescaped = text.replace(/\\"/g, '"')
+        const emailMatch = unescaped.match(/"client_email"\s*:\s*"([^"\s]+@[^"\s]+)"/)
+        const privateKey = extractPemKey(unescaped)
+        const projMatch = unescaped.match(/"project_id"\s*:\s*"([^"]+)"/)
         const clientEmail = emailMatch ? emailMatch[1].trim() : ''
-        const privateKey = keyMatch ? normalizePrivateKey(keyMatch[1]) : ''
         const projectId =
           projMatch && isValidProjectId(projMatch[1]) ? projMatch[1].trim() : fallbackProjectId
-        if (clientEmail && privateKey.includes('BEGIN PRIVATE KEY')) {
+        if (clientEmail) sawEmail = true
+        if (privateKey) sawKey = true
+        if (clientEmail && privateKey) {
           return { creds: { projectId, clientEmail, privateKey }, reason: 'ready' }
         }
       }
     }
-    return { creds: null, reason: 'invalid_json_or_key_format' }
-  }
 
-  const clientEmail = (process.env.FCM_CLIENT_EMAIL || '').trim()
-  const privateKey = normalizePrivateKey(process.env.FCM_PRIVATE_KEY || '')
-  if (clientEmail && privateKey.includes('BEGIN PRIVATE KEY')) {
-    return { creds: { projectId: fallbackProjectId, clientEmail, privateKey }, reason: 'ready' }
+    if (sawGoogleServices) {
+      return { creds: null, reason: 'wrong_file_google_services_json' }
+    }
+    if (!sawEmail && !sawKey) {
+      return { creds: null, reason: 'missing_client_email_and_private_key' }
+    }
+    if (!sawEmail) {
+      return { creds: null, reason: 'missing_client_email' }
+    }
+    if (!sawKey) {
+      return { creds: null, reason: 'missing_private_key' }
+    }
+    return { creds: null, reason: 'invalid_json_or_key_format' }
   }
 
   return { creds: null, reason: 'env_var_missing_in_vercel' }
