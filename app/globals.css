@@ -32,10 +32,78 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'El Messiri Local';
+  src: url('/fonts/ElMessiri-Bold.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'El Messiri';
+  src: url('/fonts/ElMessiri-Bold.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Poppins';
+  src:
+    local('Poppins Regular'),
+    local('Poppins'),
+    url('/fonts/Poppins-Regular.ttf') format('truetype');
+  font-weight: 300 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Poppins';
+  src:
+    local('Poppins SemiBold'),
+    url('/fonts/Poppins-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Poppins';
+  src:
+    local('Poppins Bold'),
+    url('/fonts/Poppins-Bold.ttf') format('truetype');
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Noto Serif Malayalam';
+  src:
+    local('Noto Serif Malayalam Regular'),
+    local('Noto Serif Malayalam'),
+    url('/fonts/NotoSerifMalayalam-Regular.ttf') format('truetype');
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Noto Serif Malayalam';
+  src:
+    local('Noto Serif Malayalam Bold'),
+    url('/fonts/NotoSerifMalayalam-Bold.ttf') format('truetype');
+  font-weight: 600 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme inline {
   --font-sans: 'Poppins', var(--font-poppins), 'KFGQPC Uthman Taha Naskh', 'Noto Nastaliq Urdu', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Poppins', var(--font-poppins), 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-el-messiri), 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', ui-serif, Georgia, serif;
+  --font-display: 'El Messiri Local', 'El Messiri', var(--font-el-messiri), 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', ui-serif, Georgia, serif;
   --font-malayalam: 'Noto Serif Malayalam', 'KFGQPC Uthman Taha Naskh', var(--font-poppins), 'Poppins', serif;
   --font-arabic: 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', serif;
   --font-urdu: 'Noto Nastaliq Urdu', 'KFGQPC Uthman Taha Naskh', serif;

@@ -1,5 +1,5 @@
 // ICS Academy Service Worker for Instant Black Launch, Offline Support & Real-Time Web Push (Android + iOS Home Screen PWA)
-const CACHE_NAME = 'ics-academy-pwa-v31';
+const CACHE_NAME = 'ics-academy-pwa-v32';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -7,6 +7,10 @@ const PRECACHE_URLS = [
   '/images/ics-mark.svg',
   '/images/ics-mark-transparent.png',
   '/icons/icon-192.png',
+  '/fonts/ElMessiri-Bold.ttf',
+  '/fonts/Poppins-Regular.ttf',
+  '/fonts/Poppins-SemiBold.ttf',
+  '/fonts/Poppins-Bold.ttf',
 ];
 
 self.addEventListener('install', (event) => {
@@ -90,9 +94,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Hashed static bundles & icons (/assets/*, /icons/*, /images/*)
+  // 2. Hashed static bundles, fonts & icons (/assets/*, /fonts/*, /icons/*, /images/*)
   if (
     url.pathname.startsWith('/assets/') ||
+    url.pathname.startsWith('/fonts/') ||
     url.pathname.startsWith('/icons/') ||
     url.pathname.startsWith('/images/')
   ) {

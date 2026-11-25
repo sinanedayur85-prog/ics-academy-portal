@@ -298,6 +298,77 @@ export function makeSubDocId(endpoint) {
   return `wsub_${crypto.createHash('sha256').update(endpoint).digest('hex').slice(0, 40)}`
 }
 
+export function sanitizeRtdbKey(raw) {
+  const cleaned = String(raw || '')
+    .trim()
+    .replace(/[.$#[\]/]/g, '_')
+    .slice(0, 160)
+  return cleaned || 'unknown'
+}
+
+/**
+ * Resolves the exact Chat display name a recipient should see in a push notification:
+ * Priority 1: Recipient's personal saved contact nickname for the sender (Option A)
+ * Priority 2: Sender's public Chat Display Name saved in campusChatProfiles (Option B)
+ * Fails fast (1.5s timeout) and returns '' on any error so push dispatch is never blocked.
+ */
+export async function resolveRecipientSavedChatName(recipientActorId, senderActorId) {
+  const cleanRecipient = typeof recipientActorId === 'string' ? recipientActorId.trim() : ''
+  const cleanSender = typeof senderActorId === 'string' ? senderActorId.trim() : ''
+  if (!cleanSender) return ''
+
+  try {
+    const token = await getRtdbAdminAccessToken()
+    const baseUrl = getRtdbBaseUrl()
+    const headers = { Authorization: `Bearer ${token}` }
+
+    // 1. Check recipient's personal saved contact nickname for this sender
+    if (cleanRecipient && cleanRecipient !== cleanSender) {
+      const nickUrl = `${baseUrl}/campusMessengerUserState/${encodeURIComponent(
+        sanitizeRtdbKey(cleanRecipient),
+      )}/contactNicknamesJson.json`
+      const nickRes = await fetch(nickUrl, {
+        cache: 'no-store',
+        headers,
+        signal: AbortSignal.timeout(1500),
+      }).catch(() => null)
+      if (nickRes && nickRes.ok) {
+        const rawJson = await nickRes.json().catch(() => null)
+        if (typeof rawJson === 'string' && rawJson.trim()) {
+          try {
+            const parsed = JSON.parse(rawJson)
+            const personalNick = parsed && typeof parsed === 'object' ? parsed[cleanSender] : ''
+            if (typeof personalNick === 'string' && personalNick.trim()) {
+              return personalNick.trim().slice(0, 80)
+            }
+          } catch {
+            // Ignore malformed JSON
+          }
+        }
+      }
+    }
+
+    // 2. Fall back to sender's own saved Chat Display Name (Option B)
+    const profileUrl = `${baseUrl}/campusChatProfiles/${encodeURIComponent(
+      sanitizeRtdbKey(cleanSender),
+    )}/displayName.json`
+    const profileRes = await fetch(profileUrl, {
+      cache: 'no-store',
+      headers,
+      signal: AbortSignal.timeout(1200),
+    }).catch(() => null)
+    if (profileRes && profileRes.ok) {
+      const publicName = await profileRes.json().catch(() => null)
+      if (typeof publicName === 'string' && publicName.trim()) {
+        return publicName.trim().slice(0, 80)
+      }
+    }
+  } catch {
+    // Non-fatal: fall back to client-provided title
+  }
+  return ''
+}
+
 function parseRtdbSubRecord(raw, fallbackId = '') {
   if (!raw || typeof raw !== 'object') return null
   const endpoint = typeof raw.endpoint === 'string' ? raw.endpoint.trim() : ''

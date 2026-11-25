@@ -1,7 +1,16 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarClock, Megaphone, Pin, ShieldCheck, Users } from 'lucide-react'
+import {
+  CalendarClock,
+  Download,
+  Loader2,
+  Megaphone,
+  Pin,
+  Printer,
+  ShieldCheck,
+  Users,
+} from 'lucide-react'
 import {
   MONTHS_META,
   formatTargetClassesBadge,
@@ -11,6 +20,7 @@ import {
   notices,
   type Notice,
 } from '@/components/dashboard/data'
+import { exportNoticeAsPdf, printOfficialNotice } from '@/components/dashboard/notice-pdf'
 import { Panel } from '@/components/dashboard/panel'
 import { cn } from '@/lib/utils'
 
@@ -23,8 +33,17 @@ const categoryTone: Record<string, string> = {
   Academic: 'bg-muted text-muted-foreground',
 }
 
-export function NoticeBoard({ studentClass }: { studentClass?: string }) {
+export function NoticeBoard({
+  studentClass,
+  allowExport = false,
+  issuerLabel,
+}: {
+  studentClass?: string
+  allowExport?: boolean
+  issuerLabel?: string
+}) {
   const [customNotices, setCustomNotices] = useState<Notice[]>([])
+  const [busyActionKey, setBusyActionKey] = useState<string | null>(null)
 
   useEffect(() => {
     function syncNotices() {
@@ -50,6 +69,21 @@ export function NoticeBoard({ studentClass }: { studentClass?: string }) {
       return b.date.localeCompare(a.date)
     })
   }, [customNotices, studentClass])
+
+  async function handleNoticeExport(notice: Notice, mode: 'pdf' | 'print') {
+    const key = `${mode}:${notice.id}`
+    if (busyActionKey) return
+    setBusyActionKey(key)
+    try {
+      if (mode === 'pdf') {
+        await exportNoticeAsPdf(notice, issuerLabel)
+      } else {
+        await printOfficialNotice(notice, issuerLabel)
+      }
+    } finally {
+      setBusyActionKey(null)
+    }
+  }
 
   return (
     <Panel
@@ -90,6 +124,8 @@ export function NoticeBoard({ studentClass }: { studentClass?: string }) {
             const targetBatches = getNoticeTargetClasses(notice)
             const targetBadgeText = formatTargetClassesBadge(targetBatches)
             const isBatchSpecific = targetBatches.length > 0
+            const isPdfBusy = busyActionKey === `pdf:${notice.id}`
+            const isPrintBusy = busyActionKey === `print:${notice.id}`
 
             return (
               <li key={notice.id} className="group flex gap-4 py-4 first:pt-0 last:pb-0">
@@ -105,40 +141,75 @@ export function NoticeBoard({ studentClass }: { studentClass?: string }) {
                   </span>
                 </time>
                 <div className="min-w-0 flex-1">
-                  <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                    <span
-                      className={cn(
-                        'rounded-full px-2.5 py-0.5 text-[0.7rem] font-semibold',
-                        categoryTone[notice.category] ?? categoryTone.Academic,
-                      )}
-                    >
-                      {notice.category}
-                    </span>
-                    {!studentClass && (
+                  <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span
                         className={cn(
-                          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[0.7rem] font-semibold',
-                          isBatchSpecific
-                            ? 'bg-[#0095F6]/15 text-[#0077CC] dark:text-[#38BDF8]'
-                            : 'bg-muted text-muted-foreground',
+                          'rounded-full px-2.5 py-0.5 text-[0.7rem] font-semibold',
+                          categoryTone[notice.category] ?? categoryTone.Academic,
                         )}
                       >
-                        <Users className="size-3" aria-hidden="true" />
-                        {targetBadgeText}
+                        {notice.category}
                       </span>
-                    )}
-                    {hMeta?.isOfficialHoliday ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#0095F6]/15 px-2.5 py-0.5 text-[0.7rem] font-semibold text-[#0077CC] dark:text-[#0095F6]">
-                        <CalendarClock className="size-3" aria-hidden="true" />
-                        {hMeta.holidayType === 'monthly-second-saturday'
-                          ? 'Official 2nd Saturday Leave'
-                          : 'Official Festival / Batch Holiday'}
-                      </span>
-                    ) : null}
-                    {notice.pinned ? (
-                      <span className="inline-flex items-center gap-1 text-[0.7rem] font-semibold text-[#0077CC] dark:text-[#0095F6]">
-                        <Pin className="size-3" aria-hidden="true" /> Pinned
-                      </span>
+                      {!studentClass && (
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[0.7rem] font-semibold',
+                            isBatchSpecific
+                              ? 'bg-[#0095F6]/15 text-[#0077CC] dark:text-[#38BDF8]'
+                              : 'bg-muted text-muted-foreground',
+                          )}
+                        >
+                          <Users className="size-3" aria-hidden="true" />
+                          {targetBadgeText}
+                        </span>
+                      )}
+                      {hMeta?.isOfficialHoliday ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#0095F6]/15 px-2.5 py-0.5 text-[0.7rem] font-semibold text-[#0077CC] dark:text-[#0095F6]">
+                          <CalendarClock className="size-3" aria-hidden="true" />
+                          {hMeta.holidayType === 'monthly-second-saturday'
+                            ? 'Official 2nd Saturday Leave'
+                            : 'Official Festival / Batch Holiday'}
+                        </span>
+                      ) : null}
+                      {notice.pinned ? (
+                        <span className="inline-flex items-center gap-1 text-[0.7rem] font-semibold text-[#0077CC] dark:text-[#0095F6]">
+                          <Pin className="size-3" aria-hidden="true" /> Pinned
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {allowExport ? (
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={Boolean(busyActionKey)}
+                          onClick={() => void handleNoticeExport(notice, 'pdf')}
+                          title="Download Notice PDF"
+                          className="inline-flex h-7 items-center gap-1 rounded-lg border border-border/60 bg-background px-2 text-[11px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                        >
+                          {isPdfBusy ? (
+                            <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                          ) : (
+                            <Download className="size-3 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
+                          )}
+                          PDF
+                        </button>
+                        <button
+                          type="button"
+                          disabled={Boolean(busyActionKey)}
+                          onClick={() => void handleNoticeExport(notice, 'print')}
+                          title="Print Official Notice"
+                          className="inline-flex h-7 items-center gap-1 rounded-lg border border-border/60 bg-background px-2 text-[11px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                        >
+                          {isPrintBusy ? (
+                            <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                          ) : (
+                            <Printer className="size-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                          )}
+                          Print
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                   <h3 className="text-sm font-semibold text-foreground text-pretty">

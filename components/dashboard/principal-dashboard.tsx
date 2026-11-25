@@ -24,6 +24,7 @@ import {
   Globe,
   GraduationCap,
   Library,
+  Loader2,
   Lock,
   LogOut,
   Megaphone,
@@ -71,6 +72,7 @@ import {
 import { UsthadAcademicHub } from '@/components/dashboard/campus-academic-hub'
 import { CampusMessenger } from '@/components/dashboard/campus-messenger'
 import { ClassLeaderAttendanceCard } from '@/components/dashboard/class-leader-attendance-card'
+import { exportNoticeAsPdf, printOfficialNotice } from '@/components/dashboard/notice-pdf'
 import {
   ABSENT_REASONS,
   ACADEMY_MANAGER,
@@ -458,6 +460,7 @@ export function PrincipalDashboard() {
     `${principal.name} • Principal`,
   )
   const [noticeToast, setNoticeToast] = useState<string | null>(null)
+  const [noticeActionBusyKey, setNoticeActionBusyKey] = useState<string | null>(null)
 
   // Digital Library Uploader State
   const [localKitabUploads, setLocalKitabUploads] = useState<DigitalKitabItem[]>([])
@@ -4537,10 +4540,12 @@ export function PrincipalDashboard() {
                     {customNotices.map((n) => {
                       const nTargets = getNoticeTargetClasses(n)
                       const nTargetBadge = formatTargetClassesBadge(nTargets)
+                      const isPdfBusy = noticeActionBusyKey === `pdf:${n.id}`
+                      const isPrintBusy = noticeActionBusyKey === `print:${n.id}`
                       return (
                         <div
                           key={n.id}
-                          className="flex items-center justify-between gap-3 rounded-2xl bg-muted/45 p-3 text-xs"
+                          className="flex flex-col justify-between gap-2.5 rounded-2xl bg-muted/45 p-3 text-xs sm:flex-row sm:items-center"
                         >
                           <div className="min-w-0">
                             <p className="truncate font-semibold text-foreground">{n.title}</p>
@@ -4552,7 +4557,51 @@ export function PrincipalDashboard() {
                               <span className="font-semibold text-[#0077CC] dark:text-[#0095F6]">{nTargetBadge}</span>
                             </p>
                           </div>
-                          <div className="flex shrink-0 items-center gap-1.5">
+                          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={Boolean(noticeActionBusyKey)}
+                              onClick={async () => {
+                                setNoticeActionBusyKey(`pdf:${n.id}`)
+                                try {
+                                  await exportNoticeAsPdf(n, `${principal.name} • Principal`)
+                                } finally {
+                                  setNoticeActionBusyKey(null)
+                                }
+                              }}
+                              className="h-7 rounded-lg px-2 text-[11px]"
+                            >
+                              {isPdfBusy ? (
+                                <Loader2 className="mr-1 size-3 animate-spin" aria-hidden="true" />
+                              ) : (
+                                <Download className="mr-1 size-3 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
+                              )}
+                              PDF
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={Boolean(noticeActionBusyKey)}
+                              onClick={async () => {
+                                setNoticeActionBusyKey(`print:${n.id}`)
+                                try {
+                                  await printOfficialNotice(n, `${principal.name} • Principal`)
+                                } finally {
+                                  setNoticeActionBusyKey(null)
+                                }
+                              }}
+                              className="h-7 rounded-lg px-2 text-[11px]"
+                            >
+                              {isPrintBusy ? (
+                                <Loader2 className="mr-1 size-3 animate-spin" aria-hidden="true" />
+                              ) : (
+                                <Printer className="mr-1 size-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                              )}
+                              Print
+                            </Button>
                             <Button
                               type="button"
                               size="sm"
@@ -4576,7 +4625,7 @@ export function PrincipalDashboard() {
               )}
             </Panel>
 
-            <NoticeBoard />
+            <NoticeBoard allowExport issuerLabel={`${principal.name} • Principal`} />
           </div>
         )}
 

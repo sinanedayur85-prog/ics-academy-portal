@@ -119,10 +119,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ICS Academy" />
+    <link rel="preload" href="/fonts/ElMessiri-Bold.ttf" as="font" type="font/ttf" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&family=Noto+Serif+Malayalam:wght@400;500;600;700&family=Poppins:wght@300;400;500;600&family=Tajawal:wght@400;500;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;500;600;700&family=Noto+Serif+Malayalam:wght@400;500;600;700&family=Poppins:wght@300;400;500;600&family=Tajawal:wght@400;500;700;800&display=swap"
       rel="stylesheet"
       crossorigin="anonymous"
     />
@@ -143,8 +144,8 @@
         }
         if ('caches' in window) {
           window.addEventListener('load', function () {
-            caches.open('ics-academy-pwa-v27').then(function (cache) {
-              var urls = ['/', '/index.html', '/manifest.json'];
+            caches.open('ics-academy-pwa-v32').then(function (cache) {
+              var urls = ['/', '/index.html', '/manifest.json', '/fonts/ElMessiri-Bold.ttf'];
               document.querySelectorAll('script[src], link[rel="stylesheet"][href]').forEach(function (el) {
                 var u = el.getAttribute('src') || el.getAttribute('href');
                 if (u && u.indexOf('/assets/') === 0) urls.push(u);

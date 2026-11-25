@@ -59,6 +59,7 @@ import {
 } from '@/components/campus-notifications'
 import { UsthadAcademicHub } from '@/components/dashboard/campus-academic-hub'
 import { CampusMessenger } from '@/components/dashboard/campus-messenger'
+import { exportNoticeAsPdf, printOfficialNotice } from '@/components/dashboard/notice-pdf'
 import {
   ABSENT_REASONS,
   ALL_ACADEMY_CLASS_NAMES,
@@ -519,6 +520,7 @@ export function UsthadDashboard() {
   const [holidayDaysDeducted, setHolidayDaysDeducted] = useState('3')
   const [holidayAnnouncedBy, setHolidayAnnouncedBy] = useState('Principal')
   const [noticeToast, setNoticeToast] = useState<string | null>(null)
+  const [noticeActionBusyKey, setNoticeActionBusyKey] = useState<string | null>(null)
 
   // Digital Library Kitab Uploader State
   const [localKitabUploads, setLocalKitabUploads] = useState<DigitalKitabItem[]>([])
@@ -2769,8 +2771,10 @@ export function UsthadDashboard() {
                       item.id.startsWith('nt-usthad-') || item.id.startsWith('nt-principal-')
                     const itemTargets = getNoticeTargetClasses(item)
                     const itemTargetLabel = formatTargetClassesBadge(itemTargets)
+                    const isPdfBusy = noticeActionBusyKey === `pdf:${item.id}`
+                    const isPrintBusy = noticeActionBusyKey === `print:${item.id}`
                     return (
-                      <li key={item.id} className="flex items-start justify-between gap-3 py-3.5">
+                      <li key={item.id} className="flex flex-col gap-2.5 py-3.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2 text-xs">
                             <span className="font-semibold text-[#0077CC] dark:text-[#0095F6]">{item.category}</span>
@@ -2800,22 +2804,66 @@ export function UsthadDashboard() {
                           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{item.body}</p>
                         </div>
 
-                        {isCustom ? (
-                          <div className="flex shrink-0 items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleNoticePin(item.id)}
-                              title={item.pinned ? 'Unpin notice' : 'Pin notice'}
-                              className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                            >
-                              <Pin className="size-3.5" aria-hidden="true" />
-                            </button>
-                            <DeleteActionMenu
-                              ariaLabel={`Options for ${item.title}`}
-                              onConfirmDelete={() => handleDeleteCustomNotice(item.id)}
-                            />
-                          </div>
-                        ) : null}
+                        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={Boolean(noticeActionBusyKey)}
+                            onClick={async () => {
+                              setNoticeActionBusyKey(`pdf:${item.id}`)
+                              try {
+                                await exportNoticeAsPdf(item, `${usthad.name} (${usthad.className})`)
+                              } finally {
+                                setNoticeActionBusyKey(null)
+                              }
+                            }}
+                            title="Save Official Notice as PDF"
+                            className="inline-flex h-7 items-center gap-1 rounded-lg border border-border/60 bg-background px-2 text-[11px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                          >
+                            {isPdfBusy ? (
+                              <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                            ) : (
+                              <Download className="size-3 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
+                            )}
+                            PDF
+                          </button>
+                          <button
+                            type="button"
+                            disabled={Boolean(noticeActionBusyKey)}
+                            onClick={async () => {
+                              setNoticeActionBusyKey(`print:${item.id}`)
+                              try {
+                                await printOfficialNotice(item, `${usthad.name} (${usthad.className})`)
+                              } finally {
+                                setNoticeActionBusyKey(null)
+                              }
+                            }}
+                            title="Print Official Notice"
+                            className="inline-flex h-7 items-center gap-1 rounded-lg border border-border/60 bg-background px-2 text-[11px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                          >
+                            {isPrintBusy ? (
+                              <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                            ) : (
+                              <Printer className="size-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                            )}
+                            Print
+                          </button>
+                          {isCustom ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleNoticePin(item.id)}
+                                title={item.pinned ? 'Unpin notice' : 'Pin notice'}
+                                className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                              >
+                                <Pin className="size-3.5" aria-hidden="true" />
+                              </button>
+                              <DeleteActionMenu
+                                ariaLabel={`Options for ${item.title}`}
+                                onConfirmDelete={() => handleDeleteCustomNotice(item.id)}
+                              />
+                            </>
+                          ) : null}
+                        </div>
                       </li>
                     )
                   })}

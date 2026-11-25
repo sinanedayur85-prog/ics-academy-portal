@@ -3237,14 +3237,21 @@ export function CampusMessenger({
       )
       if (activeEntries.length === 0) return null
       const first = activeEntries[0]
+      if (roomId.startsWith('direct__')) {
+        return first.mode === 'recording' ? 'recording audio...' : 'typing...'
+      }
       const typerProfile = resolveActorDirectoryProfile(first.actorId)
-      const typerDisplay = typerProfile?.name || first.actorName
+      const typerDisplay = resolveChatDisplayName(
+        first.actorId,
+        typerProfile?.name || first.actorName,
+        typerProfile?.role || 'student',
+      )
       if (first.mode === 'recording') {
         return `${typerDisplay} is recording a voice note...`
       }
       return `${typerDisplay} is typing...`
     },
-    [typingMap, actor.id],
+    [typingMap, actor.id, resolveChatDisplayName],
   )
 
   // Broadcast typing state when typing
@@ -3366,7 +3373,8 @@ export function CampusMessenger({
       const roomDeepLinkHref = `#campus-chat?room=${encodeURIComponent(roomSnapshot.roomId)}`
 
       const dispatchChatPushNotification = () => {
-        // 1. Direct 1-on-1 Chat (WhatsApp-style: Sender Name as title, message as body)
+        const senderChatName = resolveChatDisplayName(actor.id, actor.name, actor.role)
+        // 1. Direct 1-on-1 Chat (WhatsApp-style: Sender Chat Name as title, message as body)
         if (
           (roomSnapshot.type === 'direct_usthad' || roomSnapshot.type === 'direct_student') &&
           roomSnapshot.peerId
@@ -3380,11 +3388,11 @@ export function CampusMessenger({
           publishCampusNotification({
             id: deterministicNotifId,
             type: 'chat',
-            title: actor.name,
+            title: senderChatName,
             message: preview,
             targetRecipientId: roomSnapshot.peerId,
             actorId: actor.id,
-            actorName: actor.name,
+            actorName: senderChatName,
             actorAvatarUrl: shortActorAvatar,
             href: roomDeepLinkHref,
           })
@@ -3395,10 +3403,10 @@ export function CampusMessenger({
             id: deterministicNotifId,
             type: 'chat',
             title: `${roomSnapshot.batchName} Group`,
-            message: `${actor.name}: ${preview}`,
+            message: `${senderChatName}: ${preview}`,
             targetClass: roomSnapshot.batchName,
             actorId: actor.id,
-            actorName: actor.name,
+            actorName: senderChatName,
             href: roomDeepLinkHref,
           })
         }
@@ -3408,10 +3416,10 @@ export function CampusMessenger({
             id: deterministicNotifId,
             type: 'chat',
             title: 'Staff Room',
-            message: `${actor.name}: ${preview}`,
+            message: `${senderChatName}: ${preview}`,
             targetStaffOnly: true,
             actorId: actor.id,
-            actorName: actor.name,
+            actorName: senderChatName,
             href: roomDeepLinkHref,
           })
         }
@@ -3447,6 +3455,7 @@ export function CampusMessenger({
       sendChatActionToServer,
       syncPresenceToFirestore,
       chatSettings.soundEffects,
+      resolveChatDisplayName,
     ],
   )
 
@@ -4444,6 +4453,7 @@ export function CampusMessenger({
         const deterministicNotifId = `notif_chat_${msgId}`
         const forwardedRoomDeepLinkHref = `#campus-chat?room=${encodeURIComponent(targetRoomId)}`
         const dispatchForwardedPush = () => {
+          const senderChatName = resolveChatDisplayName(actor.id, actor.name, actor.role)
           if (isDirect && directPeerId) {
             const shortActorAvatar =
               typeof actor.avatarUrl === 'string' &&
@@ -4454,11 +4464,11 @@ export function CampusMessenger({
             publishCampusNotification({
               id: deterministicNotifId,
               type: 'chat',
-              title: actor.name,
+              title: senderChatName,
               message: preview,
               targetRecipientId: directPeerId,
               actorId: actor.id,
-              actorName: actor.name,
+              actorName: senderChatName,
               actorAvatarUrl: shortActorAvatar,
               href: forwardedRoomDeepLinkHref,
             })
@@ -4467,10 +4477,10 @@ export function CampusMessenger({
               id: deterministicNotifId,
               type: 'chat',
               title: `${batchName} Group`,
-              message: `${actor.name}: ${preview}`,
+              message: `${senderChatName}: ${preview}`,
               targetClass: batchName,
               actorId: actor.id,
-              actorName: actor.name,
+              actorName: senderChatName,
               href: forwardedRoomDeepLinkHref,
             })
           } else if (isStaffRoom) {
@@ -4478,10 +4488,10 @@ export function CampusMessenger({
               id: deterministicNotifId,
               type: 'chat',
               title: 'Staff Room',
-              message: `${actor.name}: ${preview}`,
+              message: `${senderChatName}: ${preview}`,
               targetStaffOnly: true,
               actorId: actor.id,
-              actorName: actor.name,
+              actorName: senderChatName,
               href: forwardedRoomDeepLinkHref,
             })
           }
@@ -4941,14 +4951,15 @@ export function CampusMessenger({
       ).catch(() => {
         // Fallback already sent
       })
+      const senderChatName = resolveChatDisplayName(actor.id, actor.name, actor.role)
       publishCampusNotification({
         id: `notif_chat_${msgId}`,
         type: 'chat',
-        title: resolveChatDisplayName(actor.id, actor.name, actor.role),
+        title: senderChatName,
         message: `Replied to your story: ${clean.slice(0, 100)}`,
         targetRecipientId: targetActorId,
         actorId: actor.id,
-        actorName: actor.name,
+        actorName: senderChatName,
         href: `#campus-chat?room=${encodeURIComponent(targetRoomId)}`,
       })
     },

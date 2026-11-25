@@ -1,5 +1,8 @@
 import crypto from 'crypto'
-import { dispatchWebPushToMatchingSubs } from '../_push-web-store.js'
+import {
+  dispatchWebPushToMatchingSubs,
+  resolveRecipientSavedChatName,
+} from '../_push-web-store.js'
 
 let cachedAccessToken = null
 let cachedAccessTokenExpiryMs = 0
@@ -387,20 +390,31 @@ export default async function handler(req, res) {
         ? `#campus-chat?room=${encodeURIComponent(safeCallRoom)}&callId=${encodeURIComponent(safeCallId)}`
         : `#campus-chat?callId=${encodeURIComponent(safeCallId)}`
 
+      const safeCallerId = typeof call.callerId === 'string' ? call.callerId.slice(0, 64) : ''
+      const safeCalleeId = typeof call.calleeId === 'string' ? call.calleeId.trim() : ''
+      const savedCallerName =
+        safeCalleeId && safeCallerId
+          ? await resolveRecipientSavedChatName(safeCalleeId, safeCallerId)
+          : ''
+      const resolvedCallerName = savedCallerName || callerName
+
       payload = {
-        title: callAction === 'cancel' ? 'Call Ended' : `${callLabel} — ${callerName}`.slice(0, 140),
+        title:
+          callAction === 'cancel'
+            ? 'Call Ended'
+            : `${callLabel} — ${resolvedCallerName}`.slice(0, 140),
         body:
           callAction === 'cancel'
-            ? `${callerName} ended the call.`
-            : `${callerName} is calling you on ICS Academy`,
+            ? `${resolvedCallerName} ended the call.`
+            : `${resolvedCallerName} is calling you on ICS Academy`,
         href: callHref,
         tag: `ics-call-${safeCallId.slice(0, 48)}`,
         notificationId: `call_${safeCallId.slice(0, 48)}`,
         type: callAction === 'cancel' ? 'call_cancel' : 'call',
-        senderId: typeof call.callerId === 'string' ? call.callerId.slice(0, 64) : '',
+        senderId: safeCallerId,
         callId: safeCallId,
         callType: safeCallType,
-        callerName,
+        callerName: resolvedCallerName,
         callerSubtitle,
         roomId: safeCallRoom,
         callAction,
@@ -409,7 +423,7 @@ export default async function handler(req, res) {
       webPushFilter = {
         type: 'call',
         senderId: payload.senderId,
-        targetRecipientId: typeof call.calleeId === 'string' ? call.calleeId.trim() : '',
+        targetRecipientId: safeCalleeId,
       }
       skipWebPush = callAction === 'cancel'
       ttlSeconds = 60
@@ -489,6 +503,24 @@ export default async function handler(req, res) {
       if (targets.length === 0) {
         res.status(200).json({ ok: true, sent: 0 })
         return
+      }
+      if (safeType === 'chat' && payload.senderId) {
+        const savedChatName = await resolveRecipientSavedChatName(
+          webPushFilter.targetRecipientId,
+          payload.senderId,
+        )
+        if (savedChatName) {
+          if (webPushFilter.targetRecipientId) {
+            payload.title = savedChatName
+            payload.senderName = savedChatName
+          } else if (
+            payload.senderName &&
+            payload.body.startsWith(`${payload.senderName}: `)
+          ) {
+            payload.body = `${savedChatName}: ${payload.body.slice(payload.senderName.length + 2)}`.slice(0, 320)
+            payload.senderName = savedChatName
+          }
+        }
       }
       ttlSeconds = 259200
     } else {

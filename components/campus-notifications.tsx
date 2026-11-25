@@ -51,6 +51,19 @@ function getScopeStorageSuffix(studentId?: string, classNameFilter?: string): st
   return raw.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60)
 }
 
+function resolveLocalSavedChatNickname(currentActorId: string, senderActorId?: string): string {
+  if (typeof window === 'undefined' || !currentActorId || !senderActorId) return ''
+  try {
+    const raw = window.localStorage.getItem(`ics_messenger_contact_nicknames_v1_${currentActorId}`)
+    if (!raw) return ''
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const nick = parsed?.[senderActorId]
+    return typeof nick === 'string' && nick.trim() ? nick.trim().slice(0, 80) : ''
+  } catch {
+    return ''
+  }
+}
+
 /**
  * Silent Background Notification & Real-Time Web Push Coordinator:
  * - Automatically binds this phone's Web Push subscription (Android Chrome/PWA & iOS 16.4+ Add to Home Screen)
@@ -223,7 +236,22 @@ export function CampusNotificationBar({
         return
       }
 
-      triggerSystemNotification(notif.title, notif.message, notif.href, {
+      let resolvedTitle = notif.title
+      let resolvedMessage = notif.message
+      if (notif.type === 'chat' && notif.actorId) {
+        const session = getCurrentSessionIdentity()
+        const currentActorId = (studentId || session.actorId || '').trim()
+        const savedNick = resolveLocalSavedChatNickname(currentActorId, notif.actorId)
+        if (savedNick) {
+          if (notif.targetRecipientId) {
+            resolvedTitle = savedNick
+          } else if (notif.actorName && resolvedMessage.startsWith(`${notif.actorName}: `)) {
+            resolvedMessage = `${savedNick}: ${resolvedMessage.slice(notif.actorName.length + 2)}`
+          }
+        }
+      }
+
+      triggerSystemNotification(resolvedTitle, resolvedMessage, notif.href, {
         actorId: notif.actorId,
         actorAvatarUrl: notif.actorAvatarUrl,
       })
