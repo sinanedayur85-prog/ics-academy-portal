@@ -6,6 +6,7 @@ import {
   BookMarked,
   CalendarCheck,
   CalendarDays,
+  Camera,
   ClipboardList,
   Globe,
   Library,
@@ -38,6 +39,7 @@ import { GeminiChatbot } from '@/components/dashboard/gemini-chatbot'
 import { LeaveRegister } from '@/components/dashboard/leave-register'
 import { LibraryBooks } from '@/components/dashboard/library-books'
 import { NoticeBoard } from '@/components/dashboard/notice-board'
+import { StudentProfilePhotoModal } from '@/components/dashboard/student-profile-photo-modal'
 import { StudentAvatar, StudentSwitcher } from '@/components/dashboard/student-switcher'
 import { Timetable } from '@/components/dashboard/timetable'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -90,12 +92,22 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
     return students[0].id
   })
   const [isOnLeave, setIsOnLeave] = useState(false)
+  const [profilePhotoOpen, setProfilePhotoOpen] = useState(false)
+  const [, setAcademyConfigVersion] = useState(0)
   const [mobileTab, setMobileTab] = useState<MobileTabId>('home')
   const [mobileAttendanceSubTab, setMobileAttendanceSubTab] =
     useState<MobileAttendanceSubTab>('personal')
   const [mobileResourceSubTab, setMobileResourceSubTab] =
     useState<MobileResourceSubTab>('digital-library')
   const mobileScrollRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const refreshConfig = () => setAcademyConfigVersion((v) => v + 1)
+    window.addEventListener('ics-academy-config-updated', refreshConfig)
+    return () => {
+      window.removeEventListener('ics-academy-config-updated', refreshConfig)
+    }
+  }, [])
 
   const student = students.find((s) => s.id === selectedStudentId) ?? students[0]
   const leaderInfo = getLeaderInfoForStudent(student)
@@ -348,18 +360,34 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
               </a>
             </div>
             <div className="mt-2 flex items-center gap-3.5">
-              {student.avatarUrl && (
+              <button
+                type="button"
+                onClick={() => setProfilePhotoOpen(true)}
+                aria-label="View full screen profile photo or change photo"
+                className="group relative shrink-0 rounded-full outline-none transition-transform duration-150 hover:scale-[1.03] active:scale-95"
+              >
                 <StudentAvatar
                   student={student}
-                  className="size-14 sm:size-16"
+                  className="size-14 sm:size-16 ring-2 ring-[#0095F6]/30 transition-all group-hover:ring-[#0095F6]"
                 />
-              )}
+                <span
+                  aria-hidden="true"
+                  className="absolute right-0 bottom-0 flex size-5.5 items-center justify-center rounded-full bg-[#0095F6] text-white shadow-md ring-2 ring-background"
+                >
+                  <Camera className="size-3" />
+                </span>
+              </button>
               <h1 className="flex flex-col font-display leading-tight text-foreground">
                 <span className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl md:text-4xl">
                   {student.firstName}
                 </span>
               </h1>
             </div>
+            <StudentProfilePhotoModal
+              student={student}
+              open={profilePhotoOpen}
+              onClose={() => setProfilePhotoOpen(false)}
+            />
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-sans text-xs text-muted-foreground sm:text-sm">
             <p>

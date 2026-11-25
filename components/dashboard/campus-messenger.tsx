@@ -1573,8 +1573,19 @@ export function CampusMessenger({
     }
   }, [showAttachMenu, showChatMoreMenu])
 
+  const [academyConfigVersion, setAcademyConfigVersion] = useState(0)
+
+  useEffect(() => {
+    const syncConfig = () => setAcademyConfigVersion((v) => v + 1)
+    window.addEventListener('ics-academy-config-updated', syncConfig)
+    return () => {
+      window.removeEventListener('ics-academy-config-updated', syncConfig)
+    }
+  }, [])
+
   // Build available rooms for this user
   const allRooms = useMemo<ChatRoomDescriptor[]>(() => {
+    void academyConfigVersion
     const list: ChatRoomDescriptor[] = []
 
     // 1. Staff Room (Strictly for Principal & Usthads only)
@@ -1682,7 +1693,15 @@ export function CampusMessenger({
     }
 
     return list
-  }, [actor.id, actor.className, actor.isStaff, messagesByRoom, studentBatchFilter, searchQuery])
+  }, [
+    actor.id,
+    actor.className,
+    actor.isStaff,
+    messagesByRoom,
+    studentBatchFilter,
+    searchQuery,
+    academyConfigVersion,
+  ])
 
   // Persist messages & room meta to localStorage
   useEffect(() => {
@@ -5894,7 +5913,7 @@ export function CampusMessenger({
                             : 'rounded-[22px] rounded-l-[5px]'
 
                   const isHdPhoto = isImageMessage && msg.imageQuality === 'hd'
-                  const showBelowGroupMeta = isLastInGroup || isStarred || isPinned || isHdPhoto
+                  const showBelowGroupMeta = isLastInGroup || isStarred || isPinned
 
                   return (
                     <div
@@ -6393,6 +6412,27 @@ export function CampusMessenger({
                                   className="block max-h-80 w-full rounded-[20px] object-cover"
                                 />
                               </button>
+                              {isHdPhoto && (
+                                <>
+                                  <div
+                                    aria-hidden="true"
+                                    className="pointer-events-none absolute inset-x-0 bottom-0 h-11 bg-gradient-to-t from-black/45 via-black/15 to-transparent"
+                                  />
+                                  <span
+                                    title={
+                                      msg.imageDimensions
+                                        ? `HD Photo (${msg.imageDimensions})`
+                                        : 'HD Quality Photo'
+                                    }
+                                    className={cn(
+                                      'pointer-events-none absolute bottom-2.5 z-10 inline-flex select-none items-center justify-center rounded-[5px] border-[1.25px] border-white/95 bg-black/30 px-1.5 py-[1px] font-poppins text-[10px] font-bold leading-tight tracking-wider text-white shadow-[0_1px_4px_rgba(0,0,0,0.45)] backdrop-blur-[2px]',
+                                      isMine ? 'right-2.5' : 'left-2.5',
+                                    )}
+                                  >
+                                    HD
+                                  </span>
+                                </>
+                              )}
                             </div>
                           )}
 
@@ -6682,7 +6722,7 @@ export function CampusMessenger({
                         </div>
                       </div>
 
-                      {/* Clean Below-Group HD Indicator, IST Timestamp, Star/Pin & Read Ticks */}
+                      {/* Clean Below-Group IST Timestamp, Star/Pin & Read Ticks */}
                       {showBelowGroupMeta && (
                         <div
                           className={cn(
@@ -6690,18 +6730,6 @@ export function CampusMessenger({
                             isMine ? 'justify-end pr-1' : 'justify-start pl-9',
                           )}
                         >
-                          {isHdPhoto && (
-                            <span
-                              title={
-                                msg.imageDimensions
-                                  ? `HD Photo (${msg.imageDimensions})`
-                                  : 'HD Quality Photo'
-                              }
-                              className="inline-flex items-center justify-center rounded-[4px] border border-emerald-600/50 bg-emerald-500/10 px-1.5 py-[1px] font-poppins text-[9px] font-extrabold leading-tight tracking-wider text-emerald-700 dark:border-emerald-400/50 dark:bg-emerald-400/15 dark:text-emerald-300"
-                            >
-                              HD
-                            </span>
-                          )}
                           {isStarred && (
                             <Star
                               className="size-2.5 fill-amber-400 text-amber-500 dark:text-amber-400"

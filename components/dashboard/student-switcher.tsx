@@ -2,9 +2,10 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Award, BookOpen, Eye, EyeOff, GraduationCap, Hash, KeyRound, LogOut, PlayCircle, ShieldCheck, User, Volume2 } from 'lucide-react'
-import type { ClassUsthad, PrincipalProfile, Student } from '@/components/dashboard/data'
+import { Award, BookOpen, Camera, Eye, EyeOff, GraduationCap, Hash, KeyRound, LogOut, PlayCircle, ShieldCheck, User, Volume2 } from 'lucide-react'
+import { type ClassUsthad, type PrincipalProfile, type Student, students } from '@/components/dashboard/data'
 import { AppVideoGuideModal, unlockAndroidAudioOnGesture } from '@/components/dashboard/app-video-guide'
+import { StudentProfilePhotoModal } from '@/components/dashboard/student-profile-photo-modal'
 import { cn } from '@/lib/utils'
 
 function initials(name: string) {
@@ -89,14 +90,26 @@ type StudentSwitcherProps = {
 export function StudentSwitcher({ student }: StudentSwitcherProps) {
   const [open, setOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [photoModalOpen, setPhotoModalOpen] = useState(false)
   const [showOwnPassword, setShowOwnPassword] = useState(false)
+  const [, setConfigVersion] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const popoverId = useId()
 
+  useEffect(() => {
+    const syncConfig = () => setConfigVersion((v) => v + 1)
+    window.addEventListener('ics-academy-config-updated', syncConfig)
+    return () => {
+      window.removeEventListener('ics-academy-config-updated', syncConfig)
+    }
+  }, [])
+
+  const liveStudent = students.find((s) => s.id === student.id) ?? student
+
   const ownPassword =
     (typeof window !== 'undefined' &&
-      window.localStorage.getItem(`ics_own_password_${student.id}`)) ||
-    student.admissionNo
+      window.localStorage.getItem(`ics_own_password_${liveStudent.id}`)) ||
+    liveStudent.admissionNo
 
   const isClassLeader =
     typeof window !== 'undefined' && window.localStorage.getItem('authRole') === 'class-leader'
@@ -134,7 +147,7 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
           open && 'scale-95',
         )}
       >
-        <StudentAvatar student={student} className="size-full" />
+        <StudentAvatar student={liveStudent} className="size-full" />
         <span className="sr-only">My Profile</span>
       </button>
 
@@ -146,17 +159,44 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
           className="absolute right-0 z-50 mt-2.5 w-[min(20rem,calc(100vw-1.5rem))] origin-top-right rounded-3xl bg-popover p-4 shadow-[0_20px_50px_rgba(0,0,0,0.45)] animate-in fade-in-0 zoom-in-95 duration-150"
         >
           <div className="flex items-center gap-3.5 pb-4">
-            <StudentAvatar
-              student={student}
-              className="size-14 text-sm"
-            />
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                setPhotoModalOpen(true)
+              }}
+              aria-label="View full screen profile photo or change photo"
+              className="group relative shrink-0 rounded-full outline-none transition-transform duration-150 hover:scale-[1.03] active:scale-95"
+            >
+              <StudentAvatar
+                student={liveStudent}
+                className="size-14 text-sm ring-2 ring-[#0095F6]/35 transition-all group-hover:ring-[#0095F6]"
+              />
+              <span
+                aria-hidden="true"
+                className="absolute -right-0.5 -bottom-0.5 flex size-6 items-center justify-center rounded-full bg-[#0095F6] text-white shadow-md ring-2 ring-popover"
+              >
+                <Camera className="size-3" />
+              </span>
+            </button>
             <div className="min-w-0 flex-1">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#0077CC] dark:text-[#0095F6]">
                 Logged-in Student
               </p>
               <p className="mt-0.5 truncate font-display text-lg font-semibold text-foreground">
-                {student.name}
+                {liveStudent.name}
               </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  setPhotoModalOpen(true)
+                }}
+                className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-[#0077CC] transition-colors hover:underline dark:text-[#38BDF8]"
+              >
+                <Camera className="size-3" aria-hidden="true" />
+                <span>{liveStudent.avatarUrl ? 'View / Change Photo' : 'Add Required Photo'}</span>
+              </button>
             </div>
           </div>
 
@@ -267,6 +307,12 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
           initialRole={isClassLeader ? 'class-leader' : 'student'}
         />
       ) : null}
+
+      <StudentProfilePhotoModal
+        student={liveStudent}
+        open={photoModalOpen}
+        onClose={() => setPhotoModalOpen(false)}
+      />
     </div>
   )
 }

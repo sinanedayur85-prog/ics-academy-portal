@@ -3464,6 +3464,38 @@ export function updateStudentByPrincipal(
   })
 }
 
+export function updateStudentProfilePhoto(studentId: string, avatarUrl: string): boolean {
+  const cleanAvatar = typeof avatarUrl === 'string' ? avatarUrl.trim() : ''
+  // Mandatory profile photo policy: never allow clearing or saving an empty photo
+  if (
+    !studentId ||
+    !cleanAvatar ||
+    (!cleanAvatar.startsWith('data:image/') &&
+      !cleanAvatar.startsWith('/') &&
+      !cleanAvatar.startsWith('https://') &&
+      !cleanAvatar.startsWith('http://'))
+  ) {
+    return false
+  }
+  const current = loadAcademyAdminConfig()
+  const existingEdit = current.editedStudents?.[studentId] ?? {}
+  if (existingEdit.avatarUrl === cleanAvatar) {
+    return true
+  }
+  const nextEdited = {
+    ...(current.editedStudents ?? {}),
+    [studentId]: {
+      ...existingEdit,
+      avatarUrl: cleanAvatar,
+    },
+  }
+  saveAcademyAdminConfig({
+    ...current,
+    editedStudents: nextEdited,
+  })
+  return true
+}
+
 export function removeStudentByPrincipal(studentId: string): void {
   const current = loadAcademyAdminConfig()
   const removed = new Set(current.removedStudentIds ?? [])
