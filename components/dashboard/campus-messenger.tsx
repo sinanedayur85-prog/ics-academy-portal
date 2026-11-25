@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   arrayRemove,
   arrayUnion,
@@ -1169,6 +1170,22 @@ export function CampusMessenger({
     quality?: 'standard' | 'hd'
     dimensions?: string
   } | null>(null)
+  const [profilePhotoViewer, setProfilePhotoViewer] = useState<{
+    url: string
+    name: string
+    subtitle?: string
+  } | null>(null)
+
+  useEffect(() => {
+    if (!profilePhotoViewer) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setProfilePhotoViewer(null)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [profilePhotoViewer])
 
   // Voice Note Recorder state
   const [isRecordingVoice, setIsRecordingVoice] = useState(false)
@@ -4688,31 +4705,44 @@ export function CampusMessenger({
                       key={rec.id}
                       className="flex items-center justify-between gap-3 px-4 py-2.5 transition-colors hover:bg-zinc-100/80 dark:hover:bg-white/[0.06]"
                     >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (matchingRoom) {
-                            setSelectedRoomId(matchingRoom.roomId)
-                            setMobileShowChatPane(true)
-                          } else {
-                            setSelectedRoomId(directRoomId)
-                            setMobileShowChatPane(true)
-                          }
-                        }}
-                        className="flex min-w-0 flex-1 items-center gap-3.5 text-left"
-                      >
-                        <div className="flex size-[52px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#efefef] font-poppins text-sm font-bold text-zinc-700 dark:bg-[#262626] dark:text-zinc-200">
-                          {avatarUrl ? (
+                      <div className="flex min-w-0 flex-1 items-center gap-3.5">
+                        {avatarUrl ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setProfilePhotoViewer({
+                                url: avatarUrl,
+                                name: peerName,
+                                subtitle: peerSubtitle,
+                              })
+                            }
+                            aria-label={`View ${peerName} profile photo`}
+                            className="flex size-[52px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#efefef] font-poppins text-sm font-bold text-zinc-700 transition-transform active:scale-95 dark:bg-[#262626] dark:text-zinc-200"
+                          >
                             <img
                               src={avatarUrl}
                               alt={peerName}
                               className="size-full object-cover object-top"
                             />
-                          ) : (
-                            initials || 'IC'
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
+                          </button>
+                        ) : (
+                          <div className="flex size-[52px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#efefef] font-poppins text-sm font-bold text-zinc-700 dark:bg-[#262626] dark:text-zinc-200">
+                            {initials || 'IC'}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (matchingRoom) {
+                              setSelectedRoomId(matchingRoom.roomId)
+                              setMobileShowChatPane(true)
+                            } else {
+                              setSelectedRoomId(directRoomId)
+                              setMobileShowChatPane(true)
+                            }
+                          }}
+                          className="min-w-0 flex-1 text-left"
+                        >
                           <p
                             className={cn(
                               'truncate text-[14.5px] font-semibold',
@@ -4738,8 +4768,8 @@ export function CampusMessenger({
                               </span>
                             </span>
                           </div>
-                        </div>
-                      </button>
+                        </button>
+                      </div>
 
                       <div className="flex shrink-0 items-center gap-0.5">
                         <button
@@ -4810,25 +4840,25 @@ export function CampusMessenger({
                                 : lastMsg.text
                   : ''
 
+                const openRoom = () => {
+                  unlockNotificationAudio()
+                  setShowAttachMenu(false)
+                  setSelectedMessageIds([])
+                  setShowSelectionMoreMenu(false)
+                  setInfoMessageId(null)
+                  if (isRecordingVoice) cancelVoiceRecording()
+                  setSelectedRoomId(room.roomId)
+                  setMobileShowChatPane(true)
+                  void sendChatActionToServer({
+                    action: 'mark_read',
+                    roomId: room.roomId,
+                    sendReadReceipts: chatSettings.sendReadReceipts,
+                  })
+                }
+
                 return (
-                  <button
+                  <div
                     key={room.roomId}
-                    type="button"
-                    onClick={() => {
-                      unlockNotificationAudio()
-                      setShowAttachMenu(false)
-                      setSelectedMessageIds([])
-                      setShowSelectionMoreMenu(false)
-                      setInfoMessageId(null)
-                      if (isRecordingVoice) cancelVoiceRecording()
-                      setSelectedRoomId(room.roomId)
-                      setMobileShowChatPane(true)
-                      void sendChatActionToServer({
-                        action: 'mark_read',
-                        roomId: room.roomId,
-                        sendReadReceipts: chatSettings.sendReadReceipts,
-                      })
-                    }}
                     className={cn(
                       'flex w-full items-center gap-3.5 px-4 py-2.5 text-left transition-colors',
                       isSelected
@@ -4836,43 +4866,80 @@ export function CampusMessenger({
                         : 'hover:bg-zinc-100/60 dark:hover:bg-white/[0.05]',
                     )}
                   >
-                    {/* Instagram Circular 52px Avatar + Optional Online Green Dot */}
+                    {/* Instagram Circular 52px Avatar (Tap to view photo full-screen) + Optional Online Green Dot */}
                     <div className="relative shrink-0">
-                      <div
-                        className={cn(
-                          'flex size-[52px] items-center justify-center overflow-hidden rounded-full font-poppins text-sm font-bold',
-                          room.type === 'staff_group'
-                            ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1f1b14] dark:text-amber-300'
-                            : room.type === 'batch_group'
-                              ? 'bg-violet-500/15 text-violet-700 dark:bg-[#1e1b2e] dark:text-violet-200'
-                              : room.type === 'direct_usthad'
-                                ? 'bg-indigo-500/15 text-indigo-700 dark:bg-[#222228] dark:text-zinc-100'
-                                : 'bg-[#efefef] text-zinc-700 dark:bg-[#262626] dark:text-zinc-200',
-                        )}
-                      >
-                        {room.avatarUrl ? (
+                      {room.avatarUrl ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setProfilePhotoViewer({
+                              url: room.avatarUrl!,
+                              name: room.title,
+                              subtitle:
+                                room.subtitle ||
+                                (room.batchName
+                                  ? `Class ${room.batchName}`
+                                  : room.peerRole === 'principal'
+                                    ? 'Principal'
+                                    : room.peerRole === 'usthad'
+                                      ? 'Class Usthad'
+                                      : undefined),
+                            })
+                          }}
+                          aria-label={`View ${room.title} profile photo`}
+                          className={cn(
+                            'flex size-[52px] items-center justify-center overflow-hidden rounded-full font-poppins text-sm font-bold transition-transform hover:scale-[1.03] active:scale-95',
+                            room.type === 'direct_usthad'
+                              ? 'bg-indigo-500/15 text-indigo-700 dark:bg-[#222228] dark:text-zinc-100'
+                              : 'bg-[#efefef] text-zinc-700 dark:bg-[#262626] dark:text-zinc-200',
+                          )}
+                        >
                           <img
                             src={room.avatarUrl}
                             alt={room.title}
                             className="size-full object-cover object-top"
                           />
-                        ) : room.type === 'batch_group' ? (
-                          <Users className="size-5" aria-hidden="true" />
-                        ) : room.type === 'staff_group' ? (
-                          <Crown className="size-5" aria-hidden="true" />
-                        ) : (
-                          room.avatarText
-                        )}
-                      </div>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={openRoom}
+                          aria-label={`Open chat with ${room.title}`}
+                          className={cn(
+                            'flex size-[52px] items-center justify-center overflow-hidden rounded-full font-poppins text-sm font-bold',
+                            room.type === 'staff_group'
+                              ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1f1b14] dark:text-amber-300'
+                              : room.type === 'batch_group'
+                                ? 'bg-violet-500/15 text-violet-700 dark:bg-[#1e1b2e] dark:text-violet-200'
+                                : room.type === 'direct_usthad'
+                                  ? 'bg-indigo-500/15 text-indigo-700 dark:bg-[#222228] dark:text-zinc-100'
+                                  : 'bg-[#efefef] text-zinc-700 dark:bg-[#262626] dark:text-zinc-200',
+                          )}
+                        >
+                          {room.type === 'batch_group' ? (
+                            <Users className="size-5" aria-hidden="true" />
+                          ) : room.type === 'staff_group' ? (
+                            <Crown className="size-5" aria-hidden="true" />
+                          ) : (
+                            room.avatarText
+                          )}
+                        </button>
+                      )}
                       {isPeerOnline && (
                         <span
-                          className="absolute bottom-0.5 right-0.5 size-3.5 rounded-full bg-[#22c55e] ring-[2.5px] ring-white dark:ring-black"
+                          className="pointer-events-none absolute bottom-0.5 right-0.5 size-3.5 rounded-full bg-[#22c55e] ring-[2.5px] ring-white dark:ring-black"
                           aria-label="Active now"
                         />
                       )}
                     </div>
 
                     {/* Instagram 2-Line Title + Preview · Relative Time */}
+                    <button
+                      type="button"
+                      onClick={openRoom}
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
                         <span
@@ -4946,7 +5013,8 @@ export function CampusMessenger({
                         aria-label={`${unreadCount} unread messages`}
                       />
                     )}
-                  </button>
+                    </button>
+                  </div>
                 )
               })
             )}
@@ -5214,11 +5282,24 @@ export function CampusMessenger({
                                 >
                                   <div className="flex min-w-0 items-center gap-2.5">
                                     {profile.avatarUrl ? (
-                                      <img
-                                        src={profile.avatarUrl}
-                                        alt={profile.name}
-                                        className="size-8 shrink-0 rounded-full object-cover object-top"
-                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setProfilePhotoViewer({
+                                            url: profile.avatarUrl!,
+                                            name: profile.name,
+                                            subtitle: profile.subtitle,
+                                          })
+                                        }
+                                        aria-label={`View ${profile.name} profile photo`}
+                                        className="size-8 shrink-0 overflow-hidden rounded-full transition-transform active:scale-95"
+                                      >
+                                        <img
+                                          src={profile.avatarUrl}
+                                          alt={profile.name}
+                                          className="size-full object-cover object-top"
+                                        />
+                                      </button>
                                     ) : (
                                       <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#0095F6]/15 font-poppins text-[11px] font-bold text-[#0077CC] dark:bg-[#141A1F] dark:text-[#0095F6]">
                                         {profile.avatarText}
@@ -5280,11 +5361,24 @@ export function CampusMessenger({
                                 >
                                   <div className="flex min-w-0 items-center gap-2.5">
                                     {profile.avatarUrl ? (
-                                      <img
-                                        src={profile.avatarUrl}
-                                        alt={profile.name}
-                                        className="size-8 shrink-0 rounded-full object-cover object-top"
-                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setProfilePhotoViewer({
+                                            url: profile.avatarUrl!,
+                                            name: profile.name,
+                                            subtitle: profile.subtitle,
+                                          })
+                                        }
+                                        aria-label={`View ${profile.name} profile photo`}
+                                        className="size-8 shrink-0 overflow-hidden rounded-full transition-transform active:scale-95"
+                                      >
+                                        <img
+                                          src={profile.avatarUrl}
+                                          alt={profile.name}
+                                          className="size-full object-cover object-top"
+                                        />
+                                      </button>
                                     ) : (
                                       <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted font-poppins text-[11px] font-bold text-foreground dark:bg-[#141A1F] dark:text-[#F5F7FA]">
                                         {profile.avatarText}
@@ -5515,30 +5609,53 @@ export function CampusMessenger({
                     </button>
 
                     <div className="relative shrink-0">
-                      <div
-                        className={cn(
-                          'flex size-9 items-center justify-center overflow-hidden rounded-full font-poppins text-xs font-bold',
-                          activeRoom.type === 'staff_group'
-                            ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1f1b14] dark:text-amber-300'
-                            : activeRoom.type === 'batch_group'
-                              ? 'bg-violet-500/15 text-violet-700 dark:bg-[#1e1b2e] dark:text-violet-200'
-                              : 'bg-[#efefef] text-zinc-800 dark:bg-[#262626] dark:text-zinc-100',
-                        )}
-                      >
-                        {activeRoom.avatarUrl ? (
+                      {activeRoom.avatarUrl ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setProfilePhotoViewer({
+                              url: activeRoom.avatarUrl!,
+                              name: activeRoom.title,
+                              subtitle:
+                                activeRoom.subtitle ||
+                                (activeRoom.batchName
+                                  ? `Class ${activeRoom.batchName}`
+                                  : activeRoom.peerRole === 'principal'
+                                    ? 'Principal'
+                                    : activeRoom.peerRole === 'usthad'
+                                      ? 'Class Usthad'
+                                      : undefined),
+                            })
+                          }
+                          aria-label={`View ${activeRoom.title} profile photo`}
+                          className="flex size-9 items-center justify-center overflow-hidden rounded-full bg-[#efefef] transition-transform hover:scale-105 active:scale-95 dark:bg-[#262626]"
+                        >
                           <img
                             src={activeRoom.avatarUrl}
                             alt={activeRoom.title}
                             className="size-full object-cover object-top"
                           />
-                        ) : activeRoom.type === 'batch_group' ? (
-                          <Users className="size-4" aria-hidden="true" />
-                        ) : activeRoom.type === 'staff_group' ? (
-                          <Crown className="size-4" aria-hidden="true" />
-                        ) : (
-                          activeRoom.avatarText
-                        )}
-                      </div>
+                        </button>
+                      ) : (
+                        <div
+                          className={cn(
+                            'flex size-9 items-center justify-center overflow-hidden rounded-full font-poppins text-xs font-bold',
+                            activeRoom.type === 'staff_group'
+                              ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1f1b14] dark:text-amber-300'
+                              : activeRoom.type === 'batch_group'
+                                ? 'bg-violet-500/15 text-violet-700 dark:bg-[#1e1b2e] dark:text-violet-200'
+                                : 'bg-[#efefef] text-zinc-800 dark:bg-[#262626] dark:text-zinc-100',
+                          )}
+                        >
+                          {activeRoom.type === 'batch_group' ? (
+                            <Users className="size-4" aria-hidden="true" />
+                          ) : activeRoom.type === 'staff_group' ? (
+                            <Crown className="size-4" aria-hidden="true" />
+                          ) : (
+                            activeRoom.avatarText
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="min-w-0">
@@ -6006,17 +6123,31 @@ export function CampusMessenger({
                         {!isMine && (
                           <div className="w-7 shrink-0">
                             {isLastInGroup ? (
-                              <div className="flex size-7 items-center justify-center overflow-hidden rounded-full bg-muted font-poppins text-[10px] font-bold text-foreground dark:bg-[#141A1F] dark:text-zinc-200">
-                                {senderAvatarUrl ? (
+                              senderAvatarUrl ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setProfilePhotoViewer({
+                                      url: senderAvatarUrl,
+                                      name: formattedSenderName,
+                                      subtitle: senderProfile?.subtitle,
+                                    })
+                                  }}
+                                  aria-label={`View ${formattedSenderName} profile photo`}
+                                  className="flex size-7 items-center justify-center overflow-hidden rounded-full bg-muted transition-transform hover:scale-105 active:scale-95 dark:bg-[#141A1F]"
+                                >
                                   <img
                                     src={senderAvatarUrl}
                                     alt={formattedSenderName}
                                     className="size-full object-cover object-top"
                                   />
-                                ) : (
-                                  senderAvatarText
-                                )}
-                              </div>
+                                </button>
+                              ) : (
+                                <div className="flex size-7 items-center justify-center overflow-hidden rounded-full bg-muted font-poppins text-[10px] font-bold text-foreground dark:bg-[#141A1F] dark:text-zinc-200">
+                                  {senderAvatarText}
+                                </div>
+                              )
                             ) : null}
                           </div>
                         )}
@@ -6495,17 +6626,37 @@ export function CampusMessenger({
                                 )}
                               >
                                 <div className="flex items-center gap-2.5 p-2.5">
-                                  <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-violet-500/20 font-poppins text-xs font-bold text-violet-300">
-                                    {cm.avatarUrl ? (
+                                  {cm.avatarUrl ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setProfilePhotoViewer({
+                                          url: cm.avatarUrl!,
+                                          name: formattedContactName,
+                                          subtitle:
+                                            cm.subtitle ||
+                                            (cm.role === 'principal'
+                                              ? 'Principal'
+                                              : cm.role === 'usthad'
+                                                ? 'Usthad'
+                                                : 'Student'),
+                                        })
+                                      }}
+                                      aria-label={`View ${formattedContactName} profile photo`}
+                                      className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-violet-500/20 transition-transform hover:scale-105 active:scale-95"
+                                    >
                                       <img
                                         src={cm.avatarUrl}
                                         alt={formattedContactName}
                                         className="size-full object-cover object-top"
                                       />
-                                    ) : (
-                                      initials || 'IC'
-                                    )}
-                                  </div>
+                                    </button>
+                                  ) : (
+                                    <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-violet-500/20 font-poppins text-xs font-bold text-violet-300">
+                                      {initials || 'IC'}
+                                    </div>
+                                  )}
                                   <div className="min-w-0 flex-1">
                                     <p className="truncate text-xs font-bold">
                                       {formattedContactName}
@@ -8382,6 +8533,58 @@ export function CampusMessenger({
           </div>
         </div>
       )}
+
+      {/* FULL-SCREEN PROFILE PHOTO VIEWER MODAL (For Viewing Other Users' Chat Photos Large) */}
+      {profilePhotoViewer && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${profilePhotoViewer.name} profile photo`}
+              onClick={() => setProfilePhotoViewer(null)}
+              className="fixed inset-0 z-[130] flex flex-col bg-black/95 text-white backdrop-blur-md animate-in fade-in-0 duration-200"
+              style={{
+                paddingTop: 'var(--safe-top, 0px)',
+                paddingBottom: 'var(--safe-bottom, 0px)',
+              }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="flex shrink-0 items-center justify-between gap-3 px-4 py-3.5 sm:px-6"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-display text-base font-semibold text-white sm:text-lg">
+                    {profilePhotoViewer.name}
+                  </p>
+                  {profilePhotoViewer.subtitle ? (
+                    <p className="truncate text-xs text-white/65">
+                      {profilePhotoViewer.subtitle}
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setProfilePhotoViewer(null)}
+                  aria-label="Close profile photo"
+                  className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 active:scale-95"
+                >
+                  <X className="size-5" aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="flex min-h-0 flex-1 items-center justify-center px-4 pb-8 pt-2">
+                <img
+                  src={profilePhotoViewer.url}
+                  alt={`${profilePhotoViewer.name} profile photo`}
+                  referrerPolicy="no-referrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="max-h-[78svh] w-auto max-w-[92vw] rounded-2xl object-contain shadow-[0_24px_80px_rgba(0,0,0,0.8)] ring-1 ring-white/15 animate-in zoom-in-95 duration-200"
+                />
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
       {/* CLEAR CHAT CONFIRMATION MODAL */}
       {showClearChatConfirm && (
         <div

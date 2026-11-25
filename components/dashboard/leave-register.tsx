@@ -18,7 +18,6 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
-  Cloud,
   Filter,
   LogIn,
   LogOut,
@@ -615,10 +614,6 @@ export function LeaveRegister({
               aria-hidden="true"
             />
             {isOnLeave ? 'On Leave' : 'At Academy'}
-          </span>
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-[#0077CC] dark:text-[#0095F6]">
-            <Cloud className="size-3.5" aria-hidden="true" />
-            Firebase Synced
           </span>
         </div>
       }
