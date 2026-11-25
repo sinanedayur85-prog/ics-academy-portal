@@ -1767,6 +1767,23 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     }
   }
 
+  function cleanNotificationTitle(raw: unknown): string {
+    const cleaned = String(raw || '')
+      .replace(/^New\s+Message\s+from\s+/i, '')
+      .trim()
+    return (cleaned || 'ICS Academy').slice(0, 140)
+  }
+
+  function extractRoomIdFromHref(href: string): string {
+    const match = String(href || '').match(/[?&]room=([a-zA-Z0-9_%-]{3,160})/)
+    if (!match) return ''
+    try {
+      return decodeURIComponent(match[1]).slice(0, 120)
+    } catch {
+      return match[1].slice(0, 120)
+    }
+  }
+
   async function sendFcmMulticast(
     tokens: string[],
     payloadObj: {
@@ -1776,6 +1793,9 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
       tag: string
       notificationId: string
       type: string
+      senderId?: string
+      senderName?: string
+      roomId?: string
     },
     urgency: 'normal' | 'high' = 'high',
   ): Promise<void> {
@@ -1787,28 +1807,20 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
       try {
         const response = await fcmMessaging.sendEachForMulticast({
           tokens: batch,
-          notification: {
-            title: payloadObj.title,
-            body: payloadObj.body,
-          },
           data: {
-            title: payloadObj.title,
+            title: cleanNotificationTitle(payloadObj.title),
             body: payloadObj.body,
             href: payloadObj.href,
             tag: payloadObj.tag,
             notificationId: payloadObj.notificationId,
             type: payloadObj.type,
+            senderId: payloadObj.senderId || '',
+            senderName: payloadObj.senderName || '',
+            roomId: payloadObj.roomId || extractRoomIdFromHref(payloadObj.href),
           },
           android: {
             priority: 'high',
             ttl: urgency === 'high' ? 60 * 1000 : 6 * 60 * 60 * 1000,
-            notification: {
-              channelId: 'ics_academy_updates',
-              sound: 'default',
-              defaultSound: true,
-              defaultVibrateTimings: true,
-              tag: payloadObj.tag,
-            },
           },
         })
         if (response.failureCount > 0) {
@@ -1839,13 +1851,17 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     const hasFcmDevices = Boolean(fcmMessaging) && fcmDevicesByToken.size > 0
     if (!hasWebSubs && !hasFcmDevices) return
 
+    const hrefVal = notif.href || '#notices'
     const payload = {
-      title: String(notif.title || 'ICS Academy').slice(0, 140),
+      title: cleanNotificationTitle(notif.title),
       body: String(notif.message || 'Open ICS Academy to view details.').slice(0, 320),
-      href: notif.href || '#notices',
+      href: hrefVal,
       tag: `ics-notif-${notif.type || 'notice'}-${notif.id}`,
       notificationId: notif.id,
       type: notif.type || 'notice',
+      senderId: notif.actorId || '',
+      senderName: notif.actorName || '',
+      roomId: extractRoomIdFromHref(hrefVal),
       requireInteraction: false,
     }
     const urgency: 'normal' | 'high' =
@@ -2006,6 +2022,8 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
       notificationId: string
       type: string
       senderId?: string
+      senderName?: string
+      roomId?: string
     },
     ttlMs: number,
   ): Promise<{ sent: number; failed: number }> {
@@ -2014,29 +2032,20 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
       targets.map((target) =>
         fcmMessaging!.send({
           ...target,
-          notification: {
-            title: payload.title,
-            body: payload.body,
-          },
           data: {
-            title: payload.title,
+            title: cleanNotificationTitle(payload.title),
             body: payload.body,
             href: payload.href,
             tag: payload.tag,
             notificationId: payload.notificationId,
             type: payload.type,
             senderId: payload.senderId || '',
+            senderName: payload.senderName || '',
+            roomId: payload.roomId || extractRoomIdFromHref(payload.href),
           },
           android: {
             priority: 'high',
             ttl: ttlMs,
-            notification: {
-              channelId: 'ics_academy_updates',
-              sound: 'default',
-              defaultSound: true,
-              defaultVibrateTimings: true,
-              tag: payload.tag,
-            },
           },
         }),
       ),
@@ -2083,6 +2092,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
             notificationId: `call_${String(call.id || Date.now()).slice(0, 48)}`,
             type: 'call',
             senderId: typeof call.callerId === 'string' ? call.callerId.slice(0, 64) : '',
+            senderName: callerName,
           },
           60 * 1000,
         )
@@ -2097,16 +2107,20 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
           return
         }
         const safeType = typeof n.type === 'string' ? n.type.slice(0, 32) : 'notice'
+        const safeHref =
+          typeof n.href === 'string' && n.href.startsWith('#') ? n.href.slice(0, 180) : '#notices'
         const result = await sendFcmTopicTargets(
           targets,
           {
-            title: String(n.title || 'ICS Academy').trim().slice(0, 140) || 'ICS Academy',
+            title: cleanNotificationTitle(n.title),
             body: String(n.message || 'Open ICS Academy to view details.').trim().slice(0, 320),
-            href: typeof n.href === 'string' && n.href.startsWith('#') ? n.href.slice(0, 80) : '#notices',
+            href: safeHref,
             tag: `ics-notif-${safeType}-${String(n.id || Date.now()).slice(0, 48)}`,
             notificationId: String(n.id || `notif_${Date.now()}`).slice(0, 64),
             type: safeType,
             senderId: typeof n.actorId === 'string' ? n.actorId.slice(0, 64) : '',
+            senderName: typeof n.actorName === 'string' ? n.actorName.trim().slice(0, 80) : '',
+            roomId: extractRoomIdFromHref(safeHref),
           },
           safeType === 'chat' || safeType === 'leave' || safeType === 'attendance'
             ? 30 * 60 * 1000
@@ -2947,40 +2961,43 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
           if (!campusState.notifications.some((n) => n.id === deterministicNotifId)) {
             const preview =
               newMsg.mediaType === 'pdf'
-                ? `📄 Shared PDF Note: ${newMsg.mediaName || 'Document'}`
+                ? `📄 ${newMsg.mediaName || 'Document'}`
                 : newMsg.mediaType === 'voice'
-                  ? `🎤 Sent a Voice Note`
+                  ? `🎤 Voice message`
                   : newMsg.mediaType === 'image'
-                    ? `📷 Shared ${newMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo${newMsg.text ? `: ${newMsg.text.slice(0, 80)}` : ''}`
+                    ? `📷 ${newMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo${newMsg.text ? `: ${newMsg.text.slice(0, 80)}` : ''}`
                     : newMsg.text.slice(0, 120)
 
             let targetRecipientId: string | undefined
             let targetClass: string | undefined
             let targetStaffOnly: boolean | undefined
-            let notifTitle = `New Message from ${senderNameStr}`
+            let notifTitle = senderNameStr
+            let notifBody = preview
 
             if (roomId.startsWith('direct__')) {
               const parts = roomId.split('__')
               targetRecipientId = parts[1] === senderIdStr ? parts[2] : parts[1]
             } else if (roomId.startsWith('batch_group__')) {
               targetClass = roomId.replace(/^batch_group__/, '').trim()
-              notifTitle = `${senderNameStr} • ${targetClass} Group`
+              notifTitle = `${targetClass} Group`
+              notifBody = `${senderNameStr}: ${preview}`
             } else if (roomId === 'staff_group__usthads') {
               targetStaffOnly = true
-              notifTitle = `${senderNameStr} • Staff Room`
+              notifTitle = 'Staff Room'
+              notifBody = `${senderNameStr}: ${preview}`
             }
 
             const chatNotif: ServerCampusNotification = {
               id: deterministicNotifId,
               type: 'chat',
               title: notifTitle,
-              message: preview,
+              message: notifBody,
               targetRecipientId,
               targetClass,
               targetStaffOnly,
               actorId: senderIdStr,
               actorName: senderNameStr,
-              href: '#campus-chat',
+              href: `#campus-chat?room=${encodeURIComponent(roomId)}`,
               createdAt: newMsg.createdAt,
               createdAtMs: newMsg.createdAtMs,
             }

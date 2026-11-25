@@ -3097,15 +3097,15 @@ export function CampusMessenger({
         newMsg.mediaType === 'pdf'
           ? `📄 Shared Document: ${newMsg.mediaName || 'Document'}`
           : newMsg.mediaType === 'voice'
-            ? `🎤 Sent a Voice Note (${formatVoiceDuration(newMsg.mediaDurationSec || 4)})`
+            ? `🎤 Voice message (${formatVoiceDuration(newMsg.mediaDurationSec || 4)})`
             : newMsg.mediaType === 'image'
-              ? `📷 Shared ${newMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo${newMsg.text ? `: ${newMsg.text.slice(0, 80)}` : ''}`
+              ? `📷 ${newMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo${newMsg.text ? `: ${newMsg.text.slice(0, 80)}` : ''}`
               : newMsg.mediaType === 'location'
-                ? `📍 Shared Location: ${newMsg.locationMeta?.label || 'Location'}`
+                ? `📍 ${newMsg.locationMeta?.label || 'Location'}`
                 : newMsg.mediaType === 'contact'
-                  ? `👤 Shared Contact: ${newMsg.contactMeta?.name || 'Contact'}`
+                  ? `👤 ${newMsg.contactMeta?.name || 'Contact'}`
                   : newMsg.mediaType === 'poll'
-                    ? `📊 Poll: ${newMsg.pollMeta?.question || 'Campus Poll'}`
+                    ? `📊 ${newMsg.pollMeta?.question || 'Poll'}`
                     : newMsg.text.slice(0, 120)
 
       const deterministicNotifId = `notif_chat_${msgId}`
@@ -3113,7 +3113,7 @@ export function CampusMessenger({
       const roomDeepLinkHref = `#campus-chat?room=${encodeURIComponent(roomSnapshot.roomId)}`
 
       const dispatchChatPushNotification = () => {
-        // 1. Direct 1-on-1 Chat (Strictly notify ONLY the target recipient)
+        // 1. Direct 1-on-1 Chat (WhatsApp-style: Sender Name as title, message as body)
         if (
           (roomSnapshot.type === 'direct_usthad' || roomSnapshot.type === 'direct_student') &&
           roomSnapshot.peerId
@@ -3121,7 +3121,7 @@ export function CampusMessenger({
           publishCampusNotification({
             id: deterministicNotifId,
             type: 'chat',
-            title: `New Message from ${actor.name}`,
+            title: actor.name,
             message: preview,
             targetRecipientId: roomSnapshot.peerId,
             actorId: actor.id,
@@ -3129,26 +3129,26 @@ export function CampusMessenger({
             href: roomDeepLinkHref,
           })
         }
-        // 2. Class Batch Group Chat (Notify ONLY members & Class Usthad of that batch, excluding sender)
+        // 2. Class Batch Group Chat (WhatsApp-style: Group Name as title, "Sender: message" as body)
         else if (roomSnapshot.type === 'batch_group' && roomSnapshot.batchName) {
           publishCampusNotification({
             id: deterministicNotifId,
             type: 'chat',
-            title: `${actor.name} • ${roomSnapshot.batchName} Group`,
-            message: preview,
+            title: `${roomSnapshot.batchName} Group`,
+            message: `${actor.name}: ${preview}`,
             targetClass: roomSnapshot.batchName,
             actorId: actor.id,
             actorName: actor.name,
             href: roomDeepLinkHref,
           })
         }
-        // 3. Staff Room Group Chat (Notify ONLY Usthads & Principal, excluding sender)
+        // 3. Staff Room Group Chat (WhatsApp-style: "Staff Room" as title, "Sender: message" as body)
         else if (roomSnapshot.type === 'staff_group') {
           publishCampusNotification({
             id: deterministicNotifId,
             type: 'chat',
-            title: `${actor.name} • Staff Room`,
-            message: preview,
+            title: 'Staff Room',
+            message: `${actor.name}: ${preview}`,
             targetStaffOnly: true,
             actorId: actor.id,
             actorName: actor.name,
@@ -4165,11 +4165,11 @@ export function CampusMessenger({
 
         const preview =
           forwardedMsg.mediaType === 'pdf'
-            ? `📄 Forwarded PDF: ${forwardedMsg.mediaName || 'Document'}`
+            ? `📄 ${forwardedMsg.mediaName || 'Document'}`
             : forwardedMsg.mediaType === 'voice'
-              ? `🎤 Forwarded Voice Note`
+              ? `🎤 Voice message`
               : forwardedMsg.mediaType === 'image'
-                ? `📷 Forwarded ${forwardedMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo${forwardedMsg.text ? `: ${forwardedMsg.text.slice(0, 80)}` : ''}`
+                ? `📷 ${forwardedMsg.imageQuality === 'hd' ? 'HD ' : ''}Photo${forwardedMsg.text ? `: ${forwardedMsg.text.slice(0, 80)}` : ''}`
                 : forwardedMsg.text.slice(0, 120)
 
         const deterministicNotifId = `notif_chat_${msgId}`
@@ -4179,7 +4179,7 @@ export function CampusMessenger({
             publishCampusNotification({
               id: deterministicNotifId,
               type: 'chat',
-              title: `New Message from ${actor.name}`,
+              title: actor.name,
               message: preview,
               targetRecipientId: directPeerId,
               actorId: actor.id,
@@ -4190,8 +4190,8 @@ export function CampusMessenger({
             publishCampusNotification({
               id: deterministicNotifId,
               type: 'chat',
-              title: `${actor.name} • ${batchName} Group`,
-              message: preview,
+              title: `${batchName} Group`,
+              message: `${actor.name}: ${preview}`,
               targetClass: batchName,
               actorId: actor.id,
               actorName: actor.name,
@@ -4201,8 +4201,8 @@ export function CampusMessenger({
             publishCampusNotification({
               id: deterministicNotifId,
               type: 'chat',
-              title: `${actor.name} • Staff Room`,
-              message: preview,
+              title: 'Staff Room',
+              message: `${actor.name}: ${preview}`,
               targetStaffOnly: true,
               actorId: actor.id,
               actorName: actor.name,

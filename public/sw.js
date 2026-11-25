@@ -1,5 +1,5 @@
 // ICS Academy Service Worker for Instant Black Launch, Offline Support & Real-Time Web Push (Android + iOS Home Screen PWA)
-const CACHE_NAME = 'ics-academy-pwa-v28';
+const CACHE_NAME = 'ics-academy-pwa-v29';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -145,7 +145,9 @@ self.addEventListener('push', (event) => {
       const parsed = event.data.json();
       if (parsed && typeof parsed === 'object') {
         payload = {
-          title: typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : 'ICS Academy',
+          title: typeof parsed.title === 'string' && parsed.title.trim()
+            ? (parsed.title.replace(/^New\s+Message\s+from\s+/i, '').trim() || 'ICS Academy')
+            : 'ICS Academy',
           body: typeof parsed.body === 'string' ? parsed.body.trim() : '',
           href: typeof parsed.href === 'string' && parsed.href.trim() ? parsed.href.trim() : '#notices',
           tag: typeof parsed.tag === 'string' && parsed.tag.trim() ? parsed.tag.trim() : 'ics-academy-push',

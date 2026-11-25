@@ -283,6 +283,7 @@ async function sendFcmV1Message(creds, accessToken, target, payload, ttlSeconds)
         notificationId: payload.notificationId,
         type: payload.type,
         senderId: payload.senderId || '',
+        senderName: payload.senderName || '',
         messageId: payload.messageId || '',
         callId: payload.callId || '',
         callType: payload.callType || '',
@@ -438,14 +439,29 @@ export default async function handler(req, res) {
           : safeType === 'chat'
             ? '#campus-chat'
             : '#notices'
+      const roomMatch = safeHref.match(/[?&]room=([a-zA-Z0-9_%-]{3,160})/)
+      let extractedRoomId = ''
+      if (roomMatch) {
+        try {
+          extractedRoomId = decodeURIComponent(roomMatch[1]).slice(0, 120)
+        } catch {
+          extractedRoomId = roomMatch[1].slice(0, 120)
+        }
+      }
+      const cleanedTitle = String(n.title || 'ICS Academy')
+        .replace(/^New\s+Message\s+from\s+/i, '')
+        .trim()
+        .slice(0, 140) || 'ICS Academy'
       payload = {
-        title: String(n.title || 'ICS Academy').trim().slice(0, 140) || 'ICS Academy',
+        title: cleanedTitle,
         body: String(n.message || 'Open ICS Academy to view details.').trim().slice(0, 320),
         href: safeHref,
         tag: `ics-notif-${safeType}-${String(n.id || Date.now()).slice(0, 48)}`,
         notificationId: rawNotifId,
         type: safeType,
         senderId: typeof n.actorId === 'string' ? n.actorId.slice(0, 64) : '',
+        senderName: typeof n.actorName === 'string' ? n.actorName.trim().slice(0, 80) : '',
+        roomId: extractedRoomId,
         messageId: derivedChatMsgId,
         requireInteraction: false,
       }

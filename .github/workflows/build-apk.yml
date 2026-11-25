@@ -465,6 +465,7 @@ jobs:
 
           import androidx.core.app.ActivityCompat;
           import androidx.core.app.NotificationCompat;
+          import androidx.core.app.Person;
           import androidx.core.content.ContextCompat;
           import androidx.core.content.FileProvider;
           import androidx.core.graphics.Insets;
@@ -506,6 +507,16 @@ jobs:
                   if (!clean.startsWith("#")) return "";
                   if (!clean.matches("^#[a-zA-Z0-9_?=&%-]{1,239}$")) return "";
                   return clean;
+              }
+
+              public static String cleanNotificationTitle(String raw) {
+                  if (raw == null) return "ICS Academy";
+                  String clean = raw.trim();
+                  String lower = clean.toLowerCase(java.util.Locale.US);
+                  if (lower.startsWith("new message from ")) {
+                      clean = clean.substring("new message from ".length()).trim();
+                  }
+                  return clean.isEmpty() ? "ICS Academy" : clean;
               }
 
               private void storePendingNotificationHref(String safeHref) {
@@ -830,6 +841,7 @@ jobs:
                       }
                   } catch (Exception ignored) {
                   }
+                  CampusFirebaseMessagingService.clearPendingNotifications(this);
               }
 
               public class ICSNativeBridge {
@@ -929,10 +941,25 @@ jobs:
                   public void showNotificationWithHref(final String title, final String message, final String href) {
                       runOnUiThread(() -> {
                           try {
-                              String safeTitle = (title != null && !title.trim().isEmpty()) ? title.trim() : "ICS Academy";
+                              String safeTitle = cleanNotificationTitle(title);
                               String safeMessage = (message != null) ? message.trim() : "";
                               String safeHref = sanitizeTargetHref(href);
                               if (safeHref.isEmpty()) safeHref = "#notices";
+
+                              // Chat messages use native WhatsApp-style MessagingStyle + Group Summary (no duplicate right logo)
+                              if (safeHref.startsWith("#campus-chat")) {
+                                  CampusFirebaseMessagingService.postWhatsAppChatNotification(
+                                      MainActivity.this,
+                                      safeTitle,
+                                      safeMessage,
+                                      safeHref,
+                                      "",
+                                      "",
+                                      ""
+                                  );
+                                  return;
+                              }
+
                               String combinedLine = safeMessage.isEmpty() ? safeTitle : (safeTitle + ": " + safeMessage);
 
                               int totalCount;
@@ -956,7 +983,7 @@ jobs:
 
                               String headerTitle = totalCount == 1
                                   ? safeTitle
-                                  : ("ICS Academy • " + totalCount + " New Messages");
+                                  : ("ICS Academy • " + totalCount + " New Updates");
                               String contentPreview = totalCount == 1
                                   ? safeMessage
                                   : combinedLine;
@@ -976,22 +1003,12 @@ jobs:
                                   .setContentTitle(headerTitle)
                                   .setContentText(contentPreview)
                                   .setStyle(inboxStyle)
+                                  .setGroup(CampusFirebaseMessagingService.ICS_NOTIF_GROUP_KEY)
                                   .setNumber(totalCount)
                                   .setOnlyAlertOnce(true)
                                   .setPriority(NotificationCompat.PRIORITY_HIGH)
                                   .setAutoCancel(true)
                                   .setContentIntent(pendingIntent);
-                              Bitmap rawLargeIcon = BitmapFactory.decodeResource(getResources(), R.drawable.ics_notif_logo);
-                              if (rawLargeIcon != null) {
-                                  int sz = Math.max(192, Math.max(rawLargeIcon.getWidth(), rawLargeIcon.getHeight()));
-                                  Bitmap whiteBacked = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888);
-                                  android.graphics.Canvas c = new android.graphics.Canvas(whiteBacked);
-                                  c.drawColor(Color.WHITE);
-                                  int pad = (int) (sz * 0.10f);
-                                  android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG | android.graphics.Paint.FILTER_BITMAP_FLAG);
-                                  c.drawBitmap(rawLargeIcon, null, new android.graphics.Rect(pad, pad, sz - pad, sz - pad), p);
-                                  builder.setLargeIcon(whiteBacked);
-                              }
 
                               NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                               if (manager != null) {
@@ -1498,14 +1515,30 @@ jobs:
                       PendingIntent pendingIntent = PendingIntent.getActivity(this, BG_NOTIFICATION_ID, intent, flags);
 
                       int count = titles.size();
-                      String headerTitle = count == 1 ? titles.get(0) : ("ICS Academy • " + count + " New Updates");
+                      String firstCleanTitle = MainActivity.cleanNotificationTitle(titles.get(0));
+                      String lastCleanTitle = MainActivity.cleanNotificationTitle(titles.get(count - 1));
+                      String headerTitle = count == 1 ? firstCleanTitle : ("ICS Academy • " + count + " New Updates");
                       String latestMsg = messages.get(count - 1);
-                      String preview = count == 1 ? latestMsg : (titles.get(count - 1) + ": " + latestMsg);
+                      String preview = count == 1 ? latestMsg : (lastCleanTitle + ": " + latestMsg);
+
+                      if (count == 1 && safeHref.startsWith("#campus-chat")) {
+                          CampusFirebaseMessagingService.postWhatsAppChatNotification(
+                              this,
+                              firstCleanTitle,
+                              latestMsg,
+                              safeHref,
+                              "",
+                              "",
+                              ""
+                          );
+                          return;
+                      }
 
                       NotificationCompat.InboxStyle inbox = new NotificationCompat.InboxStyle().setBigContentTitle(headerTitle);
                       int start = Math.max(0, count - 8);
                       for (int i = start; i < count; i++) {
-                          String line = messages.get(i).isEmpty() ? titles.get(i) : (titles.get(i) + ": " + messages.get(i));
+                          String cleanItemTitle = MainActivity.cleanNotificationTitle(titles.get(i));
+                          String line = messages.get(i).isEmpty() ? cleanItemTitle : (cleanItemTitle + ": " + messages.get(i));
                           inbox.addLine(line);
                       }
 
@@ -1515,21 +1548,11 @@ jobs:
                           .setContentTitle(headerTitle)
                           .setContentText(preview)
                           .setStyle(inbox)
+                          .setGroup(CampusFirebaseMessagingService.ICS_NOTIF_GROUP_KEY)
                           .setNumber(count)
                           .setPriority(NotificationCompat.PRIORITY_HIGH)
                           .setAutoCancel(true)
                           .setContentIntent(pendingIntent);
-                      Bitmap rawLargeIcon = BitmapFactory.decodeResource(getResources(), R.drawable.ics_notif_logo);
-                      if (rawLargeIcon != null) {
-                          int sz = Math.max(192, Math.max(rawLargeIcon.getWidth(), rawLargeIcon.getHeight()));
-                          Bitmap whiteBacked = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888);
-                          android.graphics.Canvas c = new android.graphics.Canvas(whiteBacked);
-                          c.drawColor(Color.WHITE);
-                          int pad = (int) (sz * 0.10f);
-                          android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG | android.graphics.Paint.FILTER_BITMAP_FLAG);
-                          c.drawBitmap(rawLargeIcon, null, new android.graphics.Rect(pad, pad, sz - pad, sz - pad), p);
-                          builder.setLargeIcon(whiteBacked);
-                      }
 
                       manager.notify(BG_NOTIFICATION_ID, builder.build());
                   } catch (Exception ignored) {
@@ -2145,6 +2168,7 @@ jobs:
 
           import androidx.annotation.NonNull;
           import androidx.core.app.NotificationCompat;
+          import androidx.core.app.Person;
 
           import com.google.firebase.messaging.FirebaseMessaging;
           import com.google.firebase.messaging.FirebaseMessagingService;
@@ -2156,16 +2180,23 @@ jobs:
           import java.io.OutputStream;
           import java.net.HttpURLConnection;
           import java.net.URL;
+          import java.net.URLDecoder;
           import java.net.URLEncoder;
           import java.nio.charset.StandardCharsets;
+          import java.util.ArrayList;
+          import java.util.Collections;
           import java.util.HashSet;
+          import java.util.Iterator;
           import java.util.Locale;
           import java.util.Map;
           import java.util.Set;
 
           public class CampusFirebaseMessagingService extends FirebaseMessagingService {
+              public static final String ICS_NOTIF_GROUP_KEY = "com.icsacademy.manhappatta.UPDATES";
               private static final String CHANNEL_ID = "ics_academy_updates";
               private static final String CALL_CHANNEL_ID = "ics_academy_calls";
+              private static final int SUMMARY_NOTIFY_ID = 44000;
+              private static final String PREF_UNREAD_CHATS = "unreadChatsJson_v1";
               private static final String FIRESTORE_PROJECT_ID = "${fsProjectId}";
               private static final String FIRESTORE_DB_ID = "${fsDatabaseId}";
               private static final String FIRESTORE_API_KEY = "${fsApiKey}";
@@ -2178,6 +2209,294 @@ jobs:
               public static int computeCallNotifyId(String callId) {
                   if (callId == null || callId.trim().isEmpty()) return 55001;
                   return 50000 + (Math.abs(callId.trim().hashCode()) % 40000);
+              }
+
+              private static int computeChatNotifyId(String roomKey) {
+                  if (roomKey == null || roomKey.trim().isEmpty()) return 31001;
+                  return 30000 + (Math.abs(roomKey.trim().hashCode()) % 12000);
+              }
+
+              private static String extractRoomFromHref(String href) {
+                  if (href == null || href.isEmpty()) return "";
+                  int idx = href.indexOf("room=");
+                  if (idx < 0) return "";
+                  String part = href.substring(idx + 5);
+                  int amp = part.indexOf('&');
+                  if (amp >= 0) part = part.substring(0, amp);
+                  try {
+                      return URLDecoder.decode(part, "UTF-8").trim();
+                  } catch (Exception ignored) {
+                      return part.trim();
+                  }
+              }
+
+              public static synchronized void clearPendingNotifications(Context context) {
+                  if (context == null) return;
+                  try {
+                      SharedPreferences prefs = context.getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                      String raw = prefs.getString(PREF_UNREAD_CHATS, "");
+                      NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+                      if (manager != null) {
+                          if (raw != null && !raw.isEmpty()) {
+                              try {
+                                  JSONObject root = new JSONObject(raw);
+                                  Iterator<String> keys = root.keys();
+                                  while (keys.hasNext()) {
+                                      String k = keys.next();
+                                      JSONObject roomObj = root.optJSONObject(k);
+                                      if (roomObj != null) {
+                                          int nid = roomObj.optInt("notifyId", computeChatNotifyId(k));
+                                          manager.cancel(nid);
+                                      }
+                                  }
+                              } catch (Exception ignored) {
+                              }
+                          }
+                          manager.cancel(SUMMARY_NOTIFY_ID);
+                      }
+                      prefs.edit().remove(PREF_UNREAD_CHATS).apply();
+                  } catch (Exception ignored) {
+                  }
+              }
+
+              public static synchronized void postWhatsAppChatNotification(
+                  Context context,
+                  String rawTitle,
+                  String rawBody,
+                  String safeHref,
+                  String rawRoomId,
+                  String rawSenderName,
+                  String notifId
+              ) {
+                  if (context == null) return;
+                  try {
+                      NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+                      if (manager == null) return;
+
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                          NotificationChannel channel = new NotificationChannel(
+                              CHANNEL_ID,
+                              "ICS Academy Messages & Updates",
+                              NotificationManager.IMPORTANCE_HIGH
+                          );
+                          channel.enableVibration(true);
+                          manager.createNotificationChannel(channel);
+                      }
+
+                      String cleanTitle = MainActivity.cleanNotificationTitle(rawTitle);
+                      String cleanBody = rawBody != null ? rawBody.trim() : "";
+                      String cleanSenderHint = rawSenderName != null ? rawSenderName.trim() : "";
+                      String roomId = (rawRoomId != null && !rawRoomId.trim().isEmpty())
+                          ? rawRoomId.trim()
+                          : extractRoomFromHref(safeHref);
+
+                      boolean isGroup = false;
+                      String conversationTitle = cleanTitle;
+                      String senderDisplay = cleanSenderHint.isEmpty() ? cleanTitle : cleanSenderHint;
+                      String messageText = cleanBody;
+
+                      int bulletIdx = cleanTitle.indexOf(" • ");
+                      if (bulletIdx > 0) {
+                          String leftPart = cleanTitle.substring(0, bulletIdx).trim();
+                          String rightPart = cleanTitle.substring(bulletIdx + 3).trim();
+                          if (rightPart.endsWith(" Group") || "Staff Room".equalsIgnoreCase(rightPart)) {
+                              isGroup = true;
+                              senderDisplay = leftPart;
+                              conversationTitle = rightPart;
+                          }
+                      } else if (
+                          roomId.startsWith("batch_group__")
+                          || roomId.startsWith("staff_group__")
+                          || cleanTitle.endsWith(" Group")
+                          || "Staff Room".equalsIgnoreCase(cleanTitle)
+                      ) {
+                          isGroup = true;
+                          conversationTitle = cleanTitle;
+                          int colonIdx = cleanBody.indexOf(": ");
+                          if (colonIdx > 0 && colonIdx < 60) {
+                              senderDisplay = cleanBody.substring(0, colonIdx).trim();
+                              messageText = cleanBody.substring(colonIdx + 2).trim();
+                          }
+                      }
+
+                      if (conversationTitle.isEmpty()) conversationTitle = "ICS Academy";
+                      if (senderDisplay.isEmpty()) senderDisplay = conversationTitle;
+                      if (messageText.isEmpty()) messageText = "New message";
+
+                      String roomKey = !roomId.isEmpty()
+                          ? roomId
+                          : ("conv_" + conversationTitle.toLowerCase(Locale.US));
+                      int roomNotifyId = computeChatNotifyId(roomKey);
+                      long nowMs = System.currentTimeMillis();
+
+                      SharedPreferences prefs = context.getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                      JSONObject allRooms;
+                      try {
+                          String saved = prefs.getString(PREF_UNREAD_CHATS, "");
+                          allRooms = (saved != null && !saved.isEmpty()) ? new JSONObject(saved) : new JSONObject();
+                      } catch (Exception ignored) {
+                          allRooms = new JSONObject();
+                      }
+
+                      JSONObject roomObj = allRooms.optJSONObject(roomKey);
+                      if (roomObj == null) {
+                          roomObj = new JSONObject();
+                      }
+                      roomObj.put("title", conversationTitle);
+                      roomObj.put("isGroup", isGroup);
+                      roomObj.put("href", (safeHref != null && !safeHref.isEmpty()) ? safeHref : "#campus-chat");
+                      roomObj.put("notifyId", roomNotifyId);
+                      roomObj.put("updatedAt", nowMs);
+
+                      JSONArray msgArr = roomObj.optJSONArray("messages");
+                      if (msgArr == null) msgArr = new JSONArray();
+
+                      boolean duplicateMsg = false;
+                      if (notifId != null && !notifId.trim().isEmpty() && msgArr.length() > 0) {
+                          JSONObject lastObj = msgArr.optJSONObject(msgArr.length() - 1);
+                          if (lastObj != null && notifId.trim().equals(lastObj.optString("nid", ""))) {
+                              duplicateMsg = true;
+                          }
+                      }
+                      if (!duplicateMsg) {
+                          JSONObject entry = new JSONObject();
+                          entry.put("sender", senderDisplay);
+                          entry.put("text", messageText);
+                          entry.put("ts", nowMs);
+                          entry.put("nid", notifId != null ? notifId.trim() : "");
+                          msgArr.put(entry);
+                          while (msgArr.length() > 6) {
+                              JSONArray trimmed = new JSONArray();
+                              for (int i = 1; i < msgArr.length(); i++) {
+                                  trimmed.put(msgArr.get(i));
+                              }
+                              msgArr = trimmed;
+                          }
+                      }
+                      roomObj.put("messages", msgArr);
+                      allRooms.put(roomKey, roomObj);
+
+                      // Cap stored rooms to 8 most recent
+                      if (allRooms.length() > 8) {
+                          ArrayList<String> keysList = new ArrayList<>();
+                          Iterator<String> it = allRooms.keys();
+                          while (it.hasNext()) keysList.add(it.next());
+                          final JSONObject ref = allRooms;
+                          Collections.sort(keysList, (a, b) -> {
+                              long ta = ref.optJSONObject(a) != null ? ref.optJSONObject(a).optLong("updatedAt", 0L) : 0L;
+                              long tb = ref.optJSONObject(b) != null ? ref.optJSONObject(b).optLong("updatedAt", 0L) : 0L;
+                              return Long.compare(tb, ta);
+                          });
+                          JSONObject pruned = new JSONObject();
+                          for (int i = 0; i < Math.min(8, keysList.size()); i++) {
+                              String k = keysList.get(i);
+                              pruned.put(k, allRooms.get(k));
+                          }
+                          allRooms = pruned;
+                      }
+                      prefs.edit().putString(PREF_UNREAD_CHATS, allRooms.toString()).apply();
+
+                      int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                          ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
+                          : PendingIntent.FLAG_UPDATE_CURRENT;
+
+                      Intent convIntent = new Intent(context, MainActivity.class);
+                      convIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                      convIntent.putExtra(MainActivity.EXTRA_TARGET_HREF, (safeHref != null && !safeHref.isEmpty()) ? safeHref : "#campus-chat");
+                      PendingIntent convPendingIntent = PendingIntent.getActivity(context, roomNotifyId, convIntent, flags);
+
+                      Person mePerson = new Person.Builder().setName("You").build();
+                      NotificationCompat.MessagingStyle messagingStyle = new NotificationCompat.MessagingStyle(mePerson);
+                      if (isGroup) {
+                          messagingStyle.setGroupConversation(true);
+                          messagingStyle.setConversationTitle(conversationTitle);
+                      }
+                      for (int i = 0; i < msgArr.length(); i++) {
+                          JSONObject m = msgArr.optJSONObject(i);
+                          if (m == null) continue;
+                          String mSender = m.optString("sender", senderDisplay);
+                          String mText = m.optString("text", "");
+                          long mTs = m.optLong("ts", nowMs);
+                          Person pSender = new Person.Builder().setName(mSender).build();
+                          messagingStyle.addMessage(mText, mTs, pSender);
+                      }
+
+                      String compactBody = isGroup ? (senderDisplay + ": " + messageText) : messageText;
+                      NotificationCompat.Builder convBuilder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                          .setSmallIcon(R.drawable.ic_stat_ics)
+                          .setColor(Color.parseColor("#009245"))
+                          .setContentTitle(conversationTitle)
+                          .setContentText(compactBody)
+                          .setStyle(messagingStyle)
+                          .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                          .setGroup(ICS_NOTIF_GROUP_KEY)
+                          .setPriority(NotificationCompat.PRIORITY_HIGH)
+                          .setDefaults(NotificationCompat.DEFAULT_ALL)
+                          .setAutoCancel(true)
+                          .setContentIntent(convPendingIntent);
+
+                      manager.notify(roomNotifyId, convBuilder.build());
+
+                      // Post clean WhatsApp-style Group Summary notification (no duplicate right logo)
+                      ArrayList<String> sortedKeys = new ArrayList<>();
+                      Iterator<String> keyIt = allRooms.keys();
+                      while (keyIt.hasNext()) sortedKeys.add(keyIt.next());
+                      final JSONObject roomsRef = allRooms;
+                      Collections.sort(sortedKeys, (a, b) -> {
+                          long ta = roomsRef.optJSONObject(a) != null ? roomsRef.optJSONObject(a).optLong("updatedAt", 0L) : 0L;
+                          long tb = roomsRef.optJSONObject(b) != null ? roomsRef.optJSONObject(b).optLong("updatedAt", 0L) : 0L;
+                          return Long.compare(tb, ta);
+                      });
+
+                      int totalMessages = 0;
+                      int totalRooms = sortedKeys.size();
+                      NotificationCompat.InboxStyle summaryInbox = new NotificationCompat.InboxStyle();
+                      for (String k : sortedKeys) {
+                          JSONObject r = allRooms.optJSONObject(k);
+                          if (r == null) continue;
+                          JSONArray rMsgs = r.optJSONArray("messages");
+                          int rCount = rMsgs != null ? rMsgs.length() : 0;
+                          totalMessages += Math.max(1, rCount);
+                          JSONObject lastM = (rMsgs != null && rCount > 0) ? rMsgs.optJSONObject(rCount - 1) : null;
+                          String rTitle = r.optString("title", "ICS Academy");
+                          boolean rIsGroup = r.optBoolean("isGroup", false);
+                          String lastText = lastM != null ? lastM.optString("text", "") : "";
+                          String lastSender = lastM != null ? lastM.optString("sender", rTitle) : rTitle;
+                          String line = rIsGroup
+                              ? (rTitle + "  " + lastSender + ": " + lastText)
+                              : (rTitle + "  " + lastText);
+                          summaryInbox.addLine(line);
+                      }
+
+                      String summaryTitle = totalRooms <= 1
+                          ? conversationTitle
+                          : (totalMessages + " messages from " + totalRooms + " chats");
+                      String summaryText = totalMessages <= 1
+                          ? compactBody
+                          : (totalMessages + " new messages");
+                      summaryInbox.setBigContentTitle(summaryTitle);
+
+                      Intent summaryIntent = new Intent(context, MainActivity.class);
+                      summaryIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                      summaryIntent.putExtra(MainActivity.EXTRA_TARGET_HREF, (safeHref != null && !safeHref.isEmpty()) ? safeHref : "#campus-chat");
+                      PendingIntent summaryPendingIntent = PendingIntent.getActivity(context, SUMMARY_NOTIFY_ID, summaryIntent, flags);
+
+                      NotificationCompat.Builder summaryBuilder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                          .setSmallIcon(R.drawable.ic_stat_ics)
+                          .setColor(Color.parseColor("#009245"))
+                          .setContentTitle(summaryTitle)
+                          .setContentText(summaryText)
+                          .setStyle(summaryInbox)
+                          .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                          .setGroup(ICS_NOTIF_GROUP_KEY)
+                          .setGroupSummary(true)
+                          .setOnlyAlertOnce(true)
+                          .setAutoCancel(true)
+                          .setContentIntent(summaryPendingIntent);
+
+                      manager.notify(SUMMARY_NOTIFY_ID, summaryBuilder.build());
+                  } catch (Exception ignored) {
+                  }
               }
 
               private static String sanitizeActorTopic(String actorId) {
@@ -2603,17 +2922,6 @@ jobs:
                       .setFullScreenIntent(fullScreenPendingIntent, true)
                       .addAction(R.drawable.ic_call_decline, "Decline", declinePendingIntent)
                       .addAction(R.drawable.ic_call_accept, "Accept", acceptPendingIntent);
-                  Bitmap rawCallIcon = BitmapFactory.decodeResource(getResources(), R.drawable.ics_notif_logo);
-                  if (rawCallIcon != null) {
-                      int sz = Math.max(192, Math.max(rawCallIcon.getWidth(), rawCallIcon.getHeight()));
-                      Bitmap whiteBacked = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888);
-                      android.graphics.Canvas c = new android.graphics.Canvas(whiteBacked);
-                      c.drawColor(Color.WHITE);
-                      int pad = (int) (sz * 0.10f);
-                      android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG | android.graphics.Paint.FILTER_BITMAP_FLAG);
-                      c.drawBitmap(rawCallIcon, null, new android.graphics.Rect(pad, pad, sz - pad, sz - pad), p);
-                      builder.setLargeIcon(whiteBacked);
-                  }
 
                   Notification built = builder.build();
                   built.flags |= Notification.FLAG_INSISTENT;
@@ -2714,55 +3022,59 @@ jobs:
                           else safeHref = "#notices";
                       }
 
-                      // 1. Display the crisp white-icon Android system notification IMMEDIATELY when app is closed/background
+                      // 1. Display clean WhatsApp-style Android system notification IMMEDIATELY when app is closed/background
                       if (!MainActivity.isActivityInForeground()) {
-                          NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                          if (manager != null) {
-                              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                  NotificationChannel channel = new NotificationChannel(
-                                      CHANNEL_ID,
-                                      "ICS Academy Announcements & Attendance",
-                                      NotificationManager.IMPORTANCE_HIGH
-                                  );
-                                  channel.enableVibration(true);
-                                  manager.createNotificationChannel(channel);
+                          String cleanTitle = MainActivity.cleanNotificationTitle(title);
+                          String cleanBody = body.trim();
+                          if ("chat".equals(type)) {
+                              postWhatsAppChatNotification(
+                                  this,
+                                  cleanTitle,
+                                  cleanBody,
+                                  safeHref,
+                                  data.get("roomId"),
+                                  data.get("senderName"),
+                                  notifId
+                              );
+                          } else {
+                              NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                              if (manager != null) {
+                                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                      NotificationChannel channel = new NotificationChannel(
+                                          CHANNEL_ID,
+                                          "ICS Academy Announcements & Attendance",
+                                          NotificationManager.IMPORTANCE_HIGH
+                                      );
+                                      channel.enableVibration(true);
+                                      manager.createNotificationChannel(channel);
+                                  }
+
+                                  int notifyId = (notifId != null && !notifId.isEmpty())
+                                      ? Math.abs(notifId.hashCode())
+                                      : (int) (System.currentTimeMillis() & 0x7fffffff);
+
+                                  Intent intent = new Intent(this, MainActivity.class);
+                                  intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                                  intent.putExtra(MainActivity.EXTRA_TARGET_HREF, safeHref);
+                                  int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                                      ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
+                                      : PendingIntent.FLAG_UPDATE_CURRENT;
+                                  PendingIntent pendingIntent = PendingIntent.getActivity(this, notifyId, intent, flags);
+
+                                  NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                                      .setSmallIcon(R.drawable.ic_stat_ics)
+                                      .setColor(Color.parseColor("#009245"))
+                                      .setContentTitle(cleanTitle)
+                                      .setContentText(cleanBody)
+                                      .setStyle(new NotificationCompat.BigTextStyle().bigText(cleanBody))
+                                      .setGroup(ICS_NOTIF_GROUP_KEY)
+                                      .setPriority(NotificationCompat.PRIORITY_HIGH)
+                                      .setDefaults(NotificationCompat.DEFAULT_ALL)
+                                      .setAutoCancel(true)
+                                      .setContentIntent(pendingIntent);
+
+                                  manager.notify(notifyId, builder.build());
                               }
-
-                              int notifyId = (notifId != null && !notifId.isEmpty())
-                                  ? Math.abs(notifId.hashCode())
-                                  : (int) (System.currentTimeMillis() & 0x7fffffff);
-
-                              Intent intent = new Intent(this, MainActivity.class);
-                              intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                              intent.putExtra(MainActivity.EXTRA_TARGET_HREF, safeHref);
-                              int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                                  ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
-                                  : PendingIntent.FLAG_UPDATE_CURRENT;
-                              PendingIntent pendingIntent = PendingIntent.getActivity(this, notifyId, intent, flags);
-
-                              NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                                  .setSmallIcon(R.drawable.ic_stat_ics)
-                                  .setColor(Color.parseColor("#009245"))
-                                  .setContentTitle(title.trim())
-                                  .setContentText(body.trim())
-                                  .setStyle(new NotificationCompat.BigTextStyle().bigText(body.trim()))
-                                  .setPriority(NotificationCompat.PRIORITY_HIGH)
-                                  .setDefaults(NotificationCompat.DEFAULT_ALL)
-                                  .setAutoCancel(true)
-                                  .setContentIntent(pendingIntent);
-                              Bitmap rawLargeIcon = BitmapFactory.decodeResource(getResources(), R.drawable.ics_notif_logo);
-                              if (rawLargeIcon != null) {
-                                  int sz = Math.max(192, Math.max(rawLargeIcon.getWidth(), rawLargeIcon.getHeight()));
-                                  Bitmap whiteBacked = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888);
-                                  android.graphics.Canvas c = new android.graphics.Canvas(whiteBacked);
-                                  c.drawColor(Color.WHITE);
-                                  int pad = (int) (sz * 0.10f);
-                                  android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG | android.graphics.Paint.FILTER_BITMAP_FLAG);
-                                  c.drawBitmap(rawLargeIcon, null, new android.graphics.Rect(pad, pad, sz - pad, sz - pad), p);
-                                  builder.setLargeIcon(whiteBacked);
-                              }
-
-                              manager.notify(notifyId, builder.build());
                           }
                       }
 

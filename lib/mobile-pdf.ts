@@ -392,7 +392,9 @@ export function triggerSystemNotification(
 ): void {
   if (typeof window === 'undefined') return;
 
-  const cleanTitle = (title || 'ICS Academy').trim();
+  const cleanTitle = (title || 'ICS Academy')
+    .replace(/^New\s+Message\s+from\s+/i, '')
+    .trim() || 'ICS Academy';
   const cleanMessage = (message || '').trim();
   if (!cleanMessage && !cleanTitle) return;
 
