@@ -16,13 +16,16 @@ import {
   ACADEMY_CLASSES,
   CLASS_USTHADS,
   MONTHS_META,
+  buildMonthMetaForId,
   findUsthadForTeacherName,
   getClassSemesterTimetableByClassName,
   getEffectiveStudentAttendance,
+  getYearMonthsMeta,
   loadAttendanceOverrides,
   loadCustomNotices,
   loadPeriodAttendanceSubmissions,
   normalizeClassName,
+  parseMonthId,
   students,
   type Student,
 } from '@/components/dashboard/data'
@@ -875,7 +878,7 @@ export function calculateClassStarOfTheMonth(
   allRecords: CampusAcademicRecord[],
 ): ClassStarOfTheMonthSummary {
   const normClass = normalizeClassName(className)
-  const monthMeta = MONTHS_META.find((m) => m.id === monthId) || MONTHS_META[0]
+  const monthMeta = buildMonthMetaForId(monthId)
   const monthLabel = `${monthMeta.month} ${monthMeta.year}`
 
   const classStudents = students.filter((s) => normalizeClassName(s.className) === normClass)
@@ -1128,13 +1131,16 @@ export function computeStudentZadulKhairSummary(
     }
   }
 
-  const selectedIndex = getAcademicMonthOrderIndex(selectedMonth)
+  const parsedSelected = parseMonthId(selectedMonth)
+  const yearMonths = getYearMonthsMeta(parsedSelected.year)
+  const yearMonthIds = new Set(yearMonths.map((m) => m.id))
+
   let previousContribution = 0
   let currentMonthlyContribution = 0
   let fullAcademicYearTotal = 0
   let recordedMonthsCount = 0
 
-  const monthlyRows: ZadulKhairMonthlyLedgerRow[] = MONTHS_META.map((m, idx) => {
+  const monthlyRows: ZadulKhairMonthlyLedgerRow[] = yearMonths.map((m) => {
     const rec = byMonth.get(m.id) || null
     const amount = Math.max(0, Math.round(Number(rec?.paidAmount ?? 0) || 0))
     const isRecorded = amount > 0
@@ -1142,7 +1148,7 @@ export function computeStudentZadulKhairSummary(
       recordedMonthsCount += 1
       fullAcademicYearTotal += amount
     }
-    if (idx < selectedIndex) {
+    if (m.id < selectedMonth) {
       previousContribution += amount
     } else if (m.id === selectedMonth) {
       currentMonthlyContribution = amount
@@ -1163,9 +1169,9 @@ export function computeStudentZadulKhairSummary(
     }
   })
 
-  // Include any records whose month falls outside MONTHS_META safely
+  // Include any records from earlier/other years safely
   for (const [mId, rec] of byMonth.entries()) {
-    if (ACADEMIC_MONTH_ORDER.has(mId)) continue
+    if (yearMonthIds.has(mId)) continue
     const amount = Math.max(0, Math.round(Number(rec.paidAmount ?? 0) || 0))
     if (amount > 0) {
       fullAcademicYearTotal += amount
@@ -1177,10 +1183,8 @@ export function computeStudentZadulKhairSummary(
     }
   }
 
-  const selectedMeta = MONTHS_META.find((m) => m.id === selectedMonth)
-  const selectedMonthLabel = selectedMeta
-    ? `${selectedMeta.month} ${selectedMeta.year}`
-    : selectedMonth
+  const selectedMeta = buildMonthMetaForId(selectedMonth)
+  const selectedMonthLabel = `${selectedMeta.month} ${selectedMeta.year}`
 
   return {
     selectedMonth,
@@ -1674,8 +1678,8 @@ export async function exportClassZadulKhairReportPdf(params: {
     }
   }
 
-  const mMeta = MONTHS_META.find((m) => m.id === monthId)
-  const monthLabel = mMeta ? `${mMeta.month} ${mMeta.year}` : monthId
+  const mMeta = buildMonthMetaForId(monthId)
+  const monthLabel = `${mMeta.month} ${mMeta.year}`
 
   const pageWidth = 210
   const margin = 12

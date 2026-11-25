@@ -62,6 +62,7 @@ import {
 import { AppUpdateButton } from '@/components/app-update-manager'
 import { BrandLogoMark, BrandWordmark } from '@/components/brand-wordmark'
 import { DeleteActionMenu } from '@/components/ui/delete-action-menu'
+import { MonthYearSelect } from '@/components/ui/month-year-select'
 import { ThemeSelect } from '@/components/ui/theme-select'
 import {
   CampusNotificationBar,
@@ -80,7 +81,6 @@ import {
   CLASS_LEADERS,
   CLASS_USTHADS,
   HIGH_SCHOOL_CLASS_NAMES,
-  MONTHS_META,
   NOT_HELD_REASONS,
   OFFICIAL_CLASS_USTHADS,
   SHAIKHUNA_HAMZA_USTHAD,
@@ -89,6 +89,7 @@ import {
   assignClassUsthadByPrincipal,
   ensureCleanLaunchStorage,
   formatTargetClassesBadge,
+  getActiveAcademyClosure,
   getActiveSemester,
   getAssignedClassesForUsthad,
   getClassLeadersForClass,
@@ -104,6 +105,7 @@ import {
   loadAttendanceOverrides,
   loadCustomNotices,
   loadPeriodAttendanceSubmissions,
+  parseMonthId,
   publishCampusNotification,
   removeStudentByPrincipal,
   resetClassTimetableByPrincipal,
@@ -115,6 +117,7 @@ import {
   saveUsthadProfileByPrincipal,
   setActiveSemesterByPrincipal,
   students,
+  toMonthId,
   updateStudentByPrincipal,
   type AttendanceOverrideMap,
   type ClassSemesterTimetable,
@@ -124,6 +127,7 @@ import {
   type PeriodAttendanceSubmission,
   type Student,
 } from '@/components/dashboard/data'
+import { LeavePermissionControls } from '@/components/dashboard/leave-permission-controls'
 import { parseNotificationHref, type ParsedNotificationTarget } from '@/lib/mobile-pdf'
 import {
   DigitalLibrary,
@@ -328,7 +332,13 @@ export function PrincipalDashboard() {
   const [directorySearch, setDirectorySearch] = useState<string>('')
 
   const [selectedStudentId, setSelectedStudentId] = useState<string>(() => students[0]?.id ?? 'std-1')
-  const [selectedMonthId, setSelectedMonthId] = useState<string>('2026-06')
+  const [selectedAttendanceYear, setSelectedAttendanceYear] = useState<number>(() =>
+    new Date().getFullYear(),
+  )
+  const [selectedMonthId, setSelectedMonthId] = useState<string>(() => {
+    const now = new Date()
+    return toMonthId(now.getFullYear(), now.getMonth() + 1)
+  })
   const [editPresent, setEditPresent] = useState<number>(0)
   const [editAbsent, setEditAbsent] = useState<number>(0)
   const [editLeave, setEditLeave] = useState<number>(0)
@@ -429,7 +439,10 @@ export function PrincipalDashboard() {
   const [holidayType, setHolidayType] = useState<OfficialHolidayMeta['holidayType']>(
     'monthly-second-saturday',
   )
-  const [holidayMonthId, setHolidayMonthId] = useState('2026-06')
+  const [holidayMonthId, setHolidayMonthId] = useState<string>(() => {
+    const now = new Date()
+    return toMonthId(now.getFullYear(), now.getMonth() + 1)
+  })
   const [holidayDepartureDate, setHolidayDepartureDate] = useState(
     'Friday, 13 Nov 2026 (2nd Saturday Eve)',
   )
@@ -654,9 +667,14 @@ export function PrincipalDashboard() {
   const selectedStudentEffective = useMemo(
     () =>
       selectedStudent
-        ? getEffectiveStudentAttendance(selectedStudent, attendanceOverrides, customNotices)
+        ? getEffectiveStudentAttendance(
+            selectedStudent,
+            attendanceOverrides,
+            customNotices,
+            selectedAttendanceYear,
+          )
         : null,
-    [selectedStudent, attendanceOverrides, customNotices],
+    [selectedStudent, attendanceOverrides, customNotices, selectedAttendanceYear],
   )
 
   const selectedMonthRecord = useMemo(
@@ -664,6 +682,11 @@ export function PrincipalDashboard() {
       selectedStudentEffective?.monthlyAttendance.find((m) => m.id === selectedMonthId) ??
       selectedStudentEffective?.monthlyAttendance[0],
     [selectedStudentEffective, selectedMonthId],
+  )
+
+  const campusClosureStatus = useMemo(
+    () => getActiveAcademyClosure(customNotices),
+    [customNotices],
   )
 
   useEffect(() => {
@@ -1695,11 +1718,21 @@ export function PrincipalDashboard() {
           </Link>
 
           <div className="hidden lg:block">
-            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Principal Dashboard
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Principal Dashboard
+              </p>
+              {campusClosureStatus.isClosed ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                  <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" aria-hidden="true" />
+                  {campusClosureStatus.isAllClasses
+                    ? 'Academy Closed'
+                    : `Closed (${campusClosureStatus.affectedClasses.join(', ')})`}
+                </span>
+              ) : null}
+            </div>
             <p className="text-sm font-medium text-foreground">
-              Academic Year 2026–27 · All 11 Classes
+              Academic Year {new Date().getFullYear()} · All 11 Classes
             </p>
           </div>
 
@@ -3466,21 +3499,47 @@ export function PrincipalDashboard() {
                         </div>
 
                         <div className="flex flex-col gap-1.5">
-                          <Label htmlFor="pr-edit-month" className="text-xs">
-                            Select Month
-                          </Label>
-                          <ThemeSelect
-                            id="pr-edit-month"
+                          <span className="text-xs font-medium text-foreground">
+                            Month & Year
+                          </span>
+                          <MonthYearSelect
+                            idPrefix="pr-edit-period"
                             value={selectedMonthId}
-                            onChange={(e) => setSelectedMonthId(e.target.value)}
-                            className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
-                          >
-                            {selectedStudentEffective?.monthlyAttendance.map((m) => (
-                              <option key={m.id} value={m.id}>
-                                {m.month} {m.year} ({m.workingDays} Working Days)
-                              </option>
-                            ))}
-                          </ThemeSelect>
+                            year={selectedAttendanceYear}
+                            onChange={(nextMonthId, nextYear) => {
+                              setSelectedAttendanceYear(nextYear)
+                              setSelectedMonthId(nextMonthId)
+                            }}
+                            selectClassName="h-10 rounded-xl border border-input bg-background px-2.5 text-xs font-semibold text-foreground outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Open Days / Working Days / Closed Days */}
+                      <div className="grid grid-cols-3 gap-2 rounded-2xl bg-muted/50 p-3 text-xs">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                            Open Days
+                          </span>
+                          <span className="mt-0.5 font-display text-base font-bold text-foreground tabular-nums">
+                            {selectedMonthRecord?.openDays ?? 30}
+                          </span>
+                        </div>
+                        <div className="flex flex-col border-l border-border/40 pl-2.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Working Days
+                          </span>
+                          <span className="mt-0.5 font-display text-base font-bold text-foreground tabular-nums">
+                            {editPresent + editAbsent + editLeave}
+                          </span>
+                        </div>
+                        <div className="flex flex-col border-l border-border/40 pl-2.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                            Closed Days
+                          </span>
+                          <span className="mt-0.5 font-display text-base font-bold text-amber-700 tabular-nums dark:text-amber-300">
+                            {selectedMonthRecord?.closedDays ?? 0}
+                          </span>
                         </div>
                       </div>
 
@@ -3598,6 +3657,13 @@ export function PrincipalDashboard() {
                     title="Student Leave"
                     icon={ClipboardCheck}
                   >
+                    <LeavePermissionControls
+                      eligibleStudents={students}
+                      actorId={principal.staffId}
+                      actorName={principal.name}
+                      actorRole="principal"
+                      classFilterOptions={ALL_ACADEMY_CLASS_NAMES}
+                    />
                     <form onSubmit={handleSubmitLeaveForm} className="flex flex-col gap-4">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div className="flex flex-col gap-1.5">
@@ -4224,21 +4290,16 @@ export function PrincipalDashboard() {
                 {isHolidayNotice && (
                   <div className="grid gap-3 rounded-2xl bg-muted/45 p-4 sm:grid-cols-3">
                     <div className="flex flex-col gap-1.5">
-                      <Label htmlFor="pr-holiday-month" className="text-xs">
-                        Target Month (June – May)
-                      </Label>
-                      <ThemeSelect
-                        id="pr-holiday-month"
+                      <span className="text-xs font-medium text-foreground">
+                        Target Month & Year
+                      </span>
+                      <MonthYearSelect
+                        idPrefix="pr-holiday-period"
                         value={holidayMonthId}
-                        onChange={(e) => setHolidayMonthId(e.target.value)}
-                        className="h-9 rounded-xl bg-popover px-3 text-xs font-semibold text-foreground outline-none"
-                      >
-                        {MONTHS_META.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.month} {m.year}
-                          </option>
-                        ))}
-                      </ThemeSelect>
+                        year={parseMonthId(holidayMonthId).year}
+                        onChange={(nextMonthId) => setHolidayMonthId(nextMonthId)}
+                        selectClassName="h-9 rounded-xl bg-popover px-2.5 text-xs font-semibold text-foreground outline-none"
+                      />
                     </div>
 
                     <div className="flex flex-col gap-1.5">

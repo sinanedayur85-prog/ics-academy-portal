@@ -19,6 +19,8 @@ export type MonthlyAttendance = {
   shortMonth: string
   year: number
   calendarDays: number
+  openDays: number
+  closedDays: number
   officialHolidayDays: number
   officialHolidayNote: string
   workingDays: number
@@ -331,7 +333,105 @@ const RAW_CLASS_ROSTERS: {
   },
 ]
 
-export const MONTHS_META = [
+export const ALL_MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const
+
+export const ALL_MONTH_SHORT_NAMES = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const
+
+export type MonthMeta = {
+  id: string
+  month: string
+  shortMonth: string
+  year: number
+  calendarDays: number
+  officialHolidayDays: number
+  officialHolidayNote: string
+  baseDays: number
+}
+
+export function getDaysInMonth(year: number, monthIndex0: number): number {
+  return new Date(year, monthIndex0 + 1, 0).getDate()
+}
+
+export function toMonthId(year: number, monthNumber: number): string {
+  const safeMonth = Math.max(1, Math.min(12, Math.floor(monthNumber)))
+  return `${year}-${String(safeMonth).padStart(2, '0')}`
+}
+
+export function parseMonthId(monthId: string): { year: number; monthNumber: number } {
+  const match = /^(\d{4})-(\d{1,2})$/.exec((monthId || '').trim())
+  if (match) {
+    const year = Number(match[1])
+    const monthNumber = Math.max(1, Math.min(12, Number(match[2])))
+    if (Number.isFinite(year) && year >= 2000 && year <= 2100) {
+      return { year, monthNumber }
+    }
+  }
+  const now = new Date()
+  return { year: now.getFullYear(), monthNumber: now.getMonth() + 1 }
+}
+
+export function getAvailableYears(extraYears: number[] = []): number[] {
+  const currentYear = new Date().getFullYear()
+  const startYear = 2025
+  const endYear = Math.max(2031, currentYear + 5)
+  const set = new Set<number>()
+  for (let y = startYear; y <= endYear; y++) {
+    set.add(y)
+  }
+  for (const extra of extraYears) {
+    if (Number.isFinite(extra) && extra >= 2020 && extra <= 2100) {
+      set.add(Math.floor(extra))
+    }
+  }
+  return Array.from(set).sort((a, b) => a - b)
+}
+
+export function buildMonthMetaForId(monthId: string): MonthMeta {
+  const { year, monthNumber } = parseMonthId(monthId)
+  const idx = monthNumber - 1
+  return {
+    id: toMonthId(year, monthNumber),
+    month: ALL_MONTH_NAMES[idx],
+    shortMonth: ALL_MONTH_SHORT_NAMES[idx],
+    year,
+    calendarDays: getDaysInMonth(year, idx),
+    officialHolidayDays: 0,
+    officialHolidayNote: 'No official holidays announced yet',
+    baseDays: 0,
+  }
+}
+
+export function getYearMonthsMeta(year: number): MonthMeta[] {
+  return Array.from({ length: 12 }, (_, idx) => buildMonthMetaForId(toMonthId(year, idx + 1)))
+}
+
+export const MONTHS_META: MonthMeta[] = [
   {
     id: '2026-06',
     month: 'June',
@@ -464,6 +564,8 @@ function buildStudentMonthlyAttendance(_seedIndex: number): {
     shortMonth: m.shortMonth,
     year: m.year,
     calendarDays: m.calendarDays,
+    openDays: m.calendarDays,
+    closedDays: 0,
     officialHolidayDays: 0,
     officialHolidayNote: m.officialHolidayNote,
     workingDays: 0,
@@ -1698,7 +1800,7 @@ export function saveAttendanceOverrides(map: AttendanceOverrideMap): void {
     if (changedKey) {
       const [stId, mId] = changedKey.split('__')
       const st = students.find((s) => s.id === stId)
-      const mMeta = MONTHS_META.find((m) => m.id === mId)
+      const mMeta = MONTHS_META.find((m) => m.id === mId) ?? (mId ? buildMonthMetaForId(mId) : undefined)
       const entry = map[changedKey]
       if (st && entry) {
         const monthText = mMeta ? `${mMeta.shortMonth} ${mMeta.year}` : mId
@@ -1775,32 +1877,261 @@ export function saveCustomNotices(customList: Notice[]): void {
   }
 }
 
-export function getEffectiveStudentAttendance(
-  student: Student,
-  overrides: AttendanceOverrideMap,
-  customNoticesList?: Notice[],
-): {
-  monthlyAttendance: MonthlyAttendance[]
-  attendance: {
-    present: number
-    absent: number
-    leave: number
-    workingDays: number
-    officialHolidayDays: number
-    calendarDays: number
+const MONTH_LOOKUP: Record<string, number> = {
+  jan: 1,
+  january: 1,
+  feb: 2,
+  february: 2,
+  mar: 3,
+  march: 3,
+  apr: 4,
+  april: 4,
+  may: 5,
+  jun: 6,
+  june: 6,
+  jul: 7,
+  july: 7,
+  aug: 8,
+  august: 8,
+  sep: 9,
+  sept: 9,
+  september: 9,
+  oct: 10,
+  october: 10,
+  nov: 11,
+  november: 11,
+  dec: 12,
+  december: 12,
+}
+
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
+
+function parseHolidayDateString(raw?: string): { year: number; month: number; day: number } | null {
+  if (!raw) return null
+  const text = raw.trim()
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text)
+  if (iso) {
+    return { year: Number(iso[1]), month: Number(iso[2]), day: Number(iso[3]) }
   }
+  const dmy = /(\d{1,2})\s+([A-Za-z]+),?\s+(\d{4})/.exec(text)
+  if (dmy) {
+    const m = MONTH_LOOKUP[dmy[2].toLowerCase()]
+    if (m) return { year: Number(dmy[3]), month: m, day: Number(dmy[1]) }
+  }
+  const mdy = /([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})/.exec(text)
+  if (mdy) {
+    const m = MONTH_LOOKUP[mdy[1].toLowerCase()]
+    if (m) return { year: Number(mdy[3]), month: m, day: Number(mdy[2]) }
+  }
+  return null
+}
+
+function parseHolidayTimeToMinutes(raw: string | undefined, fallbackMinutes: number): number {
+  if (!raw) return fallbackMinutes
+  const ampm = /(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(raw)
+  if (ampm) {
+    let hour = Number(ampm[1])
+    const min = Number(ampm[2])
+    const meridiem = ampm[3].toUpperCase()
+    if (meridiem === 'PM' && hour < 12) hour += 12
+    if (meridiem === 'AM' && hour === 12) hour = 0
+    return hour * 60 + min
+  }
+  const hhmm = /(\d{1,2}):(\d{2})/.exec(raw)
+  if (hhmm) {
+    return Number(hhmm[1]) * 60 + Number(hhmm[2])
+  }
+  return fallbackMinutes
+}
+
+function istDateTimeToUtcMs(year: number, month: number, day: number, totalMinutes: number): number {
+  const hours = Math.floor(totalMinutes / 60)
+  const mins = totalMinutes % 60
+  return Date.UTC(year, month - 1, day, hours, mins, 0, 0) - IST_OFFSET_MS
+}
+
+function formatDateKey(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+export type ParsedOfficialHolidayWindow = {
+  departureMs: number
+  returnMs: number
+  departureDayKey: string
+  returnDayKey: string
+}
+
+export function parseOfficialHolidayWindow(
+  meta?: OfficialHolidayMeta,
+): ParsedOfficialHolidayWindow | null {
+  if (!meta?.isOfficialHoliday) return null
+  const depDate = parseHolidayDateString(meta.departureDate)
+  const retDate = parseHolidayDateString(meta.returnDate)
+  if (!depDate || !retDate) return null
+
+  const depMins = parseHolidayTimeToMinutes(meta.departureTime, 12 * 60)
+  const retMins = parseHolidayTimeToMinutes(meta.returnTime, 18 * 60)
+
+  const departureMs = istDateTimeToUtcMs(depDate.year, depDate.month, depDate.day, depMins)
+  const returnMs = istDateTimeToUtcMs(retDate.year, retDate.month, retDate.day, retMins)
+
+  if (!Number.isFinite(departureMs) || !Number.isFinite(returnMs) || returnMs < departureMs) {
+    return null
+  }
+
+  return {
+    departureMs,
+    returnMs,
+    departureDayKey: formatDateKey(depDate.year, depDate.month, depDate.day),
+    returnDayKey: formatDateKey(retDate.year, retDate.month, retDate.day),
+  }
+}
+
+/**
+ * Returns every full closed calendar day strictly between departureDate and returnDate.
+ * Departure day and return day remain Open Days (students are at campus part of those days).
+ */
+export function getFullClosedDateKeysForNotice(meta?: OfficialHolidayMeta): string[] {
+  if (!meta?.isOfficialHoliday) return []
+  const dep = parseHolidayDateString(meta.departureDate)
+  const ret = parseHolidayDateString(meta.returnDate)
+  if (!dep || !ret) return []
+
+  const startUtc = Date.UTC(dep.year, dep.month - 1, dep.day)
+  const endUtc = Date.UTC(ret.year, ret.month - 1, ret.day)
+  if (endUtc <= startUtc) return []
+
+  const keys: string[] = []
+  const oneDayMs = 24 * 60 * 60 * 1000
+  const maxSpan = 120
+  let cursor = startUtc + oneDayMs
+  let count = 0
+  while (cursor < endUtc && count < maxSpan) {
+    const d = new Date(cursor)
+    keys.push(formatDateKey(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()))
+    cursor += oneDayMs
+    count++
+  }
+  return keys
+}
+
+export type AcademyClosureStatus = {
+  isClosed: boolean
+  activeNotices: Notice[]
+  primaryNotice: Notice | null
+  affectedClasses: string[]
+  isAllClasses: boolean
+  returnLabel: string
+}
+
+export function getActiveAcademyClosure(
+  customNoticesList?: Notice[],
+  className?: string,
+  nowMs: number = Date.now(),
+): AcademyClosureStatus {
+  const noticesSource = customNoticesList ?? loadCustomNotices()
+  const activeNotices: Notice[] = []
+
+  for (const nt of noticesSource) {
+    if (!nt.holidayMeta?.isOfficialHoliday) continue
+    if (className && !isNoticeVisibleForClass(nt, className)) continue
+    const win = parseOfficialHolidayWindow(nt.holidayMeta)
+    if (!win) continue
+    if (nowMs >= win.departureMs && nowMs <= win.returnMs) {
+      activeNotices.push(nt)
+    }
+  }
+
+  if (activeNotices.length === 0) {
+    return {
+      isClosed: false,
+      activeNotices: [],
+      primaryNotice: null,
+      affectedClasses: [],
+      isAllClasses: false,
+      returnLabel: '',
+    }
+  }
+
+  let isAllClasses = false
+  const classSet = new Set<string>()
+  for (const nt of activeNotices) {
+    const targets = getNoticeTargetClasses(nt)
+    if (targets.length === 0) {
+      isAllClasses = true
+    } else {
+      for (const cls of targets) classSet.add(cls)
+    }
+  }
+
+  const primaryNotice = activeNotices[0]
+  const meta = primaryNotice.holidayMeta
+  const returnLabel = meta ? `${meta.returnDate} • ${meta.returnTime}` : ''
+
+  return {
+    isClosed: true,
+    activeNotices,
+    primaryNotice,
+    affectedClasses: isAllClasses ? ALL_ACADEMY_CLASS_NAMES : Array.from(classSet),
+    isAllClasses,
+    returnLabel,
+  }
+}
+
+function buildHolidayAnalyticsForClass(
+  activeCustomNotices: Notice[],
+  className: string,
+): {
+  closedDateKeysByMonth: Record<string, Set<string>>
+  fallbackClosedDaysByMonth: Record<string, number>
+  notesByMonth: Record<string, string[]>
 } {
-  let presentTotal = 0
-  let absentTotal = 0
-  let leaveTotal = 0
-  let workingDaysTotal = 0
-  let officialHolidaysTotal = 0
-  let calendarDaysTotal = 0
+  const closedDateKeysByMonth: Record<string, Set<string>> = {}
+  const fallbackClosedDaysByMonth: Record<string, number> = {}
+  const notesByMonth: Record<string, string[]> = {}
 
-  const activeCustomNotices = customNoticesList ?? loadCustomNotices()
-  const activePeriodSubmissions = loadPeriodAttendanceSubmissions()
+  for (const nt of activeCustomNotices) {
+    if (!nt.holidayMeta?.isOfficialHoliday) continue
+    if (!isNoticeVisibleForClass(nt, className)) continue
+    const meta = nt.holidayMeta
+    const noteLine = `${nt.title} (${meta.departureDate} ${meta.departureTime} → ${meta.returnDate} ${meta.returnTime})`
+    const fullKeys = getFullClosedDateKeysForNotice(meta)
 
-  // Aggregate daily attendance from Period Attendance submissions per month (for months without a manual monthly override)
+    if (fullKeys.length > 0) {
+      const touchedMonths = new Set<string>()
+      for (const dateKey of fullKeys) {
+        const mId = dateKey.slice(0, 7)
+        if (!closedDateKeysByMonth[mId]) {
+          closedDateKeysByMonth[mId] = new Set<string>()
+        }
+        closedDateKeysByMonth[mId].add(dateKey)
+        touchedMonths.add(mId)
+      }
+      for (const mId of touchedMonths) {
+        if (!notesByMonth[mId]) notesByMonth[mId] = []
+        notesByMonth[mId].push(noteLine)
+      }
+    } else {
+      const parsedWin = parseOfficialHolidayWindow(meta)
+      const fallbackMonthId = parsedWin?.departureDayKey.slice(0, 7) || meta.monthId
+      if (fallbackMonthId) {
+        if (!parsedWin && meta.holidayDaysDeducted > 0) {
+          fallbackClosedDaysByMonth[fallbackMonthId] =
+            (fallbackClosedDaysByMonth[fallbackMonthId] ?? 0) + meta.holidayDaysDeducted
+        }
+        if (!notesByMonth[fallbackMonthId]) notesByMonth[fallbackMonthId] = []
+        notesByMonth[fallbackMonthId].push(noteLine)
+      }
+    }
+  }
+
+  return { closedDateKeysByMonth, fallbackClosedDaysByMonth, notesByMonth }
+}
+
+function buildPeriodDaysByMonthForStudent(
+  student: Student,
+  activePeriodSubmissions: Record<string, PeriodAttendanceSubmission>,
+): Record<string, { present: number; absent: number; leave: number }> {
   const periodDaysByMonth: Record<string, { present: number; absent: number; leave: number }> = {}
   const dateStatusesByMonth: Record<string, Record<string, PeriodAttendanceStatus[]>> = {}
 
@@ -1835,73 +2166,164 @@ export function getEffectiveStudentAttendance(
     periodDaysByMonth[mId] = { present: pDays, absent: aDays, leave: lDays }
   }
 
-  // Calculate any official holiday deductions announced on Notice Board per month
-  // ONLY if the notice applies to this student's class/batch!
-  const extraHolidayByMonth: Record<string, { days: number; notes: string[] }> = {}
-  for (const nt of activeCustomNotices) {
-    if (!isNoticeVisibleForClass(nt, student.className)) {
-      continue
-    }
-    if (
-      nt.holidayMeta?.isOfficialHoliday &&
-      nt.holidayMeta.monthId &&
-      nt.holidayMeta.holidayDaysDeducted > 0
-    ) {
-      const mId = nt.holidayMeta.monthId
-      if (!extraHolidayByMonth[mId]) {
-        extraHolidayByMonth[mId] = { days: 0, notes: [] }
-      }
-      extraHolidayByMonth[mId].days += nt.holidayMeta.holidayDaysDeducted
-      extraHolidayByMonth[mId].notes.push(
-        `${nt.title} (${nt.holidayMeta.departureDate} ${nt.holidayMeta.departureTime} → ${nt.holidayMeta.returnDate} ${nt.holidayMeta.returnTime})`,
-      )
-    }
-  }
+  return periodDaysByMonth
+}
 
-  const monthlyAttendance = student.monthlyAttendance.map((m) => {
-    const monthSuffix = m.id.slice(5)
-    const altMonthId = m.id.startsWith('2027-') ? `2026-${monthSuffix}` : `2027-${monthSuffix}`
+export function getEffectiveMonthAttendanceForId(
+  student: Student,
+  monthId: string,
+  overrides: AttendanceOverrideMap,
+  customNoticesList?: Notice[],
+): MonthlyAttendance {
+  const activeCustomNotices = customNoticesList ?? loadCustomNotices()
+  const activePeriodSubmissions = loadPeriodAttendanceSubmissions()
+  const periodDaysByMonth = buildPeriodDaysByMonthForStudent(student, activePeriodSubmissions)
+  const { closedDateKeysByMonth, fallbackClosedDaysByMonth, notesByMonth } =
+    buildHolidayAnalyticsForClass(activeCustomNotices, student.className)
+
+  const baseMeta = buildMonthMetaForId(monthId)
+  const key = `${student.id}__${baseMeta.id}`
+  const override = overrides[key]
+  const periodDerived = periodDaysByMonth[baseMeta.id]
+
+  const present = override
+    ? Math.max(0, override.present)
+    : periodDerived
+      ? periodDerived.present
+      : 0
+  const absent = override
+    ? Math.max(0, override.absent)
+    : periodDerived
+      ? periodDerived.absent
+      : 0
+  const leave = override
+    ? Math.max(0, override.leave)
+    : periodDerived
+      ? periodDerived.leave
+      : 0
+
+  const workingDays = present + absent + leave
+  const parsedClosedCount = closedDateKeysByMonth[baseMeta.id]?.size ?? 0
+  const fallbackClosedCount = fallbackClosedDaysByMonth[baseMeta.id] ?? 0
+  const closedDays = Math.min(baseMeta.calendarDays, Math.max(0, parsedClosedCount + fallbackClosedCount))
+  const openDays = Math.max(0, baseMeta.calendarDays - closedDays)
+  const officialHolidayDays = closedDays
+  const notes = notesByMonth[baseMeta.id]
+  const officialHolidayNote =
+    notes && notes.length > 0 ? notes.join(' • ') : baseMeta.officialHolidayNote
+
+  return {
+    id: baseMeta.id,
+    month: baseMeta.month,
+    shortMonth: baseMeta.shortMonth,
+    year: baseMeta.year,
+    calendarDays: baseMeta.calendarDays,
+    openDays,
+    closedDays,
+    officialHolidayDays,
+    officialHolidayNote,
+    workingDays,
+    present,
+    absent,
+    leave,
+  }
+}
+
+export function getEffectiveStudentAttendance(
+  student: Student,
+  overrides: AttendanceOverrideMap,
+  customNoticesList?: Notice[],
+  targetYear?: number,
+): {
+  monthlyAttendance: MonthlyAttendance[]
+  attendance: {
+    present: number
+    absent: number
+    leave: number
+    workingDays: number
+    openDays: number
+    closedDays: number
+    officialHolidayDays: number
+    calendarDays: number
+  }
+} {
+  let presentTotal = 0
+  let absentTotal = 0
+  let leaveTotal = 0
+  let workingDaysTotal = 0
+  let openDaysTotal = 0
+  let closedDaysTotal = 0
+  let officialHolidaysTotal = 0
+  let calendarDaysTotal = 0
+
+  const activeCustomNotices = customNoticesList ?? loadCustomNotices()
+  const activePeriodSubmissions = loadPeriodAttendanceSubmissions()
+  const periodDaysByMonth = buildPeriodDaysByMonthForStudent(student, activePeriodSubmissions)
+  const { closedDateKeysByMonth, fallbackClosedDaysByMonth, notesByMonth } =
+    buildHolidayAnalyticsForClass(activeCustomNotices, student.className)
+
+  const baseMonths: MonthMeta[] =
+    typeof targetYear === 'number'
+      ? getYearMonthsMeta(targetYear)
+      : student.monthlyAttendance.map((m) => ({
+          id: m.id,
+          month: m.month,
+          shortMonth: m.shortMonth,
+          year: m.year,
+          calendarDays: m.calendarDays,
+          officialHolidayDays: m.officialHolidayDays,
+          officialHolidayNote: m.officialHolidayNote,
+          baseDays: 0,
+        }))
+
+  const monthlyAttendance: MonthlyAttendance[] = baseMonths.map((m) => {
     const key = `${student.id}__${m.id}`
-    const altKey = `${student.id}__${altMonthId}`
-    const override = overrides[key] ?? overrides[altKey]
-    const periodDerived = periodDaysByMonth[m.id] ?? periodDaysByMonth[altMonthId]
-    const extraHoliday = extraHolidayByMonth[m.id] ?? extraHolidayByMonth[altMonthId]
-    const extraDeducted = extraHoliday ? extraHoliday.days : 0
+    const override = overrides[key]
+    const periodDerived = periodDaysByMonth[m.id]
 
     const present = override
       ? Math.max(0, override.present)
       : periodDerived
         ? periodDerived.present
-        : m.present
+        : 0
     const absent = override
       ? Math.max(0, override.absent)
       : periodDerived
         ? periodDerived.absent
-        : m.absent
+        : 0
     const leave = override
       ? Math.max(0, override.leave)
       : periodDerived
         ? periodDerived.leave
-        : m.leave
+        : 0
 
     const workingDays = present + absent + leave
-    const officialHolidayDays = Math.min(
-      m.calendarDays,
-      Math.max(0, m.officialHolidayDays + extraDeducted),
-    )
-    const officialHolidayNote = extraHoliday
-      ? extraHoliday.notes.join(' • ')
-      : m.officialHolidayNote
+    const parsedClosedCount = closedDateKeysByMonth[m.id]?.size ?? 0
+    const fallbackClosedCount = fallbackClosedDaysByMonth[m.id] ?? 0
+    const closedDays = Math.min(m.calendarDays, Math.max(0, parsedClosedCount + fallbackClosedCount))
+    const openDays = Math.max(0, m.calendarDays - closedDays)
+    const officialHolidayDays = closedDays
+    const notes = notesByMonth[m.id]
+    const officialHolidayNote =
+      notes && notes.length > 0 ? notes.join(' • ') : m.officialHolidayNote
 
     presentTotal += present
     absentTotal += absent
     leaveTotal += leave
     workingDaysTotal += workingDays
+    openDaysTotal += openDays
+    closedDaysTotal += closedDays
     officialHolidaysTotal += officialHolidayDays
     calendarDaysTotal += m.calendarDays
 
     return {
-      ...m,
+      id: m.id,
+      month: m.month,
+      shortMonth: m.shortMonth,
+      year: m.year,
+      calendarDays: m.calendarDays,
+      openDays,
+      closedDays,
       officialHolidayDays,
       officialHolidayNote,
       workingDays,
@@ -1918,6 +2340,8 @@ export function getEffectiveStudentAttendance(
       absent: absentTotal,
       leave: leaveTotal,
       workingDays: workingDaysTotal,
+      openDays: openDaysTotal,
+      closedDays: closedDaysTotal,
       officialHolidayDays: officialHolidaysTotal,
       calendarDays: calendarDaysTotal,
     },

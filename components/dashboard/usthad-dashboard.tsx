@@ -49,6 +49,7 @@ import {
   X,
 } from 'lucide-react'
 import { DeleteActionMenu } from '@/components/ui/delete-action-menu'
+import { MonthYearSelect } from '@/components/ui/month-year-select'
 import { ThemeSelect } from '@/components/ui/theme-select'
 import { AppUpdateButton } from '@/components/app-update-manager'
 import { BrandLogoMark, BrandWordmark } from '@/components/brand-wordmark'
@@ -65,11 +66,11 @@ import {
   BS_DEGREE_CLASS_NAMES,
   CLASS_USTHADS,
   HIGH_SCHOOL_CLASS_NAMES,
-  MONTHS_META,
   OFFICIAL_CLASS_USTHADS,
   doesUsthadMatchTeacherName,
   ensureCleanLaunchStorage,
   formatTargetClassesBadge,
+  getActiveAcademyClosure,
   getActiveSemester,
   getClassSemesterTimetableByClassName,
   getEffectiveStudentAttendance,
@@ -82,16 +83,19 @@ import {
   loadAttendanceOverrides,
   loadCustomNotices,
   notices as defaultNotices,
+  parseMonthId,
   publishCampusNotification,
   saveAttendanceOverrides,
   saveCustomNotices,
   students,
+  toMonthId,
   type AttendanceOverrideMap,
   type ClassUsthad,
   type Notice,
   type OfficialHolidayMeta,
   type Student,
 } from '@/components/dashboard/data'
+import { LeavePermissionControls } from '@/components/dashboard/leave-permission-controls'
 import { ClassLeaderAttendanceCard } from '@/components/dashboard/class-leader-attendance-card'
 import {
   CURATED_KITABS,
@@ -412,7 +416,13 @@ export function UsthadDashboard() {
   const [selectedStudentId, setSelectedStudentId] = useState<string>(
     () => classStudents[0]?.id ?? students[0].id,
   )
-  const [selectedMonthId, setSelectedMonthId] = useState<string>('2026-06')
+  const [selectedAttendanceYear, setSelectedAttendanceYear] = useState<number>(() =>
+    new Date().getFullYear(),
+  )
+  const [selectedMonthId, setSelectedMonthId] = useState<string>(() => {
+    const now = new Date()
+    return toMonthId(now.getFullYear(), now.getMonth() + 1)
+  })
   const [editPresent, setEditPresent] = useState<number>(0)
   const [editAbsent, setEditAbsent] = useState<number>(0)
   const [editLeave, setEditLeave] = useState<number>(0)
@@ -492,7 +502,10 @@ export function UsthadDashboard() {
   const [holidayType, setHolidayType] = useState<OfficialHolidayMeta['holidayType']>(
     'monthly-second-saturday',
   )
-  const [holidayMonthId, setHolidayMonthId] = useState('2026-06')
+  const [holidayMonthId, setHolidayMonthId] = useState<string>(() => {
+    const now = new Date()
+    return toMonthId(now.getFullYear(), now.getMonth() + 1)
+  })
   const [holidayDepartureDate, setHolidayDepartureDate] = useState(
     'Friday, 13 Nov 2026 (2nd Saturday Eve)',
   )
@@ -551,9 +564,14 @@ export function UsthadDashboard() {
   const selectedStudentEffective = useMemo(
     () =>
       selectedStudent
-        ? getEffectiveStudentAttendance(selectedStudent, attendanceOverrides, customNotices)
+        ? getEffectiveStudentAttendance(
+            selectedStudent,
+            attendanceOverrides,
+            customNotices,
+            selectedAttendanceYear,
+          )
         : null,
-    [selectedStudent, attendanceOverrides, customNotices],
+    [selectedStudent, attendanceOverrides, customNotices, selectedAttendanceYear],
   )
 
   const selectedMonthRecord = useMemo(
@@ -561,6 +579,11 @@ export function UsthadDashboard() {
       selectedStudentEffective?.monthlyAttendance.find((m) => m.id === selectedMonthId) ??
       selectedStudentEffective?.monthlyAttendance[0],
     [selectedStudentEffective, selectedMonthId],
+  )
+
+  const classClosureStatus = useMemo(
+    () => getActiveAcademyClosure(customNotices, activeClassName),
+    [customNotices, activeClassName],
   )
 
   // Keep the editor numeric inputs synced with the currently selected student & month
@@ -1283,6 +1306,12 @@ export function UsthadDashboard() {
               <p>
                 ID <span className="font-mono font-medium tabular-nums text-foreground">{usthad.staffId}</span>
               </p>
+              {classClosureStatus.isClosed ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300">
+                  <span className="size-2 rounded-full bg-amber-500 animate-pulse" aria-hidden="true" />
+                  Academy Closed
+                </span>
+              ) : null}
             </div>
           </div>
         </div>
@@ -1574,23 +1603,16 @@ export function UsthadDashboard() {
                 </ThemeSelect>
               </div>
 
-              <div className="relative">
-                <label htmlFor="usthad-att-month" className="sr-only">
-                  Select month
-                </label>
-                <ThemeSelect
-                  id="usthad-att-month"
-                  value={selectedMonthId}
-                  onChange={(e) => setSelectedMonthId(e.target.value)}
-                  className="h-9 rounded-full bg-muted/70 px-3.5 text-xs font-semibold text-foreground outline-none hover:bg-muted"
-                >
-                  {selectedStudentEffective?.monthlyAttendance.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.month} {m.year}
-                    </option>
-                  ))}
-                </ThemeSelect>
-              </div>
+              <MonthYearSelect
+                idPrefix="usthad-att-period"
+                value={selectedMonthId}
+                year={selectedAttendanceYear}
+                onChange={(nextMonthId, nextYear) => {
+                  setSelectedAttendanceYear(nextYear)
+                  setSelectedMonthId(nextMonthId)
+                }}
+                selectClassName="h-9 rounded-full bg-muted/70 px-3 text-xs font-semibold text-foreground outline-none hover:bg-muted"
+              />
 
               {selectedStudent ? (
                 <button
@@ -1673,35 +1695,36 @@ export function UsthadDashboard() {
                     </button>
                   </div>
 
-                  {/* Working Days vs Official Academy Holidays Excluded Banner */}
-                  <div className="grid grid-cols-2 gap-3 rounded-2xl bg-[#0095F6]/10 p-3.5 text-xs">
+                  {/* Open Days vs Working Days vs Closed Days */}
+                  <div className="grid grid-cols-3 gap-2.5 rounded-2xl bg-[#0095F6]/10 p-3.5 text-xs">
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                        Total Working Days ({selectedMonthRecord?.month})
+                      <span className="text-[10px] font-bold tracking-wider text-emerald-700 uppercase dark:text-emerald-400">
+                        Open Days
                       </span>
                       <span className="mt-0.5 font-display text-base font-bold text-foreground tabular-nums">
-                        {editPresent + editAbsent + editLeave} Working Days
+                        {selectedMonthRecord?.openDays ?? 30}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">Hostel Open</span>
+                    </div>
+                    <div className="flex flex-col border-l border-border/40 pl-2.5">
+                      <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                        Working Days
+                      </span>
+                      <span className="mt-0.5 font-display text-base font-bold text-foreground tabular-nums">
+                        {editPresent + editAbsent + editLeave}
                       </span>
                       <span className="text-[10px] text-muted-foreground">
-                        Present ({editPresent}d) + Absent ({editAbsent}d) + Personal Leave ({editLeave}d)
+                        P {editPresent} · A {editAbsent} · L {editLeave}
                       </span>
                     </div>
-                    <div className="flex flex-col border-l border-border/40 pl-3">
-                      <span className="text-[10px] font-bold tracking-wider text-[#0077CC] uppercase dark:text-[#0095F6]">
-                        Official Academy Holidays (Excluded)
+                    <div className="flex flex-col border-l border-border/40 pl-2.5">
+                      <span className="text-[10px] font-bold tracking-wider text-amber-700 uppercase dark:text-amber-300">
+                        Closed Days
                       </span>
-                      <span className="mt-0.5 font-display text-base font-bold text-[#0077CC] tabular-nums dark:text-[#0095F6]">
-                        {Math.max(
-                          0,
-                          (selectedMonthRecord?.calendarDays ?? 30) -
-                            (editPresent + editAbsent + editLeave),
-                        )}{' '}
-                        Days Excluded
+                      <span className="mt-0.5 font-display text-base font-bold text-amber-700 tabular-nums dark:text-amber-300">
+                        {selectedMonthRecord?.closedDays ?? 0}
                       </span>
-                      <span className="truncate text-[10px] text-muted-foreground">
-                        {selectedMonthRecord?.officialHolidayNote ??
-                          '2nd Sat & Festival Leaves not counted in working days'}
-                      </span>
+                      <span className="text-[10px] text-muted-foreground">Official Leave</span>
                     </div>
                   </div>
 
@@ -2070,6 +2093,19 @@ export function UsthadDashboard() {
             </span>
           }
         >
+          {isAssignedClassUsthadForActiveClass ? (
+            <LeavePermissionControls
+              eligibleStudents={classStudents}
+              actorId={baseUsthad.staffId}
+              actorName={baseUsthad.name}
+              actorRole="usthad"
+            />
+          ) : (
+            <div className="mb-5 rounded-2xl bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+              Student leave unlock for <strong className="text-foreground">Class {activeClassName}</strong> is managed by its assigned Class Usthad or Principal.
+            </div>
+          )}
+
           <div className="grid gap-6 xl:grid-cols-12">
             {/* Live List of Students Currently On Leave + Recent Class Logs */}
             <div className="flex flex-col gap-5 xl:col-span-7">
@@ -2588,21 +2624,16 @@ export function UsthadDashboard() {
 
                     <div className="grid grid-cols-2 gap-2">
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor="holiday-month-select" className="text-[11px]">
-                          Target Month
-                        </Label>
-                        <ThemeSelect
-                          id="holiday-month-select"
+                        <span className="text-[11px] font-medium text-foreground">
+                          Target Month & Year
+                        </span>
+                        <MonthYearSelect
+                          idPrefix="usthad-holiday-period"
                           value={holidayMonthId}
-                          onChange={(e) => setHolidayMonthId(e.target.value)}
-                          className="h-9 rounded-xl bg-popover px-2 text-xs text-foreground outline-none"
-                        >
-                          {MONTHS_META.map((m) => (
-                            <option key={m.id} value={m.id}>
-                              {m.shortMonth} {m.year}
-                            </option>
-                          ))}
-                        </ThemeSelect>
+                          year={parseMonthId(holidayMonthId).year}
+                          onChange={(nextMonthId) => setHolidayMonthId(nextMonthId)}
+                          selectClassName="h-9 rounded-xl bg-popover px-2 text-xs text-foreground outline-none"
+                        />
                       </div>
 
                       <div className="flex flex-col gap-1">

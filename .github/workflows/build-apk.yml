@@ -981,9 +981,16 @@ jobs:
                                   .setPriority(NotificationCompat.PRIORITY_HIGH)
                                   .setAutoCancel(true)
                                   .setContentIntent(pendingIntent);
-                              Bitmap largeIcon = BitmapFactory.decodeResource(getResources(), R.drawable.ics_notif_logo);
-                              if (largeIcon != null) {
-                                  builder.setLargeIcon(largeIcon);
+                              Bitmap rawLargeIcon = BitmapFactory.decodeResource(getResources(), R.drawable.ics_notif_logo);
+                              if (rawLargeIcon != null) {
+                                  int sz = Math.max(192, Math.max(rawLargeIcon.getWidth(), rawLargeIcon.getHeight()));
+                                  Bitmap whiteBacked = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888);
+                                  android.graphics.Canvas c = new android.graphics.Canvas(whiteBacked);
+                                  c.drawColor(Color.WHITE);
+                                  int pad = (int) (sz * 0.10f);
+                                  android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG | android.graphics.Paint.FILTER_BITMAP_FLAG);
+                                  c.drawBitmap(rawLargeIcon, null, new android.graphics.Rect(pad, pad, sz - pad, sz - pad), p);
+                                  builder.setLargeIcon(whiteBacked);
                               }
 
                               NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
@@ -1512,9 +1519,16 @@ jobs:
                           .setPriority(NotificationCompat.PRIORITY_HIGH)
                           .setAutoCancel(true)
                           .setContentIntent(pendingIntent);
-                      Bitmap largeIcon = BitmapFactory.decodeResource(getResources(), R.drawable.ics_notif_logo);
-                      if (largeIcon != null) {
-                          builder.setLargeIcon(largeIcon);
+                      Bitmap rawLargeIcon = BitmapFactory.decodeResource(getResources(), R.drawable.ics_notif_logo);
+                      if (rawLargeIcon != null) {
+                          int sz = Math.max(192, Math.max(rawLargeIcon.getWidth(), rawLargeIcon.getHeight()));
+                          Bitmap whiteBacked = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888);
+                          android.graphics.Canvas c = new android.graphics.Canvas(whiteBacked);
+                          c.drawColor(Color.WHITE);
+                          int pad = (int) (sz * 0.10f);
+                          android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG | android.graphics.Paint.FILTER_BITMAP_FLAG);
+                          c.drawBitmap(rawLargeIcon, null, new android.graphics.Rect(pad, pad, sz - pad, sz - pad), p);
+                          builder.setLargeIcon(whiteBacked);
                       }
 
                       manager.notify(BG_NOTIFICATION_ID, builder.build());
@@ -2589,9 +2603,16 @@ jobs:
                       .setFullScreenIntent(fullScreenPendingIntent, true)
                       .addAction(R.drawable.ic_call_decline, "Decline", declinePendingIntent)
                       .addAction(R.drawable.ic_call_accept, "Accept", acceptPendingIntent);
-                  Bitmap callLargeIcon = BitmapFactory.decodeResource(getResources(), R.drawable.ics_notif_logo);
-                  if (callLargeIcon != null) {
-                      builder.setLargeIcon(callLargeIcon);
+                  Bitmap rawCallIcon = BitmapFactory.decodeResource(getResources(), R.drawable.ics_notif_logo);
+                  if (rawCallIcon != null) {
+                      int sz = Math.max(192, Math.max(rawCallIcon.getWidth(), rawCallIcon.getHeight()));
+                      Bitmap whiteBacked = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888);
+                      android.graphics.Canvas c = new android.graphics.Canvas(whiteBacked);
+                      c.drawColor(Color.WHITE);
+                      int pad = (int) (sz * 0.10f);
+                      android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG | android.graphics.Paint.FILTER_BITMAP_FLAG);
+                      c.drawBitmap(rawCallIcon, null, new android.graphics.Rect(pad, pad, sz - pad, sz - pad), p);
+                      builder.setLargeIcon(whiteBacked);
                   }
 
                   Notification built = builder.build();
@@ -2729,9 +2750,16 @@ jobs:
                                   .setDefaults(NotificationCompat.DEFAULT_ALL)
                                   .setAutoCancel(true)
                                   .setContentIntent(pendingIntent);
-                              Bitmap largeIcon = BitmapFactory.decodeResource(getResources(), R.drawable.ics_notif_logo);
-                              if (largeIcon != null) {
-                                  builder.setLargeIcon(largeIcon);
+                              Bitmap rawLargeIcon = BitmapFactory.decodeResource(getResources(), R.drawable.ics_notif_logo);
+                              if (rawLargeIcon != null) {
+                                  int sz = Math.max(192, Math.max(rawLargeIcon.getWidth(), rawLargeIcon.getHeight()));
+                                  Bitmap whiteBacked = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888);
+                                  android.graphics.Canvas c = new android.graphics.Canvas(whiteBacked);
+                                  c.drawColor(Color.WHITE);
+                                  int pad = (int) (sz * 0.10f);
+                                  android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG | android.graphics.Paint.FILTER_BITMAP_FLAG);
+                                  c.drawBitmap(rawLargeIcon, null, new android.graphics.Rect(pad, pad, sz - pad, sz - pad), p);
+                                  builder.setLargeIcon(whiteBacked);
                               }
 
                               manager.notify(notifyId, builder.build());

@@ -1349,6 +1349,136 @@
         "createdAt",
         "updatedAtMs"
       ]
+    },
+    "CampusLeavePermission": {
+      "title": "CampusLeavePermission",
+      "description": "Per-student one-time leave/return/re-register permission token managed by Class Usthads and Principal with live student Request state.",
+      "type": "object",
+      "properties": {
+        "studentId": {
+          "type": "string",
+          "description": "Canonical student portal ID (e.g., std-1).",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^st[d]?-[a-zA-Z0-9_\\-]+$"
+        },
+        "campusId": {
+          "type": "string",
+          "description": "Fixed campus tenant identifier (ics-academy).",
+          "enum": ["ics-academy"],
+          "minLength": 11,
+          "maxLength": 16
+        },
+        "className": {
+          "type": "string",
+          "description": "Student class name.",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "studentName": {
+          "type": "string",
+          "description": "Student full name.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "status": {
+          "type": "string",
+          "description": "Current permission gate state.",
+          "enum": ["locked", "requested", "allowed"],
+          "minLength": 6,
+          "maxLength": 12
+        },
+        "requestedAction": {
+          "type": "string",
+          "description": "Action requested by the student.",
+          "enum": ["none", "leave", "return"],
+          "minLength": 4,
+          "maxLength": 10
+        },
+        "allowedAction": {
+          "type": "string",
+          "description": "One-time action unlocked by Class Usthad or Principal.",
+          "enum": ["none", "leave", "return", "reregister"],
+          "minLength": 4,
+          "maxLength": 12
+        },
+        "reregisterType": {
+          "type": "string",
+          "description": "Whether a re-registration targets a leave or return entry.",
+          "enum": ["none", "leave", "return"],
+          "minLength": 4,
+          "maxLength": 10
+        },
+        "requestedAtMs": {
+          "type": "integer",
+          "description": "Epoch milliseconds of latest student request.",
+          "minimum": 0
+        },
+        "grantedAtMs": {
+          "type": "integer",
+          "description": "Epoch milliseconds when permission was granted.",
+          "minimum": 0
+        },
+        "grantedById": {
+          "type": "string",
+          "description": "Actor ID of Class Usthad or Principal who granted permission.",
+          "minLength": 0,
+          "maxLength": 64
+        },
+        "grantedByName": {
+          "type": "string",
+          "description": "Display name of staff member who granted permission.",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "grantedByRole": {
+          "type": "string",
+          "description": "Role of granting staff member.",
+          "enum": ["none", "usthad", "principal"],
+          "minLength": 4,
+          "maxLength": 12
+        },
+        "targetRecordId": {
+          "type": "string",
+          "description": "Optional leave record ID being corrected on re-registration.",
+          "minLength": 0,
+          "maxLength": 128
+        },
+        "lastUsedAtMs": {
+          "type": "integer",
+          "description": "Epoch milliseconds when permission was last consumed.",
+          "minimum": 0
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the permission document was created."
+        },
+        "updatedAtMs": {
+          "type": "integer",
+          "description": "Epoch milliseconds of last state update.",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "studentId",
+        "campusId",
+        "className",
+        "studentName",
+        "status",
+        "requestedAction",
+        "allowedAction",
+        "reregisterType",
+        "requestedAtMs",
+        "grantedAtMs",
+        "grantedById",
+        "grantedByName",
+        "grantedByRole",
+        "targetRecordId",
+        "lastUsedAtMs",
+        "createdAt",
+        "updatedAtMs"
+      ]
     }
   },
   "firestore": {
@@ -1399,6 +1529,10 @@
     "/campusWebPushSubs/{subId}": {
       "schema": { "$ref": "#/entities/CampusWebPushSub" },
       "description": "Stores encrypted Web Push device subscriptions for iPhone Home Screen PWA and web browsers."
+    },
+    "/campusLeavePermissions/{studentId}": {
+      "schema": { "$ref": "#/entities/CampusLeavePermission" },
+      "description": "Stores per-student one-time leave/return/re-register permissions granted by Class Usthads or Principal."
     }
   }
 }

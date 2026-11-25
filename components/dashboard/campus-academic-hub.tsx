@@ -47,8 +47,8 @@ import {
 } from '@/components/dashboard/academic-hub-data'
 import {
   CLASS_USTHADS,
-  MONTHS_META,
   OFFICIAL_CLASS_USTHADS,
+  buildMonthMetaForId,
   doesUsthadMatchTeacherName,
   findUsthadForTeacherName,
   getActiveSemester,
@@ -56,6 +56,7 @@ import {
   getUsthadScheduledPeriodsAcrossClasses,
   isNonTeachingTimetableSlot,
   normalizeClassName,
+  parseMonthId,
   publishCampusNotification,
   students,
   type ClassUsthad,
@@ -67,6 +68,7 @@ import { Button } from '@/components/ui/button'
 import { DeleteActionMenu } from '@/components/ui/delete-action-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { MonthYearSelect } from '@/components/ui/month-year-select'
 import { ThemeSelect } from '@/components/ui/theme-select'
 import { cn } from '@/lib/utils'
 
@@ -296,20 +298,13 @@ export function StarOfTheMonthSpotlight({
         </div>
 
         {onSelectMonth && (
-          <div className="w-full sm:w-48">
-            <ThemeSelect
-              value={monthId}
-              onChange={(e) => onSelectMonth(e.target.value)}
-              aria-label="Select Star of the Month period"
-              className="border-0 bg-background/90 text-xs text-foreground dark:bg-white/10 dark:text-white"
-            >
-              {MONTHS_META.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.month} {m.year}
-                </option>
-              ))}
-            </ThemeSelect>
-          </div>
+          <MonthYearSelect
+            idPrefix="star-month-period"
+            value={monthId}
+            year={parseMonthId(monthId).year}
+            onChange={(nextMonthId) => onSelectMonth(nextMonthId)}
+            selectClassName="h-9 rounded-xl border-0 bg-background/90 px-2.5 text-xs font-semibold text-foreground dark:bg-white/10 dark:text-white"
+          />
         )}
       </div>
 
@@ -603,10 +598,8 @@ function ClassZadulKhairManager({
     setZkEdits({})
   }, [normClass, selectedMonth])
 
-  const selectedMonthMeta = MONTHS_META.find((m) => m.id === selectedMonth)
-  const selectedMonthLabel = selectedMonthMeta
-    ? `${selectedMonthMeta.month} ${selectedMonthMeta.year}`
-    : selectedMonth
+  const selectedMonthMeta = buildMonthMetaForId(selectedMonth)
+  const selectedMonthLabel = `${selectedMonthMeta.month} ${selectedMonthMeta.year}`
 
   const studentRows = useMemo(() => {
     return classStudents.map((stu) => {
@@ -801,19 +794,13 @@ function ClassZadulKhairManager({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="w-44">
-            <ThemeSelect
-              value={selectedMonth}
-              onChange={(e) => onSelectMonth(e.target.value)}
-              aria-label="Select Zadul Khair Month"
-            >
-              {MONTHS_META.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.month} {m.year}
-                </option>
-              ))}
-            </ThemeSelect>
-          </div>
+          <MonthYearSelect
+            idPrefix="zk-staff-period"
+            value={selectedMonth}
+            year={parseMonthId(selectedMonth).year}
+            onChange={(nextMonthId) => onSelectMonth(nextMonthId)}
+            selectClassName="h-9 rounded-xl border border-input bg-background px-2.5 text-xs font-semibold text-foreground outline-none"
+          />
           <Button
             type="button"
             size="sm"
@@ -1652,19 +1639,13 @@ export function StudentAcademicHub({
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <div className="w-44">
-                  <ThemeSelect
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
-                    aria-label="Select Syllabus Month"
-                  >
-                    {MONTHS_META.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.month} {m.year}
-                      </option>
-                    ))}
-                  </ThemeSelect>
-                </div>
+                <MonthYearSelect
+                  idPrefix="student-syllabus-period"
+                  value={selectedMonth}
+                  year={parseMonthId(selectedMonth).year}
+                  onChange={(nextMonthId) => setSelectedMonth(nextMonthId)}
+                  selectClassName="h-9 rounded-xl border border-input bg-background px-2.5 text-xs font-semibold text-foreground outline-none"
+                />
                 {isClassLeader && (
                   <Button
                     type="button"
@@ -2730,19 +2711,13 @@ export function StudentAcademicHub({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <div className="w-40">
-                      <ThemeSelect
-                        value={selectedMonth}
-                        onChange={(e) => setSelectedMonth(e.target.value)}
-                        aria-label="Select Zadul Khair Statement Month"
-                      >
-                        {MONTHS_META.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.month} {m.year}
-                          </option>
-                        ))}
-                      </ThemeSelect>
-                    </div>
+                    <MonthYearSelect
+                      idPrefix="student-zk-period"
+                      value={selectedMonth}
+                      year={parseMonthId(selectedMonth).year}
+                      onChange={(nextMonthId) => setSelectedMonth(nextMonthId)}
+                      selectClassName="h-9 rounded-xl border border-input bg-background px-2.5 text-xs font-semibold text-foreground outline-none"
+                    />
                     <Button
                       type="button"
                       size="sm"
@@ -3591,19 +3566,13 @@ export function UsthadAcademicHub({
                     </h4>
                   </div>
 
-                  <div className="w-44 shrink-0">
-                    <ThemeSelect
-                      value={selectedMonth}
-                      onChange={(e) => setSelectedMonth(e.target.value)}
-                      aria-label="Select Syllabus Month"
-                    >
-                      {MONTHS_META.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.month} {m.year}
-                        </option>
-                      ))}
-                    </ThemeSelect>
-                  </div>
+                  <MonthYearSelect
+                    idPrefix="usthad-syllabus-period"
+                    value={selectedMonth}
+                    year={parseMonthId(selectedMonth).year}
+                    onChange={(nextMonthId) => setSelectedMonth(nextMonthId)}
+                    selectClassName="h-9 rounded-xl border border-input bg-background px-2.5 text-xs font-semibold text-foreground outline-none"
+                  />
                 </div>
 
                 <div className="grid gap-3.5 md:grid-cols-2">

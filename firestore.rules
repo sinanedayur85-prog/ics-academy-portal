@@ -1205,5 +1205,121 @@ service cloud.firestore {
         && resource != null
         && existing().campusId == 'ics-academy';
     }
+
+    // Validation Blueprint: CampusLeavePermission
+    function isValidCampusLeavePermission(data) {
+      return data.keys().hasAll([
+          'studentId',
+          'campusId',
+          'className',
+          'studentName',
+          'status',
+          'requestedAction',
+          'allowedAction',
+          'reregisterType',
+          'requestedAtMs',
+          'grantedAtMs',
+          'grantedById',
+          'grantedByName',
+          'grantedByRole',
+          'targetRecordId',
+          'lastUsedAtMs',
+          'createdAt',
+          'updatedAtMs'
+        ])
+        && data.keys().hasOnly([
+          'studentId',
+          'campusId',
+          'className',
+          'studentName',
+          'status',
+          'requestedAction',
+          'allowedAction',
+          'reregisterType',
+          'requestedAtMs',
+          'grantedAtMs',
+          'grantedById',
+          'grantedByName',
+          'grantedByRole',
+          'targetRecordId',
+          'lastUsedAtMs',
+          'createdAt',
+          'updatedAtMs'
+        ])
+        && data.studentId is string
+        && data.studentId.size() >= 4
+        && data.studentId.size() <= 64
+        && data.studentId.matches('^st[d]?-[a-zA-Z0-9_\\-]+$')
+        && data.campusId == 'ics-academy'
+        && data.className is string
+        && data.className.size() >= 1
+        && data.className.size() <= 40
+        && data.studentName is string
+        && data.studentName.size() >= 1
+        && data.studentName.size() <= 120
+        && data.status is string
+        && (data.status == 'locked' || data.status == 'requested' || data.status == 'allowed')
+        && data.requestedAction is string
+        && (data.requestedAction == 'none' || data.requestedAction == 'leave' || data.requestedAction == 'return')
+        && data.allowedAction is string
+        && (data.allowedAction == 'none' || data.allowedAction == 'leave' || data.allowedAction == 'return' || data.allowedAction == 'reregister')
+        && data.reregisterType is string
+        && (data.reregisterType == 'none' || data.reregisterType == 'leave' || data.reregisterType == 'return')
+        && data.requestedAtMs is int
+        && data.requestedAtMs >= 0
+        && data.grantedAtMs is int
+        && data.grantedAtMs >= 0
+        && data.grantedById is string
+        && data.grantedById.size() <= 64
+        && (data.grantedById == '' || isPortalActorId(data.grantedById))
+        && data.grantedByName is string
+        && data.grantedByName.size() <= 120
+        && data.grantedByRole is string
+        && (data.grantedByRole == 'none' || data.grantedByRole == 'usthad' || data.grantedByRole == 'principal')
+        && data.targetRecordId is string
+        && data.targetRecordId.size() <= 128
+        && data.lastUsedAtMs is int
+        && data.lastUsedAtMs >= 0
+        && data.createdAt is timestamp
+        && data.updatedAtMs is int
+        && data.updatedAtMs > 0;
+    }
+
+    // Collection: /campusLeavePermissions/{studentId}
+    match /campusLeavePermissions/{studentId} {
+      allow get: if isValidId(studentId)
+        && studentId.matches('^st[d]?-[a-zA-Z0-9_\\-]+$')
+        && (resource == null || (existing().campusId == 'ics-academy' && existing().studentId == studentId));
+      allow list: if existing().campusId == 'ics-academy';
+      allow create: if isValidId(studentId)
+        && studentId.matches('^st[d]?-[a-zA-Z0-9_\\-]+$')
+        && isValidCampusLeavePermission(incoming())
+        && incoming().studentId == studentId
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(studentId)
+        && studentId.matches('^st[d]?-[a-zA-Z0-9_\\-]+$')
+        && resource != null
+        && isValidCampusLeavePermission(incoming())
+        && incoming().studentId == existing().studentId
+        && incoming().campusId == existing().campusId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'className',
+          'studentName',
+          'status',
+          'requestedAction',
+          'allowedAction',
+          'reregisterType',
+          'requestedAtMs',
+          'grantedAtMs',
+          'grantedById',
+          'grantedByName',
+          'grantedByRole',
+          'targetRecordId',
+          'lastUsedAtMs',
+          'updatedAtMs'
+        ]);
+      allow delete: if false;
+    }
   }
 }

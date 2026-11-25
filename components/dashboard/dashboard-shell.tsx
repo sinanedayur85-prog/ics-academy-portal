@@ -29,9 +29,12 @@ import { StudentAcademicHub } from '@/components/dashboard/campus-academic-hub'
 import { CampusMessenger } from '@/components/dashboard/campus-messenger'
 import { ClassLeaderAttendanceCard } from '@/components/dashboard/class-leader-attendance-card'
 import {
+  getActiveAcademyClosure,
   getClassLeadersForClass,
   getLeaderInfoForStudent,
+  loadCustomNotices,
   students,
+  type Notice,
 } from '@/components/dashboard/data'
 import { DigitalLibrary } from '@/components/dashboard/digital-library'
 import { ExamResultCard } from '@/components/dashboard/exam-result-card'
@@ -92,6 +95,8 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
     return students[0].id
   })
   const [isOnLeave, setIsOnLeave] = useState(false)
+  const [customNotices, setCustomNotices] = useState<Notice[]>([])
+  const [clockTick, setClockTick] = useState(() => Date.now())
   const [profilePhotoOpen, setProfilePhotoOpen] = useState(false)
   const [, setAcademyConfigVersion] = useState(0)
   const [mobileTab, setMobileTab] = useState<MobileTabId>('home')
@@ -103,13 +108,24 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
 
   useEffect(() => {
     const refreshConfig = () => setAcademyConfigVersion((v) => v + 1)
+    const refreshNotices = () => setCustomNotices(loadCustomNotices())
+    refreshNotices()
+    const timer = window.setInterval(() => setClockTick(Date.now()), 60_000)
     window.addEventListener('ics-academy-config-updated', refreshConfig)
+    window.addEventListener('ics-notices-updated', refreshNotices)
+    window.addEventListener('storage', refreshNotices)
     return () => {
+      window.clearInterval(timer)
       window.removeEventListener('ics-academy-config-updated', refreshConfig)
+      window.removeEventListener('ics-notices-updated', refreshNotices)
+      window.removeEventListener('storage', refreshNotices)
     }
   }, [])
 
   const student = students.find((s) => s.id === selectedStudentId) ?? students[0]
+  const closureStatus = getActiveAcademyClosure(customNotices, student.className, clockTick)
+  const isAcademyClosed = closureStatus.isClosed
+  const currentYear = new Date(clockTick).getFullYear()
   const leaderInfo = getLeaderInfoForStudent(student)
   const classLeaders = getClassLeadersForClass(student.className)
   const leaderId =
@@ -267,7 +283,7 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               {isClassLeader ? 'Class Leader Dashboard' : 'Student Dashboard'}
             </p>
-            <p className="text-sm font-medium text-foreground">Academic year 2026–27</p>
+            <p className="text-sm font-medium text-foreground">Academic Year {currentYear}</p>
           </div>
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
             <AppUpdateButton />
@@ -333,30 +349,36 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
                 </a>
               )}
               <a
-                href="#leave"
+                href={isAcademyClosed ? '#notices' : '#leave'}
                 onClick={(e) => {
                   if (window.innerWidth < 1024) {
                     e.preventDefault()
-                    setMobileTab('leave')
+                    setMobileTab(isAcademyClosed ? 'home' : 'leave')
                   }
                 }}
                 role="status"
                 aria-live="polite"
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-xs font-semibold tracking-wide transition-colors duration-200',
-                  isOnLeave
-                    ? 'bg-red-500/15 text-red-600 dark:bg-red-500/20 dark:text-red-400'
-                    : 'bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
+                  isAcademyClosed
+                    ? 'bg-amber-500/15 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
+                    : isOnLeave
+                      ? 'bg-red-500/15 text-red-600 dark:bg-red-500/20 dark:text-red-400'
+                      : 'bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
                 )}
               >
                 <span
                   className={cn(
                     'size-2 rounded-full',
-                    isOnLeave ? 'bg-red-500 animate-pulse' : 'bg-emerald-500',
+                    isAcademyClosed
+                      ? 'bg-amber-500 animate-pulse'
+                      : isOnLeave
+                        ? 'bg-red-500 animate-pulse'
+                        : 'bg-emerald-500',
                   )}
                   aria-hidden="true"
                 />
-                {isOnLeave ? 'On Leave' : 'At Academy'}
+                {isAcademyClosed ? 'Academy Closed' : isOnLeave ? 'On Leave' : 'At Academy'}
               </a>
             </div>
             <div className="mt-2 flex items-center gap-3.5">
@@ -701,7 +723,11 @@ export function DashboardShell({ isClassLeader = false }: DashboardShellProps) {
               <span
                 className={cn(
                   'absolute top-1 right-2 size-2 rounded-full',
-                  isOnLeave ? 'bg-red-500 animate-pulse' : 'bg-emerald-500',
+                  isAcademyClosed
+                    ? 'bg-amber-500 animate-pulse'
+                    : isOnLeave
+                      ? 'bg-red-500 animate-pulse'
+                      : 'bg-emerald-500',
                 )}
               />
             </span>

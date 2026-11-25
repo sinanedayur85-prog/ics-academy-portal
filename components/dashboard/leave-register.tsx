@@ -19,9 +19,13 @@ import {
   ClipboardList,
   Clock,
   Filter,
+  Lock,
   LogIn,
   LogOut,
+  RotateCcw,
   Search,
+  Send,
+  ShieldCheck,
 } from 'lucide-react'
 import { ThemeSelect } from '@/components/ui/theme-select'
 import {
@@ -29,15 +33,24 @@ import {
   ATTENDANCE_LEAVE_REASONS,
   OFFICIAL_LAUNCH_TIMESTAMP_MS,
   ensureCleanLaunchStorage,
+  getActiveAcademyClosure,
+  getAvailableYears,
   getEffectiveStudentAttendance,
   leaveReasons,
   loadAttendanceOverrides,
+  loadCustomNotices,
   loadPeriodAttendanceSubmissions,
   publishCampusNotification,
   type AttendanceOverrideMap,
+  type Notice,
   type PeriodAttendanceSubmission,
   type Student,
 } from '@/components/dashboard/data'
+import {
+  lockStudentLeavePermission,
+  requestStudentLeavePermission,
+  useStudentLeavePermission,
+} from '@/components/dashboard/leave-permission-store'
 import { Panel, fieldClassName } from '@/components/dashboard/panel'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -85,7 +98,9 @@ const ACADEMIC_MONTHS: readonly MonthShort[] = [
   'May',
 ]
 
-const BASE_YEARS = ['2025', '2026', '2027', '2028']
+function getDynamicYearStrings(): string[] {
+  return getAvailableYears().map(String)
+}
 
 const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'))
@@ -237,10 +252,34 @@ export function LeaveRegister({
   const [authReady, setAuthReady] = useState(false)
   const [cloudEntries, setCloudEntries] = useState<SavedLeaveEntry[]>([])
   const [localEntries, setLocalEntries] = useState<SavedLeaveEntry[]>([])
+  const [customNotices, setCustomNotices] = useState<Notice[]>([])
+  const [clockTick, setClockTick] = useState(() => Date.now())
+  const [requestSending, setRequestSending] = useState(false)
+  const [justSubmittedNotice, setJustSubmittedNotice] = useState<string | null>(null)
+
+  const permission = useStudentLeavePermission(student)
+  const closureStatus = useMemo(
+    () => getActiveAcademyClosure(customNotices, student.className, clockTick),
+    [customNotices, student.className, clockTick],
+  )
+  const isAcademyClosed = closureStatus.isClosed
 
   const safeStudentId = sanitizeId(student.id)
   const activeUid = firebaseUser ? firebaseUser.uid : `portal_${safeStudentId}`
   const storageKey = `ics_leave_records_v2_${safeStudentId}`
+
+  useEffect(() => {
+    const syncNotices = () => setCustomNotices(loadCustomNotices())
+    syncNotices()
+    const timer = window.setInterval(() => setClockTick(Date.now()), 60_000)
+    window.addEventListener('ics-notices-updated', syncNotices)
+    window.addEventListener('storage', syncNotices)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('ics-notices-updated', syncNotices)
+      window.removeEventListener('storage', syncNotices)
+    }
+  }, [])
 
   useEffect(() => {
     try {
@@ -356,7 +395,15 @@ export function LeaveRegister({
       href: '#leave',
     })
 
-    if (!firebaseUser) return
+    if (!firebaseUser) {
+      await lockStudentLeavePermission({ student, consumed: true })
+      setJustSubmittedNotice(
+        entry.recordType === 'return'
+          ? 'Return registered. Access locked automatically.'
+          : 'Leave registered. Access locked automatically.',
+      )
+      return
+    }
 
     const path = `leaveRecords/${recordId}`
     try {
@@ -382,6 +429,13 @@ export function LeaveRegister({
           // Logged by handleFirestoreError; local entry remains visible
         }
       }
+    } finally {
+      await lockStudentLeavePermission({ student, consumed: true })
+      setJustSubmittedNotice(
+        entry.recordType === 'return'
+          ? 'Return registered. Access locked automatically.'
+          : 'Leave registered. Access locked automatically.',
+      )
     }
   }
 
@@ -440,6 +494,35 @@ export function LeaveRegister({
   useEffect(() => {
     onLeaveStatusChange?.(isOnLeave)
   }, [isOnLeave, onLeaveStatusChange])
+
+  const isPermissionAllowed = permission.status === 'allowed' && permission.allowedAction !== 'none'
+  const isReRegisterMode = isPermissionAllowed && permission.allowedAction === 'reregister'
+  const allowedTab: Tab | null = !isPermissionAllowed
+    ? null
+    : permission.allowedAction === 'leave'
+      ? 'application'
+      : permission.allowedAction === 'return'
+        ? 'return'
+        : permission.reregisterType === 'return'
+          ? 'return'
+          : 'application'
+
+  useEffect(() => {
+    if (allowedTab) {
+      setActiveTab(allowedTab)
+      setJustSubmittedNotice(null)
+    }
+  }, [allowedTab])
+
+  async function handleRequestPermission(requestType: 'leave' | 'return') {
+    setRequestSending(true)
+    setJustSubmittedNotice(null)
+    try {
+      await requestStudentLeavePermission({ student, action: requestType })
+    } finally {
+      setRequestSending(false)
+    }
+  }
 
   // Build unified searchable items across Leave Register, Period Absents/Leaves, and Monthly Absents/Leaves
   const unifiedHistoryItems = useMemo(() => {
@@ -601,19 +684,25 @@ export function LeaveRegister({
           <span
             className={cn(
               'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold tracking-wide',
-              isOnLeave
-                ? 'bg-red-500/15 text-red-600 dark:bg-red-500/20 dark:text-red-400'
-                : 'bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
+              isAcademyClosed
+                ? 'bg-amber-500/15 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
+                : isOnLeave
+                  ? 'bg-red-500/15 text-red-600 dark:bg-red-500/20 dark:text-red-400'
+                  : 'bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
             )}
           >
             <span
               className={cn(
                 'size-2 rounded-full',
-                isOnLeave ? 'bg-red-500 animate-pulse' : 'bg-emerald-500',
+                isAcademyClosed
+                  ? 'bg-amber-500 animate-pulse'
+                  : isOnLeave
+                    ? 'bg-red-500 animate-pulse'
+                    : 'bg-emerald-500',
               )}
               aria-hidden="true"
             />
-            {isOnLeave ? 'On Leave' : 'At Academy'}
+            {isAcademyClosed ? 'Academy Closed' : isOnLeave ? 'On Leave' : 'At Academy'}
           </span>
         </div>
       }
@@ -679,59 +768,174 @@ export function LeaveRegister({
         </div>
       </div>
 
-      {/* 2. LEAVE APPLICATION & RETURN TABS */}
-      <div
-        role="tablist"
-        aria-label="Leave register"
-        className="mb-5 grid grid-cols-2 gap-1.5 rounded-2xl bg-muted p-1"
-      >
-        {tabs.map((tab) => {
-          const selected = activeTab === tab.id
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              id={`leave-tab-${tab.id}`}
-              aria-selected={selected}
-              aria-controls={`leave-panel-${tab.id}`}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'flex h-10 min-w-0 items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-3 text-xs sm:text-sm font-semibold transition-all duration-150 outline-none active:scale-[0.98]',
-                selected
-                  ? 'bg-[#0095F6] text-white'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <tab.icon className="size-3.5 sm:size-4 shrink-0" aria-hidden="true" />
-              <span className="truncate">{tab.label}</span>
-            </button>
-          )
-        })}
-      </div>
+      {/* 1.5 OFFICIAL ACADEMY CLOSURE BANNER (WHEN LIVE) */}
+      {isAcademyClosed && closureStatus.primaryNotice ? (
+        <div className="mb-5 flex items-start gap-3 rounded-2xl bg-amber-500/12 p-4 text-xs text-amber-800 dark:text-amber-300">
+          <CalendarClock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <div className="space-y-0.5">
+            <p className="font-bold text-foreground">Academy Closed</p>
+            <p className="text-muted-foreground">
+              {closureStatus.primaryNotice.title} • Return: {closureStatus.returnLabel}
+            </p>
+          </div>
+        </div>
+      ) : null}
 
-      <div
-        role="tabpanel"
-        id={`leave-panel-${activeTab}`}
-        aria-labelledby={`leave-tab-${activeTab}`}
-        className="animate-in fade-in-0 slide-in-from-bottom-1 duration-300"
-        key={`${activeTab}-${student.id}`}
-      >
-        {activeTab === 'application' ? (
-          <LeaveApplicationForm
-            student={student}
-            isOnLeave={isOnLeave}
-            latestApplicationEntry={latestApplicationEntry}
-            onRecord={recordLeaveEntry}
-          />
-        ) : (
-          <ReturnRegistryForm
-            student={student}
-            activeLeaveEntry={activeLeaveEntry}
-            onRecord={recordLeaveEntry}
-          />
-        )}
-      </div>
+      {/* 2. USTHAD / PRINCIPAL PERMISSION GATE */}
+      {!isPermissionAllowed ? (
+        <div className="mb-5 rounded-2xl border border-border/60 bg-muted/45 p-5">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="flex items-start gap-3">
+              <span
+                className={cn(
+                  'mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl',
+                  permission.status === 'requested'
+                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
+                    : 'bg-muted text-muted-foreground',
+                )}
+              >
+                {permission.status === 'requested' ? (
+                  <Clock className="size-5" aria-hidden="true" />
+                ) : (
+                  <Lock className="size-5" aria-hidden="true" />
+                )}
+              </span>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-bold text-foreground">Permission Required</h3>
+                  <span
+                    className={cn(
+                      'rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                      permission.status === 'requested'
+                        ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                        : 'bg-muted text-muted-foreground',
+                    )}
+                  >
+                    {permission.status === 'requested' ? 'Requested' : 'Locked'}
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {permission.status === 'requested'
+                    ? 'Request sent to your Class Usthad and Principal. Registration will unlock once approved.'
+                    : 'Meet or call your Class Usthad or Principal before registering leave or return.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                disabled={requestSending}
+                onClick={() => handleRequestPermission(isOnLeave ? 'return' : 'leave')}
+                className="h-10 rounded-full px-5 text-xs font-semibold"
+              >
+                <Send className="mr-1.5 size-3.5" aria-hidden="true" />
+                {permission.status === 'requested'
+                  ? 'Requested'
+                  : isOnLeave
+                    ? 'Request Return'
+                    : 'Request Leave'}
+              </Button>
+            </div>
+          </div>
+
+          {justSubmittedNotice ? (
+            <div className="mt-4">
+              <SuccessMessage message={justSubmittedNotice} />
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <>
+          {/* Active One-Time Permission Banner */}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-emerald-500/12 px-4 py-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              {isReRegisterMode ? (
+                <RotateCcw className="size-4 shrink-0 text-[#0077CC] dark:text-[#0095F6]" aria-hidden="true" />
+              ) : (
+                <ShieldCheck className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+              )}
+              <div>
+                <span className="font-bold text-foreground">
+                  {isReRegisterMode
+                    ? 'Re-Register Unlocked'
+                    : allowedTab === 'return'
+                      ? 'Return Unlocked'
+                      : 'Leave Unlocked'}
+                </span>
+                <span className="ml-2 text-muted-foreground">
+                  Allowed by {permission.grantedByName || 'Class Usthad'} • One-time access
+                </span>
+              </div>
+            </div>
+            <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-300">
+              {isReRegisterMode ? 'Re-Register' : 'Allowed'}
+            </span>
+          </div>
+
+          {/* Tabs */}
+          <div
+            role="tablist"
+            aria-label="Leave register"
+            className="mb-5 grid grid-cols-2 gap-1.5 rounded-2xl bg-muted p-1"
+          >
+            {tabs.map((tab) => {
+              const selected = activeTab === tab.id
+              const disabledTab = !isReRegisterMode && allowedTab !== tab.id
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  disabled={disabledTab}
+                  id={`leave-tab-${tab.id}`}
+                  aria-selected={selected}
+                  aria-controls={`leave-panel-${tab.id}`}
+                  onClick={() => {
+                    if (!disabledTab) setActiveTab(tab.id)
+                  }}
+                  className={cn(
+                    'flex h-10 min-w-0 items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-3 text-xs sm:text-sm font-semibold transition-all duration-150 outline-none active:scale-[0.98]',
+                    selected
+                      ? 'bg-[#0095F6] text-white'
+                      : disabledTab
+                        ? 'cursor-not-allowed opacity-40 text-muted-foreground'
+                        : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <tab.icon className="size-3.5 sm:size-4 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{tab.label}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          <div
+            role="tabpanel"
+            id={`leave-panel-${activeTab}`}
+            aria-labelledby={`leave-tab-${activeTab}`}
+            className="animate-in fade-in-0 slide-in-from-bottom-1 duration-300"
+            key={`${activeTab}-${student.id}`}
+          >
+            {activeTab === 'application' ? (
+              <LeaveApplicationForm
+                student={student}
+                isOnLeave={isOnLeave}
+                isReRegister={isReRegisterMode}
+                latestApplicationEntry={latestApplicationEntry}
+                onRecord={recordLeaveEntry}
+              />
+            ) : (
+              <ReturnRegistryForm
+                student={student}
+                activeLeaveEntry={activeLeaveEntry}
+                isReRegister={isReRegisterMode}
+                onRecord={recordLeaveEntry}
+              />
+            )}
+          </div>
+        </>
+      )}
 
       {/* 3. SEARCH & FILTER LEAVE, RETURN & ABSENT HISTORY (No Delete Buttons) */}
       <div className="mt-6 border-t border-border/50 pt-5">
@@ -839,7 +1043,7 @@ export function LeaveRegister({
               className="h-10 w-full rounded-xl border-0 bg-background px-2.5 text-xs text-foreground outline-none dark:bg-[#0B1014]"
             >
               <option value="all">All Years</option>
-              {BASE_YEARS.map((y) => (
+              {getDynamicYearStrings().map((y) => (
                 <option key={y} value={y}>
                   {y}
                 </option>
@@ -965,9 +1169,10 @@ type DateSelectGroupProps = {
 }
 
 export function DateSelectGroup({ idPrefix, label, value, onChange }: DateSelectGroupProps) {
-  const yearOptions = BASE_YEARS.includes(value.year)
-    ? BASE_YEARS
-    : Array.from(new Set([value.year, ...BASE_YEARS])).sort()
+  const baseYears = getDynamicYearStrings()
+  const yearOptions = baseYears.includes(value.year)
+    ? baseYears
+    : Array.from(new Set([value.year, ...baseYears])).sort()
 
   return (
     <div className="flex flex-col gap-2" role="group" aria-labelledby={`${idPrefix}-label`}>
@@ -1147,11 +1352,13 @@ export function TimeSelectGroup({
 function LeaveApplicationForm({
   student,
   isOnLeave,
+  isReRegister = false,
   latestApplicationEntry,
   onRecord,
 }: {
   student: Student
   isOnLeave: boolean
+  isReRegister?: boolean
   latestApplicationEntry: SavedLeaveEntry | null
   onRecord: (entry: Omit<SavedLeaveEntry, 'id' | 'uid' | 'createdAtMs' | 'syncedToCloud'>) => Promise<void>
 }) {
@@ -1217,7 +1424,7 @@ function LeaveApplicationForm({
   const isSameOrEarlierDay =
     nextAllowedDayStartMs !== null && selectedDayStartMs < nextAllowedDayStartMs
 
-  const isLeaveBlocked = isOnLeave || isSameOrEarlierDay
+  const isLeaveBlocked = !isReRegister && (isOnLeave || isSameOrEarlierDay)
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -1353,10 +1560,12 @@ function LeaveApplicationForm({
 function ReturnRegistryForm({
   student,
   activeLeaveEntry,
+  isReRegister = false,
   onRecord,
 }: {
   student: Student
   activeLeaveEntry: SavedLeaveEntry | null
+  isReRegister?: boolean
   onRecord: (entry: Omit<SavedLeaveEntry, 'id' | 'uid' | 'createdAtMs' | 'syncedToCloud'>) => Promise<void>
 }) {
   const [returnDate, setReturnDate] = useState<DateValue>(() => getCurrentDateTime().date)
@@ -1428,9 +1637,11 @@ function ReturnRegistryForm({
       ? Math.max(1, Math.ceil((minReturnMs - selectedReturnMs) / (1000 * 60 * 60)))
       : 0
 
+  const canSubmitReturn = isReRegister || (Boolean(activeLeaveEntry) && isTwelveHoursMet)
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!activeLeaveEntry || !isTwelveHoursMet) return
+    if (!canSubmitReturn) return
 
     void onRecord({
       studentId: student.id,
@@ -1522,10 +1733,10 @@ function ReturnRegistryForm({
 
       <Button
         type="submit"
-        disabled={!activeLeaveEntry || !isTwelveHoursMet}
+        disabled={!canSubmitReturn}
         className="h-11 w-full rounded-full font-semibold sm:w-auto sm:self-end sm:px-8"
       >
-        Register return
+        {isReRegister ? 'Re-Register Return' : 'Register Return'}
       </Button>
     </form>
   )

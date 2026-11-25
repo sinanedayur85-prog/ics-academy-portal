@@ -17,17 +17,21 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MonthYearSelect } from '@/components/ui/month-year-select'
 import {
   ABSENT_REASONS,
   ATTENDANCE_LEAVE_REASONS,
   CLASS_USTHADS,
   CURRENT_SEMESTER,
   ensureCleanLaunchStorage,
+  getActiveAcademyClosure,
   getClassSemesterTimetable,
   getEffectiveStudentAttendance,
   loadAttendanceOverrides,
+  loadCustomNotices,
   loadPeriodAttendanceSubmissions,
   type AttendanceOverrideMap,
+  type Notice,
   type PeriodAttendanceStatus,
   type PeriodAttendanceSubmission,
   type Student,
@@ -156,7 +160,10 @@ export function ParentReportModal({
   const [reportDate, setReportDate] = useState<string>(
     initialDate || getTodayDateString(),
   )
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear())
+  const [selectedMonthId, setSelectedMonthId] = useState<string>('overall')
   const [overrides, setOverrides] = useState<AttendanceOverrideMap>({})
+  const [customNotices, setCustomNotices] = useState<Notice[]>([])
   const [periodSubmissions, setPeriodSubmissions] = useState<
     Record<string, PeriodAttendanceSubmission>
   >({})
@@ -177,6 +184,7 @@ export function ParentReportModal({
   useEffect(() => {
     if (!student) return
     setOverrides(loadAttendanceOverrides())
+    setCustomNotices(loadCustomNotices())
     setPeriodSubmissions(loadPeriodAttendanceSubmissions())
     setLeaveEntries(loadStudentLeaveEntries(student.id))
   }, [student])
@@ -191,8 +199,22 @@ export function ParentReportModal({
 
   const effectiveAttendance = useMemo(() => {
     if (!student) return null
-    return getEffectiveStudentAttendance(student, overrides)
-  }, [student, overrides])
+    return getEffectiveStudentAttendance(student, overrides, customNotices, selectedYear)
+  }, [student, overrides, customNotices, selectedYear])
+
+  const displayedMonthlyRows = useMemo(() => {
+    if (!effectiveAttendance) return []
+    if (selectedMonthId === 'overall') return effectiveAttendance.monthlyAttendance
+    const matched = effectiveAttendance.monthlyAttendance.find((m) => m.id === selectedMonthId)
+    return matched ? [matched] : effectiveAttendance.monthlyAttendance
+  }, [effectiveAttendance, selectedMonthId])
+
+  const reportPeriodLabel = useMemo(() => {
+    if (selectedMonthId !== 'overall' && displayedMonthlyRows.length === 1) {
+      return `${displayedMonthlyRows[0].month} ${displayedMonthlyRows[0].year}`
+    }
+    return `Year ${selectedYear}`
+  }, [selectedMonthId, displayedMonthlyRows, selectedYear])
 
   const overallStats = useMemo(() => {
     if (!effectiveAttendance) {
@@ -201,12 +223,29 @@ export function ParentReportModal({
         absent: 0,
         leave: 0,
         total: 0,
+        openDays: 0,
+        closedDays: 0,
         officialHolidays: 0,
         rate: 0,
       }
     }
-    const { present, absent, leave, workingDays, officialHolidayDays } =
-      effectiveAttendance.attendance
+    const singleMonth =
+      selectedMonthId !== 'overall'
+        ? effectiveAttendance.monthlyAttendance.find((m) => m.id === selectedMonthId)
+        : undefined
+    const present = singleMonth ? singleMonth.present : effectiveAttendance.attendance.present
+    const absent = singleMonth ? singleMonth.absent : effectiveAttendance.attendance.absent
+    const leave = singleMonth ? singleMonth.leave : effectiveAttendance.attendance.leave
+    const workingDays = singleMonth
+      ? singleMonth.workingDays
+      : effectiveAttendance.attendance.workingDays
+    const openDays = singleMonth ? singleMonth.openDays : effectiveAttendance.attendance.openDays
+    const closedDays = singleMonth
+      ? singleMonth.closedDays
+      : effectiveAttendance.attendance.closedDays
+    const officialHolidayDays = singleMonth
+      ? singleMonth.officialHolidayDays
+      : effectiveAttendance.attendance.officialHolidayDays
     const total = workingDays || present + absent + leave
     const rate = total > 0 ? Math.round((present / total) * 1000) / 10 : 0
     return {
@@ -214,15 +253,22 @@ export function ParentReportModal({
       absent,
       leave,
       total,
+      openDays,
+      closedDays,
       officialHolidays: officialHolidayDays,
       rate,
     }
-  }, [effectiveAttendance])
+  }, [effectiveAttendance, selectedMonthId])
 
   const isCurrentlyOnLeave = useMemo(() => {
     const latest = leaveEntries[0]
     return latest?.recordType === 'application'
   }, [leaveEntries])
+
+  const isAcademyClosedNow = useMemo(() => {
+    if (!student) return false
+    return getActiveAcademyClosure(customNotices, student.className).isClosed
+  }, [customNotices, student])
 
   const periodRows = useMemo(() => {
     if (!student) return []
@@ -417,7 +463,7 @@ export function ParentReportModal({
 
       setFont('normal', 8)
       pdf.setTextColor(203, 213, 225)
-      pdf.text('For Parents / Guardians  •  Academic Year 2026-27', 35.5, 30.2)
+      pdf.text(`For Parents / Guardians  •  ${reportPeriodLabel}`, 35.5, 30.2)
 
       // Official Statement Pill
       pdf.setFillColor(28, 51, 54)
@@ -472,63 +518,75 @@ export function ParentReportModal({
       // Right Column: White Inner Stats Box
       pdf.setFillColor(255, 255, 255)
       pdf.setDrawColor(226, 232, 240)
-      pdf.roundedRect(105, 41.5, 89, 24.5, 1.8, 1.8, 'FD')
+      pdf.roundedRect(105, 41.0, 89, 25.5, 1.8, 1.8, 'FD')
 
-      setFont('semibold', 8)
+      setFont('semibold', 7.6)
       pdf.setTextColor(71, 85, 105)
-      pdf.text('Working Days Attendance:', 108.5, 47.2)
+      pdf.text('Attendance:', 108.5, 46.0)
 
-      setFont('bold', 9)
+      setFont('bold', 8.5)
       pdf.setTextColor(4, 120, 87) // #047857
       pdf.text(
-        `${overallStats.rate}% (${overallStats.present}/${overallStats.total} Working Days)`,
+        `${overallStats.rate}% (${overallStats.present}/${overallStats.total} Working)`,
         190.5,
-        47.2,
+        46.0,
         { align: 'right' },
       )
 
+      // Open Days / Working Days / Closed Days row
+      setFont('normal', 7.5)
+      pdf.setTextColor(71, 85, 105)
+      pdf.text(
+        `Open Days: ${overallStats.openDays}d  •  Working: ${overallStats.total}d  •  Closed: ${overallStats.closedDays}d`,
+        108.5,
+        51.0,
+      )
+
       // Present / Absent / Leave counts
-      setFont('normal', 8)
+      setFont('normal', 7.6)
       pdf.setTextColor(71, 85, 105)
-      pdf.text('Present: ', 108.5, 54)
+      pdf.text('Present: ', 108.5, 56.0)
       const presW = pdf.getTextWidth('Present: ')
-      setFont('bold', 8)
+      setFont('bold', 7.6)
       pdf.setTextColor(4, 120, 87)
-      pdf.text(`${overallStats.present}d`, 108.5 + presW, 54)
+      pdf.text(`${overallStats.present}d`, 108.5 + presW, 56.0)
 
-      setFont('normal', 8)
+      setFont('normal', 7.6)
       pdf.setTextColor(71, 85, 105)
-      pdf.text('Absent: ', 142, 54)
+      pdf.text('Absent: ', 142, 56.0)
       const absW = pdf.getTextWidth('Absent: ')
-      setFont('bold', 8)
+      setFont('bold', 7.6)
       pdf.setTextColor(220, 38, 38)
-      pdf.text(`${overallStats.absent}d`, 142 + absW, 54)
+      pdf.text(`${overallStats.absent}d`, 142 + absW, 56.0)
 
-      setFont('normal', 8)
+      setFont('normal', 7.6)
       pdf.setTextColor(71, 85, 105)
       const leaveValStr = `${overallStats.leave}d`
-      setFont('bold', 8)
+      setFont('bold', 7.6)
       const leaveValW = pdf.getTextWidth(leaveValStr)
       pdf.setTextColor(217, 119, 6)
-      pdf.text(leaveValStr, 190.5, 54, { align: 'right' })
-      setFont('normal', 8)
+      pdf.text(leaveValStr, 190.5, 56.0, { align: 'right' })
+      setFont('normal', 7.6)
       pdf.setTextColor(71, 85, 105)
-      pdf.text('Leave: ', 190.5 - leaveValW, 54, { align: 'right' })
+      pdf.text('Leave: ', 190.5 - leaveValW, 56.0, { align: 'right' })
 
       pdf.setDrawColor(241, 245, 249)
-      pdf.line(108.5, 57.4, 190.5, 57.4)
+      pdf.line(108.5, 59.0, 190.5, 59.0)
 
-      setFont('normal', 8)
+      setFont('normal', 7.6)
       pdf.setTextColor(100, 116, 139)
-      pdf.text('Current Campus Status:', 108.5, 62.5)
+      pdf.text('Campus Status:', 108.5, 63.6)
 
-      setFont('bold', 8)
-      if (isCurrentlyOnLeave) {
+      setFont('bold', 7.8)
+      if (isAcademyClosedNow) {
+        pdf.setTextColor(180, 83, 9)
+        pdf.text('ACADEMY CLOSED', 190.5, 63.6, { align: 'right' })
+      } else if (isCurrentlyOnLeave) {
         pdf.setTextColor(220, 38, 38)
-        pdf.text('ON LEAVE', 190.5, 62.5, { align: 'right' })
+        pdf.text('ON LEAVE', 190.5, 63.6, { align: 'right' })
       } else {
         pdf.setTextColor(4, 120, 87)
-        pdf.text('AT ACADEMY', 190.5, 62.5, { align: 'right' })
+        pdf.text('AT ACADEMY', 190.5, 63.6, { align: 'right' })
       }
 
       // 3. Section 1: Daily Period-by-Period Attendance & Reasons (All 6 Periods)
@@ -628,12 +686,12 @@ export function ParentReportModal({
       pdf.setLineWidth(0.25)
       pdf.roundedRect(13, s1Top, 184, s1TotalH, 1.8, 1.8, 'S')
 
-      // 4. Section 2: Monthly Attendance Summary & Reasons (All 12 Months)
+      // 4. Section 2: Monthly Open Days, Working Days & Attendance
       const s2TitleY = s1Top + s1TotalH + 6.5
       setFont('bold', 8.2)
       pdf.setTextColor(30, 41, 59)
       pdf.text(
-        '2. MONTHLY WORKING DAYS, ATTENDANCE & REASONS (2026)',
+        `2. MONTHLY OPEN DAYS, WORKING DAYS & ATTENDANCE (${reportPeriodLabel.toUpperCase()})`,
         13,
         s2TitleY,
       )
@@ -641,7 +699,7 @@ export function ParentReportModal({
       setFont('normal', 7)
       pdf.setTextColor(100, 116, 139)
       pdf.text(
-        `${overallStats.total} Working Days  •  ${overallStats.officialHolidays}d Official Holidays Excluded`,
+        `${overallStats.openDays} Open Days  •  ${overallStats.total} Working Days  •  ${overallStats.closedDays} Closed Days`,
         197,
         s2TitleY,
         { align: 'right' },
@@ -650,21 +708,22 @@ export function ParentReportModal({
       const s2Top = s2TitleY + 2.3
       const s2HeaderH = 6.8
       const s2RowH = 7.1
-      const months = effectiveAttendance.monthlyAttendance
+      const months = displayedMonthlyRows
       const s2TotalH = s2HeaderH + months.length * s2RowH
 
       pdf.setFillColor(241, 245, 249)
       pdf.rect(13, s2Top, 184, s2HeaderH, 'F')
 
-      setFont('bold', 6.9)
+      setFont('bold', 6.8)
       pdf.setTextColor(51, 65, 85)
-      pdf.text('MONTH', 16, s2Top + 4.5)
-      pdf.text('WORK DAYS', 56, s2Top + 4.5, { align: 'right' })
-      pdf.text('PRESENT', 72, s2Top + 4.5, { align: 'right' })
-      pdf.text('ABSENT', 86, s2Top + 4.5, { align: 'right' })
-      pdf.text('LEAVE', 100, s2Top + 4.5, { align: 'right' })
-      pdf.text('RATE', 115, s2Top + 4.5, { align: 'right' })
-      pdf.text('ABSENT / LEAVE REASON', 120, s2Top + 4.5)
+      pdf.text('MONTH', 15.5, s2Top + 4.5)
+      pdf.text('OPEN', 53, s2Top + 4.5, { align: 'right' })
+      pdf.text('WORK', 66, s2Top + 4.5, { align: 'right' })
+      pdf.text('PRES', 79, s2Top + 4.5, { align: 'right' })
+      pdf.text('ABS', 91, s2Top + 4.5, { align: 'right' })
+      pdf.text('LVE', 103, s2Top + 4.5, { align: 'right' })
+      pdf.text('RATE', 117, s2Top + 4.5, { align: 'right' })
+      pdf.text('ABSENT / LEAVE REASON', 121, s2Top + 4.5)
 
       pdf.setDrawColor(226, 232, 240)
       pdf.line(13, s2Top + s2HeaderH, 197, s2Top + s2HeaderH)
@@ -689,38 +748,41 @@ export function ParentReportModal({
           )
         }
 
-        setFont('semibold', 7.6)
+        setFont('semibold', 7.4)
         pdf.setTextColor(15, 23, 42)
-        pdf.text(`${m.month} ${m.year}`, 16, rowY + 4.8)
+        pdf.text(`${m.shortMonth} ${m.year}`, 15.5, rowY + 4.8)
 
-        setFont('semibold', 7.6)
+        setFont('semibold', 7.4)
+        pdf.setTextColor(4, 120, 87)
+        pdf.text(`${m.openDays}d`, 53, rowY + 4.8, { align: 'right' })
+
         pdf.setTextColor(71, 85, 105)
-        pdf.text(`${tot}d`, 56, rowY + 4.8, { align: 'right' })
+        pdf.text(`${tot}d`, 66, rowY + 4.8, { align: 'right' })
 
         pdf.setTextColor(4, 120, 87)
-        pdf.text(`${m.present}d`, 72, rowY + 4.8, { align: 'right' })
+        pdf.text(`${m.present}d`, 79, rowY + 4.8, { align: 'right' })
 
         pdf.setTextColor(220, 38, 38)
-        pdf.text(`${m.absent}d`, 86, rowY + 4.8, { align: 'right' })
+        pdf.text(`${m.absent}d`, 91, rowY + 4.8, { align: 'right' })
 
         pdf.setTextColor(217, 119, 6)
-        pdf.text(`${m.leave}d`, 100, rowY + 4.8, { align: 'right' })
+        pdf.text(`${m.leave}d`, 103, rowY + 4.8, { align: 'right' })
 
-        setFont('bold', 7.6)
+        setFont('bold', 7.4)
         pdf.setTextColor(15, 23, 42)
-        pdf.text(`${rt}%`, 115, rowY + 4.8, { align: 'right' })
+        pdf.text(`${rt}%`, 117, rowY + 4.8, { align: 'right' })
 
         setFont('normal', 7.0)
         pdf.setTextColor(71, 85, 105)
         const reasonText =
           reasonsList.length > 0 ? reasonsList.join('  •  ') : '-'
-        const wrapped = pdf.splitTextToSize(reasonText, 74) as string[]
+        const wrapped = pdf.splitTextToSize(reasonText, 73) as string[]
         if (wrapped.length <= 1) {
-          pdf.text(wrapped[0] ?? '-', 120, rowY + 4.8)
+          pdf.text(wrapped[0] ?? '-', 121, rowY + 4.8)
         } else {
           setFont('normal', 6.4)
-          pdf.text(wrapped[0], 120, rowY + 3.2)
-          pdf.text(wrapped[1], 120, rowY + 6.0)
+          pdf.text(wrapped[0], 121, rowY + 3.2)
+          pdf.text(wrapped[1], 121, rowY + 6.0)
         }
       })
 
@@ -1024,6 +1086,18 @@ export function ParentReportModal({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <MonthYearSelect
+              idPrefix="pdf-report-period"
+              value={selectedMonthId}
+              year={selectedYear}
+              allowAllMonths
+              allMonthsLabel="All Months"
+              onChange={(nextMonthId, nextYear) => {
+                setSelectedYear(nextYear)
+                setSelectedMonthId(nextMonthId)
+              }}
+              selectClassName="h-9 rounded-full border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
+            />
             <div className="flex items-center gap-1.5">
               <label
                 htmlFor="pdf-report-date"
@@ -1117,7 +1191,7 @@ export function ParentReportModal({
                       Official Student Attendance & Leave Report
                     </h3>
                     <p className="text-[10.5px] text-slate-300">
-                      For Parents / Guardians • Academic Year 2026–27
+                      For Parents / Guardians • {reportPeriodLabel}
                     </p>
                   </div>
                 </div>
@@ -1164,10 +1238,21 @@ export function ParentReportModal({
                 <div className="flex flex-col justify-between gap-1 rounded-md border border-slate-200 bg-white p-2.5 text-[11px]">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-semibold text-slate-600">
-                      Working Days Attendance:
+                      Attendance:
                     </span>
                     <span className="text-[12px] font-bold text-emerald-700 tabular-nums">
-                      {overallStats.rate}% ({overallStats.present}/{overallStats.total} Working Days)
+                      {overallStats.rate}% ({overallStats.present}/{overallStats.total} Working)
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-slate-600 tabular-nums">
+                    <span>
+                      Open Days: <strong className="text-emerald-700">{overallStats.openDays}d</strong>
+                    </span>
+                    <span>
+                      Working: <strong className="text-slate-900">{overallStats.total}d</strong>
+                    </span>
+                    <span>
+                      Closed: <strong className="text-amber-700">{overallStats.closedDays}d</strong>
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-slate-600 tabular-nums">
@@ -1178,20 +1263,24 @@ export function ParentReportModal({
                       Absent: <strong className="text-red-600">{overallStats.absent}d</strong>
                     </span>
                     <span>
-                      Personal Leave: <strong className="text-amber-600">{overallStats.leave}d</strong>
+                      Leave: <strong className="text-amber-600">{overallStats.leave}d</strong>
                     </span>
                   </div>
                   <div className="flex items-center justify-between border-t border-slate-100 pt-1">
                     <span className="font-medium text-slate-500">
-                      Current Campus Status:
+                      Campus Status:
                     </span>
                     <span
                       className={cn(
                         'text-[10.5px] font-bold uppercase',
-                        isCurrentlyOnLeave ? 'text-red-600' : 'text-emerald-700',
+                        isAcademyClosedNow
+                          ? 'text-amber-700'
+                          : isCurrentlyOnLeave
+                            ? 'text-red-600'
+                            : 'text-emerald-700',
                       )}
                     >
-                      {isCurrentlyOnLeave ? 'On Leave' : 'At Academy'}
+                      {isAcademyClosedNow ? 'Academy Closed' : isCurrentlyOnLeave ? 'On Leave' : 'At Academy'}
                     </span>
                   </div>
                 </div>
@@ -1257,15 +1346,15 @@ export function ParentReportModal({
                 </div>
               </div>
 
-              {/* 4. Section 2: Monthly Attendance Breakdown & Reasons (All 12 Months) */}
+              {/* 4. Section 2: Monthly Open Days, Working Days & Attendance */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <h4 className="flex items-center gap-1.5 text-[10.5px] font-bold tracking-wider text-slate-800 uppercase">
                     <GraduationCap className="size-3.5 text-emerald-700" aria-hidden="true" />
-                    2. Monthly Working Days, Attendance & Reasons (2026)
+                    2. Monthly Open Days, Working Days & Attendance ({reportPeriodLabel})
                   </h4>
                   <span className="text-[9.5px] font-medium text-slate-500">
-                    {overallStats.total} Working Days • {overallStats.officialHolidays}d Official Holidays Excluded
+                    {overallStats.openDays} Open Days • {overallStats.total} Working Days • {overallStats.closedDays} Closed Days
                   </span>
                 </div>
 
@@ -1273,17 +1362,18 @@ export function ParentReportModal({
                   <table className="w-full table-fixed border-collapse text-left text-[10.5px]">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-100 text-[9.5px] font-bold text-slate-700 uppercase">
-                        <th className="w-[16%] px-2.5 py-1.5">Month</th>
-                        <th className="w-[10%] px-1.5 py-1.5 text-right">Work Days</th>
+                        <th className="w-[15%] px-2.5 py-1.5">Month</th>
+                        <th className="w-[8%] px-1.5 py-1.5 text-right">Open</th>
+                        <th className="w-[8%] px-1.5 py-1.5 text-right">Work</th>
                         <th className="w-[8%] px-1.5 py-1.5 text-right">Present</th>
                         <th className="w-[8%] px-1.5 py-1.5 text-right">Absent</th>
                         <th className="w-[8%] px-1.5 py-1.5 text-right">Leave</th>
                         <th className="w-[9%] px-1.5 py-1.5 text-right">Rate</th>
-                        <th className="w-[41%] px-2.5 py-1.5">Absent / Leave Reason</th>
+                        <th className="w-[36%] px-2.5 py-1.5">Absent / Leave Reason</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                      {effectiveAttendance.monthlyAttendance.map((m) => {
+                      {displayedMonthlyRows.map((m) => {
                         const tot = m.workingDays || m.present + m.absent + m.leave
                         const rt = tot > 0 ? Math.round((m.present / tot) * 1000) / 10 : 0
                         const ov = overrides[`${student.id}__${m.id}`]
@@ -1297,7 +1387,10 @@ export function ParentReportModal({
                         return (
                           <tr key={m.id} className="leading-snug">
                             <td className="px-2.5 py-1 font-semibold text-slate-900">
-                              {m.month} {m.year}
+                              {m.shortMonth} {m.year}
+                            </td>
+                            <td className="px-1.5 py-1 text-right font-mono font-semibold text-emerald-700 tabular-nums">
+                              {m.openDays}d
                             </td>
                             <td className="px-1.5 py-1 text-right font-mono font-semibold text-slate-600 tabular-nums">
                               {tot}d
