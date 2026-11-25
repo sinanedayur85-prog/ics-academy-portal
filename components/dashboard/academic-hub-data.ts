@@ -722,7 +722,7 @@ function ensureSharedAcademicListener() {
       collection(db, 'campusAcademicRecords'),
       where('updatedAtMs', '>', 0),
       orderBy('updatedAtMs', 'desc'),
-      limit(150),
+      limit(60),
     )
 
     sharedAcademicUnsub = onSnapshot(

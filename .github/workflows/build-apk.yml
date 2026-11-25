@@ -801,6 +801,7 @@ jobs:
                   super.onResume();
                   activityInForeground = true;
                   clearGroupedSystemNotifications();
+                  CampusFirebaseMessagingService.syncTopicsForIdentity(this);
               }
 
               @Override
@@ -2191,6 +2192,8 @@ jobs:
           import android.media.RingtoneManager;
           import android.net.Uri;
           import android.os.Build;
+          import android.os.Handler;
+          import android.os.Looper;
           import android.util.Base64;
 
           import androidx.annotation.NonNull;
@@ -2232,6 +2235,7 @@ jobs:
               private static final String FIRESTORE_PROJECT_ID = "${fsProjectId}";
               private static final String FIRESTORE_DB_ID = "${fsDatabaseId}";
               private static final String FIRESTORE_API_KEY = "${fsApiKey}";
+              private static final String RTDB_BASE_URL = "https://ics-academy-push-default-rtdb.asia-southeast1.firebasedatabase.app";
               private static final String[] API_BASES = new String[] {
                   "https://ics-academy-manhappatta.vercel.app",
                   "https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app",
@@ -2292,13 +2296,13 @@ jobs:
               }
 
               private static volatile Bitmap cachedCircularIcsLogo = null;
-              private static final long AVATAR_CACHE_TTL_MS = 120_000L;
+              private static final long AVATAR_CACHE_TTL_MS = 24L * 60L * 60L * 1000L;
 
               private static String canonicalizeProfileActorId(String rawId) {
                   if (rawId == null) return "";
                   String clean = rawId.trim();
                   if (clean.isEmpty()) return "";
-                  if ("principal-01".equalsIgnoreCase(clean)) return "usthad-07";
+                  if ("principal-01".equalsIgnoreCase(clean) || "principal-1".equalsIgnoreCase(clean)) return "usthad-07";
                   String lower = clean.toLowerCase(Locale.US);
                   if (lower.startsWith("usthad-") && lower.length() >= 9) {
                       char c7 = lower.charAt(7);
@@ -2506,15 +2510,20 @@ jobs:
                   }
 
                   Bitmap rawPhoto = null;
-                  // 1. Check live synced profile photo from Firestore /campusProfilePhotos/{canonicalId}
-                  if (!canonicalId.isEmpty()) {
+                  // 1. Prefer bundled local asset first (0ms & 0 Firestore reads) when sender has an official /images/ photo
+                  if (rawSenderAvatarUrl != null && rawSenderAvatarUrl.trim().startsWith("/images/")) {
+                      rawPhoto = decodeBitmapFromAvatarString(context, rawSenderAvatarUrl.trim());
+                  }
+
+                  // 2. Check live synced profile photo from Firestore /campusProfilePhotos/{canonicalId} (cached 24h on disk)
+                  if (rawPhoto == null && !canonicalId.isEmpty()) {
                       String fsAvatarUrl = fetchFirestoreAvatarUrl(canonicalId);
                       if (!fsAvatarUrl.isEmpty()) {
                           rawPhoto = decodeBitmapFromAvatarString(context, fsAvatarUrl);
                       }
                   }
 
-                  // 2. Fallback to short avatar URL sent in notification payload (e.g. /images/muhammed-sinan-nt.jpg)
+                  // 3. Fallback to any other short avatar URL sent in notification payload
                   if (rawPhoto == null && rawSenderAvatarUrl != null && !rawSenderAvatarUrl.trim().isEmpty()) {
                       rawPhoto = decodeBitmapFromAvatarString(context, rawSenderAvatarUrl.trim());
                   }
@@ -2829,23 +2838,29 @@ jobs:
                   return slug.isEmpty() ? "" : ("ics_class_" + slug);
               }
 
+              private static volatile boolean topicRetryScheduled = false;
+
               public static void syncTopicsForIdentity(final Context context) {
                   if (context == null) return;
                   final Context appCtx = context.getApplicationContext();
                   try {
                       SharedPreferences prefs = appCtx.getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
-                      String actorId = prefs.getString("actorId", "");
-                      if (actorId == null || actorId.trim().isEmpty()) return;
+                      String rawActorId = prefs.getString("actorId", "");
+                      if (rawActorId == null || rawActorId.trim().isEmpty()) return;
+                      String cleanRawActorId = rawActorId.trim();
+                      String canonicalActorId = canonicalizeProfileActorId(cleanRawActorId);
 
                       String role = prefs.getString("role", "student");
                       String className = prefs.getString("className", "");
                       String assignedJson = prefs.getString("assignedClassesJson", "[]");
 
-                      Set<String> desired = new HashSet<String>();
+                      final Set<String> desired = new HashSet<String>();
                       desired.add("ics_all");
 
-                      String actorTopic = sanitizeActorTopic(actorId);
-                      if (!actorTopic.isEmpty()) desired.add(actorTopic);
+                      String canonicalTopic = sanitizeActorTopic(canonicalActorId);
+                      if (!canonicalTopic.isEmpty()) desired.add(canonicalTopic);
+                      String rawTopic = sanitizeActorTopic(cleanRawActorId);
+                      if (!rawTopic.isEmpty()) desired.add(rawTopic);
 
                       boolean isPrincipal = "principal".equalsIgnoreCase(role);
                       boolean isStaff = isPrincipal || "usthad".equalsIgnoreCase(role);
@@ -2865,15 +2880,48 @@ jobs:
                       }
 
                       Set<String> previous = new HashSet<String>(prefs.getStringSet("subscribedTopics", new HashSet<String>()));
+                      Set<String> confirmed = new HashSet<String>(prefs.getStringSet("confirmedSubscribedTopics", new HashSet<String>()));
                       FirebaseMessaging fm = FirebaseMessaging.getInstance();
 
                       for (String oldTopic : previous) {
                           if (!desired.contains(oldTopic)) {
-                              fm.unsubscribeFromTopic(oldTopic);
+                              final String topicToRemove = oldTopic;
+                              fm.unsubscribeFromTopic(topicToRemove).addOnCompleteListener(task -> {
+                                  if (task.isSuccessful()) {
+                                      try {
+                                          SharedPreferences p = appCtx.getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                                          Set<String> c = new HashSet<String>(p.getStringSet("confirmedSubscribedTopics", new HashSet<String>()));
+                                          c.remove(topicToRemove);
+                                          p.edit().putStringSet("confirmedSubscribedTopics", c).apply();
+                                      } catch (Exception ignored) {
+                                      }
+                                  }
+                              });
                           }
                       }
+
                       for (String topic : desired) {
-                          fm.subscribeToTopic(topic);
+                          final String targetTopic = topic;
+                          // Always subscribe if not yet confirmed (or always re-affirm personal actor topic)
+                          if (!confirmed.contains(targetTopic) || targetTopic.startsWith("ics_actor_")) {
+                              fm.subscribeToTopic(targetTopic).addOnCompleteListener(task -> {
+                                  if (task.isSuccessful()) {
+                                      try {
+                                          SharedPreferences p = appCtx.getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                                          Set<String> c = new HashSet<String>(p.getStringSet("confirmedSubscribedTopics", new HashSet<String>()));
+                                          c.add(targetTopic);
+                                          p.edit().putStringSet("confirmedSubscribedTopics", c).apply();
+                                      } catch (Exception ignored) {
+                                      }
+                                  } else if (!topicRetryScheduled) {
+                                      topicRetryScheduled = true;
+                                      new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                                          topicRetryScheduled = false;
+                                          syncTopicsForIdentity(appCtx);
+                                      }, 8000L);
+                                  }
+                              });
+                          }
                       }
 
                       prefs.edit().putStringSet("subscribedTopics", desired).apply();
@@ -3014,114 +3062,84 @@ jobs:
                   }
               }
 
+              private static boolean putRtdbJsonSync(final String endpointUrl, final String jsonBody) {
+                  HttpURLConnection conn = null;
+                  try {
+                      byte[] payloadBytes = jsonBody.getBytes(StandardCharsets.UTF_8);
+                      URL url = new URL(endpointUrl);
+                      conn = (HttpURLConnection) url.openConnection();
+                      conn.setRequestMethod("PUT");
+                      conn.setConnectTimeout(4500);
+                      conn.setReadTimeout(4500);
+                      conn.setDoOutput(true);
+                      conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                      try (OutputStream os = conn.getOutputStream()) {
+                          os.write(payloadBytes);
+                          os.flush();
+                      }
+                      int code = conn.getResponseCode();
+                      return code >= 200 && code < 300;
+                  } catch (Exception ignored) {
+                      return false;
+                  } finally {
+                      if (conn != null) conn.disconnect();
+                  }
+              }
+
               private static void acknowledgeChatDeliverySync(final String messageId, final String actorId) {
                   if (messageId == null || actorId == null) return;
-                  final String cleanMsgId = messageId.trim();
-                  final String cleanActorId = actorId.trim();
+                  final String cleanMsgId = messageId.trim().replaceAll("[^a-zA-Z0-9_-]", "_");
+                  final String cleanActorId = actorId.trim().replaceAll("[^a-zA-Z0-9_-]", "_");
                   if (!cleanMsgId.matches("^[a-zA-Z0-9_-]{4,128}$")) return;
                   if (!cleanActorId.matches("^[a-zA-Z0-9_-]{4,64}$")) return;
-                  if (FIRESTORE_PROJECT_ID.isEmpty() || FIRESTORE_DB_ID.isEmpty() || FIRESTORE_API_KEY.isEmpty()) return;
 
-                  final String docName = "projects/" + FIRESTORE_PROJECT_ID
-                      + "/databases/" + FIRESTORE_DB_ID
-                      + "/documents/campusChatMessages/" + cleanMsgId;
-                  final String commitUrl = "https://firestore.googleapis.com/v1/projects/" + FIRESTORE_PROJECT_ID
-                      + "/databases/" + FIRESTORE_DB_ID
-                      + "/documents:commit?key=" + FIRESTORE_API_KEY;
+                  final String checkUrl = RTDB_BASE_URL + "/campusChatMessages/" + cleanMsgId + "/createdAtMs.json";
+                  final String deliveredFlagUrl = RTDB_BASE_URL + "/campusChatMessages/" + cleanMsgId + "/deliveredToMap/" + cleanActorId + ".json";
+                  final String deliveredAtUrl = RTDB_BASE_URL + "/campusChatMessages/" + cleanMsgId + "/deliveredAtMap/" + cleanActorId + ".json";
 
-                  for (int attempt = 0; attempt < 2; attempt++) {
+                  // Wait briefly if FCM push beat the sender's RTDB write so we never create a partial orphan node
+                  boolean messageExists = false;
+                  for (int attempt = 0; attempt < 3; attempt++) {
                       HttpURLConnection conn = null;
                       try {
-                          long nowMs = System.currentTimeMillis();
-
-                          JSONObject tsField = new JSONObject();
-                          tsField.put("integerValue", String.valueOf(nowMs));
-
-                          JSONObject actorTsMap = new JSONObject();
-                          actorTsMap.put(cleanActorId, tsField);
-
-                          JSONObject mapValueObj = new JSONObject();
-                          mapValueObj.put("fields", actorTsMap);
-
-                          JSONObject deliveredAtField = new JSONObject();
-                          deliveredAtField.put("mapValue", mapValueObj);
-
-                          JSONObject docFields = new JSONObject();
-                          docFields.put("deliveredAtMap", deliveredAtField);
-
-                          JSONObject updateDoc = new JSONObject();
-                          updateDoc.put("name", docName);
-                          updateDoc.put("fields", docFields);
-
-                          JSONArray fieldPaths = new JSONArray();
-                          fieldPaths.put("deliveredAtMap.\`" + cleanActorId + "\`");
-                          JSONObject updateMask = new JSONObject();
-                          updateMask.put("fieldPaths", fieldPaths);
-
-                          JSONObject actorStrVal = new JSONObject();
-                          actorStrVal.put("stringValue", cleanActorId);
-                          JSONArray appendValues = new JSONArray();
-                          appendValues.put(actorStrVal);
-                          JSONObject appendObj = new JSONObject();
-                          appendObj.put("values", appendValues);
-
-                          JSONObject transform = new JSONObject();
-                          transform.put("fieldPath", "deliveredTo");
-                          transform.put("appendMissingElements", appendObj);
-                          JSONArray transforms = new JSONArray();
-                          transforms.put(transform);
-
-                          JSONObject precondition = new JSONObject();
-                          precondition.put("exists", true);
-
-                          JSONObject write = new JSONObject();
-                          write.put("update", updateDoc);
-                          write.put("updateMask", updateMask);
-                          write.put("updateTransforms", transforms);
-                          write.put("currentDocument", precondition);
-
-                          JSONArray writes = new JSONArray();
-                          writes.put(write);
-
-                          JSONObject root = new JSONObject();
-                          root.put("writes", writes);
-
-                          byte[] payloadBytes = root.toString().getBytes(StandardCharsets.UTF_8);
-
-                          URL url = new URL(commitUrl);
+                          URL url = new URL(checkUrl);
                           conn = (HttpURLConnection) url.openConnection();
-                          conn.setRequestMethod("POST");
-                          conn.setConnectTimeout(4500);
-                          conn.setReadTimeout(4500);
-                          conn.setDoOutput(true);
-                          conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-                          try (OutputStream os = conn.getOutputStream()) {
-                              os.write(payloadBytes);
-                              os.flush();
-                          }
+                          conn.setRequestMethod("GET");
+                          conn.setConnectTimeout(4000);
+                          conn.setReadTimeout(4000);
                           int code = conn.getResponseCode();
                           if (code >= 200 && code < 300) {
-                              return;
-                          }
-                          if (attempt == 0 && (code == 403 || code == 404 || code >= 500)) {
-                              try {
-                                  Thread.sleep(1200L);
-                              } catch (InterruptedException ignored) {
+                              ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                              try (InputStream is = conn.getInputStream()) {
+                                  byte[] buf = new byte[128];
+                                  int n;
+                                  while ((n = is.read(buf)) > 0) {
+                                      baos.write(buf, 0, n);
+                                  }
                               }
-                          } else {
-                              return;
+                              String body = baos.toString("UTF-8").trim();
+                              if (!body.isEmpty() && !"null".equals(body)) {
+                                  messageExists = true;
+                                  break;
+                              }
                           }
                       } catch (Exception ignored) {
-                          if (attempt == 0) {
-                              try {
-                                  Thread.sleep(1000L);
-                              } catch (InterruptedException ignored2) {
-                              }
-                          }
                       } finally {
                           if (conn != null) conn.disconnect();
                       }
+                      if (attempt < 2) {
+                          try {
+                              Thread.sleep(1200L);
+                          } catch (InterruptedException ignored) {
+                          }
+                      }
                   }
+
+                  if (!messageExists) return;
+
+                  long nowMs = System.currentTimeMillis();
+                  putRtdbJsonSync(deliveredFlagUrl, "true");
+                  putRtdbJsonSync(deliveredAtUrl, String.valueOf(nowMs));
               }
 
               private void ensureCallChannel(NotificationManager manager) {

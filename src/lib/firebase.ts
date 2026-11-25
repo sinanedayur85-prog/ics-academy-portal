@@ -19,8 +19,10 @@ import {
   setLogLevel,
   type Firestore,
 } from 'firebase/firestore'
+import { getDatabase, type Database } from 'firebase/database'
 import { getStorage } from 'firebase/storage'
 import firebaseConfig from '../../firebase-applet-config.json'
+import androidPushConfig from '../../firebase-android-push-config.json'
 
 export const SCOPES = [
   'https://www.googleapis.com/auth/documents',
@@ -92,6 +94,37 @@ try {
   storage.maxOperationRetryTime = 4000
 } catch {
   // Ignore if unsupported
+}
+
+// Secondary Firebase app dedicated to Firebase Realtime Database (RTDB) for Campus Messenger Chat,
+// Presence, Typing & Delivery Receipts (hosted on user's ics-academy-push Singapore RTDB — 10GB/mo free, no 50k read/day cap)
+export const RTDB_DATABASE_URL =
+  'https://ics-academy-push-default-rtdb.asia-southeast1.firebasedatabase.app'
+
+const rtdbApiKey =
+  androidPushConfig?.client?.[0]?.api_key?.[0]?.current_key || firebaseConfig.apiKey
+const rtdbProjectId = androidPushConfig?.project_info?.project_id || 'ics-academy-push'
+
+const rtdbApp = getApps().some((a) => a.name === 'ics-chat-rtdb')
+  ? getApp('ics-chat-rtdb')
+  : initializeApp(
+      {
+        apiKey: rtdbApiKey,
+        projectId: rtdbProjectId,
+        databaseURL: RTDB_DATABASE_URL,
+        appId: '1:651500102494:web:ics-chat-rtdb',
+      },
+      'ics-chat-rtdb',
+    )
+
+export const rtdb: Database = getDatabase(rtdbApp, RTDB_DATABASE_URL)
+
+export function sanitizeRtdbKey(raw: string): string {
+  const cleaned = String(raw || '')
+    .trim()
+    .replace(/[.$#[\]/]/g, '_')
+    .slice(0, 160)
+  return cleaned || 'unknown'
 }
 
 // Initialize Auth on the primary app with inMemoryPersistence so stale IndexedDB sessions

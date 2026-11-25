@@ -1,6 +1,9 @@
 export {
   app,
   db,
+  rtdb,
+  RTDB_DATABASE_URL,
+  sanitizeRtdbKey,
   auth,
   storage,
   SCOPES,

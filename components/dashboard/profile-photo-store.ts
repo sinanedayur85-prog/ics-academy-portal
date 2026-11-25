@@ -4,13 +4,13 @@ import {
   collection,
   doc,
   getDoc,
-  onSnapshot,
+  getDocs,
+  limit,
   query,
   serverTimestamp,
   setDoc,
   updateDoc,
   where,
-  type Unsubscribe,
 } from 'firebase/firestore'
 import {
   ACADEMY_PRINCIPAL,
@@ -36,11 +36,14 @@ export type SyncedProfilePhotoRecord = {
 
 const COLLECTION_NAME = 'campusProfilePhotos'
 const STORAGE_KEY = 'ics_campus_profile_photos_v1'
+const LAST_SYNC_MS_KEY = 'ics_campus_profile_photos_sync_ms_v1'
+const PROFILE_PHOTO_SYNC_TTL_MS = 15 * 60 * 1000
 export const PROFILE_PHOTOS_UPDATED_EVENT = 'ics-profile-photos-updated'
 const MAX_AVATAR_URL_LENGTH = 245_000
 
 let activeRefCount = 0
-let activeUnsubscribe: Unsubscribe | null = null
+let activeRefreshTimer: number | null = null
+let activeFetchPromise: Promise<void> | null = null
 let hasMigratedLocalPhotos = false
 const inFlightOptimisticUpdates = new Map<string, SyncedProfilePhotoRecord>()
 
@@ -237,8 +240,89 @@ export async function saveProfilePhotoToFirestore(input: {
   }
 }
 
+async function fetchProfilePhotosFromFirestore(force = false): Promise<void> {
+  if (typeof window === 'undefined') return
+  if (!force) {
+    try {
+      const lastSync = Number(window.localStorage.getItem(LAST_SYNC_MS_KEY) || '0')
+      if (lastSync > 0 && Date.now() - lastSync < PROFILE_PHOTO_SYNC_TTL_MS) {
+        return
+      }
+    } catch {
+      // Proceed with fetch
+    }
+  }
+  if (activeFetchPromise) return activeFetchPromise
+
+  activeFetchPromise = (async () => {
+    try {
+      const q = query(
+        collection(db, COLLECTION_NAME),
+        where('campusId', '==', 'ics-academy'),
+        limit(200),
+      )
+      const snapshot = await getDocs(q)
+      const merged: Record<string, SyncedProfilePhotoRecord> = {
+        ...loadCachedProfilePhotos(),
+      }
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as Record<string, unknown>
+        const rawActorId =
+          typeof data.actorId === 'string' && data.actorId ? data.actorId : docSnap.id
+        const canonicalId = getCanonicalProfilePhotoActorId(rawActorId)
+        const avatarUrl = typeof data.avatarUrl === 'string' ? data.avatarUrl.trim() : ''
+        if (!canonicalId || !isValidAvatarUrl(avatarUrl)) return
+
+        const role: ProfilePhotoActorRole =
+          data.actorRole === 'principal' || data.actorRole === 'usthad'
+            ? data.actorRole
+            : 'student'
+        const updatedAtMs =
+          typeof data.updatedAtMs === 'number' && data.updatedAtMs > 0 ? data.updatedAtMs : 1
+
+        merged[canonicalId] = {
+          actorId: canonicalId,
+          actorRole: role,
+          actorName: typeof data.actorName === 'string' ? data.actorName : canonicalId,
+          avatarUrl,
+          updatedAtMs,
+        }
+      })
+
+      for (const [id, optimistic] of inFlightOptimisticUpdates.entries()) {
+        const remote = merged[id]
+        if (!remote || optimistic.updatedAtMs >= remote.updatedAtMs) {
+          merged[id] = optimistic
+        }
+      }
+
+      saveCachedProfilePhotos(merged)
+      try {
+        window.localStorage.setItem(LAST_SYNC_MS_KEY, String(Date.now()))
+      } catch {
+        // Ignore storage error
+      }
+      applyRecordsToApp(merged)
+      void migrateExistingLocalPhotosToFirestore(merged)
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error)
+      if (msg.includes('permission') || msg.includes('insufficient')) {
+        try {
+          handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME)
+        } catch {
+          // Logged safely; cached profile photos remain active
+        }
+      }
+    } finally {
+      activeFetchPromise = null
+    }
+  })()
+
+  return activeFetchPromise
+}
+
 /**
- * Starts the global real-time Firestore subscription for all campus profile photos.
+ * Starts cached Firestore synchronization for all campus profile photos (15-min TTL instead of permanent 24/7 listener).
  * Reference-counted so multiple components can safely call it and clean up on unmount.
  */
 export function startCampusProfilePhotosSync(): () => void {
@@ -254,66 +338,21 @@ export function startCampusProfilePhotosSync(): () => void {
     applyRecordsToApp(initialCached)
   }
 
-  if (!activeUnsubscribe) {
-    const q = query(
-      collection(db, COLLECTION_NAME),
-      where('campusId', '==', 'ics-academy'),
-    )
-    activeUnsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const merged: Record<string, SyncedProfilePhotoRecord> = {}
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data() as Record<string, unknown>
-          const rawActorId =
-            typeof data.actorId === 'string' && data.actorId ? data.actorId : docSnap.id
-          const canonicalId = getCanonicalProfilePhotoActorId(rawActorId)
-          const avatarUrl = typeof data.avatarUrl === 'string' ? data.avatarUrl.trim() : ''
-          if (!canonicalId || !isValidAvatarUrl(avatarUrl)) return
+  void fetchProfilePhotosFromFirestore(false)
 
-          const role: ProfilePhotoActorRole =
-            data.actorRole === 'principal' || data.actorRole === 'usthad'
-              ? data.actorRole
-              : 'student'
-          const updatedAtMs =
-            typeof data.updatedAtMs === 'number' && data.updatedAtMs > 0 ? data.updatedAtMs : 1
-
-          merged[canonicalId] = {
-            actorId: canonicalId,
-            actorRole: role,
-            actorName: typeof data.actorName === 'string' ? data.actorName : canonicalId,
-            avatarUrl,
-            updatedAtMs,
-          }
-        })
-
-        // Preserve any newer optimistic local upload still being committed to Firestore
-        for (const [id, optimistic] of inFlightOptimisticUpdates.entries()) {
-          const remote = merged[id]
-          if (!remote || optimistic.updatedAtMs >= remote.updatedAtMs) {
-            merged[id] = optimistic
-          }
-        }
-
-        saveCachedProfilePhotos(merged)
-        applyRecordsToApp(merged)
-        void migrateExistingLocalPhotosToFirestore(merged)
-      },
-      (error) => {
-        try {
-          handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME)
-        } catch {
-          // Logged safely; cached profile photos remain active
-        }
-      },
-    )
+  if (activeRefreshTimer === null) {
+    activeRefreshTimer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void fetchProfilePhotosFromFirestore(false)
+      }
+    }, PROFILE_PHOTO_SYNC_TTL_MS)
   }
 
   return () => {
     activeRefCount = Math.max(0, activeRefCount - 1)
-    if (activeRefCount === 0 && activeUnsubscribe) {
-      activeUnsubscribe()
-      activeUnsubscribe = null
+    if (activeRefCount === 0 && activeRefreshTimer !== null) {
+      window.clearInterval(activeRefreshTimer)
+      activeRefreshTimer = null
     }
   }
 }

@@ -4755,7 +4755,7 @@ export function subscribeRealtimeCampusNotificationsAndDelivery(
       collection(db, 'campusNotifications'),
       where('createdAtMs', '>', 0),
       orderBy('createdAtMs', 'desc'),
-      limit(25),
+      limit(10),
     )
 
     const unsubNotif = onSnapshot(

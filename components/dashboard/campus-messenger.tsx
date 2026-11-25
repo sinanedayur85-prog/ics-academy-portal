@@ -3,19 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  arrayRemove,
-  arrayUnion,
-  collection,
-  doc,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-  where,
-} from 'firebase/firestore'
+  limitToLast,
+  onDisconnect,
+  onValue,
+  orderByChild,
+  query as rtdbQuery,
+  ref as rtdbRef,
+  serverTimestamp as rtdbServerTimestamp,
+  set as rtdbSet,
+  update as rtdbUpdate,
+} from 'firebase/database'
 import {
   ArrowLeft,
   ArrowUp,
@@ -101,7 +98,7 @@ import {
   unlockNotificationAudio,
   type ParsedNotificationTarget,
 } from '@/lib/mobile-pdf'
-import { db, handleFirestoreError, OperationType } from '@/src/lib/firebase'
+import { rtdb, sanitizeRtdbKey } from '@/src/lib/firebase'
 import { cn } from '@/lib/utils'
 
 export type MessengerRole = 'student' | 'usthad' | 'principal'
@@ -395,7 +392,80 @@ async function prepareMediaUrlForFirestore(
   return undefined
 }
 
+function extractActorIdsFromRtdb(
+  mapVal: unknown,
+  arrayVal: unknown,
+  fallbackSenderId?: string,
+): string[] {
+  const out = new Set<string>()
+  if (mapVal && typeof mapVal === 'object' && !Array.isArray(mapVal)) {
+    for (const [k, v] of Object.entries(mapVal as Record<string, unknown>)) {
+      if (v) out.add(String(k))
+    }
+  }
+  if (Array.isArray(arrayVal)) {
+    for (const item of arrayVal) {
+      if (item) out.add(String(item))
+    }
+  }
+  if (fallbackSenderId) {
+    out.add(String(fallbackSenderId))
+  }
+  return Array.from(out)
+}
+
+function stripUndefinedForRtdb<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item !== undefined)
+      .map((item) => stripUndefinedForRtdb(item)) as unknown as T
+  }
+  if (value && typeof value === 'object') {
+    const clean: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (v !== undefined) {
+        clean[k] = stripUndefinedForRtdb(v)
+      }
+    }
+    return clean as T
+  }
+  return value
+}
+
 function buildFirestoreChatMessagePayload(msg: ChatMessage, safeMediaUrl?: string) {
+  const senderKey = sanitizeRtdbKey(msg.senderId)
+  const deliveredList =
+    Array.isArray(msg.deliveredTo) && msg.deliveredTo.length > 0
+      ? msg.deliveredTo.slice(0, 300)
+      : [msg.senderId]
+  const deliveredToMap: Record<string, boolean> = {}
+  for (const id of deliveredList) {
+    deliveredToMap[sanitizeRtdbKey(id)] = true
+  }
+  deliveredToMap[senderKey] = true
+
+  const readList =
+    Array.isArray(msg.readBy) && msg.readBy.length > 0 ? msg.readBy.slice(0, 300) : [msg.senderId]
+  const readByMap: Record<string, boolean> = {}
+  for (const id of readList) {
+    readByMap[sanitizeRtdbKey(id)] = true
+  }
+  readByMap[senderKey] = true
+
+  const starredByMap: Record<string, boolean> = {}
+  if (Array.isArray(msg.starredBy)) {
+    for (const id of msg.starredBy.slice(0, 300)) {
+      starredByMap[sanitizeRtdbKey(id)] = true
+    }
+  }
+
+  const deletedForMap: Record<string, boolean> = {}
+  if (Array.isArray(msg.deletedFor)) {
+    for (const id of msg.deletedFor.slice(0, 300)) {
+      deletedForMap[sanitizeRtdbKey(id)] = true
+    }
+  }
+
   const payload: Record<string, unknown> = {
     id: msg.id,
     campusId: 'ics-academy',
@@ -406,25 +476,15 @@ function buildFirestoreChatMessagePayload(msg: ChatMessage, safeMediaUrl?: strin
     text: (msg.text || '').slice(0, 8000),
     mediaType: msg.mediaType,
     reactions: msg.reactions || {},
-    deliveredTo:
-      Array.isArray(msg.deliveredTo) && msg.deliveredTo.length > 0
-        ? msg.deliveredTo.slice(0, 300)
-        : [msg.senderId],
+    deliveredToMap,
     deliveredAtMap:
-      msg.deliveredAtMap && typeof msg.deliveredAtMap === 'object'
-        ? msg.deliveredAtMap
-        : {},
-    readBy:
-      Array.isArray(msg.readBy) && msg.readBy.length > 0
-        ? msg.readBy.slice(0, 300)
-        : [msg.senderId],
-    readAtMap:
-      msg.readAtMap && typeof msg.readAtMap === 'object' ? msg.readAtMap : {},
-    starredBy: Array.isArray(msg.starredBy) ? msg.starredBy.slice(0, 300) : [],
+      msg.deliveredAtMap && typeof msg.deliveredAtMap === 'object' ? msg.deliveredAtMap : {},
+    readByMap,
+    readAtMap: msg.readAtMap && typeof msg.readAtMap === 'object' ? msg.readAtMap : {},
+    starredByMap,
     isForwarded: Boolean(msg.isForwarded),
-    deletedFor: Array.isArray(msg.deletedFor) ? msg.deletedFor.slice(0, 300) : [],
+    deletedForMap,
     isDeleted: Boolean(msg.isDeleted),
-    createdAt: serverTimestamp(),
     createdAtMs: Math.floor(msg.createdAtMs || Date.now()),
   }
 
@@ -447,7 +507,7 @@ function buildFirestoreChatMessagePayload(msg: ChatMessage, safeMediaUrl?: strin
     }
   }
   if (msg.callMeta) {
-    payload.callMeta = msg.callMeta
+    payload.callMeta = stripUndefinedForRtdb(msg.callMeta)
   }
   if (msg.locationMeta) {
     payload.locationMeta = {
@@ -483,7 +543,7 @@ function buildFirestoreChatMessagePayload(msg: ChatMessage, safeMediaUrl?: strin
       votes: msg.pollMeta.votes || {},
     }
   }
-  return payload
+  return stripUndefinedForRtdb(payload)
 }
 
 export function makeDirectRoomId(idA: string, idB: string): string {
@@ -1340,42 +1400,24 @@ export function CampusMessenger({
         defaultImageQuality: merged.chatSettings.defaultImageQuality || 'standard',
       }
 
-      const userStateDocRef = doc(db, 'campusMessengerUserState', sanitizeFirestoreDocId(actor.id))
-      const updatePayload = {
+      const userStateRef = rtdbRef(rtdb, `campusMessengerUserState/${sanitizeRtdbKey(actor.id)}`)
+      const updatePayload = stripUndefinedForRtdb({
+        campusId: 'ics-academy',
+        actorId: actor.id,
         deletedMessageIds: boundedDeleted,
-        clearedRoomAtMs: boundedCleared,
+        clearedRoomAtMsJson: JSON.stringify(boundedCleared),
         starredMessageIds: boundedStarred,
         shortcutRoomIds: boundedShortcuts,
         customLists: boundedLists,
         chatSettings: cleanSettings,
         updatedAtMs: nowMs,
-      }
+      })
 
       try {
-        if (userStateDocExistsRef.current) {
-          await updateDoc(userStateDocRef, updatePayload)
-          return
-        }
-      } catch {
-        // Fallback to create via setDoc below
-      }
-
-      try {
-        await setDoc(userStateDocRef, {
-          campusId: 'ics-academy',
-          actorId: actor.id,
-          ...updatePayload,
-          createdAt: serverTimestamp(),
-        })
+        await rtdbUpdate(userStateRef, updatePayload)
         userStateDocExistsRef.current = true
       } catch {
-        // Retry update if document was created concurrently by another device
-        try {
-          await updateDoc(userStateDocRef, updatePayload)
-          userStateDocExistsRef.current = true
-        } catch {
-          // Ignore transient network errors; local cache remains intact
-        }
+        // Ignore transient network errors; local cache remains intact
       }
     },
     [actor.id],
@@ -1447,16 +1489,18 @@ export function CampusMessenger({
       }
     }
 
-    const userStateDocRef = doc(db, 'campusMessengerUserState', sanitizeFirestoreDocId(actor.id))
-    const unsubscribe = onSnapshot(
-      userStateDocRef,
+    if (!isTabShown) return
+
+    const userStateRef = rtdbRef(rtdb, `campusMessengerUserState/${sanitizeRtdbKey(actor.id)}`)
+    const unsubscribe = onValue(
+      userStateRef,
       (snap) => {
         if (!snap.exists()) {
           userStateDocExistsRef.current = false
           return
         }
         userStateDocExistsRef.current = true
-        const data = snap.data() as Record<string, unknown>
+        const data = (snap.val() || {}) as Record<string, unknown>
         const remoteUpdatedAtMs = Number(data.updatedAtMs) || 0
 
         // Always merge deletions & clear-chat watermarks monotonically so deletes from App/Web never resurrect
@@ -1471,7 +1515,15 @@ export function CampusMessenger({
           })
         }
 
-        const remoteCleared = sanitizeTimestampMap(data.clearedRoomAtMs)
+        let parsedClearedRaw: unknown = data.clearedRoomAtMs
+        if (typeof data.clearedRoomAtMsJson === 'string') {
+          try {
+            parsedClearedRaw = JSON.parse(data.clearedRoomAtMsJson)
+          } catch {
+            // Keep fallback
+          }
+        }
+        const remoteCleared = sanitizeTimestampMap(parsedClearedRaw)
         if (Object.keys(remoteCleared).length > 0) {
           setClearedRoomAtMs((prev) => {
             let changed = false
@@ -1543,7 +1595,7 @@ export function CampusMessenger({
     return () => {
       unsubscribe()
     }
-  }, [actor.id])
+  }, [actor.id, isTabShown])
 
   useEffect(() => {
     if (typeof window === 'undefined' || !actor.id) return
@@ -2251,9 +2303,11 @@ export function CampusMessenger({
       typingMode?: 'idle' | 'typing' | 'recording'
     }) => {
       if (!actor.id) return
-      const docRef = doc(db, 'campusChatPresence', actor.id)
+      const presenceRef = rtdbRef(rtdb, `campusChatPresence/${sanitizeRtdbKey(actor.id)}`)
       const now = Math.floor(Date.now())
-      const mutableFields = {
+      const payload = {
+        campusId: 'ics-academy',
+        actorId: actor.id,
         actorName: actor.name.slice(0, 120),
         actorRole: actor.role,
         lastSeenMs: now,
@@ -2264,22 +2318,18 @@ export function CampusMessenger({
         typingUpdatedAtMs: now,
       }
       try {
-        if (knownPresenceIdsRef.current.has(actor.id)) {
-          await updateDoc(docRef, mutableFields)
-          return
+        if (opts.isOnline) {
+          void onDisconnect(presenceRef)
+            .update({
+              isOnline: false,
+              typingRoomId: '',
+              typingMode: 'idle',
+              lastSeenMs: rtdbServerTimestamp(),
+            })
+            .catch(() => {})
         }
-        try {
-          await updateDoc(docRef, mutableFields)
-          knownPresenceIdsRef.current.add(actor.id)
-        } catch {
-          await setDoc(docRef, {
-            campusId: 'ics-academy',
-            actorId: actor.id,
-            ...mutableFields,
-            createdAt: serverTimestamp(),
-          })
-          knownPresenceIdsRef.current.add(actor.id)
-        }
+        await rtdbUpdate(presenceRef, payload)
+        knownPresenceIdsRef.current.add(actor.id)
       } catch {
         // Ignore transient offline errors
       }
@@ -2294,32 +2344,19 @@ export function CampusMessenger({
       pinnedMessageId: string | null,
     ) => {
       if (!actor.id || !roomId) return
-      const roomDocId = sanitizeFirestoreDocId(roomId)
-      const metaRef = doc(db, 'campusChatMeta', roomDocId)
+      const roomDocId = sanitizeRtdbKey(roomId)
+      const metaRef = rtdbRef(rtdb, `campusChatMeta/${roomDocId}`)
       const now = Math.floor(Date.now())
-      const mutableFields = {
-        onlyAdminsCanPost,
-        pinnedMessageId,
-        updatedByActorId: actor.id,
-        updatedAtMs: now,
-      }
       try {
-        if (knownMetaIdsRef.current.has(roomDocId)) {
-          await updateDoc(metaRef, mutableFields)
-          return
-        }
-        try {
-          await updateDoc(metaRef, mutableFields)
-          knownMetaIdsRef.current.add(roomDocId)
-        } catch {
-          await setDoc(metaRef, {
-            campusId: 'ics-academy',
-            roomId: roomId.slice(0, 160),
-            ...mutableFields,
-            createdAt: serverTimestamp(),
-          })
-          knownMetaIdsRef.current.add(roomDocId)
-        }
+        await rtdbUpdate(metaRef, {
+          campusId: 'ics-academy',
+          roomId: roomId.slice(0, 160),
+          onlyAdminsCanPost,
+          pinnedMessageId: pinnedMessageId ?? null,
+          updatedByActorId: actor.id,
+          updatedAtMs: now,
+        })
+        knownMetaIdsRef.current.add(roomDocId)
       } catch {
         // Ignore transient offline errors
       }
@@ -2327,30 +2364,42 @@ export function CampusMessenger({
     [actor.id],
   )
 
-  // Real-time Firestore listeners (<200ms) for Chat Messages, Delivery/Read Receipts, Room Meta & Presence/Typing
+  // Real-time Firebase Realtime Database (RTDB) listeners (<100ms, 10GB/mo free, zero Firestore read burn)
+  // Attached ONLY while Messenger tab is actively visible to preserve simultaneous connection headroom
   useEffect(() => {
+    if (!isTabShown) return
     const unsubscribes: Array<() => void> = []
+    const myActorKey = sanitizeRtdbKey(actor.id)
 
     try {
-      const msgQuery = query(
-        collection(db, 'campusChatMessages'),
-        where('createdAtMs', '>', 0),
-        orderBy('createdAtMs', 'desc'),
-        limit(250),
+      const msgQuery = rtdbQuery(
+        rtdbRef(rtdb, 'campusChatMessages'),
+        orderByChild('createdAtMs'),
+        limitToLast(150),
       )
-      const unsubMsgs = onSnapshot(
+      const unsubMsgs = onValue(
         msgQuery,
         (snapshot) => {
           const grouped: Record<string, ChatMessage[]> = {}
-          snapshot.forEach((docSnap) => {
-            const raw = docSnap.data() as Record<string, unknown>
+          snapshot.forEach((childSnap) => {
+            const raw = childSnap.val() as Record<string, unknown> | null
             if (!raw || typeof raw.id !== 'string' || typeof raw.roomId !== 'string') return
             firestoreMessageIdsRef.current.add(raw.id)
+
+            const senderIdStr = String(raw.senderId || '')
+            const deliveredIds = extractActorIdsFromRtdb(
+              raw.deliveredToMap,
+              raw.deliveredTo,
+              senderIdStr,
+            )
+            const readIds = extractActorIdsFromRtdb(raw.readByMap, raw.readBy, senderIdStr)
+            const starredIds = extractActorIdsFromRtdb(raw.starredByMap, raw.starredBy)
+            const deletedForIds = extractActorIdsFromRtdb(raw.deletedForMap, raw.deletedFor)
 
             const msg: ChatMessage = {
               id: raw.id,
               roomId: raw.roomId,
-              senderId: String(raw.senderId || ''),
+              senderId: senderIdStr,
               senderName: String(raw.senderName || 'Member'),
               senderRole: (raw.senderRole as MessengerRole) || 'student',
               senderBadge:
@@ -2471,22 +2520,16 @@ export function CampusMessenger({
                 raw.reactions && typeof raw.reactions === 'object'
                   ? (raw.reactions as Record<string, string[]>)
                   : {},
-              deliveredTo: Array.isArray(raw.deliveredTo)
-                ? raw.deliveredTo.map(String)
-                : [String(raw.senderId || '')],
+              deliveredTo: deliveredIds,
               deliveredAtMap: sanitizeTimestampMap(raw.deliveredAtMap),
-              readBy: Array.isArray(raw.readBy)
-                ? raw.readBy.map(String)
-                : [String(raw.senderId || '')],
+              readBy: readIds,
               readAtMap: sanitizeTimestampMap(raw.readAtMap),
-              starredBy: Array.isArray(raw.starredBy) ? raw.starredBy.map(String) : [],
+              starredBy: starredIds,
               isForwarded: raw.isForwarded === true,
               isDeleted: raw.isDeleted === true,
               deletedBy: typeof raw.deletedBy === 'string' ? raw.deletedBy : undefined,
               deletedById: typeof raw.deletedById === 'string' ? raw.deletedById : undefined,
-              deletedFor: Array.isArray(raw.deletedFor)
-                ? raw.deletedFor.map(String)
-                : [],
+              deletedFor: deletedForIds,
               createdAt:
                 typeof raw.createdAtMs === 'number'
                   ? new Date(raw.createdAtMs).toISOString()
@@ -2497,7 +2540,7 @@ export function CampusMessenger({
             if (!grouped[msg.roomId]) grouped[msg.roomId] = []
             grouped[msg.roomId].push(msg)
 
-            // Immediately acknowledge delivery + timestamp in Firestore if this room belongs to the current user
+            // Immediately acknowledge delivery + timestamp in RTDB if this room belongs to the current user
             const isMyRoom =
               (msg.roomId.startsWith('direct__') &&
                 msg.roomId.split('__').includes(actor.id)) ||
@@ -2505,8 +2548,11 @@ export function CampusMessenger({
               (msg.roomId.startsWith('batch_group__') &&
                 (actor.isStaff || msg.roomId === makeBatchRoomId(actor.className)))
 
-            const needsDeliveredArray = !(msg.deliveredTo ?? []).includes(actor.id)
-            const needsDeliveredTs = !msg.deliveredAtMap?.[actor.id]
+            const needsDeliveredArray =
+              !(msg.deliveredTo ?? []).includes(actor.id) &&
+              !(msg.deliveredTo ?? []).includes(myActorKey)
+            const needsDeliveredTs =
+              !msg.deliveredAtMap?.[actor.id] && !msg.deliveredAtMap?.[myActorKey]
 
             if (
               isMyRoom &&
@@ -2519,12 +2565,15 @@ export function CampusMessenger({
                 sentReceiptKeysRef.current.add(delivKey)
                 const delivNow = Math.floor(Date.now())
                 const updateFields: Record<string, unknown> = {
-                  deliveredTo: arrayUnion(actor.id),
+                  [`deliveredToMap/${myActorKey}`]: true,
                 }
                 if (needsDeliveredTs) {
-                  updateFields[`deliveredAtMap.${actor.id}`] = delivNow
+                  updateFields[`deliveredAtMap/${myActorKey}`] = delivNow
                 }
-                void updateDoc(doc(db, 'campusChatMessages', msg.id), updateFields).catch(() => {
+                void rtdbUpdate(
+                  rtdbRef(rtdb, `campusChatMessages/${sanitizeRtdbKey(msg.id)}`),
+                  updateFields,
+                ).catch(() => {
                   sentReceiptKeysRef.current.delete(delivKey)
                 })
               }
@@ -2539,15 +2588,8 @@ export function CampusMessenger({
             mergeIncomingChatStates([{ messagesByRoom: grouped }])
           }
         },
-        (error) => {
-          const msg = error instanceof Error ? error.message : String(error)
-          if (msg.includes('permission') || msg.includes('insufficient')) {
-            try {
-              handleFirestoreError(error, OperationType.LIST, 'campusChatMessages')
-            } catch {
-              // Logged cleanly
-            }
-          }
+        () => {
+          // Ignore transient offline RTDB errors
         },
       )
       unsubscribes.push(unsubMsgs)
@@ -2556,18 +2598,14 @@ export function CampusMessenger({
     }
 
     try {
-      const metaQuery = query(
-        collection(db, 'campusChatMeta'),
-        where('campusId', '==', 'ics-academy'),
-        limit(60),
-      )
-      const unsubMeta = onSnapshot(
-        metaQuery,
+      const metaRef = rtdbRef(rtdb, 'campusChatMeta')
+      const unsubMeta = onValue(
+        metaRef,
         (snapshot) => {
           const fsMeta: Record<string, ChatRoomMeta> = {}
-          snapshot.forEach((docSnap) => {
-            knownMetaIdsRef.current.add(docSnap.id)
-            const raw = docSnap.data() as Record<string, unknown>
+          snapshot.forEach((childSnap) => {
+            if (childSnap.key) knownMetaIdsRef.current.add(childSnap.key)
+            const raw = childSnap.val() as Record<string, unknown> | null
             if (!raw || typeof raw.roomId !== 'string') return
             fsMeta[raw.roomId] = {
               roomId: raw.roomId,
@@ -2582,15 +2620,8 @@ export function CampusMessenger({
             mergeIncomingChatStates([{ roomsMeta: fsMeta }])
           }
         },
-        (error) => {
-          const msg = error instanceof Error ? error.message : String(error)
-          if (msg.includes('permission') || msg.includes('insufficient')) {
-            try {
-              handleFirestoreError(error, OperationType.LIST, 'campusChatMeta')
-            } catch {
-              // Logged cleanly
-            }
-          }
+        () => {
+          // Ignore transient offline RTDB errors
         },
       )
       unsubscribes.push(unsubMeta)
@@ -2599,55 +2630,44 @@ export function CampusMessenger({
     }
 
     try {
-      const presenceQuery = query(
-        collection(db, 'campusChatPresence'),
-        where('campusId', '==', 'ics-academy'),
-        limit(80),
-      )
-      const unsubPresence = onSnapshot(
-        presenceQuery,
+      const presenceRef = rtdbRef(rtdb, 'campusChatPresence')
+      const unsubPresence = onValue(
+        presenceRef,
         (snapshot) => {
-        const fsPresence: Record<string, ChatPresenceEntry> = {}
-        const fsTyping: Record<string, Record<string, ChatTypingEntry>> = {}
-        snapshot.forEach((docSnap) => {
-          knownPresenceIdsRef.current.add(docSnap.id)
-          const raw = docSnap.data() as Record<string, unknown>
-          if (!raw || typeof raw.actorId !== 'string') return
-          const entry: ChatPresenceEntry = {
-            actorId: raw.actorId,
-            actorName: String(raw.actorName || 'Member'),
-            actorRole: (raw.actorRole as MessengerRole) || 'student',
-            lastSeenMs: typeof raw.lastSeenMs === 'number' ? raw.lastSeenMs : 0,
-            isOnline: typeof raw.isOnline === 'boolean' ? raw.isOnline : true,
-            hideOnline: Boolean(raw.hideOnline),
-          }
-          fsPresence[entry.actorId] = entry
+          const fsPresence: Record<string, ChatPresenceEntry> = {}
+          const fsTyping: Record<string, Record<string, ChatTypingEntry>> = {}
+          snapshot.forEach((childSnap) => {
+            if (childSnap.key) knownPresenceIdsRef.current.add(childSnap.key)
+            const raw = childSnap.val() as Record<string, unknown> | null
+            if (!raw || typeof raw.actorId !== 'string') return
+            const entry: ChatPresenceEntry = {
+              actorId: raw.actorId,
+              actorName: String(raw.actorName || 'Member'),
+              actorRole: (raw.actorRole as MessengerRole) || 'student',
+              lastSeenMs: typeof raw.lastSeenMs === 'number' ? raw.lastSeenMs : 0,
+              isOnline: typeof raw.isOnline === 'boolean' ? raw.isOnline : true,
+              hideOnline: Boolean(raw.hideOnline),
+            }
+            fsPresence[entry.actorId] = entry
 
-          const typingRoomId = typeof raw.typingRoomId === 'string' ? raw.typingRoomId : ''
-          const typingMode = raw.typingMode as 'typing' | 'recording' | 'idle'
-          const typingUpdatedAtMs =
-            typeof raw.typingUpdatedAtMs === 'number' ? raw.typingUpdatedAtMs : 0
-          if (typingRoomId && (typingMode === 'typing' || typingMode === 'recording')) {
-            if (!fsTyping[typingRoomId]) fsTyping[typingRoomId] = {}
-            fsTyping[typingRoomId][entry.actorId] = {
-              actorId: entry.actorId,
-              actorName: entry.actorName,
-              mode: typingMode,
-              updatedAtMs: typingUpdatedAtMs,
+            const typingRoomId = typeof raw.typingRoomId === 'string' ? raw.typingRoomId : ''
+            const typingMode = raw.typingMode as 'typing' | 'recording' | 'idle'
+            const typingUpdatedAtMs =
+              typeof raw.typingUpdatedAtMs === 'number' ? raw.typingUpdatedAtMs : 0
+            if (typingRoomId && (typingMode === 'typing' || typingMode === 'recording')) {
+              if (!fsTyping[typingRoomId]) fsTyping[typingRoomId] = {}
+              fsTyping[typingRoomId][entry.actorId] = {
+                actorId: entry.actorId,
+                actorName: entry.actorName,
+                mode: typingMode,
+                updatedAtMs: typingUpdatedAtMs,
+              }
             }
-          }
-        })
-        mergeIncomingChatStates([{ presenceMap: fsPresence, typingMap: fsTyping }])
+          })
+          mergeIncomingChatStates([{ presenceMap: fsPresence, typingMap: fsTyping }])
         },
-        (error) => {
-          const msg = error instanceof Error ? error.message : String(error)
-          if (msg.includes('permission') || msg.includes('insufficient')) {
-            try {
-              handleFirestoreError(error, OperationType.LIST, 'campusChatPresence')
-            } catch {
-              // Logged cleanly
-            }
-          }
+        () => {
+          // Ignore transient offline RTDB errors
         },
       )
       unsubscribes.push(unsubPresence)
@@ -2664,39 +2684,38 @@ export function CampusMessenger({
         }
       }
     }
-  }, [actor.id, actor.className, actor.isStaff, mergeIncomingChatStates])
+  }, [actor.id, actor.className, actor.isStaff, isTabShown, mergeIncomingChatStates])
 
-  // Poll chat state & send presence heartbeat every 4 seconds (HTTP backup + Firestore heartbeat)
+  // Poll HTTP backup & send snappy RTDB presence heartbeat ONLY while Messenger tab is visible
   useEffect(() => {
+    if (!isTabShown) return
     void pullChatStateFromServer()
-    if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+    let lastRtdbPresenceMs = 0
+    const sendPresenceHeartbeat = (forceRtdb: boolean) => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
       void sendChatActionToServer({
         action: 'heartbeat',
         roomId: selectedRoomId,
-        typingMode: 'idle',
+        typingMode: isRecordingVoice ? 'recording' : 'idle',
       })
-      void syncPresenceToFirestore({
-        isOnline: true,
-        roomId: selectedRoomId,
-        typingMode: 'idle',
-      })
-    }
-
-    const interval = window.setInterval(() => {
-      void pullChatStateFromServer()
-      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-        void sendChatActionToServer({
-          action: 'heartbeat',
-          roomId: selectedRoomId,
-          typingMode: isRecordingVoice ? 'recording' : 'idle',
-        })
+      const now = Date.now()
+      if (forceRtdb || now - lastRtdbPresenceMs >= 15_000) {
+        lastRtdbPresenceMs = now
         void syncPresenceToFirestore({
           isOnline: true,
           roomId: selectedRoomId,
           typingMode: isRecordingVoice ? 'recording' : 'idle',
         })
       }
-    }, 4000)
+    }
+
+    sendPresenceHeartbeat(true)
+
+    const interval = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+      void pullChatStateFromServer()
+      sendPresenceHeartbeat(false)
+    }, 15_000)
 
     const handleVisibilityOrLeave = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
@@ -2704,16 +2723,7 @@ export function CampusMessenger({
         void syncPresenceToFirestore({ isOnline: false, roomId: '', typingMode: 'idle' })
       } else {
         void pullChatStateFromServer()
-        void sendChatActionToServer({
-          action: 'heartbeat',
-          roomId: selectedRoomId,
-          typingMode: 'idle',
-        })
-        void syncPresenceToFirestore({
-          isOnline: true,
-          roomId: selectedRoomId,
-          typingMode: 'idle',
-        })
+        sendPresenceHeartbeat(true)
       }
     }
 
@@ -2735,6 +2745,7 @@ export function CampusMessenger({
       void syncPresenceToFirestore({ isOnline: false, roomId: '', typingMode: 'idle' })
     }
   }, [
+    isTabShown,
     pullChatStateFromServer,
     sendChatActionToServer,
     syncPresenceToFirestore,
@@ -2846,24 +2857,28 @@ export function CampusMessenger({
       }
     })
 
+    const myActorKey = sanitizeRtdbKey(actor.id)
     for (const m of toUpdate) {
       if (!firestoreMessageIdsRef.current.has(m.id)) continue
       const receiptKey = `${chatSettings.sendReadReceipts ? 'rt' : 'dt'}:${m.id}:${actor.id}`
       if (sentReceiptKeysRef.current.has(receiptKey)) continue
       sentReceiptKeysRef.current.add(receiptKey)
       const updatePayload: Record<string, unknown> = {
-        deliveredTo: arrayUnion(actor.id),
+        [`deliveredToMap/${myActorKey}`]: true,
       }
-      if (!m.deliveredAtMap?.[actor.id]) {
-        updatePayload[`deliveredAtMap.${actor.id}`] = nowMs
+      if (!m.deliveredAtMap?.[actor.id] && !m.deliveredAtMap?.[myActorKey]) {
+        updatePayload[`deliveredAtMap/${myActorKey}`] = nowMs
       }
       if (chatSettings.sendReadReceipts) {
-        updatePayload.readBy = arrayUnion(actor.id)
-        if (!m.readAtMap?.[actor.id]) {
-          updatePayload[`readAtMap.${actor.id}`] = nowMs
+        updatePayload[`readByMap/${myActorKey}`] = true
+        if (!m.readAtMap?.[actor.id] && !m.readAtMap?.[myActorKey]) {
+          updatePayload[`readAtMap/${myActorKey}`] = nowMs
         }
       }
-      void updateDoc(doc(db, 'campusChatMessages', m.id), updatePayload).catch(() => {
+      void rtdbUpdate(
+        rtdbRef(rtdb, `campusChatMessages/${sanitizeRtdbKey(m.id)}`),
+        updatePayload,
+      ).catch(() => {
         sentReceiptKeysRef.current.delete(receiptKey)
       })
     }
@@ -2937,7 +2952,7 @@ export function CampusMessenger({
     isMessageHiddenForMe,
   ])
 
-  // Strictly check if a specific peer is actively using the app right now (within last 15 seconds)
+  // Strictly check if a specific peer is actively using the app right now (within last 90 seconds)
   const isPeerOnline = useCallback(
     (peerId?: string): boolean => {
       if (!peerId) return false
@@ -2945,7 +2960,7 @@ export function CampusMessenger({
       const entry = presenceMap[peerId]
       if (!entry) return false
       if (entry.hideOnline || entry.isOnline === false) return false
-      return Date.now() - entry.lastSeenMs < 15000
+      return Date.now() - entry.lastSeenMs < 90_000
     },
     [presenceMap, chatSettings.showOnlineStatus],
   )
@@ -3164,21 +3179,24 @@ export function CampusMessenger({
         }
       }
 
-      // Persist directly to Firestore FIRST so when recipient's phone wakes via FCM to send
-      // its background 2-tick delivery ACK, the Firestore chat document is guaranteed to exist.
+      // Fire FCM & Web Push IMMEDIATELY (never block behind database write so chat alerts always arrive instantaneously)
+      dispatchChatPushNotification()
+
+      // Persist directly to Firebase Realtime Database (RTDB) in parallel
       void (async () => {
         try {
           const safeMediaUrl = await prepareMediaUrlForFirestore(
             newMsg.mediaType,
             newMsg.mediaUrl,
           )
-          const fsPayload = buildFirestoreChatMessagePayload(newMsg, safeMediaUrl)
-          await setDoc(doc(db, 'campusChatMessages', newMsg.id), fsPayload)
+          const rtdbPayload = buildFirestoreChatMessagePayload(newMsg, safeMediaUrl)
+          await rtdbSet(
+            rtdbRef(rtdb, `campusChatMessages/${sanitizeRtdbKey(newMsg.id)}`),
+            rtdbPayload,
+          )
           firestoreMessageIdsRef.current.add(newMsg.id)
         } catch {
           // Fallback to HTTP sync already dispatched above
-        } finally {
-          dispatchChatPushNotification()
         }
       })()
     },
@@ -3557,10 +3575,11 @@ export function CampusMessenger({
         return cur.includes(actor.id) ? m : { ...m, deletedFor: [...cur, actor.id] }
       }),
     }))
+    const myActorKey = sanitizeRtdbKey(actor.id)
     for (const m of roomMsgs) {
       if (!(m.deletedFor ?? []).includes(actor.id)) {
-        updateDoc(doc(db, 'campusChatMessages', m.id), {
-          deletedFor: arrayUnion(actor.id),
+        rtdbUpdate(rtdbRef(rtdb, `campusChatMessages/${sanitizeRtdbKey(m.id)}`), {
+          [`deletedForMap/${myActorKey}`]: true,
         }).catch(() => {})
       }
     }
@@ -3729,8 +3748,8 @@ export function CampusMessenger({
         ),
       }))
 
-      updateDoc(doc(db, 'campusChatMessages', msg.id), {
-        pollMeta: nextPollMeta,
+      rtdbUpdate(rtdbRef(rtdb, `campusChatMessages/${sanitizeRtdbKey(msg.id)}`), {
+        pollMeta: stripUndefinedForRtdb(nextPollMeta),
       }).catch(() => {})
 
       void sendChatActionToServer({
@@ -3806,7 +3825,7 @@ export function CampusMessenger({
     setSelectedMessageIds([])
     setShowSelectionMoreMenu(false)
     if (updatedReactionsForFs && firestoreMessageIdsRef.current.has(messageId)) {
-      void updateDoc(doc(db, 'campusChatMessages', messageId), {
+      void rtdbUpdate(rtdbRef(rtdb, `campusChatMessages/${sanitizeRtdbKey(messageId)}`), {
         reactions: updatedReactionsForFs,
       }).catch(() => {})
     }
@@ -3876,9 +3895,10 @@ export function CampusMessenger({
       return next
     })
 
+    const myActorKey = sanitizeRtdbKey(actor.id)
     for (const m of valid) {
-      void updateDoc(doc(db, 'campusChatMessages', m.id), {
-        starredBy: shouldStar ? arrayUnion(actor.id) : arrayRemove(actor.id),
+      void rtdbUpdate(rtdbRef(rtdb, `campusChatMessages/${sanitizeRtdbKey(m.id)}`), {
+        [`starredByMap/${myActorKey}`]: shouldStar ? true : null,
       }).catch(() => {})
     }
 
@@ -4036,14 +4056,14 @@ export function CampusMessenger({
       starredMessageIds: nextStarred,
     })
     for (const messageId of messageIds) {
-      void updateDoc(doc(db, 'campusChatMessages', messageId), {
+      void rtdbUpdate(rtdbRef(rtdb, `campusChatMessages/${sanitizeRtdbKey(messageId)}`), {
         isDeleted: true,
         deletedBy: actor.name.slice(0, 120),
         deletedById: actor.id,
         text: '',
         mediaType: 'none',
         mediaUrl: '',
-        starredBy: [],
+        starredByMap: null,
       }).catch(() => {})
       void sendChatActionToServer({
         action: 'delete_message',
@@ -4091,9 +4111,10 @@ export function CampusMessenger({
       deletedMessageIds: nextDeleted,
       starredMessageIds: nextStarred,
     })
+    const myActorKey = sanitizeRtdbKey(actor.id)
     for (const messageId of messageIds) {
-      void updateDoc(doc(db, 'campusChatMessages', messageId), {
-        deletedFor: arrayUnion(actor.id),
+      void rtdbUpdate(rtdbRef(rtdb, `campusChatMessages/${sanitizeRtdbKey(messageId)}`), {
+        [`deletedForMap/${myActorKey}`]: true,
       }).catch(() => {})
       void sendChatActionToServer({
         action: 'delete_message',
@@ -4225,19 +4246,23 @@ export function CampusMessenger({
           }
         }
 
+        // Fire FCM & Web Push IMMEDIATELY for forwarded messages too (never block behind Firestore setDoc)
+        dispatchForwardedPush()
+
         void (async () => {
           try {
             const safeMediaUrl = await prepareMediaUrlForFirestore(
               forwardedMsg.mediaType,
               forwardedMsg.mediaUrl,
             )
-            const fsPayload = buildFirestoreChatMessagePayload(forwardedMsg, safeMediaUrl)
-            await setDoc(doc(db, 'campusChatMessages', forwardedMsg.id), fsPayload)
+            const rtdbPayload = buildFirestoreChatMessagePayload(forwardedMsg, safeMediaUrl)
+            await rtdbSet(
+              rtdbRef(rtdb, `campusChatMessages/${sanitizeRtdbKey(forwardedMsg.id)}`),
+              rtdbPayload,
+            )
             firestoreMessageIdsRef.current.add(forwardedMsg.id)
           } catch {
             // Fallback already handled via HTTP sync
-          } finally {
-            dispatchForwardedPush()
           }
         })()
       }

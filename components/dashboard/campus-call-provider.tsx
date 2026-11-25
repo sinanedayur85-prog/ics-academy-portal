@@ -22,6 +22,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore'
+import { ref as rtdbRef, set as rtdbSet } from 'firebase/database'
 import {
   ChevronDown,
   Maximize2,
@@ -45,7 +46,13 @@ import {
   getCanonicalUsthadId,
   students,
 } from '@/components/dashboard/data'
-import { db, handleFirestoreError, OperationType } from '@/src/lib/firebase'
+import {
+  db,
+  rtdb,
+  sanitizeRtdbKey,
+  handleFirestoreError,
+  OperationType,
+} from '@/src/lib/firebase'
 import {
   parseNotificationHref,
   peekPendingNotificationHref,
@@ -711,8 +718,9 @@ export function CampusCallProvider({
         calleeId: record.calleeId,
       }
 
-      // 1. Write to Firestore campusChatMessages (deterministic ID prevents duplicates)
-      const firestorePayload = {
+      // 1. Write to Firebase Realtime Database campusChatMessages (deterministic ID prevents duplicates)
+      const callerKey = sanitizeRtdbKey(record.callerId)
+      const rtdbPayload = {
         id: msgId,
         campusId: 'ics-academy',
         roomId: record.roomId,
@@ -723,19 +731,19 @@ export function CampusCallProvider({
         mediaType: 'call',
         callMeta,
         reactions: {},
-        deliveredTo: [record.callerId],
-        deliveredAtMap: { [record.callerId]: now },
-        readBy: [record.callerId],
-        readAtMap: { [record.callerId]: now },
-        deletedFor: [],
+        deliveredToMap: { [callerKey]: true },
+        deliveredAtMap: { [callerKey]: now },
+        readByMap: { [callerKey]: true },
+        readAtMap: { [callerKey]: now },
         isDeleted: false,
-        createdAt: serverTimestamp(),
         createdAtMs: now,
       }
 
-      setDoc(doc(db, 'campusChatMessages', msgId), firestorePayload).catch(() => {
-        // Ignore if already created by the other peer
-      })
+      rtdbSet(rtdbRef(rtdb, `campusChatMessages/${sanitizeRtdbKey(msgId)}`), rtdbPayload).catch(
+        () => {
+          // Ignore if already created by the other peer
+        },
+      )
 
       // 2. Dual-sync to Express server
       fetch('/api/campus/chat/action', {
