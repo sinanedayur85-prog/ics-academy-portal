@@ -1,5 +1,5 @@
 // ICS Academy Service Worker for Instant Black Launch, Offline Support & Real-Time Web Push (Android + iOS Home Screen PWA)
-const CACHE_NAME = 'ics-academy-pwa-v30';
+const CACHE_NAME = 'ics-academy-pwa-v31';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -199,8 +199,26 @@ self.addEventListener('push', (event) => {
         }
       }
 
-      // Skip system banner only if user is actively focused inside the app AND it is not a call/test alert
-      if (hasFocusedClient && payload.type !== 'call' && payload.type !== 'test') {
+      // Apple iOS Safari strictly revokes a PushSubscription after 3 silent pushes if showNotification() is skipped.
+      let isApplePushEndpoint = false;
+      try {
+        const currentSub = await self.registration.pushManager.getSubscription();
+        isApplePushEndpoint = Boolean(
+          currentSub &&
+            typeof currentSub.endpoint === 'string' &&
+            currentSub.endpoint.includes('.push.apple.com'),
+        );
+      } catch {
+        isApplePushEndpoint = false;
+      }
+
+      // Skip system banner only on non-Apple browsers when actively focused inside the app AND not a call/test alert
+      if (
+        !isApplePushEndpoint &&
+        hasFocusedClient &&
+        payload.type !== 'call' &&
+        payload.type !== 'test'
+      ) {
         return;
       }
 
@@ -228,14 +246,27 @@ self.addEventListener('push', (event) => {
         },
       };
 
-      if (payload.type === 'call') {
+      if (payload.type === 'call' && !isApplePushEndpoint) {
         notifOptions.actions = [
           { action: 'accept', title: 'Accept Call' },
           { action: 'decline', title: 'Decline' },
         ];
       }
 
-      await self.registration.showNotification(payload.title, notifOptions);
+      try {
+        await self.registration.showNotification(payload.title, notifOptions);
+      } catch {
+        // Ultra-safe WebKit fallback
+        await self.registration.showNotification(payload.title || 'ICS Academy', {
+          body: payload.body || 'Open ICS Academy to view details.',
+          icon: '/icons/icon-192.png',
+          data: {
+            href: payload.href,
+            notificationId: payload.notificationId,
+            type: payload.type,
+          },
+        });
+      }
     })(),
   );
 });

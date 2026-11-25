@@ -1,9 +1,10 @@
 import crypto from 'crypto'
-import fs from 'fs'
-import path from 'path'
 import * as webpush from 'web-push'
 
 const P256_ORDER = BigInt('0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551')
+
+const DEFAULT_RTDB_BASE_URL =
+  'https://ics-academy-push-default-rtdb.asia-southeast1.firebasedatabase.app'
 
 const ALLOWED_PUSH_HOST_SUFFIXES = [
   '.push.apple.com',
@@ -17,37 +18,149 @@ const ALLOWED_PUSH_HOST_SUFFIXES = [
   '.push.opera.com',
 ]
 
-let cachedFirestoreCfg = null
 let cachedVapidKeys = null
+let cachedRtdbAccessToken = null
+let cachedRtdbTokenExpiryMs = 0
 
 function toBase64Url(buf) {
   return Buffer.from(buf).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
 }
 
-function getFirestoreConfig() {
-  if (cachedFirestoreCfg) return cachedFirestoreCfg
-  const candidates = [
-    new URL('../firebase-applet-config.json', import.meta.url),
-    path.resolve(process.cwd(), 'firebase-applet-config.json'),
+function getRtdbBaseUrl() {
+  const raw = (process.env.FIREBASE_RTDB_URL || process.env.RTDB_DATABASE_URL || '').trim()
+  if (/^https:\/\/[a-z0-9-]+\.(firebaseio\.com|[a-z0-9-]+\.firebasedatabase\.app)\/?$/i.test(raw)) {
+    return raw.replace(/\/+$/, '')
+  }
+  return DEFAULT_RTDB_BASE_URL
+}
+
+function normalizePrivateKey(raw) {
+  if (typeof raw !== 'string') return ''
+  let key = raw.trim()
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
+    key = key.slice(1, -1).trim()
+  }
+  key = key.replace(/\\\\n/g, '\n').replace(/\\n/g, '\n').replace(/\r\n/g, '\n').trim()
+  return key
+}
+
+function extractPemKey(raw) {
+  const normalized = normalizePrivateKey(raw)
+  const pemMatch = normalized.match(
+    /-----BEGIN (?:RSA )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA )?PRIVATE KEY-----/,
+  )
+  return pemMatch ? `${pemMatch[0].trim()}\n` : ''
+}
+
+function loadServiceAccountCredentials() {
+  const splitEmail = (process.env.FCM_CLIENT_EMAIL || '').trim()
+  const splitKey = extractPemKey(process.env.FCM_PRIVATE_KEY || '')
+  if (splitEmail && splitKey) {
+    return { clientEmail: splitEmail, privateKey: splitKey }
+  }
+
+  const rawEnvCandidates = [
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
+    process.env.FCM_SERVICE_ACCOUNT_JSON,
+    process.env.FIREBASE_SERVICE_ACCOUNT,
+    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON,
   ]
-  for (const cfgPath of candidates) {
+  const rawJson = (rawEnvCandidates.find((v) => typeof v === 'string' && v.trim().length > 0) || '').trim()
+  if (!rawJson) return null
+
+  let candidate = rawJson
+  if (
+    (candidate.startsWith('"') && candidate.endsWith('"')) ||
+    (candidate.startsWith("'") && candidate.endsWith("'"))
+  ) {
+    candidate = candidate.slice(1, -1).trim()
+  }
+
+  const attempts = [candidate]
+  if (!candidate.startsWith('{')) {
     try {
-      if (fs.existsSync(cfgPath)) {
-        const parsed = JSON.parse(fs.readFileSync(cfgPath, 'utf8'))
-        if (parsed?.projectId && parsed?.firestoreDatabaseId && parsed?.apiKey) {
-          cachedFirestoreCfg = {
-            projectId: String(parsed.projectId).trim(),
-            databaseId: String(parsed.firestoreDatabaseId).trim(),
-            apiKey: String(parsed.apiKey).trim(),
-          }
-          return cachedFirestoreCfg
-        }
-      }
+      attempts.push(Buffer.from(candidate, 'base64').toString('utf8').trim())
     } catch {
-      // Try next candidate
+      // Ignore base64 failure
     }
   }
+
+  for (const text of attempts) {
+    try {
+      const parsed = JSON.parse(text)
+      const obj = typeof parsed === 'string' ? JSON.parse(parsed) : parsed
+      const clientEmail = typeof obj?.client_email === 'string' ? obj.client_email.trim() : ''
+      const privateKey = extractPemKey(obj?.private_key || '')
+      if (clientEmail && privateKey) {
+        return { clientEmail, privateKey }
+      }
+    } catch {
+      const unescaped = text.replace(/\\"/g, '"')
+      const emailMatch = unescaped.match(/"client_email"\s*:\s*"([^"\s]+@[^"\s]+)"/)
+      const privateKey = extractPemKey(unescaped)
+      const clientEmail = emailMatch ? emailMatch[1].trim() : ''
+      if (clientEmail && privateKey) {
+        return { clientEmail, privateKey }
+      }
+    }
+  }
+
   return null
+}
+
+async function getRtdbAdminAccessToken() {
+  const nowMs = Date.now()
+  if (cachedRtdbAccessToken && nowMs < cachedRtdbTokenExpiryMs - 60_000) {
+    return cachedRtdbAccessToken
+  }
+
+  const creds = loadServiceAccountCredentials()
+  if (!creds) {
+    throw new Error('Firebase service account credentials are not configured on the push server.')
+  }
+
+  const iat = Math.floor(nowMs / 1000)
+  const exp = iat + 3600
+  const header = toBase64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
+  const claimSet = toBase64Url(
+    JSON.stringify({
+      iss: creds.clientEmail,
+      scope:
+        'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/firebase.database',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat,
+      exp,
+    }),
+  )
+  const unsignedJwt = `${header}.${claimSet}`
+  const signer = crypto.createSign('RSA-SHA256')
+  signer.update(unsignedJwt)
+  signer.end()
+  const signature = toBase64Url(signer.sign(creds.privateKey))
+  const assertion = `${unsignedJwt}.${signature}`
+
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion,
+    }),
+  })
+
+  if (!tokenRes.ok) {
+    const errText = await tokenRes.text().catch(() => '')
+    throw new Error(`RTDB OAuth token exchange failed (${tokenRes.status}): ${errText.slice(0, 160)}`)
+  }
+
+  const tokenData = await tokenRes.json()
+  if (!tokenData?.access_token) {
+    throw new Error('RTDB OAuth token response missing access_token')
+  }
+
+  cachedRtdbAccessToken = tokenData.access_token
+  cachedRtdbTokenExpiryMs = nowMs + (Number(tokenData.expires_in) || 3500) * 1000
+  return cachedRtdbAccessToken
 }
 
 function getServerVapidSeedMaterial() {
@@ -168,7 +281,7 @@ export function isValidPortalActorId(raw) {
     typeof raw === 'string' &&
     raw.length >= 4 &&
     raw.length <= 64 &&
-    /^(st[d]?|usthad|principal)-[a-zA-Z0-9_-]+$/.test(raw.trim())
+    /^(st[d]?|student|usthad|principal)-[a-zA-Z0-9_-]+$/.test(raw.trim())
   )
 }
 
@@ -185,131 +298,99 @@ export function makeSubDocId(endpoint) {
   return `wsub_${crypto.createHash('sha256').update(endpoint).digest('hex').slice(0, 40)}`
 }
 
-function buildFirestoreBaseUrl(cfg) {
-  return `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.databaseId}/documents`
-}
-
-function parseFirestoreSubDoc(docObj) {
-  const f = docObj?.fields
-  if (!f) return null
-  const endpoint = f.endpoint?.stringValue || ''
-  const p256dh = f.p256dh?.stringValue || ''
-  const auth = f.auth?.stringValue || ''
-  const actorId = f.actorId?.stringValue || ''
+function parseRtdbSubRecord(raw, fallbackId = '') {
+  if (!raw || typeof raw !== 'object') return null
+  const endpoint = typeof raw.endpoint === 'string' ? raw.endpoint.trim() : ''
+  const p256dh = typeof raw.keys?.p256dh === 'string' ? raw.keys.p256dh : typeof raw.p256dh === 'string' ? raw.p256dh : ''
+  const auth = typeof raw.keys?.auth === 'string' ? raw.keys.auth : typeof raw.auth === 'string' ? raw.auth : ''
+  const actorId = typeof raw.actorId === 'string' ? raw.actorId.trim() : ''
   if (!endpoint || !p256dh || !auth || !actorId) return null
-  const assignedArr = Array.isArray(f.assignedClasses?.arrayValue?.values)
-    ? f.assignedClasses.arrayValue.values
-        .map((v) => v?.stringValue || '')
-        .filter(Boolean)
+
+  const assignedArr = Array.isArray(raw.assignedClasses)
+    ? raw.assignedClasses.filter((v) => typeof v === 'string' && v.trim().length > 0)
     : []
+
   return {
-    id: f.id?.stringValue || makeSubDocId(endpoint),
+    id: typeof raw.id === 'string' && raw.id ? raw.id : fallbackId || makeSubDocId(endpoint),
     endpoint,
     keys: { p256dh, auth },
     actorId,
-    actorRole: f.actorRole?.stringValue || 'student',
-    actorName: f.actorName?.stringValue || 'Campus Member',
-    className: f.className?.stringValue || '',
+    actorRole: typeof raw.actorRole === 'string' ? raw.actorRole : 'student',
+    actorName: typeof raw.actorName === 'string' ? raw.actorName : 'Campus Member',
+    className: typeof raw.className === 'string' ? raw.className : '',
     assignedClasses: assignedArr,
-    platform: f.platform?.stringValue || 'web',
-    updatedAtMs: Number(f.updatedAtMs?.integerValue || '0'),
+    platform: typeof raw.platform === 'string' ? raw.platform : 'web',
+    updatedAtMs: Number(raw.updatedAtMs || 0),
   }
 }
 
 export async function getWebPushSubByEndpoint(endpoint) {
-  const cfg = getFirestoreConfig()
-  if (!cfg || !isValidPushEndpointUrl(endpoint)) return null
-  const subId = makeSubDocId(endpoint)
-  const url = `${buildFirestoreBaseUrl(cfg)}/campusWebPushSubs/${subId}?key=${encodeURIComponent(cfg.apiKey)}`
+  if (!isValidPushEndpointUrl(endpoint)) return null
   try {
-    const res = await fetch(url, { cache: 'no-store' })
+    const token = await getRtdbAdminAccessToken()
+    const subId = makeSubDocId(endpoint)
+    const url = `${getRtdbBaseUrl()}/campusWebPushSubs/${encodeURIComponent(subId)}.json`
+    const res = await fetch(url, {
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${token}` },
+    })
     if (!res.ok) return null
     const data = await res.json()
-    return parseFirestoreSubDoc(data)
+    return parseRtdbSubRecord(data, subId)
   } catch {
     return null
   }
 }
 
 export async function upsertWebPushSub(record) {
-  const cfg = getFirestoreConfig()
-  if (!cfg) {
-    throw new Error('Firestore config unavailable on push server.')
-  }
+  const token = await getRtdbAdminAccessToken()
   const subId = makeSubDocId(record.endpoint)
-  const docName = `projects/${cfg.projectId}/databases/${cfg.databaseId}/documents/campusWebPushSubs/${subId}`
-  const existing = await getWebPushSubByEndpoint(record.endpoint)
   const nowMs = Date.now()
+  const url = `${getRtdbBaseUrl()}/campusWebPushSubs/${encodeURIComponent(subId)}.json`
 
-  const commonFields = {
-    endpoint: { stringValue: record.endpoint },
-    p256dh: { stringValue: record.keys.p256dh },
-    auth: { stringValue: record.keys.auth },
-    actorId: { stringValue: record.actorId },
-    actorRole: { stringValue: record.actorRole },
-    actorName: { stringValue: record.actorName },
-    className: { stringValue: record.className || '' },
-    assignedClasses: {
-      arrayValue: {
-        values: (record.assignedClasses || []).map((c) => ({ stringValue: c })),
-      },
+  const payload = {
+    id: subId,
+    campusId: 'ics-academy',
+    endpoint: record.endpoint,
+    keys: {
+      p256dh: record.keys.p256dh,
+      auth: record.keys.auth,
     },
-    platform: { stringValue: record.platform || 'web' },
-    updatedAtMs: { integerValue: String(nowMs) },
+    actorId: record.actorId,
+    actorRole: record.actorRole,
+    actorName: record.actorName,
+    className: record.className || '',
+    assignedClasses: Array.isArray(record.assignedClasses) ? record.assignedClasses : [],
+    platform: record.platform || 'web',
+    updatedAtMs: nowMs,
   }
 
-  let write
-  if (existing) {
-    write = {
-      update: {
-        name: docName,
-        fields: commonFields,
-      },
-      updateMask: {
-        fieldPaths: Object.keys(commonFields),
-      },
-      currentDocument: { exists: true },
-    }
-  } else {
-    write = {
-      update: {
-        name: docName,
-        fields: {
-          id: { stringValue: subId },
-          campusId: { stringValue: 'ics-academy' },
-          ...commonFields,
-        },
-      },
-      updateTransforms: [
-        {
-          fieldPath: 'createdAt',
-          setToServerValue: 'REQUEST_TIME',
-        },
-      ],
-      currentDocument: { exists: false },
-    }
-  }
-
-  const commitUrl = `${buildFirestoreBaseUrl(cfg)}:commit?key=${encodeURIComponent(cfg.apiKey)}`
-  const res = await fetch(commitUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json; charset=UTF-8' },
-    body: JSON.stringify({ writes: [write] }),
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json; charset=UTF-8',
+    },
+    body: JSON.stringify(payload),
   })
+
   if (!res.ok) {
     const errText = await res.text().catch(() => '')
-    throw new Error(`Firestore subscription save failed (${res.status}): ${errText.slice(0, 180)}`)
+    throw new Error(`RTDB subscription save failed (${res.status}): ${errText.slice(0, 180)}`)
   }
   return { id: subId, updatedAtMs: nowMs }
 }
 
 export async function deleteWebPushSubByEndpoint(endpoint) {
-  const cfg = getFirestoreConfig()
-  if (!cfg || !isValidPushEndpointUrl(endpoint)) return false
-  const subId = makeSubDocId(endpoint)
-  const url = `${buildFirestoreBaseUrl(cfg)}/campusWebPushSubs/${subId}?key=${encodeURIComponent(cfg.apiKey)}`
+  if (!isValidPushEndpointUrl(endpoint)) return false
   try {
-    const res = await fetch(url, { method: 'DELETE' })
+    const token = await getRtdbAdminAccessToken()
+    const subId = makeSubDocId(endpoint)
+    const url = `${getRtdbBaseUrl()}/campusWebPushSubs/${encodeURIComponent(subId)}.json`
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
     return res.ok || res.status === 404
   } catch {
     return false
@@ -317,36 +398,20 @@ export async function deleteWebPushSubByEndpoint(endpoint) {
 }
 
 export async function listWebPushSubs() {
-  const cfg = getFirestoreConfig()
-  if (!cfg) return []
-  const runQueryUrl = `${buildFirestoreBaseUrl(cfg)}:runQuery?key=${encodeURIComponent(cfg.apiKey)}`
   try {
-    const res = await fetch(runQueryUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=UTF-8' },
-      body: JSON.stringify({
-        structuredQuery: {
-          from: [{ collectionId: 'campusWebPushSubs' }],
-          where: {
-            fieldFilter: {
-              field: { fieldPath: 'campusId' },
-              op: 'EQUAL',
-              value: { stringValue: 'ics-academy' },
-            },
-          },
-          limit: 300,
-        },
-      }),
+    const token = await getRtdbAdminAccessToken()
+    const url = `${getRtdbBaseUrl()}/campusWebPushSubs.json`
+    const res = await fetch(url, {
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${token}` },
     })
     if (!res.ok) return []
-    const rows = await res.json()
-    if (!Array.isArray(rows)) return []
+    const data = await res.json()
+    if (!data || typeof data !== 'object') return []
     const subs = []
-    for (const row of rows) {
-      if (row?.document) {
-        const parsed = parseFirestoreSubDoc(row.document)
-        if (parsed) subs.push(parsed)
-      }
+    for (const [key, value] of Object.entries(data)) {
+      const parsed = parseRtdbSubRecord(value, key)
+      if (parsed) subs.push(parsed)
     }
     return subs
   } catch {
