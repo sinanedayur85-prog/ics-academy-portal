@@ -91,7 +91,6 @@ import {
   type Student,
 } from '@/components/dashboard/data'
 import { buildKitabPdfBlob, CURATED_KITABS } from '@/components/dashboard/digital-library'
-import { ProfilePhotoModal } from '@/components/dashboard/student-profile-photo-modal'
 import {
   GroupInfoModal,
   ProfileAndStatusSheet,
@@ -983,7 +982,6 @@ export function CampusMessenger({
   mobileTabActive,
 }: CampusMessengerProps) {
   const [academyConfigVersion, setAcademyConfigVersion] = useState(0)
-  const [ownPhotoModalOpen, setOwnPhotoModalOpen] = useState(false)
 
   useEffect(() => {
     const syncConfig = () => setAcademyConfigVersion((v) => v + 1)
@@ -5169,59 +5167,24 @@ export function CampusMessenger({
           <div className="flex items-center justify-between gap-2 bg-white px-4 pb-2 pt-3.5 dark:bg-black">
             <div className="flex min-w-0 flex-1 items-center gap-2.5">
               {(() => {
-                const myStatusMeta = getActorStatusMeta(actor.id)
                 const myDisplayName = resolveChatDisplayName(actor.id, actor.name, actor.role)
                 return (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openProfileSheetForUser({
-                          actorId: actor.id,
-                          officialName: actor.name,
-                          role: actor.role,
-                          roleSubtitle: actor.badge,
-                          avatarUrl: actor.avatarUrl,
-                        })
-                      }
-                      title="Your profile, story & chat name"
-                      aria-label="Open your profile, story and chat name options"
-                      className={cn(
-                        'group relative shrink-0 rounded-full transition-transform hover:scale-105 active:scale-95',
-                        myStatusMeta.hasActive
-                          ? 'bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] p-[2px]'
-                          : '',
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          'flex size-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-[#7C3AED] via-[#4F46E5] to-[#0095F6] text-xs font-bold text-white',
-                          myStatusMeta.hasActive
-                            ? 'ring-2 ring-white dark:ring-black'
-                            : 'ring-2 ring-[#0095F6]/30',
-                        )}
-                      >
-                        {actor.avatarUrl ? (
-                          <img
-                            src={actor.avatarUrl}
-                            alt={myDisplayName}
-                            className="size-full object-cover object-top"
-                          />
-                        ) : (
-                          <span>{getMessengerAvatarText(myDisplayName)}</span>
-                        )}
-                      </span>
-                      <span
-                        aria-hidden="true"
-                        className="absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-[#0095F6] text-white ring-2 ring-white dark:ring-black"
-                      >
-                        <Camera className="size-2.5" />
-                      </span>
-                    </button>
-                    <h2 className="truncate font-poppins text-[19px] font-bold tracking-tight text-zinc-950 dark:text-white">
-                      {myDisplayName}
-                    </h2>
-                  </>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openProfileSheetForUser({
+                        actorId: actor.id,
+                        officialName: actor.name,
+                        role: actor.role,
+                        roleSubtitle: actor.badge,
+                        avatarUrl: actor.avatarUrl,
+                      })
+                    }
+                    title="Your story & chat display name"
+                    className="min-w-0 truncate text-left font-poppins text-[19px] font-bold tracking-tight text-zinc-950 transition-opacity hover:opacity-80 active:opacity-70 dark:text-white"
+                  >
+                    {myDisplayName}
+                  </button>
                 )
               })()}
             </div>
@@ -8674,28 +8637,15 @@ export function CampusMessenger({
 
             {/* Settings Content */}
             <div className="flex-1 space-y-5 overflow-y-auto px-5 pb-5 pt-2">
-              {/* Chat-Only Profile Display Name (Option B) & Photo Cropper */}
+              {/* Chat-Only Profile Display Name (Option B) */}
               <div className="space-y-3 rounded-2xl bg-muted/60 p-3.5 dark:bg-[#141A1F]">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-foreground">
-                      My Chat Display Name (Chats Only)
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      Everyone sees this name in Chats. Your official academy name stays unchanged.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowSettingsModal(false)
-                      setOwnPhotoModalOpen(true)
-                    }}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#0095F6]/15 px-3 py-1.5 text-[11px] font-semibold text-[#0077CC] transition-colors hover:bg-[#0095F6]/25 dark:text-[#0095F6]"
-                  >
-                    <Camera className="size-3.5" aria-hidden="true" />
-                    <span>Photo</span>
-                  </button>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-foreground">
+                    My Chat Display Name (Chats Only)
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Everyone sees this name in Chats. Your official academy name stays unchanged.
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <input
@@ -9729,18 +9679,6 @@ export function CampusMessenger({
           )
         : null}
 
-      {/* OWN PROFILE PHOTO MODAL (Allows updating & cropping own profile photo directly from Chats — synced to everyone) */}
-      <ProfilePhotoModal
-        actorId={actor.id}
-        actorRole={actor.role}
-        name={actor.name}
-        subtitle={actor.subtitle}
-        currentAvatarUrl={actor.avatarUrl}
-        mandatoryPolicy={actor.role === 'student'}
-        open={ownPhotoModalOpen}
-        onClose={() => setOwnPhotoModalOpen(false)}
-      />
-
       {/* INSTAGRAM-STYLE 24H STORY / STATUS CREATOR MODAL */}
       <StatusCreatorModal
         open={showStatusCreator}
@@ -9808,9 +9746,6 @@ export function CampusMessenger({
                     subtitle: profileSheetTarget.roleSubtitle,
                   })
               : undefined
-          }
-          onChangeOwnPhoto={
-            profileSheetTarget.isOwn ? () => setOwnPhotoModalOpen(true) : undefined
           }
           onSaveContactNickname={
             !profileSheetTarget.isOwn
