@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { dispatchWebPushToMatchingSubs } from './_push-web-store.js'
+import { dispatchWebPushToMatchingSubs } from '../_push-web-store.js'
 
 let cachedAccessToken = null
 let cachedAccessTokenExpiryMs = 0

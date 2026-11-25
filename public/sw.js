@@ -1,5 +1,5 @@
 // ICS Academy Service Worker for Instant Black Launch, Offline Support & Real-Time Web Push (Android + iOS Home Screen PWA)
-const CACHE_NAME = 'ics-academy-pwa-v27';
+const CACHE_NAME = 'ics-academy-pwa-v28';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -210,13 +210,20 @@ self.addEventListener('push', (event) => {
         renotify: true,
         silent: false,
         requireInteraction: payload.requireInteraction || payload.type === 'call',
-        vibrate: payload.type === 'call' ? [300, 150, 300, 150, 300] : [180, 90, 180],
+        vibrate: payload.type === 'call' ? [450, 220, 450, 220, 450, 220, 450] : [180, 90, 180],
         data: {
           href: payload.href,
           notificationId: payload.notificationId,
           type: payload.type,
         },
       };
+
+      if (payload.type === 'call') {
+        notifOptions.actions = [
+          { action: 'accept', title: 'Accept Call' },
+          { action: 'decline', title: 'Decline' },
+        ];
+      }
 
       await self.registration.showNotification(payload.title, notifOptions);
     })(),
@@ -225,7 +232,13 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetHref = (event.notification.data && event.notification.data.href) || '#notices';
+  let targetHref = (event.notification.data && event.notification.data.href) || '#notices';
+  if (
+    (event.action === 'accept' || event.action === 'decline') &&
+    !targetHref.includes('callAction=')
+  ) {
+    targetHref += `${targetHref.includes('?') ? '&' : '?'}callAction=${event.action}`;
+  }
   const targetUrl = targetHref.startsWith('/') ? targetHref : `/${targetHref}`;
 
   event.waitUntil(

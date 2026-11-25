@@ -1249,6 +1249,106 @@
         "createdAt",
         "updatedAtMs"
       ]
+    },
+    "CampusWebPushSub": {
+      "title": "CampusWebPushSub",
+      "description": "A Web Push (RFC 8291/8292) device subscription for iPhone iOS 16.4+ Home Screen PWA and desktop/mobile web browsers.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Deterministic SHA-256 subscription document ID (wsub_...).",
+          "minLength": 45,
+          "maxLength": 45,
+          "pattern": "^wsub_[a-f0-9]{40}$"
+        },
+        "campusId": {
+          "type": "string",
+          "description": "Fixed campus tenant identifier (ics-academy).",
+          "enum": ["ics-academy"],
+          "minLength": 11,
+          "maxLength": 16
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "HTTPS push service endpoint URL (Apple Push, FCM Web Push, Mozilla, Windows, Samsung).",
+          "minLength": 16,
+          "maxLength": 600
+        },
+        "p256dh": {
+          "type": "string",
+          "description": "Client P-256 ECDH public key (base64url).",
+          "minLength": 16,
+          "maxLength": 200
+        },
+        "auth": {
+          "type": "string",
+          "description": "Client Web Push authentication secret (base64url).",
+          "minLength": 8,
+          "maxLength": 100
+        },
+        "actorId": {
+          "type": "string",
+          "description": "Canonical portal actor ID subscribed on this device.",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^(st[d]?|usthad|principal)-[a-zA-Z0-9_\\-]+$"
+        },
+        "actorRole": {
+          "type": "string",
+          "description": "Role of the subscribed portal user.",
+          "enum": ["student", "usthad", "principal"],
+          "minLength": 6,
+          "maxLength": 12
+        },
+        "actorName": {
+          "type": "string",
+          "description": "Display name of the subscribed user.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "className": {
+          "type": "string",
+          "description": "Student or primary class label.",
+          "minLength": 0,
+          "maxLength": 60
+        },
+        "assignedClasses": {
+          "type": "array",
+          "description": "Bounded list of classes assigned to an Usthad or Principal."
+        },
+        "platform": {
+          "type": "string",
+          "description": "Client platform identifier (e.g., ios-pwa, web).",
+          "minLength": 2,
+          "maxLength": 40
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when subscription was registered."
+        },
+        "updatedAtMs": {
+          "type": "integer",
+          "description": "Epoch milliseconds of last subscription refresh.",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id",
+        "campusId",
+        "endpoint",
+        "p256dh",
+        "auth",
+        "actorId",
+        "actorRole",
+        "actorName",
+        "className",
+        "assignedClasses",
+        "platform",
+        "createdAt",
+        "updatedAtMs"
+      ]
     }
   },
   "firestore": {
@@ -1295,6 +1395,10 @@
     "/campusLibraryChanges/{itemId}": {
       "schema": { "$ref": "#/entities/CampusLibraryChange" },
       "description": "Stores Principal edits, new Kitab/Book additions, shelf assignments, and soft-deletions merged over the base library catalog in real time."
+    },
+    "/campusWebPushSubs/{subId}": {
+      "schema": { "$ref": "#/entities/CampusWebPushSub" },
+      "description": "Stores encrypted Web Push device subscriptions for iPhone Home Screen PWA and web browsers."
     }
   }
 }

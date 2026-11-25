@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
-import webpush from 'web-push'
+import * as webpush from 'web-push'
 
 const P256_ORDER = BigInt('0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551')
 
@@ -26,21 +26,26 @@ function toBase64Url(buf) {
 
 function getFirestoreConfig() {
   if (cachedFirestoreCfg) return cachedFirestoreCfg
-  try {
-    const cfgPath = path.resolve(process.cwd(), 'firebase-applet-config.json')
-    if (fs.existsSync(cfgPath)) {
-      const parsed = JSON.parse(fs.readFileSync(cfgPath, 'utf8'))
-      if (parsed?.projectId && parsed?.firestoreDatabaseId && parsed?.apiKey) {
-        cachedFirestoreCfg = {
-          projectId: String(parsed.projectId).trim(),
-          databaseId: String(parsed.firestoreDatabaseId).trim(),
-          apiKey: String(parsed.apiKey).trim(),
+  const candidates = [
+    new URL('../firebase-applet-config.json', import.meta.url),
+    path.resolve(process.cwd(), 'firebase-applet-config.json'),
+  ]
+  for (const cfgPath of candidates) {
+    try {
+      if (fs.existsSync(cfgPath)) {
+        const parsed = JSON.parse(fs.readFileSync(cfgPath, 'utf8'))
+        if (parsed?.projectId && parsed?.firestoreDatabaseId && parsed?.apiKey) {
+          cachedFirestoreCfg = {
+            projectId: String(parsed.projectId).trim(),
+            databaseId: String(parsed.firestoreDatabaseId).trim(),
+            apiKey: String(parsed.apiKey).trim(),
+          }
+          return cachedFirestoreCfg
         }
-        return cachedFirestoreCfg
       }
+    } catch {
+      // Try next candidate
     }
-  } catch {
-    // Fall through
   }
   return null
 }

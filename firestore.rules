@@ -1105,5 +1105,105 @@ service cloud.firestore {
         ]);
       allow delete: if false;
     }
+
+    // Validation Blueprint: CampusWebPushSub
+    function isValidWebPushSub(data) {
+      return data.keys().hasAll([
+          'id',
+          'campusId',
+          'endpoint',
+          'p256dh',
+          'auth',
+          'actorId',
+          'actorRole',
+          'actorName',
+          'className',
+          'assignedClasses',
+          'platform',
+          'createdAt',
+          'updatedAtMs'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'campusId',
+          'endpoint',
+          'p256dh',
+          'auth',
+          'actorId',
+          'actorRole',
+          'actorName',
+          'className',
+          'assignedClasses',
+          'platform',
+          'createdAt',
+          'updatedAtMs'
+        ])
+        && data.id is string
+        && data.id.size() == 45
+        && data.id.matches('^wsub_[a-f0-9]{40}$')
+        && data.campusId == 'ics-academy'
+        && data.endpoint is string
+        && data.endpoint.size() >= 16
+        && data.endpoint.size() <= 600
+        && data.endpoint.matches('^https://.*')
+        && data.p256dh is string
+        && data.p256dh.size() >= 16
+        && data.p256dh.size() <= 200
+        && data.p256dh.matches('^[A-Za-z0-9_\\-]+={0,2}$')
+        && data.auth is string
+        && data.auth.size() >= 8
+        && data.auth.size() <= 100
+        && data.auth.matches('^[A-Za-z0-9_\\-]+={0,2}$')
+        && isPortalActorId(data.actorId)
+        && data.actorRole is string
+        && (data.actorRole == 'student' || data.actorRole == 'usthad' || data.actorRole == 'principal')
+        && data.actorName is string
+        && data.actorName.size() >= 1
+        && data.actorName.size() <= 120
+        && data.className is string
+        && data.className.size() <= 60
+        && data.assignedClasses is list
+        && data.assignedClasses.size() <= 20
+        && (data.assignedClasses.size() == 0 || data.assignedClasses[0] is string)
+        && data.platform is string
+        && data.platform.size() >= 2
+        && data.platform.size() <= 40
+        && data.createdAt is timestamp
+        && data.updatedAtMs is int
+        && data.updatedAtMs > 0;
+    }
+
+    // Collection: /campusWebPushSubs/{subId}
+    match /campusWebPushSubs/{subId} {
+      allow get: if subId.matches('^wsub_[a-f0-9]{40}$')
+        && resource != null
+        && existing().campusId == 'ics-academy';
+      allow list: if existing().campusId == 'ics-academy';
+      allow create: if subId.matches('^wsub_[a-f0-9]{40}$')
+        && isValidWebPushSub(incoming())
+        && incoming().id == subId
+        && incoming().createdAt == request.time;
+      allow update: if subId.matches('^wsub_[a-f0-9]{40}$')
+        && resource != null
+        && isValidWebPushSub(incoming())
+        && incoming().id == existing().id
+        && incoming().campusId == existing().campusId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'endpoint',
+          'p256dh',
+          'auth',
+          'actorId',
+          'actorRole',
+          'actorName',
+          'className',
+          'assignedClasses',
+          'platform',
+          'updatedAtMs'
+        ]);
+      allow delete: if subId.matches('^wsub_[a-f0-9]{40}$')
+        && resource != null
+        && existing().campusId == 'ics-academy';
+    }
   }
 }

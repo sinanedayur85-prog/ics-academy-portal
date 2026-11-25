@@ -7,7 +7,7 @@ import {
   isValidPushEndpointUrl,
   sendWebPushNotification,
   upsertWebPushSub,
-} from './_push-web-store.js'
+} from '../_push-web-store.js'
 
 function applyCors(req, res) {
   const origin = typeof req.headers?.origin === 'string' ? req.headers.origin : ''
