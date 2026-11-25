@@ -223,7 +223,10 @@ export function CampusNotificationBar({
         return
       }
 
-      triggerSystemNotification(notif.title, notif.message, notif.href)
+      triggerSystemNotification(notif.title, notif.message, notif.href, {
+        actorId: notif.actorId,
+        actorAvatarUrl: notif.actorAvatarUrl,
+      })
     }
 
     window.addEventListener('ics-campus-notification', handleIncoming)

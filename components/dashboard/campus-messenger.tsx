@@ -3118,6 +3118,12 @@ export function CampusMessenger({
           (roomSnapshot.type === 'direct_usthad' || roomSnapshot.type === 'direct_student') &&
           roomSnapshot.peerId
         ) {
+          const shortActorAvatar =
+            typeof actor.avatarUrl === 'string' &&
+            !actor.avatarUrl.startsWith('data:') &&
+            actor.avatarUrl.length <= 240
+              ? actor.avatarUrl
+              : undefined
           publishCampusNotification({
             id: deterministicNotifId,
             type: 'chat',
@@ -3126,6 +3132,7 @@ export function CampusMessenger({
             targetRecipientId: roomSnapshot.peerId,
             actorId: actor.id,
             actorName: actor.name,
+            actorAvatarUrl: shortActorAvatar,
             href: roomDeepLinkHref,
           })
         }
@@ -4176,6 +4183,12 @@ export function CampusMessenger({
         const forwardedRoomDeepLinkHref = `#campus-chat?room=${encodeURIComponent(targetRoomId)}`
         const dispatchForwardedPush = () => {
           if (isDirect && directPeerId) {
+            const shortActorAvatar =
+              typeof actor.avatarUrl === 'string' &&
+              !actor.avatarUrl.startsWith('data:') &&
+              actor.avatarUrl.length <= 240
+                ? actor.avatarUrl
+                : undefined
             publishCampusNotification({
               id: deterministicNotifId,
               type: 'chat',
@@ -4184,6 +4197,7 @@ export function CampusMessenger({
               targetRecipientId: directPeerId,
               actorId: actor.id,
               actorName: actor.name,
+              actorAvatarUrl: shortActorAvatar,
               href: forwardedRoomDeepLinkHref,
             })
           } else if (isBatch && batchName) {

@@ -1,5 +1,5 @@
 // ICS Academy Service Worker for Instant Black Launch, Offline Support & Real-Time Web Push (Android + iOS Home Screen PWA)
-const CACHE_NAME = 'ics-academy-pwa-v29';
+const CACHE_NAME = 'ics-academy-pwa-v30';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -144,6 +144,13 @@ self.addEventListener('push', (event) => {
     try {
       const parsed = event.data.json();
       if (parsed && typeof parsed === 'object') {
+        const parsedIcon =
+          typeof parsed.icon === 'string' &&
+          (parsed.icon.startsWith('/images/') ||
+            parsed.icon.startsWith('/icons/') ||
+            parsed.icon.startsWith('https://'))
+            ? parsed.icon.trim()
+            : '/icons/icon-192.png';
         payload = {
           title: typeof parsed.title === 'string' && parsed.title.trim()
             ? (parsed.title.replace(/^New\s+Message\s+from\s+/i, '').trim() || 'ICS Academy')
@@ -153,6 +160,7 @@ self.addEventListener('push', (event) => {
           tag: typeof parsed.tag === 'string' && parsed.tag.trim() ? parsed.tag.trim() : 'ics-academy-push',
           notificationId: typeof parsed.notificationId === 'string' ? parsed.notificationId : '',
           type: typeof parsed.type === 'string' ? parsed.type : 'notice',
+          icon: parsedIcon,
           requireInteraction: Boolean(parsed.requireInteraction),
         };
       }
@@ -206,7 +214,7 @@ self.addEventListener('push', (event) => {
 
       const notifOptions = {
         body: payload.body || 'Open ICS Academy to view details.',
-        icon: '/icons/icon-192.png',
+        icon: payload.icon || '/icons/icon-192.png',
         badge: '/icons/icon-192.png',
         tag: payload.tag || `ics-push-${payload.notificationId || Date.now()}`,
         renotify: true,

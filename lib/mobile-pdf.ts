@@ -13,6 +13,13 @@ export interface ICSNativeBridgeInterface {
   clearWebCacheAndReload?: () => void;
   showNotification?: (title: string, message: string) => void;
   showNotificationWithHref?: (title: string, message: string, href: string) => void;
+  showChatNotification?: (
+    title: string,
+    message: string,
+    href: string,
+    senderId: string,
+    senderAvatarUrl: string
+  ) => void;
   clearNotifications?: () => void;
   peekPendingNotificationHref?: () => string;
   consumePendingNotificationHref?: () => string;
@@ -389,6 +396,10 @@ export function triggerSystemNotification(
   title: string,
   message: string,
   href = '#notices',
+  meta?: {
+    actorId?: string;
+    actorAvatarUrl?: string;
+  },
 ): void {
   if (typeof window === 'undefined') return;
 
@@ -398,6 +409,18 @@ export function triggerSystemNotification(
   const cleanMessage = (message || '').trim();
   if (!cleanMessage && !cleanTitle) return;
 
+  const safeHref = href || '#notices';
+  const actorId = typeof meta?.actorId === 'string' ? meta.actorId.trim() : '';
+  const rawAvatar = typeof meta?.actorAvatarUrl === 'string' ? meta.actorAvatarUrl.trim() : '';
+  const safeAvatarUrl =
+    rawAvatar &&
+    rawAvatar.length <= 240 &&
+    (rawAvatar.startsWith('/images/') ||
+      rawAvatar.startsWith('/icons/') ||
+      rawAvatar.startsWith('https://'))
+      ? rawAvatar
+      : '';
+
   const queue = loadQueuedPhoneNotifications();
   const isFirstInGroup = queue.length === 0;
   const nextQueue = [
@@ -405,16 +428,30 @@ export function triggerSystemNotification(
     {
       title: cleanTitle,
       message: cleanMessage,
-      href,
+      href: safeHref,
       timestamp: Date.now(),
     },
   ].slice(-10);
   saveQueuedPhoneNotifications(nextQueue);
 
-  // 1. Native Android APK status-bar notification (uses single fixed ID + InboxStyle + setOnlyAlertOnce(true))
+  // 1. Native Android APK WhatsApp-style chat notification with real sender profile photo
+  if (safeHref.startsWith('#campus-chat') && window.ICSNativeBridge?.showChatNotification) {
+    try {
+      window.ICSNativeBridge.showChatNotification(
+        cleanTitle,
+        cleanMessage,
+        safeHref,
+        actorId,
+        safeAvatarUrl,
+      );
+      return;
+    } catch {
+      // Fallback below
+    }
+  }
   if (window.ICSNativeBridge?.showNotificationWithHref) {
     try {
-      window.ICSNativeBridge.showNotificationWithHref(cleanTitle, cleanMessage, href || '#notices');
+      window.ICSNativeBridge.showNotificationWithHref(cleanTitle, cleanMessage, safeHref);
       return;
     } catch {
       // Fallback below
@@ -443,11 +480,16 @@ export function triggerSystemNotification(
             .map((item) => `• ${item.title}: ${item.message}`)
             .join('\n');
 
-    const latestHref = nextQueue[nextQueue.length - 1]?.href || href;
+    const latestHref = nextQueue[nextQueue.length - 1]?.href || safeHref;
+    const isDirectChat =
+      safeHref.startsWith('#campus-chat') &&
+      !safeHref.includes('batch_group__') &&
+      !safeHref.includes('staff_group__') &&
+      nextQueue.length === 1;
 
     const notifOptions: NotificationOptions & { renotify?: boolean } = {
       body: groupedBody,
-      icon: '/icons/icon-192.png',
+      icon: isDirectChat && safeAvatarUrl ? safeAvatarUrl : '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
       tag: GROUPED_NOTIFICATION_TAG,
       renotify: isFirstInGroup,

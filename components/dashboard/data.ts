@@ -2914,6 +2914,7 @@ export type CampusNotification = {
   targetStaffOnly?: boolean
   actorId?: string
   actorName?: string
+  actorAvatarUrl?: string
   href?: string
   createdAt: string
   createdAtMs: number
@@ -3334,10 +3335,20 @@ export function createAndStoreCampusNotification(input: {
   targetStaffOnly?: boolean
   actorId?: string
   actorName?: string
+  actorAvatarUrl?: string
   href?: string
 }): CampusNotification {
   const now = new Date()
   const session = getCurrentSessionIdentity()
+  const rawAvatar = typeof input.actorAvatarUrl === 'string' ? input.actorAvatarUrl.trim() : ''
+  const safeShortAvatar =
+    rawAvatar &&
+    rawAvatar.length <= 240 &&
+    (rawAvatar.startsWith('/images/') ||
+      rawAvatar.startsWith('/icons/') ||
+      rawAvatar.startsWith('https://'))
+      ? rawAvatar
+      : undefined
   const notif: CampusNotification = {
     id: input.id || `notif_${now.getTime()}_${Math.random().toString(36).slice(2, 7)}`,
     type: input.type,
@@ -3351,6 +3362,7 @@ export function createAndStoreCampusNotification(input: {
     targetStaffOnly: input.targetStaffOnly,
     actorId: input.actorId || session.actorId || undefined,
     actorName: input.actorName || session.actorName || undefined,
+    actorAvatarUrl: safeShortAvatar,
     href: input.href || '#notices',
     createdAt: now.toISOString(),
     createdAtMs: now.getTime(),
@@ -3388,6 +3400,7 @@ export function publishCampusNotification(input: {
   targetStaffOnly?: boolean
   actorId?: string
   actorName?: string
+  actorAvatarUrl?: string
   href?: string
 }): CampusNotification {
   const notif = createAndStoreCampusNotification(input)

@@ -938,27 +938,45 @@ jobs:
                   }
 
                   @JavascriptInterface
+                  public void showChatNotification(
+                      final String title,
+                      final String message,
+                      final String href,
+                      final String senderId,
+                      final String senderAvatarUrl
+                  ) {
+                      final String safeTitle = cleanNotificationTitle(title);
+                      final String safeMessage = (message != null) ? message.trim() : "";
+                      final String rawSafeHref = sanitizeTargetHref(href);
+                      final String finalHref = rawSafeHref.isEmpty() ? "#campus-chat" : rawSafeHref;
+                      final String finalSenderId = (senderId != null) ? senderId.trim() : "";
+                      final String finalSenderAvatar = (senderAvatarUrl != null) ? senderAvatarUrl.trim() : "";
+                      new Thread(() -> CampusFirebaseMessagingService.postWhatsAppChatNotification(
+                          MainActivity.this.getApplicationContext(),
+                          safeTitle,
+                          safeMessage,
+                          finalHref,
+                          "",
+                          "",
+                          "",
+                          finalSenderId,
+                          finalSenderAvatar
+                      )).start();
+                  }
+
+                  @JavascriptInterface
                   public void showNotificationWithHref(final String title, final String message, final String href) {
+                      String preHref = sanitizeTargetHref(href);
+                      if (preHref.startsWith("#campus-chat")) {
+                          showChatNotification(title, message, preHref, "", "");
+                          return;
+                      }
                       runOnUiThread(() -> {
                           try {
                               String safeTitle = cleanNotificationTitle(title);
                               String safeMessage = (message != null) ? message.trim() : "";
                               String safeHref = sanitizeTargetHref(href);
                               if (safeHref.isEmpty()) safeHref = "#notices";
-
-                              // Chat messages use native WhatsApp-style MessagingStyle + Group Summary (no duplicate right logo)
-                              if (safeHref.startsWith("#campus-chat")) {
-                                  CampusFirebaseMessagingService.postWhatsAppChatNotification(
-                                      MainActivity.this,
-                                      safeTitle,
-                                      safeMessage,
-                                      safeHref,
-                                      "",
-                                      "",
-                                      ""
-                                  );
-                                  return;
-                              }
 
                               String combinedLine = safeMessage.isEmpty() ? safeTitle : (safeTitle + ": " + safeMessage);
 
@@ -1527,6 +1545,8 @@ jobs:
                               firstCleanTitle,
                               latestMsg,
                               safeHref,
+                              "",
+                              "",
                               "",
                               "",
                               ""
@@ -2160,15 +2180,23 @@ jobs:
           import android.content.SharedPreferences;
           import android.graphics.Bitmap;
           import android.graphics.BitmapFactory;
+          import android.graphics.Canvas;
           import android.graphics.Color;
+          import android.graphics.Paint;
+          import android.graphics.PorterDuff;
+          import android.graphics.PorterDuffXfermode;
+          import android.graphics.Rect;
+          import android.graphics.RectF;
           import android.media.AudioAttributes;
           import android.media.RingtoneManager;
           import android.net.Uri;
           import android.os.Build;
+          import android.util.Base64;
 
           import androidx.annotation.NonNull;
           import androidx.core.app.NotificationCompat;
           import androidx.core.app.Person;
+          import androidx.core.graphics.drawable.IconCompat;
 
           import com.google.firebase.messaging.FirebaseMessaging;
           import com.google.firebase.messaging.FirebaseMessagingService;
@@ -2177,6 +2205,10 @@ jobs:
           import org.json.JSONArray;
           import org.json.JSONObject;
 
+          import java.io.ByteArrayOutputStream;
+          import java.io.File;
+          import java.io.FileOutputStream;
+          import java.io.InputStream;
           import java.io.OutputStream;
           import java.net.HttpURLConnection;
           import java.net.URL;
@@ -2259,6 +2291,260 @@ jobs:
                   }
               }
 
+              private static volatile Bitmap cachedCircularIcsLogo = null;
+              private static final long AVATAR_CACHE_TTL_MS = 120_000L;
+
+              private static String canonicalizeProfileActorId(String rawId) {
+                  if (rawId == null) return "";
+                  String clean = rawId.trim();
+                  if (clean.isEmpty()) return "";
+                  if ("principal-01".equalsIgnoreCase(clean)) return "usthad-07";
+                  String lower = clean.toLowerCase(Locale.US);
+                  if (lower.startsWith("usthad-") && lower.length() >= 9) {
+                      char c7 = lower.charAt(7);
+                      char c8 = lower.charAt(8);
+                      if (c7 >= '0' && c7 <= '9' && c8 >= '0' && c8 <= '9') {
+                          return lower.substring(0, 9);
+                      }
+                  }
+                  return clean;
+              }
+
+              private static Bitmap cropToCircularBitmap(Bitmap src, int sizePx, boolean topWeighted) {
+                  if (src == null || src.getWidth() <= 0 || src.getHeight() <= 0) return null;
+                  try {
+                      int w = src.getWidth();
+                      int h = src.getHeight();
+                      int cropSize = Math.min(w, h);
+                      int left = Math.max(0, (w - cropSize) / 2);
+                      int top = topWeighted ? Math.max(0, (h - cropSize) / 4) : Math.max(0, (h - cropSize) / 2);
+                      if (top + cropSize > h) top = Math.max(0, h - cropSize);
+
+                      Bitmap out = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888);
+                      Canvas canvas = new Canvas(out);
+                      Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+                      float r = sizePx / 2.0f;
+                      canvas.drawCircle(r, r, r, paint);
+                      paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
+                      Rect srcRect = new Rect(left, top, left + cropSize, top + cropSize);
+                      RectF dstRect = new RectF(0, 0, sizePx, sizePx);
+                      canvas.drawBitmap(src, srcRect, dstRect, paint);
+                      return out;
+                  } catch (Exception ignored) {
+                      return null;
+                  }
+              }
+
+              private static Bitmap buildCircularIcsLogoBitmap(Context context) {
+                  if (cachedCircularIcsLogo != null && !cachedCircularIcsLogo.isRecycled()) {
+                      return cachedCircularIcsLogo;
+                  }
+                  try {
+                      Bitmap raw = BitmapFactory.decodeResource(context.getResources(), R.drawable.ics_notif_logo);
+                      if (raw == null) return null;
+                      int sz = 192;
+                      Bitmap square = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888);
+                      Canvas sc = new Canvas(square);
+                      sc.drawColor(Color.WHITE);
+                      int pad = (int) (sz * 0.14f);
+                      Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+                      sc.drawBitmap(raw, null, new Rect(pad, pad, sz - pad, sz - pad), p);
+                      Bitmap circ = cropToCircularBitmap(square, sz, false);
+                      if (circ != null) {
+                          cachedCircularIcsLogo = circ;
+                          return circ;
+                      }
+                  } catch (Exception ignored) {
+                  }
+                  return null;
+              }
+
+              private static byte[] readLimitedStream(InputStream is, int maxBytes) {
+                  if (is == null) return null;
+                  try {
+                      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                      byte[] buf = new byte[8192];
+                      int total = 0;
+                      int n;
+                      while ((n = is.read(buf)) > 0) {
+                          total += n;
+                          if (total > maxBytes) return null;
+                          baos.write(buf, 0, n);
+                      }
+                      return baos.toByteArray();
+                  } catch (Exception ignored) {
+                      return null;
+                  }
+              }
+
+              private static Bitmap downloadBitmapFromUrl(String urlStr) {
+                  if (urlStr == null || (!urlStr.startsWith("https://") && !urlStr.startsWith("http://"))) return null;
+                  HttpURLConnection conn = null;
+                  try {
+                      URL url = new URL(urlStr);
+                      conn = (HttpURLConnection) url.openConnection();
+                      conn.setRequestMethod("GET");
+                      conn.setConnectTimeout(2200);
+                      conn.setReadTimeout(2500);
+                      conn.setInstanceFollowRedirects(true);
+                      int code = conn.getResponseCode();
+                      if (code >= 200 && code < 300) {
+                          try (InputStream is = conn.getInputStream()) {
+                              byte[] bytes = readLimitedStream(is, 1_500_000);
+                              if (bytes != null && bytes.length > 32) {
+                                  return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                              }
+                          }
+                      }
+                  } catch (Exception ignored) {
+                  } finally {
+                      if (conn != null) conn.disconnect();
+                  }
+                  return null;
+              }
+
+              private static Bitmap decodeBitmapFromAvatarString(Context context, String avatarUrl) {
+                  if (avatarUrl == null) return null;
+                  String clean = avatarUrl.trim();
+                  if (clean.isEmpty()) return null;
+                  try {
+                      if (clean.startsWith("data:image/")) {
+                          int commaIdx = clean.indexOf(',');
+                          if (commaIdx > 0 && commaIdx < clean.length() - 16) {
+                              byte[] decoded = Base64.decode(clean.substring(commaIdx + 1), Base64.DEFAULT);
+                              if (decoded != null && decoded.length > 32) {
+                                  return BitmapFactory.decodeByteArray(decoded, 0, decoded.length);
+                              }
+                          }
+                          return null;
+                      }
+                      if (clean.startsWith("/")) {
+                          // First try bundled Capacitor local asset (0ms, works offline)
+                          String assetPath = "public" + clean;
+                          try (InputStream is = context.getAssets().open(assetPath)) {
+                              byte[] bytes = readLimitedStream(is, 1_500_000);
+                              if (bytes != null && bytes.length > 32) {
+                                  Bitmap bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                                  if (bmp != null) return bmp;
+                              }
+                          } catch (Exception ignored) {
+                          }
+                          return downloadBitmapFromUrl(API_BASES[0] + clean);
+                      }
+                      if (clean.startsWith("https://")) {
+                          return downloadBitmapFromUrl(clean);
+                      }
+                  } catch (Exception ignored) {
+                  }
+                  return null;
+              }
+
+              private static String fetchFirestoreAvatarUrl(String canonicalActorId) {
+                  if (canonicalActorId == null || canonicalActorId.isEmpty()) return "";
+                  if (FIRESTORE_PROJECT_ID.isEmpty() || FIRESTORE_DB_ID.isEmpty() || FIRESTORE_API_KEY.isEmpty()) return "";
+                  HttpURLConnection conn = null;
+                  try {
+                      String encodedId = URLEncoder.encode(canonicalActorId, "UTF-8");
+                      String docUrl = "https://firestore.googleapis.com/v1/projects/" + FIRESTORE_PROJECT_ID
+                          + "/databases/" + FIRESTORE_DB_ID
+                          + "/documents/campusProfilePhotos/" + encodedId
+                          + "?key=" + FIRESTORE_API_KEY;
+                      URL url = new URL(docUrl);
+                      conn = (HttpURLConnection) url.openConnection();
+                      conn.setRequestMethod("GET");
+                      conn.setConnectTimeout(2200);
+                      conn.setReadTimeout(2500);
+                      int code = conn.getResponseCode();
+                      if (code >= 200 && code < 300) {
+                          try (InputStream is = conn.getInputStream()) {
+                              byte[] bytes = readLimitedStream(is, 600_000);
+                              if (bytes != null && bytes.length > 10) {
+                                  JSONObject root = new JSONObject(new String(bytes, StandardCharsets.UTF_8));
+                                  JSONObject fields = root.optJSONObject("fields");
+                                  if (fields != null) {
+                                      JSONObject avatarField = fields.optJSONObject("avatarUrl");
+                                      if (avatarField != null) {
+                                          String val = avatarField.optString("stringValue", "").trim();
+                                          if (!val.isEmpty()) return val;
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  } catch (Exception ignored) {
+                  } finally {
+                      if (conn != null) conn.disconnect();
+                  }
+                  return "";
+              }
+
+              private static Bitmap resolveChatAvatarBitmap(
+                  Context context,
+                  boolean isGroup,
+                  String rawSenderId,
+                  String rawSenderAvatarUrl
+              ) {
+                  // Group chats always show our crisp circular white-backed full-color ICS Academy logo (never letter initials)
+                  if (isGroup) {
+                      return buildCircularIcsLogoBitmap(context);
+                  }
+
+                  String canonicalId = canonicalizeProfileActorId(rawSenderId);
+                  File cacheFile = null;
+                  if (!canonicalId.isEmpty()) {
+                      try {
+                          File dir = new File(context.getCacheDir(), "ics_avatars");
+                          if (!dir.exists()) dir.mkdirs();
+                          String safeKey = canonicalId.replaceAll("[^a-zA-Z0-9_-]", "_");
+                          cacheFile = new File(dir, safeKey + ".png");
+                          if (cacheFile.exists() && (System.currentTimeMillis() - cacheFile.lastModified()) < AVATAR_CACHE_TTL_MS) {
+                              Bitmap cached = BitmapFactory.decodeFile(cacheFile.getAbsolutePath());
+                              if (cached != null) return cached;
+                          }
+                      } catch (Exception ignored) {
+                      }
+                  }
+
+                  Bitmap rawPhoto = null;
+                  // 1. Check live synced profile photo from Firestore /campusProfilePhotos/{canonicalId}
+                  if (!canonicalId.isEmpty()) {
+                      String fsAvatarUrl = fetchFirestoreAvatarUrl(canonicalId);
+                      if (!fsAvatarUrl.isEmpty()) {
+                          rawPhoto = decodeBitmapFromAvatarString(context, fsAvatarUrl);
+                      }
+                  }
+
+                  // 2. Fallback to short avatar URL sent in notification payload (e.g. /images/muhammed-sinan-nt.jpg)
+                  if (rawPhoto == null && rawSenderAvatarUrl != null && !rawSenderAvatarUrl.trim().isEmpty()) {
+                      rawPhoto = decodeBitmapFromAvatarString(context, rawSenderAvatarUrl.trim());
+                  }
+
+                  if (rawPhoto != null) {
+                      Bitmap circular = cropToCircularBitmap(rawPhoto, 192, true);
+                      if (circular != null) {
+                          if (cacheFile != null) {
+                              try (FileOutputStream fos = new FileOutputStream(cacheFile)) {
+                                  circular.compress(Bitmap.CompressFormat.PNG, 95, fos);
+                              } catch (Exception ignored) {
+                              }
+                          }
+                          return circular;
+                      }
+                  }
+
+                  // 3. Fallback to stale cached avatar on disk if network timed out
+                  if (cacheFile != null && cacheFile.exists()) {
+                      try {
+                          Bitmap stale = BitmapFactory.decodeFile(cacheFile.getAbsolutePath());
+                          if (stale != null) return stale;
+                      } catch (Exception ignored) {
+                      }
+                  }
+
+                  // 4. Final fallback: white-backed full-color ICS Academy logo circle (NEVER "M" letter circle)
+                  return buildCircularIcsLogoBitmap(context);
+              }
+
               public static synchronized void postWhatsAppChatNotification(
                   Context context,
                   String rawTitle,
@@ -2266,7 +2552,9 @@ jobs:
                   String safeHref,
                   String rawRoomId,
                   String rawSenderName,
-                  String notifId
+                  String notifId,
+                  String rawSenderId,
+                  String rawSenderAvatarUrl
               ) {
                   if (context == null) return;
                   try {
@@ -2323,13 +2611,23 @@ jobs:
                       if (senderDisplay.isEmpty()) senderDisplay = conversationTitle;
                       if (messageText.isEmpty()) messageText = "New message";
 
+                      SharedPreferences prefs = context.getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
+                      String resolvedSenderId = (rawSenderId != null) ? rawSenderId.trim() : "";
+                      if (resolvedSenderId.isEmpty() && !isGroup && roomId.startsWith("direct__")) {
+                          String[] parts = roomId.split("__");
+                          String myId = prefs.getString("actorId", "");
+                          if (myId != null) myId = myId.trim();
+                          if (parts.length >= 3) {
+                              resolvedSenderId = parts[1].equals(myId) ? parts[2] : parts[1];
+                          }
+                      }
+
                       String roomKey = !roomId.isEmpty()
                           ? roomId
                           : ("conv_" + conversationTitle.toLowerCase(Locale.US));
                       int roomNotifyId = computeChatNotifyId(roomKey);
                       long nowMs = System.currentTimeMillis();
 
-                      SharedPreferences prefs = context.getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
                       JSONObject allRooms;
                       try {
                           String saved = prefs.getString(PREF_UNREAD_CHATS, "");
@@ -2347,6 +2645,12 @@ jobs:
                       roomObj.put("href", (safeHref != null && !safeHref.isEmpty()) ? safeHref : "#campus-chat");
                       roomObj.put("notifyId", roomNotifyId);
                       roomObj.put("updatedAt", nowMs);
+                      if (!resolvedSenderId.isEmpty()) {
+                          roomObj.put("senderId", resolvedSenderId);
+                      }
+                      if (rawSenderAvatarUrl != null && !rawSenderAvatarUrl.trim().isEmpty()) {
+                          roomObj.put("senderAvatarUrl", rawSenderAvatarUrl.trim());
+                      }
 
                       JSONArray msgArr = roomObj.optJSONArray("messages");
                       if (msgArr == null) msgArr = new JSONArray();
@@ -2405,6 +2709,14 @@ jobs:
                       convIntent.putExtra(MainActivity.EXTRA_TARGET_HREF, (safeHref != null && !safeHref.isEmpty()) ? safeHref : "#campus-chat");
                       PendingIntent convPendingIntent = PendingIntent.getActivity(context, roomNotifyId, convIntent, flags);
 
+                      // Resolve real circular profile photo for 1-on-1 chats, or crisp white-backed ICS Academy logo for groups/fallback (ZERO "M" letter avatar)
+                      String avatarLookupSenderId = !resolvedSenderId.isEmpty() ? resolvedSenderId : roomObj.optString("senderId", "");
+                      String avatarLookupUrl = (rawSenderAvatarUrl != null && !rawSenderAvatarUrl.trim().isEmpty())
+                          ? rawSenderAvatarUrl.trim()
+                          : roomObj.optString("senderAvatarUrl", "");
+                      Bitmap avatarBitmap = resolveChatAvatarBitmap(context, isGroup, avatarLookupSenderId, avatarLookupUrl);
+                      IconCompat avatarIcon = avatarBitmap != null ? IconCompat.createWithBitmap(avatarBitmap) : null;
+
                       Person mePerson = new Person.Builder().setName("You").build();
                       NotificationCompat.MessagingStyle messagingStyle = new NotificationCompat.MessagingStyle(mePerson);
                       if (isGroup) {
@@ -2417,8 +2729,11 @@ jobs:
                           String mSender = m.optString("sender", senderDisplay);
                           String mText = m.optString("text", "");
                           long mTs = m.optLong("ts", nowMs);
-                          Person pSender = new Person.Builder().setName(mSender).build();
-                          messagingStyle.addMessage(mText, mTs, pSender);
+                          Person.Builder senderBuilder = new Person.Builder().setName(mSender);
+                          if (avatarIcon != null) {
+                              senderBuilder.setIcon(avatarIcon);
+                          }
+                          messagingStyle.addMessage(mText, mTs, senderBuilder.build());
                       }
 
                       String compactBody = isGroup ? (senderDisplay + ": " + messageText) : messageText;
@@ -3034,7 +3349,9 @@ jobs:
                                   safeHref,
                                   data.get("roomId"),
                                   data.get("senderName"),
-                                  notifId
+                                  notifId,
+                                  senderId,
+                                  data.get("senderAvatarUrl")
                               );
                           } else {
                               NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);

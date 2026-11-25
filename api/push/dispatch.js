@@ -284,6 +284,7 @@ async function sendFcmV1Message(creds, accessToken, target, payload, ttlSeconds)
         type: payload.type,
         senderId: payload.senderId || '',
         senderName: payload.senderName || '',
+        senderAvatarUrl: payload.senderAvatarUrl || '',
         messageId: payload.messageId || '',
         callId: payload.callId || '',
         callType: payload.callType || '',
@@ -452,6 +453,15 @@ export default async function handler(req, res) {
         .replace(/^New\s+Message\s+from\s+/i, '')
         .trim()
         .slice(0, 140) || 'ICS Academy'
+      const rawAvatar = typeof n.actorAvatarUrl === 'string' ? n.actorAvatarUrl.trim() : ''
+      const safeAvatarUrl =
+        rawAvatar &&
+        rawAvatar.length <= 240 &&
+        (rawAvatar.startsWith('/images/') ||
+          rawAvatar.startsWith('/icons/') ||
+          rawAvatar.startsWith('https://'))
+          ? rawAvatar
+          : ''
       payload = {
         title: cleanedTitle,
         body: String(n.message || 'Open ICS Academy to view details.').trim().slice(0, 320),
@@ -461,6 +471,8 @@ export default async function handler(req, res) {
         type: safeType,
         senderId: typeof n.actorId === 'string' ? n.actorId.slice(0, 64) : '',
         senderName: typeof n.actorName === 'string' ? n.actorName.trim().slice(0, 80) : '',
+        senderAvatarUrl: safeAvatarUrl,
+        icon: safeAvatarUrl || '/icons/icon-192.png',
         roomId: extractedRoomId,
         messageId: derivedChatMsgId,
         requireInteraction: false,

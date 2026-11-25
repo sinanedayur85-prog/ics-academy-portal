@@ -1784,6 +1784,18 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     }
   }
 
+  function sanitizeShortAvatarUrl(raw: unknown): string {
+    const clean = typeof raw === 'string' ? raw.trim() : ''
+    if (
+      clean &&
+      clean.length <= 240 &&
+      (clean.startsWith('/images/') || clean.startsWith('/icons/') || clean.startsWith('https://'))
+    ) {
+      return clean
+    }
+    return ''
+  }
+
   async function sendFcmMulticast(
     tokens: string[],
     payloadObj: {
@@ -1795,6 +1807,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
       type: string
       senderId?: string
       senderName?: string
+      senderAvatarUrl?: string
       roomId?: string
     },
     urgency: 'normal' | 'high' = 'high',
@@ -1816,6 +1829,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
             type: payloadObj.type,
             senderId: payloadObj.senderId || '',
             senderName: payloadObj.senderName || '',
+            senderAvatarUrl: sanitizeShortAvatarUrl(payloadObj.senderAvatarUrl),
             roomId: payloadObj.roomId || extractRoomIdFromHref(payloadObj.href),
           },
           android: {
@@ -1852,6 +1866,9 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
     if (!hasWebSubs && !hasFcmDevices) return
 
     const hrefVal = notif.href || '#notices'
+    const safeAvatarUrl = sanitizeShortAvatarUrl(
+      (notif as ServerCampusNotification & { actorAvatarUrl?: string }).actorAvatarUrl,
+    )
     const payload = {
       title: cleanNotificationTitle(notif.title),
       body: String(notif.message || 'Open ICS Academy to view details.').slice(0, 320),
@@ -1861,6 +1878,8 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
       type: notif.type || 'notice',
       senderId: notif.actorId || '',
       senderName: notif.actorName || '',
+      senderAvatarUrl: safeAvatarUrl,
+      icon: safeAvatarUrl || '/icons/icon-192.png',
       roomId: extractRoomIdFromHref(hrefVal),
       requireInteraction: false,
     }
@@ -2023,6 +2042,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
       type: string
       senderId?: string
       senderName?: string
+      senderAvatarUrl?: string
       roomId?: string
     },
     ttlMs: number,
@@ -2041,6 +2061,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
             type: payload.type,
             senderId: payload.senderId || '',
             senderName: payload.senderName || '',
+            senderAvatarUrl: sanitizeShortAvatarUrl(payload.senderAvatarUrl),
             roomId: payload.roomId || extractRoomIdFromHref(payload.href),
           },
           android: {
@@ -2120,6 +2141,7 @@ Your ONLY job is to output the exact words the student spoke in ${langHint}:
             type: safeType,
             senderId: typeof n.actorId === 'string' ? n.actorId.slice(0, 64) : '',
             senderName: typeof n.actorName === 'string' ? n.actorName.trim().slice(0, 80) : '',
+            senderAvatarUrl: sanitizeShortAvatarUrl(n.actorAvatarUrl),
             roomId: extractRoomIdFromHref(safeHref),
           },
           safeType === 'chat' || safeType === 'leave' || safeType === 'attendance'
