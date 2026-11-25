@@ -68,10 +68,27 @@ jobs:
           '
 
       - name: Install NPM dependencies
-        run: npm install --legacy-peer-deps
+        run: |
+          for attempt in 1 2 3; do
+            echo "NPM install attempt ${attempt}/3..."
+            if npm install --legacy-peer-deps --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=5000 --fetch-retry-maxtimeout=30000; then
+              exit 0
+            fi
+            echo "NPM install attempt ${attempt} failed; cleaning cache and retrying in 5s..."
+            rm -rf node_modules/.cache || true
+            sleep 5
+          done
+          exit 1
 
       - name: Install Capacitor Android packages
-        run: npm install --legacy-peer-deps @capacitor/core@8.6.2 @capacitor/cli@8.6.2 @capacitor/android@8.6.2
+        run: |
+          for attempt in 1 2 3; do
+            if npm install --legacy-peer-deps --no-audit --no-fund --fetch-retries=5 @capacitor/core@8.6.2 @capacitor/cli@8.6.2 @capacitor/android@8.6.2; then
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1
 
       - name: Build Web Application
         run: |
