@@ -92,6 +92,7 @@ import {
   type Student,
 } from '@/components/dashboard/data'
 import { buildKitabPdfBlob, CURATED_KITABS } from '@/components/dashboard/digital-library'
+import { ProfilePhotoModal } from '@/components/dashboard/student-profile-photo-modal'
 import {
   clearGroupedPhoneNotifications,
   clearPendingNotificationChatRoomId,
@@ -909,12 +910,33 @@ export function CampusMessenger({
   isMessengerVisible,
   mobileTabActive,
 }: CampusMessengerProps) {
+  const [academyConfigVersion, setAcademyConfigVersion] = useState(0)
+  const [ownPhotoModalOpen, setOwnPhotoModalOpen] = useState(false)
+
+  useEffect(() => {
+    const syncConfig = () => setAcademyConfigVersion((v) => v + 1)
+    window.addEventListener('ics-academy-config-updated', syncConfig)
+    window.addEventListener('ics-profile-photos-updated', syncConfig)
+    return () => {
+      window.removeEventListener('ics-academy-config-updated', syncConfig)
+      window.removeEventListener('ics-profile-photos-updated', syncConfig)
+    }
+  }, [])
+
   // Resolve current actor identity (canonicalizing Usthad/Principal IDs so rooms always match)
   const actor = useMemo(() => {
+    void academyConfigVersion
     if (role === 'principal') {
+      const canonicalPrincipalId = getCanonicalUsthadId(principal.usthadId || 'usthad-07')
+      const livePrincipalAvatar =
+        OFFICIAL_CLASS_USTHADS.find((u) => u.id === canonicalPrincipalId)?.avatarUrl ||
+        ACADEMY_PRINCIPAL.avatarUrl ||
+        principal.avatarUrl
       return {
-        id: getCanonicalUsthadId(principal.usthadId || 'usthad-07'),
+        id: canonicalPrincipalId,
         name: principal.name,
+        subtitle: `Principal • ${principal.staffId}`,
+        avatarUrl: livePrincipalAvatar,
         role: 'principal' as MessengerRole,
         badge: 'Principal',
         className: principal.assignedClassName || 'BS 3',
@@ -924,25 +946,32 @@ export function CampusMessenger({
     if (role === 'usthad' && usthad) {
       const canonicalId = getCanonicalUsthadId(usthad.id)
       const isPrincipalDual = canonicalId === ACADEMY_PRINCIPAL.usthadId
+      const liveUsthad =
+        OFFICIAL_CLASS_USTHADS.find((u) => u.id === canonicalId || u.id === usthad.id) ?? usthad
       return {
         id: canonicalId,
-        name: usthad.name,
+        name: liveUsthad.name,
+        subtitle: `${liveUsthad.designation} • ${liveUsthad.staffId}`,
+        avatarUrl: liveUsthad.avatarUrl,
         role: (isPrincipalDual ? 'principal' : 'usthad') as MessengerRole,
-        badge: usthad.designation.split('•')[0].trim(),
-        className: activeClassName || usthad.className,
+        badge: liveUsthad.designation.split('•')[0].trim(),
+        className: activeClassName || liveUsthad.className,
         isStaff: true,
       }
     }
-    const activeStudent = student ?? students[0]
+    const baseStudent = student ?? students[0]
+    const activeStudent = students.find((s) => s.id === baseStudent.id) ?? baseStudent
     return {
       id: activeStudent.id,
       name: activeStudent.name,
+      subtitle: `Class ${activeStudent.className} • ${activeStudent.admissionNo}`,
+      avatarUrl: activeStudent.avatarUrl,
       role: 'student' as MessengerRole,
       badge: activeStudent.className,
       className: activeStudent.className,
       isStaff: false,
     }
-  }, [role, student, usthad, principal, activeClassName])
+  }, [role, student, usthad, principal, activeClassName, academyConfigVersion])
 
   const [messagesByRoom, setMessagesByRoom] = useState<Record<string, ChatMessage[]>>(() =>
     loadLocalMessages(),
@@ -975,8 +1004,9 @@ export function CampusMessenger({
       name: actor.name,
       role: actor.role,
       subtitle: actor.badge,
+      avatarUrl: actor.avatarUrl,
     })
-  }, [actor.id, actor.name, actor.role, actor.badge, registerActiveCallActor])
+  }, [actor.id, actor.name, actor.role, actor.badge, actor.avatarUrl, registerActiveCallActor])
 
   // Filter tabs & search
   const [categoryFilter, setCategoryFilter] = useState<
@@ -1589,16 +1619,6 @@ export function CampusMessenger({
       document.removeEventListener('pointerdown', handleGlobalPointerDown, true)
     }
   }, [showAttachMenu, showChatMoreMenu])
-
-  const [academyConfigVersion, setAcademyConfigVersion] = useState(0)
-
-  useEffect(() => {
-    const syncConfig = () => setAcademyConfigVersion((v) => v + 1)
-    window.addEventListener('ics-academy-config-updated', syncConfig)
-    return () => {
-      window.removeEventListener('ics-academy-config-updated', syncConfig)
-    }
-  }, [])
 
   // Build available rooms for this user
   const allRooms = useMemo<ChatRoomDescriptor[]>(() => {
@@ -4347,8 +4367,9 @@ export function CampusMessenger({
         avatarUrl: st.avatarUrl,
       })
     }
+    void academyConfigVersion
     return list
-  }, [actor.id, actor.className, actor.isStaff])
+  }, [actor.id, actor.className, actor.isStaff, academyConfigVersion])
 
   const handleToggleGroupLock = () => {
     if (!actor.isStaff) return
@@ -4404,7 +4425,30 @@ export function CampusMessenger({
         >
           {/* Instagram Inbox Top Bar */}
           <div className="flex items-center justify-between gap-2 bg-white px-4 pb-2 pt-3.5 dark:bg-black">
-            <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setOwnPhotoModalOpen(true)}
+                title="View or change your profile photo"
+                aria-label="View or change your profile photo"
+                className="group relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-[#7C3AED] via-[#4F46E5] to-[#0095F6] text-xs font-bold text-white ring-2 ring-[#0095F6]/30 transition-transform hover:scale-105 active:scale-95"
+              >
+                {actor.avatarUrl ? (
+                  <img
+                    src={actor.avatarUrl}
+                    alt={actor.name}
+                    className="size-full object-cover object-top"
+                  />
+                ) : (
+                  <span>{getMessengerAvatarText(formatMessengerDisplayName(actor.name, actor.role))}</span>
+                )}
+                <span
+                  aria-hidden="true"
+                  className="absolute right-0 bottom-0 flex size-3.5 items-center justify-center rounded-full bg-[#0095F6] text-white ring-1 ring-white dark:ring-black"
+                >
+                  <Camera className="size-2" />
+                </span>
+              </button>
               <h2 className="truncate font-poppins text-[19px] font-bold tracking-tight text-zinc-950 dark:text-white">
                 {formatMessengerDisplayName(actor.name, actor.role)}
               </h2>
@@ -8585,6 +8629,18 @@ export function CampusMessenger({
             document.body,
           )
         : null}
+
+      {/* OWN PROFILE PHOTO MODAL (Allows updating own profile photo directly from Chats — synced to everyone) */}
+      <ProfilePhotoModal
+        actorId={actor.id}
+        actorRole={actor.role}
+        name={actor.name}
+        subtitle={actor.subtitle}
+        currentAvatarUrl={actor.avatarUrl}
+        mandatoryPolicy={actor.role === 'student'}
+        open={ownPhotoModalOpen}
+        onClose={() => setOwnPhotoModalOpen(false)}
+      />
       {/* CLEAR CHAT CONFIRMATION MODAL */}
       {showClearChatConfirm && (
         <div

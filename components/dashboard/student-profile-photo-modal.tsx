@@ -3,10 +3,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Camera, Check, ImagePlus, Loader2, ShieldAlert, X } from 'lucide-react'
+import { type Student } from '@/components/dashboard/data'
 import {
-  type Student,
-  updateStudentProfilePhoto,
-} from '@/components/dashboard/data'
+  saveProfilePhotoToFirestore,
+  type ProfilePhotoActorRole,
+} from '@/components/dashboard/profile-photo-store'
+
+export type ProfilePhotoModalProps = {
+  actorId: string
+  actorRole: ProfilePhotoActorRole
+  name: string
+  subtitle: string
+  currentAvatarUrl?: string
+  mandatoryPolicy?: boolean
+  open: boolean
+  onClose: () => void
+  onPhotoUpdated?: (newAvatarUrl: string) => void
+}
 
 type StudentProfilePhotoModalProps = {
   student: Student
@@ -25,37 +38,43 @@ async function compressProfilePhotoToDataUrl(file: File): Promise<string> {
     const img = new Image()
     img.onload = () => {
       try {
-        const targetSize = 512
-        const canvas = document.createElement('canvas')
-        canvas.width = targetSize
-        canvas.height = targetSize
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          URL.revokeObjectURL(objectUrl)
-          reject(new Error('Unable to process image on this device.'))
-          return
+        const renderAtSize = (targetSize: number, quality: number) => {
+          const canvas = document.createElement('canvas')
+          canvas.width = targetSize
+          canvas.height = targetSize
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            throw new Error('Unable to process image on this device.')
+          }
+
+          // Center-crop to square with slight upper bias for portraits so faces stay centered
+          const srcWidth = img.naturalWidth || img.width
+          const srcHeight = img.naturalHeight || img.height
+          const cropSide = Math.min(srcWidth, srcHeight)
+          const sx = Math.max(0, (srcWidth - cropSide) / 2)
+          const sy =
+            srcHeight > srcWidth
+              ? Math.max(0, (srcHeight - cropSide) * 0.28)
+              : Math.max(0, (srcHeight - cropSide) / 2)
+
+          ctx.fillStyle = '#0B1014'
+          ctx.fillRect(0, 0, targetSize, targetSize)
+          ctx.imageSmoothingEnabled = true
+          ctx.imageSmoothingQuality = 'high'
+          ctx.drawImage(img, sx, sy, cropSide, cropSide, 0, 0, targetSize, targetSize)
+          return canvas.toDataURL('image/jpeg', quality)
         }
 
-        // Center-crop to square with slight upper bias for portraits so faces stay centered
-        const srcWidth = img.naturalWidth || img.width
-        const srcHeight = img.naturalHeight || img.height
-        const cropSide = Math.min(srcWidth, srcHeight)
-        const sx = Math.max(0, (srcWidth - cropSide) / 2)
-        const sy =
-          srcHeight > srcWidth
-            ? Math.max(0, (srcHeight - cropSide) * 0.28)
-            : Math.max(0, (srcHeight - cropSide) / 2)
-
-        ctx.fillStyle = '#0B1014'
-        ctx.fillRect(0, 0, targetSize, targetSize)
-        ctx.imageSmoothingEnabled = true
-        ctx.imageSmoothingQuality = 'high'
-        ctx.drawImage(img, sx, sy, cropSide, cropSide, 0, 0, targetSize, targetSize)
-
-        let dataUrl = canvas.toDataURL('image/jpeg', 0.84)
-        // Ensure compact storage & fast sync across devices
+        let dataUrl = renderAtSize(512, 0.84)
+        // Ensure compact storage & fast real-time Firestore sync across all devices
         if (dataUrl.length > 95_000) {
-          dataUrl = canvas.toDataURL('image/jpeg', 0.72)
+          dataUrl = renderAtSize(512, 0.72)
+        }
+        if (dataUrl.length > 140_000) {
+          dataUrl = renderAtSize(384, 0.72)
+        }
+        if (dataUrl.length > 180_000) {
+          dataUrl = renderAtSize(320, 0.65)
         }
         URL.revokeObjectURL(objectUrl)
         resolve(dataUrl)
@@ -72,15 +91,21 @@ async function compressProfilePhotoToDataUrl(file: File): Promise<string> {
   })
 }
 
-export function StudentProfilePhotoModal({
-  student,
+export function ProfilePhotoModal({
+  actorId,
+  actorRole,
+  name,
+  subtitle,
+  currentAvatarUrl,
+  mandatoryPolicy = false,
   open,
   onClose,
   onPhotoUpdated,
-}: StudentProfilePhotoModalProps) {
+}: ProfilePhotoModalProps) {
   const [mounted, setMounted] = useState(false)
   const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [savedToast, setSavedToast] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -95,6 +120,7 @@ export function StudentProfilePhotoModal({
       setErrorMessage(null)
       setSavedToast(false)
       setIsProcessing(false)
+      setIsSaving(false)
       return
     }
 
@@ -102,7 +128,7 @@ export function StudentProfilePhotoModal({
     document.body.style.overflow = 'hidden'
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !isSaving) {
         onClose()
       }
     }
@@ -112,16 +138,15 @@ export function StudentProfilePhotoModal({
       document.body.style.overflow = previousOverflow
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [open, onClose])
+  }, [open, onClose, isSaving])
 
   if (!open || !mounted) return null
 
-  const activePhotoUrl = pendingPreviewUrl || student.avatarUrl || ''
+  const activePhotoUrl = pendingPreviewUrl || currentAvatarUrl || ''
   const hasPhoto = Boolean(activePhotoUrl)
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
-    // Reset input so selecting the same file again still triggers onChange
     event.target.value = ''
     if (!file) return
 
@@ -140,21 +165,32 @@ export function StudentProfilePhotoModal({
     }
   }
 
-  function handleSavePhoto() {
-    if (!pendingPreviewUrl) return
-    const ok = updateStudentProfilePhoto(student.id, pendingPreviewUrl)
-    if (!ok) {
-      setErrorMessage('Please choose a valid photo before saving.')
-      return
-    }
-    const savedUrl = pendingPreviewUrl
-    setPendingPreviewUrl(null)
+  async function handleSavePhoto() {
+    if (!pendingPreviewUrl || isSaving) return
+    setIsSaving(true)
     setErrorMessage(null)
-    setSavedToast(true)
-    onPhotoUpdated?.(savedUrl)
-    window.setTimeout(() => {
-      setSavedToast(false)
-    }, 2600)
+    const savedUrl = pendingPreviewUrl
+    try {
+      const ok = await saveProfilePhotoToFirestore({
+        actorId,
+        actorRole,
+        actorName: name,
+        avatarUrl: savedUrl,
+      })
+      if (!ok) {
+        setErrorMessage('Could not sync photo right now. Check your connection and try again.')
+        return
+      }
+      setPendingPreviewUrl(null)
+      setErrorMessage(null)
+      setSavedToast(true)
+      onPhotoUpdated?.(savedUrl)
+      window.setTimeout(() => {
+        setSavedToast(false)
+      }, 2600)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   function openPhotoPicker() {
@@ -166,9 +202,9 @@ export function StudentProfilePhotoModal({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`${student.name} profile photo`}
+      aria-label={`${name} profile photo`}
       onClick={(e) => {
-        if (e.target === e.currentTarget && !pendingPreviewUrl) {
+        if (e.target === e.currentTarget && !pendingPreviewUrl && !isSaving) {
           onClose()
         }
       }}
@@ -192,18 +228,17 @@ export function StudentProfilePhotoModal({
       <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
         <div className="min-w-0">
           <p className="truncate font-display text-base font-semibold text-white sm:text-lg">
-            {student.name}
+            {name}
           </p>
-          <p className="truncate text-xs text-white/65">
-            Class {student.className} • {student.admissionNo}
-          </p>
+          <p className="truncate text-xs text-white/65">{subtitle}</p>
         </div>
 
         <button
           type="button"
           onClick={onClose}
+          disabled={isSaving}
           aria-label="Close full screen profile photo"
-          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 active:scale-95"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 active:scale-95 disabled:opacity-50"
         >
           <X className="size-5" aria-hidden="true" />
         </button>
@@ -212,7 +247,7 @@ export function StudentProfilePhotoModal({
       {/* Center Full-Screen Photo Stage */}
       <div
         onClick={(e) => {
-          if (e.target === e.currentTarget && !pendingPreviewUrl) {
+          if (e.target === e.currentTarget && !pendingPreviewUrl && !isSaving) {
             onClose()
           }
         }}
@@ -227,7 +262,7 @@ export function StudentProfilePhotoModal({
           <div className="relative flex max-h-full max-w-full flex-col items-center justify-center">
             <img
               src={activePhotoUrl}
-              alt={`${student.name} profile photo`}
+              alt={`${name} profile photo`}
               className="max-h-[68svh] w-auto max-w-[92vw] rounded-2xl object-contain shadow-[0_24px_80px_rgba(0,0,0,0.75)] ring-1 ring-white/15 animate-in zoom-in-95 duration-200"
             />
             {pendingPreviewUrl ? (
@@ -242,10 +277,12 @@ export function StudentProfilePhotoModal({
               <ImagePlus className="size-8" aria-hidden="true" />
             </div>
             <p className="mt-4 font-display text-lg font-semibold text-white">
-              Profile Photo Required
+              {mandatoryPolicy ? 'Profile Photo Required' : 'Add Profile Photo'}
             </p>
             <p className="mt-1.5 text-xs leading-relaxed text-white/70">
-              Every student must have a profile photo. Please upload a clear photo now.
+              {mandatoryPolicy
+                ? 'Every student must have a profile photo. Please upload a clear photo now.'
+                : 'Upload a clear photo so everyone in Chats can recognize you.'}
             </p>
           </div>
         )}
@@ -257,7 +294,7 @@ export function StudentProfilePhotoModal({
             className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-500/20 px-4 py-2 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/40 animate-in fade-in-0 slide-in-from-bottom-2 duration-200"
           >
             <Check className="size-4" aria-hidden="true" />
-            Profile photo updated
+            Profile photo updated for everyone
           </div>
         ) : null}
 
@@ -280,7 +317,7 @@ export function StudentProfilePhotoModal({
               <button
                 type="button"
                 onClick={openPhotoPicker}
-                disabled={isProcessing}
+                disabled={isProcessing || isSaving}
                 className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-white/12 px-4 text-sm font-semibold text-white transition-colors hover:bg-white/20 active:scale-[0.98] disabled:opacity-50"
               >
                 <Camera className="size-4" aria-hidden="true" />
@@ -288,19 +325,23 @@ export function StudentProfilePhotoModal({
               </button>
               <button
                 type="button"
-                onClick={handleSavePhoto}
-                disabled={isProcessing}
+                onClick={() => void handleSavePhoto()}
+                disabled={isProcessing || isSaving}
                 className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#0095F6] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#0084DC] active:scale-[0.98] disabled:opacity-50"
               >
-                <Check className="size-4" aria-hidden="true" />
-                Save Photo
+                {isSaving ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Check className="size-4" aria-hidden="true" />
+                )}
+                {isSaving ? 'Saving…' : 'Save Photo'}
               </button>
             </div>
           ) : (
             <button
               type="button"
               onClick={openPhotoPicker}
-              disabled={isProcessing}
+              disabled={isProcessing || isSaving}
               className="flex h-12 w-full items-center justify-center gap-2.5 rounded-2xl bg-[#0095F6] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#0084DC] active:scale-[0.98] disabled:opacity-50"
             >
               <Camera className="size-4.5" aria-hidden="true" />
@@ -309,11 +350,34 @@ export function StudentProfilePhotoModal({
           )}
 
           <p className="text-center text-[11px] text-white/55">
-            A profile photo is mandatory for all students and cannot be removed.
+            {mandatoryPolicy
+              ? 'A profile photo is mandatory for all students and visible to everyone in Chats.'
+              : 'Your profile photo is visible to everyone in Chats.'}
           </p>
         </div>
       </div>
     </div>,
     document.body,
+  )
+}
+
+export function StudentProfilePhotoModal({
+  student,
+  open,
+  onClose,
+  onPhotoUpdated,
+}: StudentProfilePhotoModalProps) {
+  return (
+    <ProfilePhotoModal
+      actorId={student.id}
+      actorRole="student"
+      name={student.name}
+      subtitle={`Class ${student.className} • ${student.admissionNo}`}
+      currentAvatarUrl={student.avatarUrl}
+      mandatoryPolicy
+      open={open}
+      onClose={onClose}
+      onPhotoUpdated={onPhotoUpdated}
+    />
   )
 }

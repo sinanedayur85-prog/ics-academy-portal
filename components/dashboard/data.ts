@@ -3442,6 +3442,7 @@ export type AcademyAdminConfig = {
       staffId?: string
       designation?: string
       specialization?: string
+      avatarUrl?: string
     }
   >
   /** Maps className (e.g. 'BS 3', '8th') -> Usthad staffId (e.g. 'UST-07') */
@@ -3540,6 +3541,68 @@ export function loadAcademyAdminConfig(): AcademyAdminConfig {
   }
 }
 
+const SYNCED_PROFILE_PHOTOS: Record<string, string> = {}
+
+export function getCanonicalProfilePhotoActorId(actorId: string): string {
+  const clean = (actorId || '').trim()
+  if (!clean) return ''
+  if (clean === ACADEMY_PRINCIPAL.id || clean === ACADEMY_PRINCIPAL.usthadId) {
+    return ACADEMY_PRINCIPAL.usthadId
+  }
+  const baseUsthadMatch = clean.match(/^(usthad-\d{2})(?:-.+)?$/i)
+  if (baseUsthadMatch) {
+    return baseUsthadMatch[1].toLowerCase()
+  }
+  return clean
+}
+
+export function getSyncedProfilePhoto(actorId: string): string | undefined {
+  const canonical = getCanonicalProfilePhotoActorId(actorId)
+  if (!canonical) return undefined
+  return SYNCED_PROFILE_PHOTOS[canonical] || SYNCED_PROFILE_PHOTOS[actorId]
+}
+
+export function applySyncedProfilePhotos(photoMap: Record<string, string>): void {
+  for (const key of Object.keys(SYNCED_PROFILE_PHOTOS)) {
+    delete SYNCED_PROFILE_PHOTOS[key]
+  }
+  for (const [rawId, rawUrl] of Object.entries(photoMap)) {
+    const canonical = getCanonicalProfilePhotoActorId(rawId)
+    const cleanUrl = typeof rawUrl === 'string' ? rawUrl.trim() : ''
+    if (canonical && cleanUrl) {
+      SYNCED_PROFILE_PHOTOS[canonical] = cleanUrl
+    }
+  }
+
+  for (const st of students) {
+    const synced = SYNCED_PROFILE_PHOTOS[st.id]
+    if (synced) {
+      st.avatarUrl = synced
+    }
+  }
+
+  for (const u of OFFICIAL_CLASS_USTHADS) {
+    const synced = SYNCED_PROFILE_PHOTOS[getCanonicalProfilePhotoActorId(u.id)]
+    if (synced) {
+      u.avatarUrl = synced
+    }
+  }
+
+  for (const cu of CLASS_USTHADS) {
+    const synced = SYNCED_PROFILE_PHOTOS[getCanonicalProfilePhotoActorId(cu.id)]
+    if (synced) {
+      cu.avatarUrl = synced
+    }
+  }
+
+  const principalPhoto =
+    SYNCED_PROFILE_PHOTOS[ACADEMY_PRINCIPAL.usthadId] ||
+    SYNCED_PROFILE_PHOTOS[ACADEMY_PRINCIPAL.id]
+  if (principalPhoto) {
+    ACADEMY_PRINCIPAL.avatarUrl = principalPhoto
+  }
+}
+
 export function applyAcademyAdminConfig(config: AcademyAdminConfig): void {
   // 1. Active Semester (Semester 2 is current default; migrate legacy configs automatically)
   const hasModernSemesterSync = (config.semesterSyncVersion ?? 0) >= 2
@@ -3565,6 +3628,7 @@ export function applyAcademyAdminConfig(config: AcademyAdminConfig): void {
       className: updatedClassName,
       batch: edit?.batch?.trim() || getBatchLabelForClass(updatedClassName),
       avatarUrl:
+        SYNCED_PROFILE_PHOTOS[baseSt.id] ||
         edit?.avatarUrl ||
         STUDENT_AVATAR_BY_ADMISSION_NO[updatedAdmissionNo] ||
         baseSt.avatarUrl,
@@ -3589,6 +3653,7 @@ export function applyAcademyAdminConfig(config: AcademyAdminConfig): void {
       batch: edit?.batch || added.batch || getBatchLabelForClass(finalClassName),
       admissionNo: finalAdmissionNo,
       avatarUrl:
+        SYNCED_PROFILE_PHOTOS[added.id] ||
         edit?.avatarUrl ||
         added.avatarUrl ||
         STUDENT_AVATAR_BY_ADMISSION_NO[finalAdmissionNo],
@@ -3605,6 +3670,7 @@ export function applyAcademyAdminConfig(config: AcademyAdminConfig): void {
     ...BASE_OFFICIAL_USTHADS_SNAPSHOT.map((u) => {
       const uEdit = usthadEdits[u.id]
       const updatedName = uEdit?.name?.trim() || u.name
+      const canonicalUsthadId = getCanonicalProfilePhotoActorId(u.id)
       return {
         ...u,
         name: updatedName,
@@ -3612,12 +3678,17 @@ export function applyAcademyAdminConfig(config: AcademyAdminConfig): void {
         staffId: uEdit?.staffId?.trim() || u.staffId,
         designation: uEdit?.designation?.trim() || u.designation,
         specialization: uEdit?.specialization?.trim() || u.specialization,
+        avatarUrl:
+          SYNCED_PROFILE_PHOTOS[canonicalUsthadId] ||
+          uEdit?.avatarUrl ||
+          u.avatarUrl,
         teachingBatches: u.teachingBatches ? [...u.teachingBatches] : [u.className],
       }
     }),
     ...(config.addedUsthads ?? []).map((u) => {
       const uEdit = usthadEdits[u.id]
       const updatedName = (uEdit?.name || u.name).trim()
+      const canonicalUsthadId = getCanonicalProfilePhotoActorId(u.id)
       return {
         ...u,
         name: updatedName,
@@ -3625,11 +3696,23 @@ export function applyAcademyAdminConfig(config: AcademyAdminConfig): void {
         staffId: (uEdit?.staffId || u.staffId).trim(),
         designation: (uEdit?.designation || u.designation || 'Class Usthad').trim(),
         specialization: (uEdit?.specialization || u.specialization || 'Islamic & Academic Studies').trim(),
+        avatarUrl:
+          SYNCED_PROFILE_PHOTOS[canonicalUsthadId] ||
+          uEdit?.avatarUrl ||
+          u.avatarUrl,
         fullClassLabel: `Class ${u.className}`,
         teachingBatches: [u.className],
       }
     }),
   ]
+
+  const principalSyncedAvatar =
+    SYNCED_PROFILE_PHOTOS[ACADEMY_PRINCIPAL.usthadId] ||
+    SYNCED_PROFILE_PHOTOS[ACADEMY_PRINCIPAL.id] ||
+    usthadEdits[ACADEMY_PRINCIPAL.usthadId]?.avatarUrl
+  if (principalSyncedAvatar) {
+    ACADEMY_PRINCIPAL.avatarUrl = principalSyncedAvatar
+  }
 
   const classAssignments = config.classUsthadAssignments ?? {}
   const nextClassUsthads: ClassUsthad[] = BASE_CLASS_USTHADS_SNAPSHOT.map((baseSlot) => {
@@ -3901,11 +3984,9 @@ export function updateStudentProfilePhoto(studentId: string, avatarUrl: string):
   ) {
     return false
   }
+  SYNCED_PROFILE_PHOTOS[studentId] = cleanAvatar
   const current = loadAcademyAdminConfig()
   const existingEdit = current.editedStudents?.[studentId] ?? {}
-  if (existingEdit.avatarUrl === cleanAvatar) {
-    return true
-  }
   const nextEdited = {
     ...(current.editedStudents ?? {}),
     [studentId]: {
@@ -3916,6 +3997,36 @@ export function updateStudentProfilePhoto(studentId: string, avatarUrl: string):
   saveAcademyAdminConfig({
     ...current,
     editedStudents: nextEdited,
+  })
+  return true
+}
+
+export function updateUsthadProfilePhoto(actorId: string, avatarUrl: string): boolean {
+  const canonical = getCanonicalProfilePhotoActorId(actorId)
+  const cleanAvatar = typeof avatarUrl === 'string' ? avatarUrl.trim() : ''
+  if (
+    !canonical ||
+    !cleanAvatar ||
+    (!cleanAvatar.startsWith('data:image/') &&
+      !cleanAvatar.startsWith('/') &&
+      !cleanAvatar.startsWith('https://') &&
+      !cleanAvatar.startsWith('http://'))
+  ) {
+    return false
+  }
+  SYNCED_PROFILE_PHOTOS[canonical] = cleanAvatar
+  const current = loadAcademyAdminConfig()
+  const existingEdit = current.editedUsthads?.[canonical] ?? {}
+  const nextEditedUsthads = {
+    ...(current.editedUsthads ?? {}),
+    [canonical]: {
+      ...existingEdit,
+      avatarUrl: cleanAvatar,
+    },
+  }
+  saveAcademyAdminConfig({
+    ...current,
+    editedUsthads: nextEditedUsthads,
   })
   return true
 }

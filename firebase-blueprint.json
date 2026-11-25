@@ -1479,6 +1479,65 @@
         "createdAt",
         "updatedAtMs"
       ]
+    },
+    "CampusProfilePhoto": {
+      "title": "CampusProfilePhoto",
+      "description": "Shared profile photo for each student, usthad, or principal synced in real time across Chats and campus dashboards.",
+      "type": "object",
+      "properties": {
+        "actorId": {
+          "type": "string",
+          "description": "Canonical portal actor ID (student, usthad, or principal).",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^(st[d]?|usthad|principal)-[a-zA-Z0-9_\\-]+$"
+        },
+        "campusId": {
+          "type": "string",
+          "description": "Fixed campus tenant identifier (ics-academy).",
+          "enum": ["ics-academy"],
+          "minLength": 11,
+          "maxLength": 16
+        },
+        "actorRole": {
+          "type": "string",
+          "description": "Role of the user who owns this profile photo.",
+          "enum": ["student", "usthad", "principal"],
+          "minLength": 6,
+          "maxLength": 12
+        },
+        "actorName": {
+          "type": "string",
+          "description": "Display name of the actor.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "avatarUrl": {
+          "type": "string",
+          "description": "Compressed profile image data URL or HTTPS/relative image URL.",
+          "minLength": 1,
+          "maxLength": 250000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the profile photo document was created."
+        },
+        "updatedAtMs": {
+          "type": "integer",
+          "description": "Epoch milliseconds of the latest profile photo update.",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "actorId",
+        "campusId",
+        "actorRole",
+        "actorName",
+        "avatarUrl",
+        "createdAt",
+        "updatedAtMs"
+      ]
     }
   },
   "firestore": {
@@ -1533,6 +1592,10 @@
     "/campusLeavePermissions/{studentId}": {
       "schema": { "$ref": "#/entities/CampusLeavePermission" },
       "description": "Stores per-student one-time leave/return/re-register permissions granted by Class Usthads or Principal."
+    },
+    "/campusProfilePhotos/{actorId}": {
+      "schema": { "$ref": "#/entities/CampusProfilePhoto" },
+      "description": "Stores shared profile photos for students, Usthads, and Principal so every member sees live avatars across Chats and dashboards."
     }
   }
 }

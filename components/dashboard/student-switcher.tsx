@@ -3,9 +3,20 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Award, BookOpen, Camera, Eye, EyeOff, GraduationCap, Hash, KeyRound, LogOut, PlayCircle, ShieldCheck, User, Volume2 } from 'lucide-react'
-import { type ClassUsthad, type PrincipalProfile, type Student, students } from '@/components/dashboard/data'
+import {
+  ACADEMY_PRINCIPAL,
+  OFFICIAL_CLASS_USTHADS,
+  getCanonicalUsthadId,
+  type ClassUsthad,
+  type PrincipalProfile,
+  type Student,
+  students,
+} from '@/components/dashboard/data'
 import { AppVideoGuideModal, unlockAndroidAudioOnGesture } from '@/components/dashboard/app-video-guide'
-import { StudentProfilePhotoModal } from '@/components/dashboard/student-profile-photo-modal'
+import {
+  ProfilePhotoModal,
+  StudentProfilePhotoModal,
+} from '@/components/dashboard/student-profile-photo-modal'
 import { cn } from '@/lib/utils'
 
 function initials(name: string) {
@@ -320,8 +331,22 @@ export function StudentSwitcher({ student }: StudentSwitcherProps) {
 export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
   const [open, setOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [photoModalOpen, setPhotoModalOpen] = useState(false)
+  const [, setConfigVersion] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const popoverId = useId()
+
+  useEffect(() => {
+    const syncConfig = () => setConfigVersion((v) => v + 1)
+    window.addEventListener('ics-academy-config-updated', syncConfig)
+    return () => {
+      window.removeEventListener('ics-academy-config-updated', syncConfig)
+    }
+  }, [])
+
+  const canonicalUsthadId = getCanonicalUsthadId(usthad.id)
+  const liveUsthad =
+    OFFICIAL_CLASS_USTHADS.find((u) => u.id === canonicalUsthadId || u.id === usthad.id) ?? usthad
 
   useEffect(() => {
     if (!open) return
@@ -354,8 +379,8 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
         )}
       >
         <ProfileInitialsAvatar
-          name={usthad.name}
-          avatarUrl={usthad.avatarUrl}
+          name={liveUsthad.name}
+          avatarUrl={liveUsthad.avatarUrl}
           className="size-full"
         />
         <span className="sr-only">Usthad account profile</span>
@@ -369,18 +394,45 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
           className="absolute right-0 z-50 mt-2.5 w-[min(21rem,calc(100vw-1.5rem))] origin-top-right rounded-3xl bg-popover p-4 shadow-[0_20px_50px_rgba(0,0,0,0.45)] animate-in fade-in-0 zoom-in-95 duration-150"
         >
           <div className="flex items-center gap-3.5 pb-4">
-            <ProfileInitialsAvatar
-              name={usthad.name}
-              avatarUrl={usthad.avatarUrl}
-              className="size-14 text-sm"
-            />
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                setPhotoModalOpen(true)
+              }}
+              aria-label="View full screen profile photo or change photo"
+              className="group relative shrink-0 rounded-full outline-none transition-transform duration-150 hover:scale-[1.03] active:scale-95"
+            >
+              <ProfileInitialsAvatar
+                name={liveUsthad.name}
+                avatarUrl={liveUsthad.avatarUrl}
+                className="size-14 text-sm ring-2 ring-[#0095F6]/35 transition-all group-hover:ring-[#0095F6]"
+              />
+              <span
+                aria-hidden="true"
+                className="absolute -right-0.5 -bottom-0.5 flex size-6 items-center justify-center rounded-full bg-[#0095F6] text-white shadow-md ring-2 ring-popover"
+              >
+                <Camera className="size-3" />
+              </span>
+            </button>
             <div className="min-w-0 flex-1">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#0077CC] dark:text-[#0095F6]">
                 {usthad.designation}
               </p>
               <p className="mt-0.5 truncate font-display text-lg font-semibold text-foreground">
-                {usthad.name}
+                {liveUsthad.name}
               </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  setPhotoModalOpen(true)
+                }}
+                className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-[#0077CC] transition-colors hover:underline dark:text-[#38BDF8]"
+              >
+                <Camera className="size-3" aria-hidden="true" />
+                <span>{liveUsthad.avatarUrl ? 'View / Change Photo' : 'Add Photo'}</span>
+              </button>
             </div>
           </div>
 
@@ -501,6 +553,16 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
           initialRole="usthad"
         />
       ) : null}
+
+      <ProfilePhotoModal
+        actorId={canonicalUsthadId}
+        actorRole={canonicalUsthadId === ACADEMY_PRINCIPAL.usthadId ? 'principal' : 'usthad'}
+        name={liveUsthad.name}
+        subtitle={`${usthad.designation} • ${usthad.staffId}`}
+        currentAvatarUrl={liveUsthad.avatarUrl}
+        open={photoModalOpen}
+        onClose={() => setPhotoModalOpen(false)}
+      />
     </div>
   )
 }
@@ -508,8 +570,23 @@ export function UsthadSwitcher({ usthad }: { usthad: ClassUsthad }) {
 export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }) {
   const [open, setOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [photoModalOpen, setPhotoModalOpen] = useState(false)
+  const [, setConfigVersion] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const popoverId = useId()
+
+  useEffect(() => {
+    const syncConfig = () => setConfigVersion((v) => v + 1)
+    window.addEventListener('ics-academy-config-updated', syncConfig)
+    return () => {
+      window.removeEventListener('ics-academy-config-updated', syncConfig)
+    }
+  }, [])
+
+  const livePrincipalAvatar =
+    OFFICIAL_CLASS_USTHADS.find((u) => u.id === principal.usthadId)?.avatarUrl ||
+    ACADEMY_PRINCIPAL.avatarUrl ||
+    principal.avatarUrl
 
   useEffect(() => {
     if (!open) return
@@ -543,7 +620,7 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
       >
         <ProfileInitialsAvatar
           name={principal.name}
-          avatarUrl={principal.avatarUrl}
+          avatarUrl={livePrincipalAvatar}
           className="size-full"
         />
         <span className="sr-only">Principal account profile</span>
@@ -557,11 +634,27 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
           className="absolute right-0 z-50 mt-2.5 w-[min(21rem,calc(100vw-1.5rem))] origin-top-right rounded-3xl bg-popover p-4 shadow-[0_20px_50px_rgba(0,0,0,0.45)] animate-in fade-in-0 zoom-in-95 duration-150"
         >
           <div className="flex items-center gap-3.5 pb-4">
-            <ProfileInitialsAvatar
-              name={principal.name}
-              avatarUrl={principal.avatarUrl}
-              className="size-14 text-sm"
-            />
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                setPhotoModalOpen(true)
+              }}
+              aria-label="View full screen profile photo or change photo"
+              className="group relative shrink-0 rounded-full outline-none transition-transform duration-150 hover:scale-[1.03] active:scale-95"
+            >
+              <ProfileInitialsAvatar
+                name={principal.name}
+                avatarUrl={livePrincipalAvatar}
+                className="size-14 text-sm ring-2 ring-[#0095F6]/35 transition-all group-hover:ring-[#0095F6]"
+              />
+              <span
+                aria-hidden="true"
+                className="absolute -right-0.5 -bottom-0.5 flex size-6 items-center justify-center rounded-full bg-[#0095F6] text-white shadow-md ring-2 ring-popover"
+              >
+                <Camera className="size-3" />
+              </span>
+            </button>
             <div className="min-w-0 flex-1">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#0077CC] dark:text-[#0095F6]">
                 Principal
@@ -569,6 +662,17 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
               <p className="mt-0.5 truncate font-display text-lg font-semibold text-foreground">
                 {principal.name}
               </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  setPhotoModalOpen(true)
+                }}
+                className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-[#0077CC] transition-colors hover:underline dark:text-[#38BDF8]"
+              >
+                <Camera className="size-3" aria-hidden="true" />
+                <span>{livePrincipalAvatar ? 'View / Change Photo' : 'Add Photo'}</span>
+              </button>
             </div>
           </div>
 
@@ -694,6 +798,16 @@ export function PrincipalSwitcher({ principal }: { principal: PrincipalProfile }
           initialRole="principal"
         />
       ) : null}
+
+      <ProfilePhotoModal
+        actorId={principal.usthadId || 'usthad-07'}
+        actorRole="principal"
+        name={principal.name}
+        subtitle={`Principal • ${principal.staffId}`}
+        currentAvatarUrl={livePrincipalAvatar}
+        open={photoModalOpen}
+        onClose={() => setPhotoModalOpen(false)}
+      />
     </div>
   )
 }

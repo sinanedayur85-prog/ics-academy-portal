@@ -1321,5 +1321,72 @@ service cloud.firestore {
         ]);
       allow delete: if false;
     }
+
+    // Validation Blueprint: CampusProfilePhoto
+    function isValidCampusProfilePhoto(data) {
+      return data.keys().hasAll([
+          'actorId',
+          'campusId',
+          'actorRole',
+          'actorName',
+          'avatarUrl',
+          'createdAt',
+          'updatedAtMs'
+        ])
+        && data.keys().hasOnly([
+          'actorId',
+          'campusId',
+          'actorRole',
+          'actorName',
+          'avatarUrl',
+          'createdAt',
+          'updatedAtMs'
+        ])
+        && isPortalActorId(data.actorId)
+        && data.campusId == 'ics-academy'
+        && data.actorRole is string
+        && (data.actorRole == 'student' || data.actorRole == 'usthad' || data.actorRole == 'principal')
+        && data.actorName is string
+        && data.actorName.size() >= 1
+        && data.actorName.size() <= 120
+        && data.avatarUrl is string
+        && data.avatarUrl.size() >= 1
+        && data.avatarUrl.size() <= 250000
+        && (
+          data.avatarUrl.matches('^data:image/(jpeg|jpg|png|webp);base64,.*')
+          || data.avatarUrl.matches('^/.*')
+          || data.avatarUrl.matches('^https://.*')
+        )
+        && data.createdAt is timestamp
+        && data.updatedAtMs is int
+        && data.updatedAtMs > 0;
+    }
+
+    // Collection: /campusProfilePhotos/{actorId}
+    match /campusProfilePhotos/{actorId} {
+      allow get: if isValidId(actorId)
+        && isPortalActorId(actorId)
+        && (resource == null || (existing().campusId == 'ics-academy' && existing().actorId == actorId));
+      allow list: if existing().campusId == 'ics-academy';
+      allow create: if isValidId(actorId)
+        && isPortalActorId(actorId)
+        && isValidCampusProfilePhoto(incoming())
+        && incoming().actorId == actorId
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(actorId)
+        && isPortalActorId(actorId)
+        && resource != null
+        && isValidCampusProfilePhoto(incoming())
+        && incoming().actorId == existing().actorId
+        && incoming().campusId == existing().campusId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'actorRole',
+          'actorName',
+          'avatarUrl',
+          'updatedAtMs'
+        ]);
+      allow delete: if false;
+    }
   }
 }

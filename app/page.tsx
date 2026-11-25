@@ -8,6 +8,7 @@ import { CampusNotificationBar } from '@/components/campus-notifications'
 import { CampusCallProvider } from '@/components/dashboard/campus-call-provider'
 import { DashboardShell } from '@/components/dashboard/dashboard-shell'
 import { PrincipalDashboard } from '@/components/dashboard/principal-dashboard'
+import { startCampusProfilePhotosSync } from '@/components/dashboard/profile-photo-store'
 import { UsthadDashboard } from '@/components/dashboard/usthad-dashboard'
 import { Hero } from '@/components/hero'
 import { LoginPortal, dawaCollegeRoles, englishSchoolRoles } from '@/components/login-portal'
@@ -74,9 +75,11 @@ export default function Page() {
       window.scrollTo({ top: 0 })
     }
 
+    const stopProfilePhotoSync = startCampusProfilePhotosSync()
     window.addEventListener('ics-logout', handleLogout)
     window.addEventListener('ics-switch-role', handleSwitchRole)
     return () => {
+      stopProfilePhotoSync()
       window.removeEventListener('ics-logout', handleLogout)
       window.removeEventListener('ics-switch-role', handleSwitchRole)
     }
