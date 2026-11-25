@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Camera, Check, ImagePlus, Loader2, ShieldAlert, X } from 'lucide-react'
 import { type Student } from '@/components/dashboard/data'
+import { ImageCropperModal } from '@/components/dashboard/image-cropper-modal'
 import {
   saveProfilePhotoToFirestore,
   type ProfilePhotoActorRole,
@@ -28,69 +29,6 @@ type StudentProfilePhotoModalProps = {
   onPhotoUpdated?: (newAvatarUrl: string) => void
 }
 
-async function compressProfilePhotoToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (!file.type.startsWith('image/')) {
-      reject(new Error('Please select a valid image file.'))
-      return
-    }
-    const objectUrl = URL.createObjectURL(file)
-    const img = new Image()
-    img.onload = () => {
-      try {
-        const renderAtSize = (targetSize: number, quality: number) => {
-          const canvas = document.createElement('canvas')
-          canvas.width = targetSize
-          canvas.height = targetSize
-          const ctx = canvas.getContext('2d')
-          if (!ctx) {
-            throw new Error('Unable to process image on this device.')
-          }
-
-          // Center-crop to square with slight upper bias for portraits so faces stay centered
-          const srcWidth = img.naturalWidth || img.width
-          const srcHeight = img.naturalHeight || img.height
-          const cropSide = Math.min(srcWidth, srcHeight)
-          const sx = Math.max(0, (srcWidth - cropSide) / 2)
-          const sy =
-            srcHeight > srcWidth
-              ? Math.max(0, (srcHeight - cropSide) * 0.28)
-              : Math.max(0, (srcHeight - cropSide) / 2)
-
-          ctx.fillStyle = '#0B1014'
-          ctx.fillRect(0, 0, targetSize, targetSize)
-          ctx.imageSmoothingEnabled = true
-          ctx.imageSmoothingQuality = 'high'
-          ctx.drawImage(img, sx, sy, cropSide, cropSide, 0, 0, targetSize, targetSize)
-          return canvas.toDataURL('image/jpeg', quality)
-        }
-
-        let dataUrl = renderAtSize(512, 0.84)
-        // Ensure compact storage & fast real-time Firestore sync across all devices
-        if (dataUrl.length > 95_000) {
-          dataUrl = renderAtSize(512, 0.72)
-        }
-        if (dataUrl.length > 140_000) {
-          dataUrl = renderAtSize(384, 0.72)
-        }
-        if (dataUrl.length > 180_000) {
-          dataUrl = renderAtSize(320, 0.65)
-        }
-        URL.revokeObjectURL(objectUrl)
-        resolve(dataUrl)
-      } catch (err) {
-        URL.revokeObjectURL(objectUrl)
-        reject(err instanceof Error ? err : new Error('Failed to process photo.'))
-      }
-    }
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl)
-      reject(new Error('Could not read the selected photo. Please try another image.'))
-    }
-    img.src = objectUrl
-  })
-}
-
 export function ProfilePhotoModal({
   actorId,
   actorRole,
@@ -103,8 +41,8 @@ export function ProfilePhotoModal({
   onPhotoUpdated,
 }: ProfilePhotoModalProps) {
   const [mounted, setMounted] = useState(false)
+  const [rawCropSourceUrl, setRawCropSourceUrl] = useState<string | null>(null)
   const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null)
-  const [isProcessing, setIsProcessing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [savedToast, setSavedToast] = useState(false)
@@ -116,10 +54,13 @@ export function ProfilePhotoModal({
 
   useEffect(() => {
     if (!open) {
+      if (rawCropSourceUrl && rawCropSourceUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(rawCropSourceUrl)
+      }
+      setRawCropSourceUrl(null)
       setPendingPreviewUrl(null)
       setErrorMessage(null)
       setSavedToast(false)
-      setIsProcessing(false)
       setIsSaving(false)
       return
     }
@@ -128,7 +69,7 @@ export function ProfilePhotoModal({
     document.body.style.overflow = 'hidden'
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !isSaving) {
+      if (event.key === 'Escape' && !isSaving && !rawCropSourceUrl) {
         onClose()
       }
     }
@@ -138,31 +79,46 @@ export function ProfilePhotoModal({
       document.body.style.overflow = previousOverflow
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [open, onClose, isSaving])
+  }, [open, onClose, isSaving, rawCropSourceUrl])
 
   if (!open || !mounted) return null
 
   const activePhotoUrl = pendingPreviewUrl || currentAvatarUrl || ''
   const hasPhoto = Boolean(activePhotoUrl)
+  const isProcessing = false
 
-  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
 
+    if (!file.type.startsWith('image/')) {
+      setErrorMessage('Please select a valid image file.')
+      return
+    }
+
     setErrorMessage(null)
     setSavedToast(false)
-    setIsProcessing(true)
-    try {
-      const compressed = await compressProfilePhotoToDataUrl(file)
-      setPendingPreviewUrl(compressed)
-    } catch (err) {
-      setErrorMessage(
-        err instanceof Error ? err.message : 'Unable to load that photo. Please try another.',
-      )
-    } finally {
-      setIsProcessing(false)
+    if (rawCropSourceUrl && rawCropSourceUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(rawCropSourceUrl)
     }
+    const objUrl = URL.createObjectURL(file)
+    setRawCropSourceUrl(objUrl)
+  }
+
+  function handleCancelCrop() {
+    if (rawCropSourceUrl && rawCropSourceUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(rawCropSourceUrl)
+    }
+    setRawCropSourceUrl(null)
+  }
+
+  function handleConfirmCrop(croppedDataUrl: string) {
+    if (rawCropSourceUrl && rawCropSourceUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(rawCropSourceUrl)
+    }
+    setRawCropSourceUrl(null)
+    setPendingPreviewUrl(croppedDataUrl)
   }
 
   async function handleSavePhoto() {
@@ -356,6 +312,16 @@ export function ProfilePhotoModal({
           </p>
         </div>
       </div>
+
+      <ImageCropperModal
+        open={Boolean(rawCropSourceUrl)}
+        imageSrc={rawCropSourceUrl}
+        title="Crop Profile Photo"
+        subtitle="Drag to move · Zoom to fit inside the circle"
+        confirmLabel="Use Cropped Photo"
+        onCancel={handleCancelCrop}
+        onConfirm={handleConfirmCrop}
+      />
     </div>,
     document.body,
   )

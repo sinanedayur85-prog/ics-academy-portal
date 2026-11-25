@@ -9,6 +9,7 @@ import {
   orderByChild,
   query as rtdbQuery,
   ref as rtdbRef,
+  remove as rtdbRemove,
   serverTimestamp as rtdbServerTimestamp,
   set as rtdbSet,
   update as rtdbUpdate,
@@ -40,6 +41,7 @@ import {
   Navigation,
   Paperclip,
   Pause,
+  Pencil,
   Phone,
   PhoneIncoming,
   PhoneMissed,
@@ -90,6 +92,14 @@ import {
 } from '@/components/dashboard/data'
 import { buildKitabPdfBlob, CURATED_KITABS } from '@/components/dashboard/digital-library'
 import { ProfilePhotoModal } from '@/components/dashboard/student-profile-photo-modal'
+import {
+  GroupInfoModal,
+  ProfileAndStatusSheet,
+  StatusCreatorModal,
+  StatusViewerModal,
+  type CampusChatStatus,
+  type GroupMemberItem,
+} from '@/components/dashboard/campus-status-modals'
 import {
   clearGroupedPhoneNotifications,
   clearPendingNotificationChatRoomId,
@@ -190,6 +200,8 @@ export interface ChatRoomMeta {
   roomId: string
   onlyAdminsCanPost: boolean
   pinnedMessageId: string | null
+  groupAvatarUrl?: string
+  adminActorIds?: string[]
   updatedAtMs: number
 }
 
@@ -1047,6 +1059,26 @@ export function CampusMessenger({
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [settingsToast, setSettingsToast] = useState<string | null>(null)
 
+  // Instagram-Style 24h Statuses, Chat-Only Public Names (Option B), Saved Contact Nicknames (Option A), Profile Sheet & Group Info Modal
+  const [statusesByActor, setStatusesByActor] = useState<Record<string, CampusChatStatus[]>>({})
+  const [publicChatNames, setPublicChatNames] = useState<Record<string, string>>({})
+  const [contactNicknames, setContactNicknames] = useState<Record<string, string>>({})
+  const [showStatusCreator, setShowStatusCreator] = useState(false)
+  const [statusViewerActorId, setStatusViewerActorId] = useState<string | null>(null)
+  const [profileSheetTarget, setProfileSheetTarget] = useState<{
+    isOwn: boolean
+    actorId: string
+    officialName: string
+    roleSubtitle: string
+    avatarUrl?: string
+    avatarText: string
+    onlineStatusText?: string
+    roomId?: string
+    peerRole?: MessengerRole
+  } | null>(null)
+  const [showGroupInfoModal, setShowGroupInfoModal] = useState(false)
+  const [settingsChatNameInput, setSettingsChatNameInput] = useState('')
+
   // Global Voice & Video Calling Context
   const {
     startCall,
@@ -1410,6 +1442,7 @@ export function CampusMessenger({
         shortcutRoomIds: boundedShortcuts,
         customLists: boundedLists,
         chatSettings: cleanSettings,
+        contactNicknamesJson: JSON.stringify(contactNicknames),
         updatedAtMs: nowMs,
       })
 
@@ -1420,7 +1453,7 @@ export function CampusMessenger({
         // Ignore transient network errors; local cache remains intact
       }
     },
-    [actor.id],
+    [actor.id, contactNicknames],
   )
 
   // WhatsApp Attachment Sheet Modals: Location, Contact, Poll
@@ -1487,6 +1520,21 @@ export function CampusMessenger({
       } catch {
         // Ignore parse error
       }
+      try {
+        const savedNicknames = window.localStorage.getItem(
+          `ics_messenger_contact_nicknames_v1_${actor.id}`,
+        )
+        if (savedNicknames) {
+          const parsed = JSON.parse(savedNicknames)
+          if (parsed && typeof parsed === 'object') {
+            setContactNicknames(parsed as Record<string, string>)
+          }
+        } else {
+          setContactNicknames({})
+        }
+      } catch {
+        setContactNicknames({})
+      }
     }
 
     if (!isTabShown) return
@@ -1502,6 +1550,23 @@ export function CampusMessenger({
         userStateDocExistsRef.current = true
         const data = (snap.val() || {}) as Record<string, unknown>
         const remoteUpdatedAtMs = Number(data.updatedAtMs) || 0
+
+        if (typeof data.contactNicknamesJson === 'string') {
+          try {
+            const parsedNicks = JSON.parse(data.contactNicknamesJson) as Record<string, unknown>
+            if (parsedNicks && typeof parsedNicks === 'object') {
+              const cleanNicks: Record<string, string> = {}
+              for (const [k, v] of Object.entries(parsedNicks)) {
+                if (typeof v === 'string' && v.trim()) {
+                  cleanNicks[k] = v.trim().slice(0, 48)
+                }
+              }
+              setContactNicknames(cleanNicks)
+            }
+          } catch {
+            // Ignore malformed nickname JSON
+          }
+        }
 
         // Always merge deletions & clear-chat watermarks monotonically so deletes from App/Web never resurrect
         const remoteDeleted = Array.isArray(data.deletedMessageIds)
@@ -1672,6 +1737,55 @@ export function CampusMessenger({
     }
   }, [showAttachMenu, showChatMoreMenu])
 
+  // Resolve Chat-Only Display Name: Option A (Personal saved contact nickname) -> Option B (User's own Chat Display Name) -> Official formatted name
+  const resolveChatDisplayName = useCallback(
+    (targetActorId: string, officialName: string, targetRole: MessengerRole = 'student') => {
+      if (targetActorId && targetActorId !== actor.id) {
+        const personalNick = contactNicknames[targetActorId]
+        if (personalNick && personalNick.trim()) return personalNick.trim()
+      }
+      if (targetActorId) {
+        const publicName = publicChatNames[targetActorId]
+        if (publicName && publicName.trim()) return publicName.trim()
+      }
+      return formatMessengerDisplayName(officialName, targetRole)
+    },
+    [actor.id, contactNicknames, publicChatNames],
+  )
+
+  const resolveActorAvatarById = useCallback(
+    (targetActorId: string, fallbackAvatar?: string) => {
+      void academyConfigVersion
+      if (targetActorId === actor.id && actor.avatarUrl) return actor.avatarUrl
+      const foundUsthad = OFFICIAL_CLASS_USTHADS.find((u) => u.id === targetActorId)
+      if (foundUsthad?.avatarUrl) return foundUsthad.avatarUrl
+      const foundStudent = students.find((s) => s.id === targetActorId)
+      if (foundStudent?.avatarUrl) return foundStudent.avatarUrl
+      return fallbackAvatar
+    },
+    [actor.id, actor.avatarUrl, academyConfigVersion],
+  )
+
+  const resolveActorOfficialName = useCallback((targetActorId: string, fallbackName: string) => {
+    const foundUsthad = OFFICIAL_CLASS_USTHADS.find((u) => u.id === targetActorId)
+    if (foundUsthad) return foundUsthad.name
+    const foundStudent = students.find((s) => s.id === targetActorId)
+    if (foundStudent) return foundStudent.name
+    return fallbackName
+  }, [])
+
+  const isRoomAdminForMe = useCallback(
+    (roomId: string, roomType: ChatRoomDescriptor['type']) => {
+      if (actor.isStaff) return true
+      if (roomType === 'batch_group') {
+        const meta = roomsMeta[roomId]
+        return Boolean(meta?.adminActorIds?.includes(actor.id))
+      }
+      return false
+    },
+    [actor.isStaff, actor.id, roomsMeta],
+  )
+
   // Build available rooms for this user
   const allRooms = useMemo<ChatRoomDescriptor[]>(() => {
     void academyConfigVersion
@@ -1686,6 +1800,7 @@ export function CampusMessenger({
         subtitle: '9 Usthads',
         badgeLabel: 'Staff',
         avatarText: 'SR',
+        avatarUrl: roomsMeta[STAFF_ROOM_ID]?.groupAvatarUrl,
         isStaffOnly: true,
       })
     }
@@ -1700,45 +1815,52 @@ export function CampusMessenger({
       })
       for (const cls of orderedClasses) {
         const isOwnClass = cls.className === actor.className
+        const rId = makeBatchRoomId(cls.className)
         list.push({
-          roomId: makeBatchRoomId(cls.className),
+          roomId: rId,
           type: 'batch_group',
           title: isOwnClass ? 'My Class Group' : `${cls.fullLabel} Group`,
           subtitle: '',
           badgeLabel: '',
           batchName: cls.className,
           avatarText: 'CG',
+          avatarUrl: roomsMeta[rId]?.groupAvatarUrl,
         })
       }
     } else {
       // Student sees ONLY their own class group as "My Class Group"
       const myCls =
         ACADEMY_CLASSES.find((c) => c.className === actor.className) ?? ACADEMY_CLASSES[0]
+      const rId = makeBatchRoomId(myCls.className)
       list.push({
-        roomId: makeBatchRoomId(myCls.className),
+        roomId: rId,
         type: 'batch_group',
         title: 'My Class Group',
         subtitle: '',
         badgeLabel: '',
         batchName: myCls.className,
         avatarText: 'CG',
+        avatarUrl: roomsMeta[rId]?.groupAvatarUrl,
       })
     }
 
-    // 3. Direct Chats with all 9 Teaching & Class Usthads (Show only name)
+    // 3. Direct Chats with all 9 Teaching & Class Usthads (Uses chat-only custom name if set)
     for (const u of OFFICIAL_CLASS_USTHADS) {
       if (u.id === actor.id) continue
       const isPrincipalUsthad = u.id === ACADEMY_PRINCIPAL.usthadId
+      const pRole: MessengerRole = isPrincipalUsthad ? 'principal' : 'usthad'
+      const resolvedTitle = resolveChatDisplayName(u.id, u.name, pRole)
       list.push({
         roomId: makeDirectRoomId(actor.id, u.id),
         type: 'direct_usthad',
-        title: u.name,
+        title: resolvedTitle,
+        searchName: `${resolvedTitle} ${u.name}`,
         subtitle: '',
         badgeLabel: '',
         batchName: u.className,
         peerId: u.id,
-        peerRole: isPrincipalUsthad ? 'principal' : 'usthad',
-        avatarText: u.name
+        peerRole: pRole,
+        avatarText: resolvedTitle
           .replace(/^Usthad\s+/i, '')
           .slice(0, 2)
           .toUpperCase(),
@@ -1754,7 +1876,9 @@ export function CampusMessenger({
       const hasHistory = (messagesByRoom[dId]?.length ?? 0) > 0
       if (hasHistory) return true
       if (normalizedSearch) {
+        const resolved = resolveChatDisplayName(s.id, s.name, 'student').toLowerCase()
         return (
+          resolved.includes(normalizedSearch) ||
           s.name.toLowerCase().includes(normalizedSearch) ||
           s.className.toLowerCase().includes(normalizedSearch) ||
           s.admissionNo.toLowerCase().includes(normalizedSearch)
@@ -1765,7 +1889,7 @@ export function CampusMessenger({
     })
 
     for (const st of targetStudents) {
-      const displayName = formatMessengerStudentName(st.name)
+      const displayName = resolveChatDisplayName(st.id, st.name, 'student')
       list.push({
         roomId: makeDirectRoomId(actor.id, st.id),
         type: 'direct_student',
@@ -1790,6 +1914,8 @@ export function CampusMessenger({
     studentBatchFilter,
     searchQuery,
     academyConfigVersion,
+    roomsMeta,
+    resolveChatDisplayName,
   ])
 
   // Persist messages & room meta to localStorage
@@ -1973,19 +2099,40 @@ export function CampusMessenger({
       }
       setTypingMap(mergedTyping)
 
-      // Merge roomsMeta (latest updatedAtMs wins)
+      // Merge roomsMeta (latest updatedAtMs wins, while preserving RTDB groupAvatarUrl & adminActorIds)
       const mergedMeta: Record<string, ChatRoomMeta> = {}
       for (const st of states) {
         if (!st.roomsMeta) continue
         for (const [rId, meta] of Object.entries(st.roomsMeta)) {
           const cur = mergedMeta[rId]
           if (!cur || (meta.updatedAtMs || 0) >= (cur.updatedAtMs || 0)) {
-            mergedMeta[rId] = meta
+            mergedMeta[rId] = {
+              ...cur,
+              ...meta,
+              groupAvatarUrl:
+                meta.groupAvatarUrl !== undefined ? meta.groupAvatarUrl : cur?.groupAvatarUrl,
+              adminActorIds:
+                meta.adminActorIds !== undefined ? meta.adminActorIds : cur?.adminActorIds,
+            }
           }
         }
       }
       if (Object.keys(mergedMeta).length > 0) {
-        setRoomsMeta((prev) => ({ ...prev, ...mergedMeta }))
+        setRoomsMeta((prev) => {
+          const next = { ...prev }
+          for (const [rId, meta] of Object.entries(mergedMeta)) {
+            const existing = prev[rId]
+            next[rId] = {
+              ...existing,
+              ...meta,
+              groupAvatarUrl:
+                meta.groupAvatarUrl !== undefined ? meta.groupAvatarUrl : existing?.groupAvatarUrl,
+              adminActorIds:
+                meta.adminActorIds !== undefined ? meta.adminActorIds : existing?.adminActorIds,
+            }
+          }
+          return next
+        })
       }
 
       // Merge messagesByRoom across all endpoints monotonically (preserving deliveredTo & readBy sets)
@@ -2607,11 +2754,17 @@ export function CampusMessenger({
             if (childSnap.key) knownMetaIdsRef.current.add(childSnap.key)
             const raw = childSnap.val() as Record<string, unknown> | null
             if (!raw || typeof raw.roomId !== 'string') return
+            const adminIds = extractActorIdsFromRtdb(raw.adminActorIdsMap, raw.adminActorIds)
             fsMeta[raw.roomId] = {
               roomId: raw.roomId,
               onlyAdminsCanPost: Boolean(raw.onlyAdminsCanPost),
               pinnedMessageId:
                 typeof raw.pinnedMessageId === 'string' ? raw.pinnedMessageId : null,
+              groupAvatarUrl:
+                typeof raw.groupAvatarUrl === 'string' && raw.groupAvatarUrl
+                  ? raw.groupAvatarUrl
+                  : undefined,
+              adminActorIds: adminIds,
               updatedAtMs:
                 typeof raw.updatedAtMs === 'number' ? raw.updatedAtMs : Date.now(),
             }
@@ -2625,6 +2778,88 @@ export function CampusMessenger({
         },
       )
       unsubscribes.push(unsubMeta)
+    } catch {
+      // Ignore listener attach error
+    }
+
+    // Listen to 24h Instagram-style Statuses in RTDB (campusChatStatuses)
+    try {
+      const statusQuery = rtdbQuery(
+        rtdbRef(rtdb, 'campusChatStatuses'),
+        orderByChild('createdAtMs'),
+        limitToLast(120),
+      )
+      const unsubStatuses = onValue(
+        statusQuery,
+        (snapshot) => {
+          const nowMs = Date.now()
+          const groupedStatuses: Record<string, CampusChatStatus[]> = {}
+          snapshot.forEach((childSnap) => {
+            const raw = childSnap.val() as Record<string, unknown> | null
+            if (!raw || typeof raw.id !== 'string' || typeof raw.actorId !== 'string') return
+            const createdAtMs = typeof raw.createdAtMs === 'number' ? raw.createdAtMs : 0
+            const expiresAtMs =
+              typeof raw.expiresAtMs === 'number'
+                ? raw.expiresAtMs
+                : createdAtMs + 24 * 60 * 60 * 1000
+            if (expiresAtMs <= nowMs) return
+            const status: CampusChatStatus = {
+              id: raw.id,
+              actorId: raw.actorId,
+              actorName: String(raw.actorName || 'Member'),
+              actorRole:
+                raw.actorRole === 'principal' || raw.actorRole === 'usthad'
+                  ? raw.actorRole
+                  : 'student',
+              actorAvatarUrl:
+                typeof raw.actorAvatarUrl === 'string' ? raw.actorAvatarUrl : undefined,
+              type: raw.type === 'image' ? 'image' : 'text',
+              text: typeof raw.text === 'string' ? raw.text : '',
+              bgStyle: typeof raw.bgStyle === 'string' ? raw.bgStyle : 'ig-sunset',
+              mediaUrl: typeof raw.mediaUrl === 'string' ? raw.mediaUrl : undefined,
+              createdAtMs,
+              expiresAtMs,
+              viewedByMap: sanitizeTimestampMap(raw.viewedByMap),
+            }
+            if (!groupedStatuses[status.actorId]) groupedStatuses[status.actorId] = []
+            groupedStatuses[status.actorId].push(status)
+          })
+          for (const key of Object.keys(groupedStatuses)) {
+            groupedStatuses[key].sort((a, b) => a.createdAtMs - b.createdAtMs)
+          }
+          setStatusesByActor(groupedStatuses)
+        },
+        () => {
+          // Ignore transient offline RTDB errors
+        },
+      )
+      unsubscribes.push(unsubStatuses)
+    } catch {
+      // Ignore listener attach error
+    }
+
+    // Listen to Chat-Only Public Display Names (Option B) in RTDB (campusChatProfiles)
+    try {
+      const profilesRef = rtdbRef(rtdb, 'campusChatProfiles')
+      const unsubProfiles = onValue(
+        profilesRef,
+        (snapshot) => {
+          const nextMap: Record<string, string> = {}
+          snapshot.forEach((childSnap) => {
+            const raw = childSnap.val() as Record<string, unknown> | null
+            if (!raw || typeof raw.actorId !== 'string') return
+            const dName = typeof raw.displayName === 'string' ? raw.displayName.trim() : ''
+            if (dName) {
+              nextMap[raw.actorId] = dName.slice(0, 48)
+            }
+          })
+          setPublicChatNames(nextMap)
+        },
+        () => {
+          // Ignore transient offline RTDB errors
+        },
+      )
+      unsubscribes.push(unsubProfiles)
     } catch {
       // Ignore listener attach error
     }
@@ -2798,6 +3033,11 @@ export function CampusMessenger({
       }
     )
   }, [roomsMeta, activeRoom.roomId])
+
+  const isActiveRoomAdmin = useMemo(
+    () => isRoomAdminForMe(activeRoom.roomId, activeRoom.type),
+    [isRoomAdminForMe, activeRoom.roomId, activeRoom.type],
+  )
 
   const pinnedMessage = useMemo<ChatMessage | null>(() => {
     if (!activeRoomMeta.pinnedMessageId) return null
@@ -3043,7 +3283,7 @@ export function CampusMessenger({
       contactMeta?: ChatContactMeta
       pollMeta?: ChatPollMeta
     }) => {
-      if (activeRoomMeta.onlyAdminsCanPost && !actor.isStaff) return
+      if (activeRoomMeta.onlyAdminsCanPost && !isActiveRoomAdmin) return
       unlockNotificationAudio()
 
       const now = Date.now()
@@ -3203,6 +3443,7 @@ export function CampusMessenger({
     [
       activeRoom,
       activeRoomMeta.onlyAdminsCanPost,
+      isActiveRoomAdmin,
       actor,
       replyingTo,
       sendChatActionToServer,
@@ -3231,7 +3472,7 @@ export function CampusMessenger({
 
   // Voice Note Recording Handlers
   const startVoiceRecording = async () => {
-    if (activeRoomMeta.onlyAdminsCanPost && !actor.isStaff) return
+    if (activeRoomMeta.onlyAdminsCanPost && !isActiveRoomAdmin) return
     setShowAttachMenu(false)
     setSelectedMessageIds([])
     setShowSelectionMoreMenu(false)
@@ -4139,7 +4380,9 @@ export function CampusMessenger({
 
     for (const targetRoomId of forwardTargetRoomIds) {
       const targetMeta = roomsMeta[targetRoomId]
-      if (targetMeta?.onlyAdminsCanPost && !actor.isStaff) continue
+      const isTargetRoomAdmin =
+        actor.isStaff || Boolean(targetMeta?.adminActorIds?.includes(actor.id))
+      if (targetMeta?.onlyAdminsCanPost && !isTargetRoomAdmin) continue
 
       const isDirect = targetRoomId.startsWith('direct__')
       const directPeerId = isDirect
@@ -4411,7 +4654,7 @@ export function CampusMessenger({
   }, [actor.id, actor.className, actor.isStaff, academyConfigVersion])
 
   const handleToggleGroupLock = () => {
-    if (!actor.isStaff) return
+    if (!isActiveRoomAdmin) return
     const rId = activeRoom.roomId
     const nextLocked = !activeRoomMeta.onlyAdminsCanPost
     setRoomsMeta((prev) => ({
@@ -4429,6 +4672,466 @@ export function CampusMessenger({
       onlyAdminsCanPost: nextLocked,
     })
   }
+
+  // Sync Settings chat display name input whenever modal opens
+  useEffect(() => {
+    if (showSettingsModal) {
+      setSettingsChatNameInput(publicChatNames[actor.id] || '')
+    }
+  }, [showSettingsModal, publicChatNames, actor.id])
+
+  // Instagram-Style 24h Status Ring Helper
+  const getActorStatusMeta = useCallback(
+    (targetActorId?: string) => {
+      if (!targetActorId) {
+        return { statuses: [] as CampusChatStatus[], hasActive: false, hasUnseen: false }
+      }
+      const list = statusesByActor[targetActorId] ?? []
+      if (list.length === 0) {
+        return { statuses: list, hasActive: false, hasUnseen: false }
+      }
+      const myKey = sanitizeRtdbKey(actor.id)
+      const hasUnseen =
+        targetActorId === actor.id
+          ? true
+          : list.some((st) => !st.viewedByMap?.[actor.id] && !st.viewedByMap?.[myKey])
+      return { statuses: list, hasActive: true, hasUnseen }
+    },
+    [statusesByActor, actor.id],
+  )
+
+  const storyTrayActors = useMemo(() => {
+    const entries: Array<{
+      actorId: string
+      displayName: string
+      avatarUrl?: string
+      avatarText: string
+      hasUnseen: boolean
+      latestMs: number
+      statuses: CampusChatStatus[]
+    }> = []
+    for (const [targetId, list] of Object.entries(statusesByActor)) {
+      if (!targetId || targetId === actor.id || list.length === 0) continue
+      const latest = list[list.length - 1]
+      const officialName = resolveActorOfficialName(targetId, latest.actorName)
+      const displayName = resolveChatDisplayName(targetId, officialName, latest.actorRole)
+      const avatarUrl = resolveActorAvatarById(targetId, latest.actorAvatarUrl)
+      const myKey = sanitizeRtdbKey(actor.id)
+      const hasUnseen = list.some((st) => !st.viewedByMap?.[actor.id] && !st.viewedByMap?.[myKey])
+      entries.push({
+        actorId: targetId,
+        displayName,
+        avatarUrl,
+        avatarText: getMessengerAvatarText(displayName),
+        hasUnseen,
+        latestMs: latest.createdAtMs,
+        statuses: list,
+      })
+    }
+    return entries.sort((a, b) => {
+      if (a.hasUnseen !== b.hasUnseen) return a.hasUnseen ? -1 : 1
+      return b.latestMs - a.latestMs
+    })
+  }, [statusesByActor, actor.id, resolveActorOfficialName, resolveChatDisplayName, resolveActorAvatarById])
+
+  const openProfileSheetForUser = useCallback(
+    (params: {
+      actorId: string
+      officialName?: string
+      role?: MessengerRole
+      roleSubtitle?: string
+      avatarUrl?: string
+      onlineStatusText?: string
+      roomId?: string
+    }) => {
+      const isOwn = params.actorId === actor.id
+      const foundUsthad = OFFICIAL_CLASS_USTHADS.find((u) => u.id === params.actorId)
+      const foundStudent = students.find((s) => s.id === params.actorId)
+      const isFoundPrincipal = Boolean(foundUsthad && foundUsthad.id === ACADEMY_PRINCIPAL.usthadId)
+      const resolvedRole: MessengerRole =
+        params.role ||
+        (isOwn
+          ? actor.role
+          : foundUsthad
+            ? isFoundPrincipal
+              ? 'principal'
+              : 'usthad'
+            : 'student')
+      const resolvedOfficial =
+        params.officialName ||
+        (isOwn
+          ? actor.name
+          : foundUsthad?.name || foundStudent?.name || params.actorId)
+      const formattedOfficial = formatMessengerDisplayName(resolvedOfficial, resolvedRole)
+      const resolvedSubtitle =
+        params.roleSubtitle ||
+        (isOwn
+          ? actor.badge
+          : foundUsthad
+            ? isFoundPrincipal
+              ? 'Principal'
+              : foundUsthad.designation || `Class Usthad · ${foundUsthad.className}`
+            : foundStudent
+              ? `Class ${foundStudent.className}`
+              : resolvedRole === 'principal'
+                ? 'Principal'
+                : resolvedRole === 'usthad'
+                  ? 'Class Usthad'
+                  : 'Student')
+      const resolvedAvatar = resolveActorAvatarById(params.actorId, params.avatarUrl)
+      const displayName = resolveChatDisplayName(params.actorId, resolvedOfficial, resolvedRole)
+      const matchingRoom = !isOwn
+        ? allRooms.find(
+            (r) =>
+              r.roomId === params.roomId ||
+              ((r.type === 'direct_student' || r.type === 'direct_usthad') &&
+                r.peerId === params.actorId),
+          )
+        : undefined
+      setProfileSheetTarget({
+        isOwn,
+        actorId: params.actorId,
+        officialName: formattedOfficial,
+        roleSubtitle: resolvedSubtitle,
+        avatarUrl: resolvedAvatar,
+        avatarText: getMessengerAvatarText(displayName),
+        onlineStatusText: params.onlineStatusText,
+        roomId: matchingRoom?.roomId || params.roomId || (!isOwn ? makeDirectRoomId(actor.id, params.actorId) : undefined),
+        peerRole: resolvedRole,
+      })
+    },
+    [actor.id, actor.role, actor.name, actor.badge, resolveActorAvatarById, resolveChatDisplayName, allRooms],
+  )
+
+  const handlePublishStatus = useCallback(
+    async (payload: {
+      type: 'text' | 'image'
+      text: string
+      bgStyle: string
+      mediaUrl?: string
+    }) => {
+      const now = Date.now()
+      const statusId = `st_${now}_${Math.random().toString(36).slice(2, 7)}`
+      const shortAvatar =
+        typeof actor.avatarUrl === 'string' &&
+        !actor.avatarUrl.startsWith('data:') &&
+        actor.avatarUrl.length <= 320
+          ? actor.avatarUrl
+          : undefined
+      const newStatus: CampusChatStatus = {
+        id: statusId,
+        actorId: actor.id,
+        actorName: actor.name,
+        actorRole: actor.role,
+        actorAvatarUrl: shortAvatar,
+        type: payload.type,
+        text: payload.text,
+        bgStyle: payload.bgStyle,
+        mediaUrl: payload.mediaUrl,
+        createdAtMs: now,
+        expiresAtMs: now + 24 * 60 * 60 * 1000,
+        viewedByMap: { [sanitizeRtdbKey(actor.id)]: now },
+      }
+      setStatusesByActor((prev) => ({
+        ...prev,
+        [actor.id]: [...(prev[actor.id] ?? []), newStatus].sort(
+          (a, b) => a.createdAtMs - b.createdAtMs,
+        ),
+      }))
+      await rtdbSet(
+        rtdbRef(rtdb, `campusChatStatuses/${sanitizeRtdbKey(statusId)}`),
+        stripUndefinedForRtdb({
+          ...newStatus,
+          campusId: 'ics-academy',
+        }),
+      )
+      showToast('Story shared for 24 hours')
+    },
+    [actor.id, actor.name, actor.role, actor.avatarUrl, showToast],
+  )
+
+  const handleMarkStatusViewed = useCallback(
+    (statusId: string) => {
+      if (!statusId || !actor.id) return
+      const now = Date.now()
+      const myKey = sanitizeRtdbKey(actor.id)
+      setStatusesByActor((prev) => {
+        const next: Record<string, CampusChatStatus[]> = {}
+        let changed = false
+        for (const [k, list] of Object.entries(prev)) {
+          next[k] = list.map((st) => {
+            if (st.id !== statusId) return st
+            if (st.viewedByMap?.[myKey] || st.viewedByMap?.[actor.id]) return st
+            changed = true
+            return {
+              ...st,
+              viewedByMap: { ...(st.viewedByMap || {}), [myKey]: now },
+            }
+          })
+        }
+        return changed ? next : prev
+      })
+      void rtdbUpdate(
+        rtdbRef(rtdb, `campusChatStatuses/${sanitizeRtdbKey(statusId)}/viewedByMap`),
+        { [myKey]: now },
+      ).catch(() => {
+        // Ignore transient write error
+      })
+    },
+    [actor.id],
+  )
+
+  const handleDeleteStatus = useCallback(
+    async (statusId: string) => {
+      if (!statusId) return
+      setStatusesByActor((prev) => {
+        const next: Record<string, CampusChatStatus[]> = {}
+        for (const [k, list] of Object.entries(prev)) {
+          const filtered = list.filter((st) => st.id !== statusId)
+          if (filtered.length > 0) next[k] = filtered
+        }
+        return next
+      })
+      await rtdbRemove(rtdbRef(rtdb, `campusChatStatuses/${sanitizeRtdbKey(statusId)}`))
+      showToast('Story deleted')
+    },
+    [showToast],
+  )
+
+  const handleReplyToStatus = useCallback(
+    (targetActorId: string, status: CampusChatStatus, replyText: string) => {
+      const clean = replyText.trim()
+      if (!clean || !targetActorId || targetActorId === actor.id) return
+      const targetRoomId = makeDirectRoomId(actor.id, targetActorId)
+      const now = Date.now()
+      const msgId = `msg_${now}_${Math.random().toString(36).slice(2, 7)}`
+      const storySnippet = status.text
+        ? `"${status.text.slice(0, 60)}${status.text.length > 60 ? '…' : ''}"`
+        : 'Photo story'
+      const newMsg: ChatMessage = {
+        id: msgId,
+        roomId: targetRoomId,
+        senderId: actor.id,
+        senderName: actor.name,
+        senderRole: actor.role,
+        senderBadge: actor.badge,
+        text: `Replied to your story (${storySnippet})\n${clean}`,
+        mediaType: 'none',
+        reactions: {},
+        deliveredTo: [actor.id],
+        deliveredAtMap: {},
+        readBy: [actor.id],
+        readAtMap: {},
+        starredBy: [],
+        isForwarded: false,
+        isDeleted: false,
+        createdAt: new Date(now).toISOString(),
+        createdAtMs: now,
+      }
+      setMessagesByRoom((prev) => ({
+        ...prev,
+        [targetRoomId]: [...(prev[targetRoomId] ?? []), newMsg],
+      }))
+      void sendChatActionToServer({
+        action: 'send_message',
+        roomId: targetRoomId,
+        message: newMsg,
+      })
+      void rtdbSet(
+        rtdbRef(rtdb, `campusChatMessages/${sanitizeRtdbKey(msgId)}`),
+        buildFirestoreChatMessagePayload(newMsg, undefined),
+      ).catch(() => {
+        // Fallback already sent
+      })
+      publishCampusNotification({
+        id: `notif_chat_${msgId}`,
+        type: 'chat',
+        title: resolveChatDisplayName(actor.id, actor.name, actor.role),
+        message: `Replied to your story: ${clean.slice(0, 100)}`,
+        targetRecipientId: targetActorId,
+        actorId: actor.id,
+        actorName: actor.name,
+        href: `#campus-chat?room=${encodeURIComponent(targetRoomId)}`,
+      })
+    },
+    [actor, sendChatActionToServer, resolveChatDisplayName],
+  )
+
+  const handleSaveOwnChatDisplayName = useCallback(
+    (rawName: string) => {
+      const clean = rawName.trim().slice(0, 48)
+      setPublicChatNames((prev) => {
+        const next = { ...prev }
+        if (clean) next[actor.id] = clean
+        else delete next[actor.id]
+        return next
+      })
+      const profileRef = rtdbRef(rtdb, `campusChatProfiles/${sanitizeRtdbKey(actor.id)}`)
+      if (clean) {
+        void rtdbSet(profileRef, {
+          campusId: 'ics-academy',
+          actorId: actor.id,
+          displayName: clean,
+          updatedAtMs: Date.now(),
+        }).catch(() => {})
+        showToast('Chat display name updated')
+      } else {
+        void rtdbRemove(profileRef).catch(() => {})
+        showToast('Reset to official name in Chats')
+      }
+    },
+    [actor.id, showToast],
+  )
+
+  const handleSaveContactNickname = useCallback(
+    (targetActorId: string, rawNickname: string) => {
+      if (!targetActorId || targetActorId === actor.id) return
+      const clean = rawNickname.trim().slice(0, 48)
+      setContactNicknames((prev) => {
+        const next = { ...prev }
+        if (clean) next[targetActorId] = clean
+        else delete next[targetActorId]
+        if (typeof window !== 'undefined' && actor.id) {
+          try {
+            window.localStorage.setItem(
+              `ics_messenger_contact_nicknames_v1_${actor.id}`,
+              JSON.stringify(next),
+            )
+          } catch {
+            // Ignore quota error
+          }
+        }
+        void rtdbUpdate(
+          rtdbRef(rtdb, `campusMessengerUserState/${sanitizeRtdbKey(actor.id)}`),
+          {
+            campusId: 'ics-academy',
+            actorId: actor.id,
+            contactNicknamesJson: JSON.stringify(next),
+            updatedAtMs: Date.now(),
+          },
+        ).catch(() => {})
+        return next
+      })
+      showToast(clean ? `Saved as "${clean}" in Chats` : 'Removed custom contact name')
+    },
+    [actor.id, showToast],
+  )
+
+  const handleUpdateGroupPhoto = useCallback(
+    async (roomId: string, croppedDataUrl: string) => {
+      const roomType = roomId === STAFF_ROOM_ID ? 'staff_group' : 'batch_group'
+      if (!isRoomAdminForMe(roomId, roomType)) return
+      const now = Date.now()
+      setRoomsMeta((prev) => ({
+        ...prev,
+        [roomId]: {
+          ...(prev[roomId] ?? { roomId, onlyAdminsCanPost: false, pinnedMessageId: null }),
+          groupAvatarUrl: croppedDataUrl,
+          updatedAtMs: now,
+        },
+      }))
+      await rtdbUpdate(rtdbRef(rtdb, `campusChatMeta/${sanitizeRtdbKey(roomId)}`), {
+        campusId: 'ics-academy',
+        roomId,
+        groupAvatarUrl: croppedDataUrl,
+        updatedAtMs: now,
+      })
+      showToast('Group photo updated')
+    },
+    [isRoomAdminForMe, showToast],
+  )
+
+  const handleToggleStudentGroupAdmin = useCallback(
+    async (roomId: string, studentId: string, makeAdmin: boolean) => {
+      if (!actor.isStaff || !studentId) return
+      const now = Date.now()
+      setRoomsMeta((prev) => {
+        const existing = prev[roomId] ?? {
+          roomId,
+          onlyAdminsCanPost: false,
+          pinnedMessageId: null,
+          adminActorIds: [],
+        }
+        const currentIds = new Set(existing.adminActorIds ?? [])
+        if (makeAdmin) currentIds.add(studentId)
+        else currentIds.delete(studentId)
+        return {
+          ...prev,
+          [roomId]: {
+            ...existing,
+            adminActorIds: Array.from(currentIds),
+            updatedAtMs: now,
+          },
+        }
+      })
+      await rtdbUpdate(rtdbRef(rtdb, `campusChatMeta/${sanitizeRtdbKey(roomId)}`), {
+        campusId: 'ics-academy',
+        roomId,
+        [`adminActorIdsMap/${sanitizeRtdbKey(studentId)}`]: makeAdmin ? true : null,
+        updatedAtMs: now,
+      })
+      showToast(makeAdmin ? 'Student promoted to Group Admin' : 'Removed Group Admin role')
+    },
+    [actor.isStaff, showToast],
+  )
+
+  const activeGroupMembers = useMemo<GroupMemberItem[]>(() => {
+    void academyConfigVersion
+    if (activeRoom.type !== 'staff_group' && activeRoom.type !== 'batch_group') return []
+    const promotedSet = new Set(roomsMeta[activeRoom.roomId]?.adminActorIds ?? [])
+    const items: GroupMemberItem[] = []
+    if (activeRoom.type === 'staff_group') {
+      for (const u of OFFICIAL_CLASS_USTHADS) {
+        const isPrin = u.id === ACADEMY_PRINCIPAL.usthadId
+        const uRole: 'usthad' | 'principal' = isPrin ? 'principal' : 'usthad'
+        items.push({
+          id: u.id,
+          name: resolveChatDisplayName(u.id, u.name, uRole),
+          officialName: formatMessengerDisplayName(u.name, uRole),
+          role: uRole,
+          subtitle: isPrin ? 'Principal' : u.designation || `Class Usthad · ${u.className}`,
+          avatarUrl: u.avatarUrl,
+          isStaffAdmin: true,
+          isPromotedStudentAdmin: false,
+        })
+      }
+      return items
+    }
+    // Batch Group: all Usthads/Principal + students in this class
+    for (const u of OFFICIAL_CLASS_USTHADS) {
+      const isPrin = u.id === ACADEMY_PRINCIPAL.usthadId
+      const uRole: 'usthad' | 'principal' = isPrin ? 'principal' : 'usthad'
+      const isClassUsthad = u.className === activeRoom.batchName
+      items.push({
+        id: u.id,
+        name: resolveChatDisplayName(u.id, u.name, uRole),
+        officialName: formatMessengerDisplayName(u.name, uRole),
+        role: uRole,
+        subtitle: isPrin
+          ? 'Principal'
+          : isClassUsthad
+            ? `Class Usthad · ${u.className}`
+            : `Usthad · ${u.className}`,
+        avatarUrl: u.avatarUrl,
+        isStaffAdmin: true,
+        isPromotedStudentAdmin: false,
+      })
+    }
+    const batchStudents = students.filter((s) => s.className === activeRoom.batchName)
+    for (const st of batchStudents) {
+      items.push({
+        id: st.id,
+        name: resolveChatDisplayName(st.id, st.name, 'student'),
+        officialName: formatMessengerDisplayName(st.name, 'student'),
+        role: 'student',
+        subtitle: `Class ${st.className}`,
+        avatarUrl: st.avatarUrl,
+        isStaffAdmin: false,
+        isPromotedStudentAdmin: promotedSet.has(st.id),
+      })
+    }
+    return items
+  }, [activeRoom, roomsMeta, resolveChatDisplayName, academyConfigVersion])
 
   const scrollToMessage = (messageId: string) => {
     const el = document.getElementById(`chat-msg-${messageId}`)
@@ -4465,32 +5168,62 @@ export function CampusMessenger({
           {/* Instagram Inbox Top Bar */}
           <div className="flex items-center justify-between gap-2 bg-white px-4 pb-2 pt-3.5 dark:bg-black">
             <div className="flex min-w-0 flex-1 items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => setOwnPhotoModalOpen(true)}
-                title="View or change your profile photo"
-                aria-label="View or change your profile photo"
-                className="group relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-[#7C3AED] via-[#4F46E5] to-[#0095F6] text-xs font-bold text-white ring-2 ring-[#0095F6]/30 transition-transform hover:scale-105 active:scale-95"
-              >
-                {actor.avatarUrl ? (
-                  <img
-                    src={actor.avatarUrl}
-                    alt={actor.name}
-                    className="size-full object-cover object-top"
-                  />
-                ) : (
-                  <span>{getMessengerAvatarText(formatMessengerDisplayName(actor.name, actor.role))}</span>
-                )}
-                <span
-                  aria-hidden="true"
-                  className="absolute right-0 bottom-0 flex size-3.5 items-center justify-center rounded-full bg-[#0095F6] text-white ring-1 ring-white dark:ring-black"
-                >
-                  <Camera className="size-2" />
-                </span>
-              </button>
-              <h2 className="truncate font-poppins text-[19px] font-bold tracking-tight text-zinc-950 dark:text-white">
-                {formatMessengerDisplayName(actor.name, actor.role)}
-              </h2>
+              {(() => {
+                const myStatusMeta = getActorStatusMeta(actor.id)
+                const myDisplayName = resolveChatDisplayName(actor.id, actor.name, actor.role)
+                return (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openProfileSheetForUser({
+                          actorId: actor.id,
+                          officialName: actor.name,
+                          role: actor.role,
+                          roleSubtitle: actor.badge,
+                          avatarUrl: actor.avatarUrl,
+                        })
+                      }
+                      title="Your profile, story & chat name"
+                      aria-label="Open your profile, story and chat name options"
+                      className={cn(
+                        'group relative shrink-0 rounded-full transition-transform hover:scale-105 active:scale-95',
+                        myStatusMeta.hasActive
+                          ? 'bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] p-[2px]'
+                          : '',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'flex size-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-[#7C3AED] via-[#4F46E5] to-[#0095F6] text-xs font-bold text-white',
+                          myStatusMeta.hasActive
+                            ? 'ring-2 ring-white dark:ring-black'
+                            : 'ring-2 ring-[#0095F6]/30',
+                        )}
+                      >
+                        {actor.avatarUrl ? (
+                          <img
+                            src={actor.avatarUrl}
+                            alt={myDisplayName}
+                            className="size-full object-cover object-top"
+                          />
+                        ) : (
+                          <span>{getMessengerAvatarText(myDisplayName)}</span>
+                        )}
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className="absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-[#0095F6] text-white ring-2 ring-white dark:ring-black"
+                      >
+                        <Camera className="size-2.5" />
+                      </span>
+                    </button>
+                    <h2 className="truncate font-poppins text-[19px] font-bold tracking-tight text-zinc-950 dark:text-white">
+                      {myDisplayName}
+                    </h2>
+                  </>
+                )
+              })()}
             </div>
 
             <div className="flex shrink-0 items-center gap-1">
@@ -4641,6 +5374,105 @@ export function CampusMessenger({
               )
             })()}
 
+            {/* Instagram-Style 24h Stories / Statuses Horizontal Tray */}
+            {categoryFilter !== 'calls' && (
+              <div className="flex items-center gap-3.5 overflow-x-auto pb-1 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {/* Own Story Bubble */}
+                {(() => {
+                  const myStatusMeta = getActorStatusMeta(actor.id)
+                  const myDisplayName = resolveChatDisplayName(actor.id, actor.name, actor.role)
+                  return (
+                    <div className="flex shrink-0 flex-col items-center gap-1.5">
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (myStatusMeta.hasActive) {
+                              setStatusViewerActorId(actor.id)
+                            } else {
+                              setShowStatusCreator(true)
+                            }
+                          }}
+                          aria-label={myStatusMeta.hasActive ? 'View your story' : 'Add to your story'}
+                          className={cn(
+                            'rounded-full p-[2.5px] transition-transform active:scale-95',
+                            myStatusMeta.hasActive
+                              ? 'bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7]'
+                              : 'bg-zinc-200 dark:bg-zinc-800',
+                          )}
+                        >
+                          <div className="flex size-[54px] items-center justify-center overflow-hidden rounded-full bg-white p-[2.5px] dark:bg-black">
+                            <div className="flex size-full items-center justify-center overflow-hidden rounded-full bg-zinc-200 font-poppins text-sm font-bold text-zinc-700 dark:bg-[#262626] dark:text-zinc-200">
+                              {actor.avatarUrl ? (
+                                <img
+                                  src={actor.avatarUrl}
+                                  alt={myDisplayName}
+                                  className="size-full object-cover object-top"
+                                />
+                              ) : (
+                                getMessengerAvatarText(myDisplayName)
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setShowStatusCreator(true)
+                          }}
+                          aria-label="Add new story"
+                          title="Add new story"
+                          className="absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full bg-[#0095F6] text-white shadow-md ring-2 ring-white transition-transform hover:scale-105 active:scale-95 dark:ring-black"
+                        >
+                          <Plus className="size-3.5 stroke-[2.75]" aria-hidden="true" />
+                        </button>
+                      </div>
+                      <span className="max-w-[64px] truncate text-[11px] font-medium text-zinc-700 dark:text-zinc-300">
+                        Your story
+                      </span>
+                    </div>
+                  )
+                })()}
+
+                {/* Active Campus Stories (Instagram Gradient Ring for Unseen, Grey Ring for Seen) */}
+                {storyTrayActors.map((stActor) => (
+                  <button
+                    key={stActor.actorId}
+                    type="button"
+                    onClick={() => setStatusViewerActorId(stActor.actorId)}
+                    className="flex shrink-0 flex-col items-center gap-1.5 transition-transform active:scale-95"
+                  >
+                    <div
+                      className={cn(
+                        'rounded-full p-[2.5px]',
+                        stActor.hasUnseen
+                          ? 'bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7]'
+                          : 'bg-zinc-300 dark:bg-zinc-700',
+                      )}
+                    >
+                      <div className="flex size-[54px] items-center justify-center overflow-hidden rounded-full bg-white p-[2.5px] dark:bg-black">
+                        <div className="flex size-full items-center justify-center overflow-hidden rounded-full bg-zinc-200 font-poppins text-sm font-bold text-zinc-700 dark:bg-[#262626] dark:text-zinc-200">
+                          {stActor.avatarUrl ? (
+                            <img
+                              src={stActor.avatarUrl}
+                              alt={stActor.displayName}
+                              className="size-full object-cover object-top"
+                            />
+                          ) : (
+                            stActor.avatarText
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="max-w-[64px] truncate text-[11px] font-medium text-zinc-800 dark:text-zinc-200">
+                      {stActor.displayName.split(' ')[0]}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Quick-Access Pinned Chat Shortcuts Strip (Instagram Notes / Story Avatar Row) */}
             {shortcutRoomIds.length > 0 && categoryFilter !== 'calls' && (
               <div className="flex items-center gap-3 overflow-x-auto pt-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -4789,30 +5621,53 @@ export function CampusMessenger({
                       className="flex items-center justify-between gap-3 px-4 py-2.5 transition-colors hover:bg-zinc-100/80 dark:hover:bg-white/[0.06]"
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-3.5">
-                        {avatarUrl ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setProfilePhotoViewer({
-                                url: avatarUrl,
-                                name: peerName,
-                                subtitle: peerSubtitle,
-                              })
-                            }
-                            aria-label={`View ${peerName} profile photo`}
-                            className="flex size-[52px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#efefef] font-poppins text-sm font-bold text-zinc-700 transition-transform active:scale-95 dark:bg-[#262626] dark:text-zinc-200"
-                          >
-                            <img
-                              src={avatarUrl}
-                              alt={peerName}
-                              className="size-full object-cover object-top"
-                            />
-                          </button>
-                        ) : (
-                          <div className="flex size-[52px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#efefef] font-poppins text-sm font-bold text-zinc-700 dark:bg-[#262626] dark:text-zinc-200">
-                            {initials || 'IC'}
-                          </div>
-                        )}
+                        {(() => {
+                          const callPeerStatus = getActorStatusMeta(peerId)
+                          const callDisplayName = resolveChatDisplayName(peerId, rawPeerName, peerRole)
+                          return (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openProfileSheetForUser({
+                                  actorId: peerId,
+                                  officialName: rawPeerName,
+                                  role: peerRole,
+                                  roleSubtitle: peerSubtitle,
+                                  avatarUrl,
+                                  roomId: directRoomId,
+                                })
+                              }
+                              aria-label={`View ${callDisplayName} profile and story`}
+                              className={cn(
+                                'shrink-0 rounded-full transition-transform active:scale-95',
+                                callPeerStatus.hasActive
+                                  ? callPeerStatus.hasUnseen
+                                    ? 'bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] p-[2.5px]'
+                                    : 'bg-zinc-300 p-[2.5px] dark:bg-zinc-600'
+                                  : '',
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  'flex items-center justify-center overflow-hidden rounded-full bg-[#efefef] font-poppins text-sm font-bold text-zinc-700 dark:bg-[#262626] dark:text-zinc-200',
+                                  callPeerStatus.hasActive
+                                    ? 'size-[48px] ring-2 ring-white dark:ring-black'
+                                    : 'size-[52px]',
+                                )}
+                              >
+                                {avatarUrl ? (
+                                  <img
+                                    src={avatarUrl}
+                                    alt={callDisplayName}
+                                    className="size-full object-cover object-top"
+                                  />
+                                ) : (
+                                  initials || 'IC'
+                                )}
+                              </span>
+                            </button>
+                          )
+                        })()}
                         <button
                           type="button"
                           onClick={() => {
@@ -4949,17 +5804,24 @@ export function CampusMessenger({
                         : 'hover:bg-zinc-100/60 dark:hover:bg-white/[0.05]',
                     )}
                   >
-                    {/* Instagram Circular 52px Avatar (Tap to view photo full-screen) + Optional Online Green Dot */}
+                    {/* Instagram Circular 52px Avatar with Story Gradient Ring + Optional Online Green Dot */}
                     <div className="relative shrink-0">
-                      {room.avatarUrl ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setProfilePhotoViewer({
-                              url: room.avatarUrl!,
-                              name: room.title,
-                              subtitle:
+                      {(() => {
+                        const isDirectRoom =
+                          (room.type === 'direct_student' || room.type === 'direct_usthad') &&
+                          Boolean(room.peerId)
+                        const peerStatusMeta = isDirectRoom
+                          ? getActorStatusMeta(room.peerId)
+                          : { statuses: [], hasActive: false, hasUnseen: false }
+
+                        const handleAvatarClick = (e: React.MouseEvent) => {
+                          e.stopPropagation()
+                          if (isDirectRoom && room.peerId) {
+                            openProfileSheetForUser({
+                              actorId: room.peerId,
+                              officialName: room.searchName || room.title,
+                              role: room.peerRole || 'student',
+                              roleSubtitle:
                                 room.subtitle ||
                                 (room.batchName
                                   ? `Class ${room.batchName}`
@@ -4968,47 +5830,68 @@ export function CampusMessenger({
                                     : room.peerRole === 'usthad'
                                       ? 'Class Usthad'
                                       : undefined),
+                              avatarUrl: room.avatarUrl,
+                              onlineStatusText: peerPresence?.isOnlineNow
+                                ? 'Active now'
+                                : peerPresence?.text || undefined,
+                              roomId: room.roomId,
                             })
-                          }}
-                          aria-label={`View ${room.title} profile photo`}
-                          className={cn(
-                            'flex size-[52px] items-center justify-center overflow-hidden rounded-full font-poppins text-sm font-bold transition-transform hover:scale-[1.03] active:scale-95',
-                            room.type === 'direct_usthad'
-                              ? 'bg-indigo-500/15 text-indigo-700 dark:bg-[#222228] dark:text-zinc-100'
-                              : 'bg-[#efefef] text-zinc-700 dark:bg-[#262626] dark:text-zinc-200',
-                          )}
-                        >
-                          <img
-                            src={room.avatarUrl}
-                            alt={room.title}
-                            className="size-full object-cover object-top"
-                          />
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={openRoom}
-                          aria-label={`Open chat with ${room.title}`}
-                          className={cn(
-                            'flex size-[52px] items-center justify-center overflow-hidden rounded-full font-poppins text-sm font-bold',
-                            room.type === 'staff_group'
-                              ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1f1b14] dark:text-amber-300'
-                              : room.type === 'batch_group'
-                                ? 'bg-violet-500/15 text-violet-700 dark:bg-[#1e1b2e] dark:text-violet-200'
-                                : room.type === 'direct_usthad'
-                                  ? 'bg-indigo-500/15 text-indigo-700 dark:bg-[#222228] dark:text-zinc-100'
-                                  : 'bg-[#efefef] text-zinc-700 dark:bg-[#262626] dark:text-zinc-200',
-                          )}
-                        >
-                          {room.type === 'batch_group' ? (
-                            <Users className="size-5" aria-hidden="true" />
-                          ) : room.type === 'staff_group' ? (
-                            <Crown className="size-5" aria-hidden="true" />
-                          ) : (
-                            room.avatarText
-                          )}
-                        </button>
-                      )}
+                          } else {
+                            openRoom()
+                            setShowGroupInfoModal(true)
+                          }
+                        }
+
+                        return (
+                          <button
+                            type="button"
+                            onClick={handleAvatarClick}
+                            aria-label={
+                              isDirectRoom
+                                ? `View ${room.title} profile and story`
+                                : `View ${room.title} group info`
+                            }
+                            className={cn(
+                              'block rounded-full transition-transform hover:scale-[1.03] active:scale-95',
+                              peerStatusMeta.hasActive
+                                ? peerStatusMeta.hasUnseen
+                                  ? 'bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] p-[2.5px]'
+                                  : 'bg-zinc-300 p-[2.5px] dark:bg-zinc-600'
+                                : '',
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                'flex items-center justify-center overflow-hidden rounded-full font-poppins text-sm font-bold',
+                                peerStatusMeta.hasActive
+                                  ? 'size-[48px] ring-2 ring-white dark:ring-black'
+                                  : 'size-[52px]',
+                                room.type === 'staff_group'
+                                  ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1f1b14] dark:text-amber-300'
+                                  : room.type === 'batch_group'
+                                    ? 'bg-violet-500/15 text-violet-700 dark:bg-[#1e1b2e] dark:text-violet-200'
+                                    : room.type === 'direct_usthad'
+                                      ? 'bg-indigo-500/15 text-indigo-700 dark:bg-[#222228] dark:text-zinc-100'
+                                      : 'bg-[#efefef] text-zinc-700 dark:bg-[#262626] dark:text-zinc-200',
+                              )}
+                            >
+                              {room.avatarUrl ? (
+                                <img
+                                  src={room.avatarUrl}
+                                  alt={room.title}
+                                  className="size-full object-cover object-top"
+                                />
+                              ) : room.type === 'batch_group' ? (
+                                <Users className="size-5" aria-hidden="true" />
+                              ) : room.type === 'staff_group' ? (
+                                <Crown className="size-5" aria-hidden="true" />
+                              ) : (
+                                room.avatarText
+                              )}
+                            </span>
+                          </button>
+                        )
+                      })()}
                       {isPeerOnline && (
                         <span
                           className="pointer-events-none absolute bottom-0.5 right-0.5 size-3.5 rounded-full bg-[#22c55e] ring-[2.5px] ring-white dark:ring-black"
@@ -5692,14 +6575,22 @@ export function CampusMessenger({
                     </button>
 
                     <div className="relative shrink-0">
-                      {activeRoom.avatarUrl ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setProfilePhotoViewer({
-                              url: activeRoom.avatarUrl!,
-                              name: activeRoom.title,
-                              subtitle:
+                      {(() => {
+                        const isDirectHeader =
+                          (activeRoom.type === 'direct_student' ||
+                            activeRoom.type === 'direct_usthad') &&
+                          Boolean(activeRoom.peerId)
+                        const headerStatusMeta = isDirectHeader
+                          ? getActorStatusMeta(activeRoom.peerId)
+                          : { statuses: [], hasActive: false, hasUnseen: false }
+                        const headerPresence = getOpenChatHeaderStatus(activeRoom)
+                        const handleHeaderProfileTap = () => {
+                          if (isDirectHeader && activeRoom.peerId) {
+                            openProfileSheetForUser({
+                              actorId: activeRoom.peerId,
+                              officialName: activeRoom.searchName || activeRoom.title,
+                              role: activeRoom.peerRole || 'student',
+                              roleSubtitle:
                                 activeRoom.subtitle ||
                                 (activeRoom.batchName
                                   ? `Class ${activeRoom.batchName}`
@@ -5708,40 +6599,93 @@ export function CampusMessenger({
                                     : activeRoom.peerRole === 'usthad'
                                       ? 'Class Usthad'
                                       : undefined),
+                              avatarUrl: activeRoom.avatarUrl,
+                              onlineStatusText: headerPresence.isOnlineNow
+                                ? 'Active now'
+                                : headerPresence.text || undefined,
+                              roomId: activeRoom.roomId,
                             })
+                          } else {
+                            setShowGroupInfoModal(true)
                           }
-                          aria-label={`View ${activeRoom.title} profile photo`}
-                          className="flex size-9 items-center justify-center overflow-hidden rounded-full bg-[#efefef] transition-transform hover:scale-105 active:scale-95 dark:bg-[#262626]"
-                        >
-                          <img
-                            src={activeRoom.avatarUrl}
-                            alt={activeRoom.title}
-                            className="size-full object-cover object-top"
-                          />
-                        </button>
-                      ) : (
-                        <div
-                          className={cn(
-                            'flex size-9 items-center justify-center overflow-hidden rounded-full font-poppins text-xs font-bold',
-                            activeRoom.type === 'staff_group'
-                              ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1f1b14] dark:text-amber-300'
-                              : activeRoom.type === 'batch_group'
-                                ? 'bg-violet-500/15 text-violet-700 dark:bg-[#1e1b2e] dark:text-violet-200'
-                                : 'bg-[#efefef] text-zinc-800 dark:bg-[#262626] dark:text-zinc-100',
-                          )}
-                        >
-                          {activeRoom.type === 'batch_group' ? (
-                            <Users className="size-4" aria-hidden="true" />
-                          ) : activeRoom.type === 'staff_group' ? (
-                            <Crown className="size-4" aria-hidden="true" />
-                          ) : (
-                            activeRoom.avatarText
-                          )}
-                        </div>
-                      )}
+                        }
+
+                        return (
+                          <button
+                            type="button"
+                            onClick={handleHeaderProfileTap}
+                            aria-label={
+                              isDirectHeader
+                                ? `View ${activeRoom.title} profile and story`
+                                : `Open ${activeRoom.title} group info`
+                            }
+                            className={cn(
+                              'block rounded-full transition-transform hover:scale-105 active:scale-95',
+                              headerStatusMeta.hasActive
+                                ? headerStatusMeta.hasUnseen
+                                  ? 'bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] p-[2px]'
+                                  : 'bg-zinc-300 p-[2px] dark:bg-zinc-600'
+                                : '',
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                'flex items-center justify-center overflow-hidden rounded-full font-poppins text-xs font-bold',
+                                headerStatusMeta.hasActive
+                                  ? 'size-9 ring-2 ring-white dark:ring-black'
+                                  : 'size-9',
+                                activeRoom.type === 'staff_group'
+                                  ? 'bg-amber-500/15 text-amber-600 dark:bg-[#1f1b14] dark:text-amber-300'
+                                  : activeRoom.type === 'batch_group'
+                                    ? 'bg-violet-500/15 text-violet-700 dark:bg-[#1e1b2e] dark:text-violet-200'
+                                    : 'bg-[#efefef] text-zinc-800 dark:bg-[#262626] dark:text-zinc-100',
+                              )}
+                            >
+                              {activeRoom.avatarUrl ? (
+                                <img
+                                  src={activeRoom.avatarUrl}
+                                  alt={activeRoom.title}
+                                  className="size-full object-cover object-top"
+                                />
+                              ) : activeRoom.type === 'batch_group' ? (
+                                <Users className="size-4" aria-hidden="true" />
+                              ) : activeRoom.type === 'staff_group' ? (
+                                <Crown className="size-4" aria-hidden="true" />
+                              ) : (
+                                activeRoom.avatarText
+                              )}
+                            </span>
+                          </button>
+                        )
+                      })()}
                     </div>
 
-                    <div className="min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          (activeRoom.type === 'direct_student' ||
+                            activeRoom.type === 'direct_usthad') &&
+                          activeRoom.peerId
+                        ) {
+                          const headerPresence = getOpenChatHeaderStatus(activeRoom)
+                          openProfileSheetForUser({
+                            actorId: activeRoom.peerId,
+                            officialName: activeRoom.searchName || activeRoom.title,
+                            role: activeRoom.peerRole || 'student',
+                            roleSubtitle: activeRoom.subtitle,
+                            avatarUrl: activeRoom.avatarUrl,
+                            onlineStatusText: headerPresence.isOnlineNow
+                              ? 'Active now'
+                              : headerPresence.text || undefined,
+                            roomId: activeRoom.roomId,
+                          })
+                        } else {
+                          setShowGroupInfoModal(true)
+                        }
+                      }}
+                      className="min-w-0 text-left"
+                    >
                       <div className="flex items-center gap-1.5">
                         <h3 className="truncate font-poppins text-[15px] font-bold leading-tight text-zinc-950 dark:text-white">
                           {activeRoom.title}
@@ -5772,9 +6716,13 @@ export function CampusMessenger({
                             <p className="truncate text-[11.5px] text-zinc-500 dark:text-zinc-400">
                               {activeRoom.subtitle}
                             </p>
-                          ) : null
+                          ) : (
+                            <p className="truncate text-[11.5px] text-zinc-500 dark:text-zinc-400">
+                              Tap for group info
+                            </p>
+                          )
                         })()}
-                    </div>
+                    </button>
                   </div>
 
                   {/* Right Controls — Clean Bare Instagram Icons (Phone, Video, Lock, More) */}
@@ -5833,7 +6781,7 @@ export function CampusMessenger({
                         </>
                       )}
 
-                    {actor.isStaff && activeRoom.type === 'batch_group' && (
+                    {isActiveRoomAdmin && activeRoom.type === 'batch_group' && (
                       <button
                         type="button"
                         onClick={() => {
@@ -5845,8 +6793,8 @@ export function CampusMessenger({
                         }}
                         title={
                           activeRoomMeta.onlyAdminsCanPost
-                            ? 'Group is locked to Usthads only. Click to allow all students to message.'
-                            : 'Click to restrict group so only Usthads & Principal can send messages.'
+                            ? 'Group is locked to Group Admins only. Click to allow all students to message.'
+                            : 'Click to restrict group so only Group Admins can send messages.'
                         }
                         className={cn(
                           'inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-semibold transition-all whitespace-nowrap shrink-0',
@@ -5858,7 +6806,7 @@ export function CampusMessenger({
                         {activeRoomMeta.onlyAdminsCanPost ? (
                           <>
                             <Lock className="size-3.5" aria-hidden="true" />
-                            <span>Only Usthads</span>
+                            <span>Only Admins</span>
                           </>
                         ) : (
                           <>
@@ -5892,8 +6840,42 @@ export function CampusMessenger({
                       {showChatMoreMenu && (
                         <div
                           ref={chatMoreMenuRef}
-                          className="absolute right-0 top-11 z-40 w-52 overflow-hidden rounded-2xl bg-white py-1.5 text-sm text-foreground shadow-2xl dark:bg-[#0B1014]"
+                          className="absolute right-0 top-11 z-40 w-56 overflow-hidden rounded-2xl bg-white py-1.5 text-sm text-foreground shadow-2xl dark:bg-[#0B1014]"
                         >
+                          {activeRoom.type === 'batch_group' ||
+                          activeRoom.type === 'staff_group' ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowChatMoreMenu(false)
+                                setShowGroupInfoModal(true)
+                              }}
+                              className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-white/10"
+                            >
+                              <Users className="size-4 text-[#0095F6]" aria-hidden="true" />
+                              <span>Group info, Photo &amp; Admins</span>
+                            </button>
+                          ) : activeRoom.peerId ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowChatMoreMenu(false)
+                                openProfileSheetForUser({
+                                  actorId: activeRoom.peerId!,
+                                  officialName: activeRoom.searchName || activeRoom.title,
+                                  role: activeRoom.peerRole || 'student',
+                                  roleSubtitle: activeRoom.subtitle,
+                                  avatarUrl: activeRoom.avatarUrl,
+                                  roomId: activeRoom.roomId,
+                                })
+                              }}
+                              className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-white/10"
+                            >
+                              <Pencil className="size-4 text-[#0095F6]" aria-hidden="true" />
+                              <span>Profile, Story &amp; Save Name</span>
+                            </button>
+                          ) : null}
+
                           <button
                             type="button"
                             onClick={() => {
@@ -6084,7 +7066,8 @@ export function CampusMessenger({
                   )
 
                   const senderProfile = !isMine ? resolveActorDirectoryProfile(msg.senderId) : null
-                  const formattedSenderName = formatMessengerDisplayName(
+                  const formattedSenderName = resolveChatDisplayName(
+                    msg.senderId,
                     msg.senderName,
                     msg.senderRole,
                   )
@@ -6206,31 +7189,52 @@ export function CampusMessenger({
                         {!isMine && (
                           <div className="w-7 shrink-0">
                             {isLastInGroup ? (
-                              senderAvatarUrl ? (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setProfilePhotoViewer({
-                                      url: senderAvatarUrl,
-                                      name: formattedSenderName,
-                                      subtitle: senderProfile?.subtitle,
-                                    })
-                                  }}
-                                  aria-label={`View ${formattedSenderName} profile photo`}
-                                  className="flex size-7 items-center justify-center overflow-hidden rounded-full bg-muted transition-transform hover:scale-105 active:scale-95 dark:bg-[#141A1F]"
-                                >
-                                  <img
-                                    src={senderAvatarUrl}
-                                    alt={formattedSenderName}
-                                    className="size-full object-cover object-top"
-                                  />
-                                </button>
-                              ) : (
-                                <div className="flex size-7 items-center justify-center overflow-hidden rounded-full bg-muted font-poppins text-[10px] font-bold text-foreground dark:bg-[#141A1F] dark:text-zinc-200">
-                                  {senderAvatarText}
-                                </div>
-                              )
+                              (() => {
+                                const senderStatusMeta = getActorStatusMeta(msg.senderId)
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      openProfileSheetForUser({
+                                        actorId: msg.senderId,
+                                        officialName: msg.senderName,
+                                        role: msg.senderRole,
+                                        roleSubtitle: senderProfile?.subtitle,
+                                        avatarUrl: senderAvatarUrl,
+                                      })
+                                    }}
+                                    aria-label={`View ${formattedSenderName} profile and story`}
+                                    className={cn(
+                                      'block rounded-full transition-transform hover:scale-105 active:scale-95',
+                                      senderStatusMeta.hasActive
+                                        ? senderStatusMeta.hasUnseen
+                                          ? 'bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] p-[1.5px]'
+                                          : 'bg-zinc-300 p-[1.5px] dark:bg-zinc-600'
+                                        : '',
+                                    )}
+                                  >
+                                    <span
+                                      className={cn(
+                                        'flex size-7 items-center justify-center overflow-hidden rounded-full bg-muted font-poppins text-[10px] font-bold text-foreground dark:bg-[#141A1F] dark:text-zinc-200',
+                                        senderStatusMeta.hasActive
+                                          ? 'size-[25px] ring-[1.5px] ring-white dark:ring-black'
+                                          : 'size-7',
+                                      )}
+                                    >
+                                      {senderAvatarUrl ? (
+                                        <img
+                                          src={senderAvatarUrl}
+                                          alt={formattedSenderName}
+                                          className="size-full object-cover object-top"
+                                        />
+                                      ) : (
+                                        senderAvatarText
+                                      )}
+                                    </span>
+                                  </button>
+                                )
+                              })()
                             ) : null}
                           </div>
                         )}
@@ -7159,11 +8163,11 @@ export function CampusMessenger({
               )}
 
               {/* Bottom Composer Bar OR Locked Group Banner — Instagram Pill Composer */}
-              {activeRoomMeta.onlyAdminsCanPost && !actor.isStaff ? (
+              {activeRoomMeta.onlyAdminsCanPost && !isActiveRoomAdmin ? (
                 <div className="flex items-center justify-center gap-2 bg-card px-4 py-3.5 text-center text-xs font-semibold text-muted-foreground dark:bg-black">
                   <Lock className="size-4 shrink-0" aria-hidden="true" />
                   <span>
-                    Only Usthads and Principal can send messages in this group
+                    Only Group Admins can send messages in this group
                   </span>
                 </div>
               ) : (
@@ -7670,6 +8674,60 @@ export function CampusMessenger({
 
             {/* Settings Content */}
             <div className="flex-1 space-y-5 overflow-y-auto px-5 pb-5 pt-2">
+              {/* Chat-Only Profile Display Name (Option B) & Photo Cropper */}
+              <div className="space-y-3 rounded-2xl bg-muted/60 p-3.5 dark:bg-[#141A1F]">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-foreground">
+                      My Chat Display Name (Chats Only)
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Everyone sees this name in Chats. Your official academy name stays unchanged.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSettingsModal(false)
+                      setOwnPhotoModalOpen(true)
+                    }}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#0095F6]/15 px-3 py-1.5 text-[11px] font-semibold text-[#0077CC] transition-colors hover:bg-[#0095F6]/25 dark:text-[#0095F6]"
+                  >
+                    <Camera className="size-3.5" aria-hidden="true" />
+                    <span>Photo</span>
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={settingsChatNameInput}
+                    onChange={(e) => setSettingsChatNameInput(e.target.value)}
+                    maxLength={48}
+                    placeholder={formatMessengerDisplayName(actor.name, actor.role)}
+                    className="h-9 flex-1 rounded-xl bg-background px-3 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-[#0095F6] dark:bg-black"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleSaveOwnChatDisplayName(settingsChatNameInput)}
+                    className="h-9 rounded-xl bg-[#0095F6] px-3.5 text-xs font-bold text-white transition-colors hover:bg-[#0084DC]"
+                  >
+                    Save
+                  </button>
+                </div>
+                {publicChatNames[actor.id] && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettingsChatNameInput('')
+                      handleSaveOwnChatDisplayName('')
+                    }}
+                    className="text-[11px] font-semibold text-rose-500 hover:underline"
+                  >
+                    Reset to official name ({formatMessengerDisplayName(actor.name, actor.role)})
+                  </button>
+                )}
+              </div>
+
               {/* Saved / Starred Messages Quick Access */}
               <button
                 type="button"
@@ -8092,7 +9150,9 @@ export function CampusMessenger({
               {allForwardRooms
                 .filter((r) => {
                   const meta = roomsMeta[r.roomId]
-                  if (meta?.onlyAdminsCanPost && !actor.isStaff) return false
+                  const isTargetAdmin =
+                    actor.isStaff || Boolean(meta?.adminActorIds?.includes(actor.id))
+                  if (meta?.onlyAdminsCanPost && !isTargetAdmin) return false
                   const fq = forwardSearchQuery.trim().toLowerCase()
                   if (fq) {
                     return (
@@ -8669,7 +9729,7 @@ export function CampusMessenger({
           )
         : null}
 
-      {/* OWN PROFILE PHOTO MODAL (Allows updating own profile photo directly from Chats — synced to everyone) */}
+      {/* OWN PROFILE PHOTO MODAL (Allows updating & cropping own profile photo directly from Chats — synced to everyone) */}
       <ProfilePhotoModal
         actorId={actor.id}
         actorRole={actor.role}
@@ -8680,6 +9740,181 @@ export function CampusMessenger({
         open={ownPhotoModalOpen}
         onClose={() => setOwnPhotoModalOpen(false)}
       />
+
+      {/* INSTAGRAM-STYLE 24H STORY / STATUS CREATOR MODAL */}
+      <StatusCreatorModal
+        open={showStatusCreator}
+        actorName={resolveChatDisplayName(actor.id, actor.name, actor.role)}
+        actorAvatarUrl={actor.avatarUrl}
+        onClose={() => setShowStatusCreator(false)}
+        onPublish={handlePublishStatus}
+      />
+
+      {/* INSTAGRAM-STYLE 24H STORY / STATUS FULL-SCREEN VIEWER MODAL */}
+      <StatusViewerModal
+        open={Boolean(statusViewerActorId)}
+        statuses={statusViewerActorId ? statusesByActor[statusViewerActorId] ?? [] : []}
+        currentActorId={actor.id}
+        resolveActorName={(id, fallback) => {
+          const foundUsthad = OFFICIAL_CLASS_USTHADS.find((u) => u.id === id)
+          const role: MessengerRole = foundUsthad
+            ? foundUsthad.id === ACADEMY_PRINCIPAL.usthadId
+              ? 'principal'
+              : 'usthad'
+            : 'student'
+          return resolveChatDisplayName(id, resolveActorOfficialName(id, fallback), role)
+        }}
+        resolveActorAvatar={(id, fallback) => resolveActorAvatarById(id, fallback)}
+        onClose={() => setStatusViewerActorId(null)}
+        onMarkViewed={handleMarkStatusViewed}
+        onDeleteStatus={handleDeleteStatus}
+        onReplyToStatus={handleReplyToStatus}
+        onAddAnotherStory={() => setShowStatusCreator(true)}
+      />
+
+      {/* INSTAGRAM-STYLE PROFILE, STORY & CHAT-ONLY NAME SHEET */}
+      {profileSheetTarget && (
+        <ProfileAndStatusSheet
+          open={Boolean(profileSheetTarget)}
+          isOwnProfile={profileSheetTarget.isOwn}
+          actorId={profileSheetTarget.actorId}
+          displayName={resolveChatDisplayName(
+            profileSheetTarget.actorId,
+            profileSheetTarget.officialName,
+            profileSheetTarget.peerRole || 'student',
+          )}
+          officialName={profileSheetTarget.officialName}
+          roleSubtitle={profileSheetTarget.roleSubtitle}
+          avatarUrl={profileSheetTarget.avatarUrl}
+          avatarText={profileSheetTarget.avatarText}
+          onlineStatusText={profileSheetTarget.onlineStatusText}
+          hasActiveStatus={getActorStatusMeta(profileSheetTarget.actorId).hasActive}
+          hasUnseenStatus={getActorStatusMeta(profileSheetTarget.actorId).hasUnseen}
+          savedContactNickname={contactNicknames[profileSheetTarget.actorId] || ''}
+          ownChatDisplayName={publicChatNames[actor.id] || ''}
+          onClose={() => setProfileSheetTarget(null)}
+          onViewStatus={() => setStatusViewerActorId(profileSheetTarget.actorId)}
+          onAddStatus={profileSheetTarget.isOwn ? () => setShowStatusCreator(true) : undefined}
+          onViewProfilePhoto={
+            profileSheetTarget.avatarUrl
+              ? () =>
+                  setProfilePhotoViewer({
+                    url: profileSheetTarget.avatarUrl!,
+                    name: resolveChatDisplayName(
+                      profileSheetTarget.actorId,
+                      profileSheetTarget.officialName,
+                      profileSheetTarget.peerRole || 'student',
+                    ),
+                    subtitle: profileSheetTarget.roleSubtitle,
+                  })
+              : undefined
+          }
+          onChangeOwnPhoto={
+            profileSheetTarget.isOwn ? () => setOwnPhotoModalOpen(true) : undefined
+          }
+          onSaveContactNickname={
+            !profileSheetTarget.isOwn
+              ? (nick) => handleSaveContactNickname(profileSheetTarget.actorId, nick)
+              : undefined
+          }
+          onSaveOwnDisplayName={
+            profileSheetTarget.isOwn ? handleSaveOwnChatDisplayName : undefined
+          }
+          onOpenChat={
+            !profileSheetTarget.isOwn && profileSheetTarget.roomId
+              ? () => {
+                  setSelectedRoomId(profileSheetTarget.roomId!)
+                  setMobileShowChatPane(true)
+                }
+              : undefined
+          }
+          onStartVoiceCall={
+            !profileSheetTarget.isOwn && profileSheetTarget.roomId && !activeCall
+              ? () => {
+                  void startCall(
+                    {
+                      id: profileSheetTarget.actorId,
+                      name: resolveChatDisplayName(
+                        profileSheetTarget.actorId,
+                        profileSheetTarget.officialName,
+                        profileSheetTarget.peerRole || 'student',
+                      ),
+                      role: profileSheetTarget.peerRole || 'student',
+                      subtitle: profileSheetTarget.roleSubtitle,
+                      roomId: profileSheetTarget.roomId!,
+                      avatarUrl: profileSheetTarget.avatarUrl,
+                    },
+                    'voice',
+                  )
+                }
+              : undefined
+          }
+          onStartVideoCall={
+            !profileSheetTarget.isOwn && profileSheetTarget.roomId && !activeCall
+              ? () => {
+                  void startCall(
+                    {
+                      id: profileSheetTarget.actorId,
+                      name: resolveChatDisplayName(
+                        profileSheetTarget.actorId,
+                        profileSheetTarget.officialName,
+                        profileSheetTarget.peerRole || 'student',
+                      ),
+                      role: profileSheetTarget.peerRole || 'student',
+                      subtitle: profileSheetTarget.roleSubtitle,
+                      roomId: profileSheetTarget.roomId!,
+                      avatarUrl: profileSheetTarget.avatarUrl,
+                    },
+                    'video',
+                  )
+                }
+              : undefined
+          }
+        />
+      )}
+
+      {/* GROUP INFO, CROP GROUP PHOTO & STUDENT ADMIN PROMOTION MODAL */}
+      {(activeRoom.type === 'batch_group' || activeRoom.type === 'staff_group') && (
+        <GroupInfoModal
+          open={showGroupInfoModal}
+          roomId={activeRoom.roomId}
+          groupTitle={activeRoom.title}
+          groupSubtitle={
+            activeRoom.subtitle ||
+            (activeRoom.type === 'staff_group'
+              ? 'Official Usthads & Principal Room'
+              : `Class ${activeRoom.batchName || ''} Group`)
+          }
+          groupAvatarUrl={activeRoom.avatarUrl}
+          isStaffRoom={activeRoom.type === 'staff_group'}
+          canManageGroupPhoto={isActiveRoomAdmin}
+          canPromoteStudents={actor.isStaff && activeRoom.type === 'batch_group'}
+          onlyAdminsCanPost={activeRoomMeta.onlyAdminsCanPost}
+          members={activeGroupMembers}
+          onClose={() => setShowGroupInfoModal(false)}
+          onUpdateGroupPhoto={(croppedDataUrl) =>
+            handleUpdateGroupPhoto(activeRoom.roomId, croppedDataUrl)
+          }
+          onToggleStudentAdmin={(studentId, makeAdmin) =>
+            handleToggleStudentGroupAdmin(activeRoom.roomId, studentId, makeAdmin)
+          }
+          onToggleOnlyAdminsCanPost={
+            isActiveRoomAdmin && activeRoom.type === 'batch_group'
+              ? handleToggleGroupLock
+              : undefined
+          }
+          onViewGroupPhotoFull={
+            activeRoom.avatarUrl
+              ? () =>
+                  setProfilePhotoViewer({
+                    url: activeRoom.avatarUrl!,
+                    name: activeRoom.title,
+                    subtitle: activeRoom.subtitle,
+                  })
+              : undefined
+          }
+        />
+      )}
       {/* CLEAR CHAT CONFIRMATION MODAL */}
       {showClearChatConfirm && (
         <div
