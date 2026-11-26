@@ -1,5 +1,6 @@
 // ICS Academy Service Worker for Instant Black Launch, Offline Support & Real-Time Web Push (Android + iOS Home Screen PWA)
-const CACHE_NAME = 'ics-academy-pwa-v32';
+const CACHE_NAME = 'ics-academy-pwa-v33';
+const RTDB_BASE_URL = 'https://ics-academy-push-default-rtdb.asia-southeast1.firebasedatabase.app';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -12,6 +13,52 @@ const PRECACHE_URLS = [
   '/fonts/Poppins-SemiBold.ttf',
   '/fonts/Poppins-Bold.ttf',
 ];
+
+function sanitizeRtdbKey(raw) {
+  return String(raw || '').trim().replace(/[.$#[\]/]/g, '_').slice(0, 160);
+}
+
+async function ackChatDeliveryInRtdb(messageId, recipientId) {
+  const cleanMsgId = sanitizeRtdbKey(messageId);
+  const cleanRecipient = sanitizeRtdbKey(recipientId);
+  if (!/^[a-zA-Z0-9_-]{4,128}$/.test(cleanMsgId)) return;
+  if (!/^[a-zA-Z0-9_-]{4,64}$/.test(cleanRecipient)) return;
+  try {
+    const checkUrl = `${RTDB_BASE_URL}/campusChatMessages/${encodeURIComponent(cleanMsgId)}/createdAtMs.json`;
+    let exists = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(checkUrl, { cache: 'no-store' });
+        if (res.ok) {
+          const text = (await res.text()).trim();
+          if (text && text !== 'null') {
+            exists = true;
+            break;
+          }
+        }
+      } catch {
+        // Retry briefly
+      }
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, 700));
+      }
+    }
+    if (!exists) return;
+    const nowMs = Date.now();
+    await Promise.allSettled([
+      fetch(
+        `${RTDB_BASE_URL}/campusChatMessages/${encodeURIComponent(cleanMsgId)}/deliveredToMap/${encodeURIComponent(cleanRecipient)}.json`,
+        { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: 'true' },
+      ),
+      fetch(
+        `${RTDB_BASE_URL}/campusChatMessages/${encodeURIComponent(cleanMsgId)}/deliveredAtMap/${encodeURIComponent(cleanRecipient)}.json`,
+        { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: String(nowMs) },
+      ),
+    ]);
+  } catch {
+    // Non-fatal
+  }
+}
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -142,6 +189,15 @@ self.addEventListener('push', (event) => {
     tag: 'ics-academy-push',
     notificationId: '',
     type: 'notice',
+    icon: '/icons/icon-192.png',
+    messageId: '',
+    recipientId: '',
+    senderId: '',
+    callId: '',
+    callType: 'voice',
+    callerName: '',
+    callerSubtitle: '',
+    roomId: '',
     requireInteraction: false,
   };
 
@@ -166,6 +222,14 @@ self.addEventListener('push', (event) => {
           notificationId: typeof parsed.notificationId === 'string' ? parsed.notificationId : '',
           type: typeof parsed.type === 'string' ? parsed.type : 'notice',
           icon: parsedIcon,
+          messageId: typeof parsed.messageId === 'string' ? parsed.messageId.trim() : '',
+          recipientId: typeof parsed.recipientId === 'string' ? parsed.recipientId.trim() : '',
+          senderId: typeof parsed.senderId === 'string' ? parsed.senderId.trim() : '',
+          callId: typeof parsed.callId === 'string' ? parsed.callId.trim() : '',
+          callType: parsed.callType === 'video' ? 'video' : 'voice',
+          callerName: typeof parsed.callerName === 'string' ? parsed.callerName.trim() : '',
+          callerSubtitle: typeof parsed.callerSubtitle === 'string' ? parsed.callerSubtitle.trim() : '',
+          roomId: typeof parsed.roomId === 'string' ? parsed.roomId.trim() : '',
           requireInteraction: Boolean(parsed.requireInteraction),
         };
       }
@@ -181,7 +245,16 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     (async () => {
-      // If user already has the app visible & focused, notify open window so it can suppress duplicate local alerts
+      // 1. Send real closed-app double-tick delivery ACK in parallel for 1-on-1 chat pushes
+      const ackPromise =
+        payload.type === 'chat' &&
+        payload.messageId &&
+        payload.recipientId &&
+        payload.recipientId !== payload.senderId
+          ? ackChatDeliveryInRtdb(payload.messageId, payload.recipientId)
+          : Promise.resolve();
+
+      // 2. Notify open PWA windows immediately (especially incoming calls -> instant full-screen ring!)
       const windowClients = await self.clients.matchAll({
         type: 'window',
         includeUncontrolled: true,
@@ -199,6 +272,17 @@ self.addEventListener('push', (event) => {
             notifType: payload.type,
             href: payload.href,
           });
+          if (payload.type === 'call' && payload.callId) {
+            client.postMessage({
+              type: 'ICS_INCOMING_CALL_PUSH',
+              callId: payload.callId,
+              callType: payload.callType,
+              callerName: payload.callerName,
+              callerSubtitle: payload.callerSubtitle,
+              roomId: payload.roomId,
+              href: payload.href,
+            });
+          }
         } catch {
           // Ignore postMessage failure
         }
@@ -224,6 +308,7 @@ self.addEventListener('push', (event) => {
         payload.type !== 'call' &&
         payload.type !== 'test'
       ) {
+        await ackPromise;
         return;
       }
 
@@ -243,11 +328,13 @@ self.addEventListener('push', (event) => {
         renotify: true,
         silent: false,
         requireInteraction: payload.requireInteraction || payload.type === 'call',
-        vibrate: payload.type === 'call' ? [450, 220, 450, 220, 450, 220, 450] : [180, 90, 180],
+        vibrate: payload.type === 'call' ? [550, 250, 550, 250, 550, 250, 550] : [180, 90, 180],
         data: {
           href: payload.href,
           notificationId: payload.notificationId,
           type: payload.type,
+          callId: payload.callId,
+          roomId: payload.roomId,
         },
       };
 
@@ -269,9 +356,13 @@ self.addEventListener('push', (event) => {
             href: payload.href,
             notificationId: payload.notificationId,
             type: payload.type,
+            callId: payload.callId,
+            roomId: payload.roomId,
           },
         });
       }
+
+      await ackPromise;
     })(),
   );
 });

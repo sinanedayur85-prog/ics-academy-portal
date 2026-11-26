@@ -2749,6 +2749,7 @@ export function CampusMessenger({
         (snapshot) => {
           const fsMeta: Record<string, ChatRoomMeta> = {}
           snapshot.forEach((childSnap) => {
+            if (childSnap.key === '__calls') return
             if (childSnap.key) knownMetaIdsRef.current.add(childSnap.key)
             const raw = childSnap.val() as Record<string, unknown> | null
             if (!raw || typeof raw.roomId !== 'string') return

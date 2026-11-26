@@ -30,6 +30,8 @@ export interface ICSNativeBridgeInterface {
     className: string,
     assignedClassesJson: string
   ) => void;
+  canUseFullScreenIntent?: () => boolean;
+  openFullScreenIntentSettings?: () => void;
 }
 
 declare global {
@@ -46,6 +48,27 @@ export function isAndroidNativeApp(): boolean {
     typeof window !== 'undefined' &&
     Boolean(window.ICSNativeBridge || window.Capacitor?.isNativePlatform?.())
   );
+}
+
+export function canAndroidUseFullScreenCalls(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    if (typeof window.ICSNativeBridge?.canUseFullScreenIntent === 'function') {
+      return Boolean(window.ICSNativeBridge.canUseFullScreenIntent());
+    }
+  } catch {
+    // Older APKs without Android 14 check default to true
+  }
+  return true;
+}
+
+export function openAndroidFullScreenCallSettings(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.ICSNativeBridge?.openFullScreenIntentSettings?.();
+  } catch {
+    // Ignore on older APKs
+  }
 }
 
 export function syncNativeAndroidNotificationIdentity(identity: {

@@ -21,10 +21,12 @@ import {
   type CampusNotification,
 } from '@/components/dashboard/data'
 import {
+  canAndroidUseFullScreenCalls,
   clearGroupedPhoneNotifications,
   consumePendingNotificationHref,
   dispatchNotificationNavigation,
   isAndroidNativeApp,
+  openAndroidFullScreenCallSettings,
   syncNativeAndroidNotificationIdentity,
   triggerSystemNotification,
 } from '@/lib/mobile-pdf'
@@ -98,6 +100,12 @@ export function CampusNotificationBar({
     // Sync signed-in identity to Native Android APK FCM & background notification service (zero user clicks needed)
     syncAndroidIdentityNow()
     const androidSyncRetry = window.setTimeout(syncAndroidIdentityNow, 1500)
+    const androidSyncRetry2 = window.setTimeout(syncAndroidIdentityNow, 4500)
+    const onAuthOrNetworkChange = () => {
+      syncAndroidIdentityNow()
+    }
+    window.addEventListener('ics-auth-updated', onAuthOrNetworkChange)
+    window.addEventListener('online', onAuthOrNetworkChange)
 
     // Auto-sync Web Push subscription silently if Notification permission is already granted (iPhone Home Screen PWA & Web)
     if (!isAndroidNativeApp()) {
@@ -182,10 +190,28 @@ export function CampusNotificationBar({
         type?: string
         href?: string
         notificationId?: string
+        callId?: string
+        callType?: string
+        callerName?: string
+        callerSubtitle?: string
+        roomId?: string
       } | null
       if (!data) return
       if (data.type === 'ICS_CLEAR_GROUPED_NOTIFICATIONS') {
         clearGroupedPhoneNotifications()
+      } else if (data.type === 'ICS_INCOMING_CALL_PUSH' && data.callId) {
+        window.dispatchEvent(
+          new CustomEvent('ics-incoming-call-push', {
+            detail: {
+              callId: data.callId,
+              callType: data.callType,
+              callerName: data.callerName,
+              callerSubtitle: data.callerSubtitle,
+              roomId: data.roomId,
+              href: data.href,
+            },
+          }),
+        )
       } else if (data.type === 'ICS_PUSH_RECEIVED') {
         if (data.notificationId) {
           const toastKey = `${LAST_TOASTED_NOTIF_ID_KEY}_${getScopeStorageSuffix(studentId, classNameFilter)}`
@@ -261,8 +287,11 @@ export function CampusNotificationBar({
     return () => {
       unsubscribeRealtime()
       window.clearTimeout(androidSyncRetry)
+      window.clearTimeout(androidSyncRetry2)
       window.clearTimeout(pendingNotifRetry)
       window.clearInterval(timer)
+      window.removeEventListener('ics-auth-updated', onAuthOrNetworkChange)
+      window.removeEventListener('online', onAuthOrNetworkChange)
       window.removeEventListener('ics-notification-open', handleNativeNotificationOpen)
       window.removeEventListener('focus', handleWakeOrFocus)
       document.removeEventListener('visibilitychange', handleWakeOrFocus)
@@ -273,7 +302,69 @@ export function CampusNotificationBar({
     }
   }, [studentId, classNameFilter])
 
-  return null
+  // On Android 14+ sideloaded APKs, prompt once with a clean 1-tap button if full-screen call intent isn't granted yet
+  const [needsAndroidFullScreenCallPerm, setNeedsAndroidFullScreenCallPerm] = useState(false)
+  const [dismissedFsPrompt, setDismissedFsPrompt] = useState(false)
+
+  useEffect(() => {
+    if (!isAndroidNativeApp()) return
+    const checkPerm = () => {
+      try {
+        if (window.sessionStorage.getItem('ics_fs_call_prompt_dismissed') === '1') return
+      } catch {
+        // Ignore
+      }
+      setNeedsAndroidFullScreenCallPerm(!canAndroidUseFullScreenCalls())
+    }
+    checkPerm()
+    const t = window.setTimeout(checkPerm, 1500)
+    window.addEventListener('focus', checkPerm)
+    document.addEventListener('visibilitychange', checkPerm)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener('focus', checkPerm)
+      document.removeEventListener('visibilitychange', checkPerm)
+    }
+  }, [])
+
+  if (!needsAndroidFullScreenCallPerm || dismissedFsPrompt) {
+    return null
+  }
+
+  return (
+    <div className="fixed inset-x-3 bottom-[calc(var(--safe-bottom)+4.75rem)] z-[75] mx-auto flex max-w-md items-center justify-between gap-2.5 rounded-2xl border border-emerald-500/35 bg-[#0A1410]/95 px-3.5 py-2.5 text-white shadow-2xl backdrop-blur-xl">
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-semibold text-emerald-300">Allow Full-Screen Incoming Calls</p>
+        <p className="mt-0.5 text-[11px] leading-snug text-white/75">
+          Enable so calls open full-screen on lock screen like a normal phone call.
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => openAndroidFullScreenCallSettings()}
+          className="rounded-xl bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-emerald-400"
+        >
+          Allow
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setDismissedFsPrompt(true)
+            try {
+              window.sessionStorage.setItem('ics_fs_call_prompt_dismissed', '1')
+            } catch {
+              // Ignore
+            }
+          }}
+          aria-label="Dismiss"
+          className="flex size-7 items-center justify-center rounded-full text-white/60 hover:bg-white/10 hover:text-white"
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
+    </div>
+  )
 }
 
 /**

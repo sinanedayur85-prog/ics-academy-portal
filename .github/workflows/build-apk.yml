@@ -470,6 +470,7 @@ jobs:
           import android.print.PrintDocumentInfo;
           import android.print.PrintManager;
           import android.provider.MediaStore;
+          import android.provider.Settings;
           import android.speech.RecognizerIntent;
           import android.util.Base64;
           import android.view.View;
@@ -508,6 +509,7 @@ jobs:
               private static final int REQ_VOICE_RECOGNITION = 2002;
               private static final long PENDING_HREF_TTL_MS = 60_000L;
               private static volatile boolean activityInForeground = false;
+              private static volatile MainActivity activeInstance = null;
               private static volatile String pendingNotificationHref = "";
               private static volatile long pendingNotificationTsMs = 0L;
               private int lastStatusBarHeightDp = 28;
@@ -515,6 +517,17 @@ jobs:
 
               public static boolean isActivityInForeground() {
                   return activityInForeground;
+              }
+
+              public static void dispatchIncomingCallToForeground(final String callId, final String roomId) {
+                  final MainActivity inst = activeInstance;
+                  if (inst == null || inst.bridge == null || inst.bridge.getWebView() == null) return;
+                  final WebView webView = inst.bridge.getWebView();
+                  final String safeCall = (callId != null ? callId.trim() : "").replace("\\\\", "\\\\\\\\").replace("'", "\\\\'");
+                  final String safeRoom = (roomId != null ? roomId.trim() : "").replace("\\\\", "\\\\\\\\").replace("'", "\\\\'");
+                  if (safeCall.isEmpty()) return;
+                  final String js = "try{window.dispatchEvent(new CustomEvent('ics-incoming-call-push',{detail:{callId:'" + safeCall + "',roomId:'" + safeRoom + "'}}));}catch(e){}";
+                  webView.post(() -> webView.evaluateJavascript(js, null));
               }
 
               public static String sanitizeTargetHref(String raw) {
@@ -816,9 +829,11 @@ jobs:
               @Override
               public void onResume() {
                   super.onResume();
+                  activeInstance = this;
                   activityInForeground = true;
                   clearGroupedSystemNotifications();
                   CampusFirebaseMessagingService.syncTopicsForIdentity(this);
+                  CampusFirebaseMessagingService.syncCurrentTokenToServer(this);
               }
 
               @Override
@@ -846,6 +861,14 @@ jobs:
                   }
                   CampusBackgroundNotificationService.schedulePeriodic(this);
                   CampusBackgroundNotificationService.scheduleQuickCheck(this);
+              }
+
+              @Override
+              public void onDestroy() {
+                  if (activeInstance == this) {
+                      activeInstance = null;
+                  }
+                  super.onDestroy();
               }
 
               private void clearGroupedSystemNotifications() {
@@ -938,6 +961,46 @@ jobs:
                           CampusBackgroundNotificationService.schedulePeriodic(MainActivity.this);
                       } catch (Exception ignored) {
                       }
+                  }
+
+                  @JavascriptInterface
+                  public boolean canUseFullScreenIntent() {
+                      if (Build.VERSION.SDK_INT >= 34) {
+                          try {
+                              NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                              return nm == null || nm.canUseFullScreenIntent();
+                          } catch (Exception ignored) {
+                              return true;
+                          }
+                      }
+                      return true;
+                  }
+
+                  @JavascriptInterface
+                  public void openFullScreenIntentSettings() {
+                      runOnUiThread(() -> {
+                          try {
+                              if (Build.VERSION.SDK_INT >= 34) {
+                                  Intent intent = new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT);
+                                  intent.setData(Uri.parse("package:" + getPackageName()));
+                                  intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                  startActivity(intent);
+                              } else {
+                                  Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                                  intent.putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+                                  intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                  startActivity(intent);
+                              }
+                          } catch (Exception ignored) {
+                              try {
+                                  Intent fallback = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                                  fallback.setData(Uri.parse("package:" + getPackageName()));
+                                  fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                  startActivity(fallback);
+                              } catch (Exception ignored2) {
+                              }
+                          }
+                      });
                   }
 
                   @JavascriptInterface
@@ -1264,6 +1327,7 @@ jobs:
               private static final String CHANNEL_ID = "ics_academy_updates";
               private static final int BG_NOTIFICATION_ID = 1001;
               private static final String[] API_BASES = new String[] {
+                  "https://ics-academy-manhappatta.vercel.app",
                   "https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app",
                   "https://ais-dev-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app"
               };
@@ -1678,15 +1742,19 @@ jobs:
               public static final String ACTION_CALL_CANCELLED = "com.icsacademy.manhappatta.ACTION_CALL_CANCELLED";
               public static final String EXTRA_CALL_ID = "ics_call_id";
               public static final String EXTRA_CALL_TYPE = "ics_call_type";
+              public static final String EXTRA_CALLER_ID = "ics_caller_id";
               public static final String EXTRA_CALLER_NAME = "ics_caller_name";
               public static final String EXTRA_CALLER_SUBTITLE = "ics_caller_subtitle";
+              public static final String EXTRA_CALLER_AVATAR = "ics_caller_avatar";
               public static final String EXTRA_ROOM_ID = "ics_room_id";
               public static final String EXTRA_NOTIFY_ID = "ics_call_notify_id";
 
               private String callId = "";
               private String callType = "voice";
+              private String callerId = "";
               private String callerName = "ICS Academy";
               private String callerSubtitle = "";
+              private String callerAvatarUrl = "";
               private String roomId = "";
               private int notifyId = 0;
 
@@ -1782,15 +1850,19 @@ jobs:
                   if (intent == null) return;
                   String cid = intent.getStringExtra(EXTRA_CALL_ID);
                   String ctype = intent.getStringExtra(EXTRA_CALL_TYPE);
+                  String crid = intent.getStringExtra(EXTRA_CALLER_ID);
                   String cname = intent.getStringExtra(EXTRA_CALLER_NAME);
                   String csub = intent.getStringExtra(EXTRA_CALLER_SUBTITLE);
+                  String cavatar = intent.getStringExtra(EXTRA_CALLER_AVATAR);
                   String rid = intent.getStringExtra(EXTRA_ROOM_ID);
                   int nid = intent.getIntExtra(EXTRA_NOTIFY_ID, 0);
 
                   callId = cid != null ? cid.trim() : "";
                   callType = "video".equalsIgnoreCase(ctype) ? "video" : "voice";
+                  callerId = crid != null ? crid.trim() : "";
                   callerName = (cname != null && !cname.trim().isEmpty()) ? cname.trim() : "ICS Academy";
                   callerSubtitle = csub != null ? csub.trim() : "";
+                  callerAvatarUrl = cavatar != null ? cavatar.trim() : "";
                   roomId = rid != null ? rid.trim() : "";
                   notifyId = nid != 0 ? nid : CampusFirebaseMessagingService.computeCallNotifyId(callId);
               }
@@ -1851,7 +1923,7 @@ jobs:
                   pulseAnim.setRepeatCount(Animation.INFINITE);
                   pulseRing.startAnimation(pulseAnim);
 
-                  TextView avatarText = new TextView(this);
+                  final TextView avatarText = new TextView(this);
                   avatarText.setText(buildInitials(callerName));
                   avatarText.setTextColor(Color.WHITE);
                   avatarText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 40);
@@ -1867,6 +1939,36 @@ jobs:
                   FrameLayout.LayoutParams circleLp = new FrameLayout.LayoutParams(dp(116), dp(116));
                   circleLp.gravity = Gravity.CENTER;
                   avatarFrame.addView(avatarText, circleLp);
+
+                  final ImageView avatarImage = new ImageView(this);
+                  avatarImage.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                  avatarImage.setVisibility(View.GONE);
+                  avatarFrame.addView(avatarImage, circleLp);
+
+                  final String lookupCallerId = callerId;
+                  final String lookupCallerAvatar = callerAvatarUrl;
+                  if (!lookupCallerId.isEmpty() || !lookupCallerAvatar.isEmpty()) {
+                      new Thread(() -> {
+                          try {
+                              android.graphics.Bitmap bmp = CampusFirebaseMessagingService.resolvePersonCircularAvatarBitmap(
+                                  IncomingCallActivity.this.getApplicationContext(),
+                                  lookupCallerId,
+                                  lookupCallerAvatar
+                              );
+                              if (bmp != null) {
+                                  runOnUiThread(() -> {
+                                      try {
+                                          avatarImage.setImageBitmap(bmp);
+                                          avatarImage.setVisibility(View.VISIBLE);
+                                          avatarText.setVisibility(View.GONE);
+                                      } catch (Exception ignored) {
+                                      }
+                                  });
+                              }
+                          } catch (Exception ignored) {
+                          }
+                      }).start();
+                  }
 
                   root.addView(avatarFrame, avatarFrameLp);
 
@@ -2211,6 +2313,7 @@ jobs:
           import android.os.Build;
           import android.os.Handler;
           import android.os.Looper;
+          import android.os.PowerManager;
           import android.util.Base64;
 
           import androidx.annotation.NonNull;
@@ -2460,34 +2563,28 @@ jobs:
                   return null;
               }
 
-              private static String fetchFirestoreAvatarUrl(String canonicalActorId) {
+              private static String fetchRtdbAvatarUrl(String canonicalActorId) {
                   if (canonicalActorId == null || canonicalActorId.isEmpty()) return "";
-                  if (FIRESTORE_PROJECT_ID.isEmpty() || FIRESTORE_DB_ID.isEmpty() || FIRESTORE_API_KEY.isEmpty()) return "";
                   HttpURLConnection conn = null;
                   try {
-                      String encodedId = URLEncoder.encode(canonicalActorId, "UTF-8");
-                      String docUrl = "https://firestore.googleapis.com/v1/projects/" + FIRESTORE_PROJECT_ID
-                          + "/databases/" + FIRESTORE_DB_ID
-                          + "/documents/campusProfilePhotos/" + encodedId
-                          + "?key=" + FIRESTORE_API_KEY;
+                      String safeKey = canonicalActorId.trim().replaceAll("[^a-zA-Z0-9_-]", "_");
+                      String docUrl = RTDB_BASE_URL + "/campusChatProfiles/" + URLEncoder.encode(safeKey, "UTF-8") + "/avatarUrl.json";
                       URL url = new URL(docUrl);
                       conn = (HttpURLConnection) url.openConnection();
                       conn.setRequestMethod("GET");
-                      conn.setConnectTimeout(2200);
-                      conn.setReadTimeout(2500);
+                      conn.setConnectTimeout(1200);
+                      conn.setReadTimeout(1200);
                       int code = conn.getResponseCode();
                       if (code >= 200 && code < 300) {
                           try (InputStream is = conn.getInputStream()) {
                               byte[] bytes = readLimitedStream(is, 600_000);
-                              if (bytes != null && bytes.length > 10) {
-                                  JSONObject root = new JSONObject(new String(bytes, StandardCharsets.UTF_8));
-                                  JSONObject fields = root.optJSONObject("fields");
-                                  if (fields != null) {
-                                      JSONObject avatarField = fields.optJSONObject("avatarUrl");
-                                      if (avatarField != null) {
-                                          String val = avatarField.optString("stringValue", "").trim();
-                                          if (!val.isEmpty()) return val;
+                              if (bytes != null && bytes.length > 4) {
+                                  String raw = new String(bytes, StandardCharsets.UTF_8).trim();
+                                  if (!"null".equals(raw) && raw.length() > 4) {
+                                      if (raw.startsWith("\\"") && raw.endsWith("\\"")) {
+                                          raw = new JSONObject("{\\"v\\":" + raw + "}").optString("v", "").trim();
                                       }
+                                      if (!raw.isEmpty()) return raw;
                                   }
                               }
                           }
@@ -2499,17 +2596,11 @@ jobs:
                   return "";
               }
 
-              private static Bitmap resolveChatAvatarBitmap(
+              public static Bitmap resolvePersonCircularAvatarBitmap(
                   Context context,
-                  boolean isGroup,
                   String rawSenderId,
                   String rawSenderAvatarUrl
               ) {
-                  // Group chats always show our crisp circular white-backed full-color ICS Academy logo (never letter initials)
-                  if (isGroup) {
-                      return buildCircularIcsLogoBitmap(context);
-                  }
-
                   String canonicalId = canonicalizeProfileActorId(rawSenderId);
                   File cacheFile = null;
                   if (!canonicalId.isEmpty()) {
@@ -2527,20 +2618,17 @@ jobs:
                   }
 
                   Bitmap rawPhoto = null;
-                  // 1. Prefer bundled local asset first (0ms & 0 Firestore reads) when sender has an official /images/ photo
                   if (rawSenderAvatarUrl != null && rawSenderAvatarUrl.trim().startsWith("/images/")) {
                       rawPhoto = decodeBitmapFromAvatarString(context, rawSenderAvatarUrl.trim());
                   }
 
-                  // 2. Check live synced profile photo from Firestore /campusProfilePhotos/{canonicalId} (cached 24h on disk)
                   if (rawPhoto == null && !canonicalId.isEmpty()) {
-                      String fsAvatarUrl = fetchFirestoreAvatarUrl(canonicalId);
-                      if (!fsAvatarUrl.isEmpty()) {
-                          rawPhoto = decodeBitmapFromAvatarString(context, fsAvatarUrl);
+                      String rtdbAvatar = fetchRtdbAvatarUrl(canonicalId);
+                      if (!rtdbAvatar.isEmpty()) {
+                          rawPhoto = decodeBitmapFromAvatarString(context, rtdbAvatar);
                       }
                   }
 
-                  // 3. Fallback to any other short avatar URL sent in notification payload
                   if (rawPhoto == null && rawSenderAvatarUrl != null && !rawSenderAvatarUrl.trim().isEmpty()) {
                       rawPhoto = decodeBitmapFromAvatarString(context, rawSenderAvatarUrl.trim());
                   }
@@ -2558,7 +2646,6 @@ jobs:
                       }
                   }
 
-                  // 3. Fallback to stale cached avatar on disk if network timed out
                   if (cacheFile != null && cacheFile.exists()) {
                       try {
                           Bitmap stale = BitmapFactory.decodeFile(cacheFile.getAbsolutePath());
@@ -2566,8 +2653,22 @@ jobs:
                       } catch (Exception ignored) {
                       }
                   }
+                  return null;
+              }
 
-                  // 4. Final fallback: white-backed full-color ICS Academy logo circle (NEVER "M" letter circle)
+              private static Bitmap resolveChatAvatarBitmap(
+                  Context context,
+                  boolean isGroup,
+                  String rawSenderId,
+                  String rawSenderAvatarUrl
+              ) {
+                  // Group chats always show our crisp circular white-backed full-color ICS Academy logo (never letter initials)
+                  if (isGroup) {
+                      return buildCircularIcsLogoBitmap(context);
+                  }
+                  Bitmap personBmp = resolvePersonCircularAvatarBitmap(context, rawSenderId, rawSenderAvatarUrl);
+                  if (personBmp != null) return personBmp;
+                  // Final fallback: white-backed full-color ICS Academy logo circle (NEVER "M" letter circle)
                   return buildCircularIcsLogoBitmap(context);
               }
 
@@ -2856,6 +2957,7 @@ jobs:
               }
 
               private static volatile boolean topicRetryScheduled = false;
+              private static volatile int topicRetryAttempts = 0;
 
               public static void syncTopicsForIdentity(final Context context) {
                   if (context == null) return;
@@ -2923,6 +3025,7 @@ jobs:
                           if (!confirmed.contains(targetTopic) || targetTopic.startsWith("ics_actor_")) {
                               fm.subscribeToTopic(targetTopic).addOnCompleteListener(task -> {
                                   if (task.isSuccessful()) {
+                                      topicRetryAttempts = 0;
                                       try {
                                           SharedPreferences p = appCtx.getSharedPreferences("ics_notif_prefs", Context.MODE_PRIVATE);
                                           Set<String> c = new HashSet<String>(p.getStringSet("confirmedSubscribedTopics", new HashSet<String>()));
@@ -2930,12 +3033,14 @@ jobs:
                                           p.edit().putStringSet("confirmedSubscribedTopics", c).apply();
                                       } catch (Exception ignored) {
                                       }
-                                  } else if (!topicRetryScheduled) {
+                                  } else if (!topicRetryScheduled && topicRetryAttempts < 5) {
                                       topicRetryScheduled = true;
+                                      topicRetryAttempts += 1;
+                                      long delayMs = Math.min(45_000L, 5000L * topicRetryAttempts);
                                       new Handler(Looper.getMainLooper()).postDelayed(() -> {
                                           topicRetryScheduled = false;
                                           syncTopicsForIdentity(appCtx);
-                                      }, 8000L);
+                                      }, delayMs);
                                   }
                               });
                           }
@@ -3022,61 +3127,15 @@ jobs:
 
               public static void markCallDeclinedSync(final String callId) {
                   if (callId == null) return;
-                  final String cleanCallId = callId.trim();
+                  final String cleanCallId = callId.trim().replaceAll("[^a-zA-Z0-9_-]", "_");
                   if (!cleanCallId.matches("^[a-zA-Z0-9_-]{4,96}$")) return;
-                  if (FIRESTORE_PROJECT_ID.isEmpty() || FIRESTORE_DB_ID.isEmpty() || FIRESTORE_API_KEY.isEmpty()) return;
 
-                  final String docName = "projects/" + FIRESTORE_PROJECT_ID
-                      + "/databases/" + FIRESTORE_DB_ID
-                      + "/documents/campusCalls/" + cleanCallId;
-                  final String commitUrl = "https://firestore.googleapis.com/v1/projects/" + FIRESTORE_PROJECT_ID
-                      + "/databases/" + FIRESTORE_DB_ID
-                      + "/documents:commit?key=" + FIRESTORE_API_KEY;
-
-                  HttpURLConnection conn = null;
-                  try {
-                      long nowMs = System.currentTimeMillis();
-                      JSONObject fields = new JSONObject();
-                      fields.put("status", new JSONObject().put("stringValue", "declined"));
-                      fields.put("endedAtMs", new JSONObject().put("integerValue", String.valueOf(nowMs)));
-                      fields.put("durationSec", new JSONObject().put("integerValue", "0"));
-                      fields.put("updatedAtMs", new JSONObject().put("integerValue", String.valueOf(nowMs)));
-
-                      JSONObject updateDoc = new JSONObject();
-                      updateDoc.put("name", docName);
-                      updateDoc.put("fields", fields);
-
-                      JSONArray fieldPaths = new JSONArray();
-                      fieldPaths.put("status");
-                      fieldPaths.put("endedAtMs");
-                      fieldPaths.put("durationSec");
-                      fieldPaths.put("updatedAtMs");
-
-                      JSONObject write = new JSONObject();
-                      write.put("update", updateDoc);
-                      write.put("updateMask", new JSONObject().put("fieldPaths", fieldPaths));
-                      write.put("currentDocument", new JSONObject().put("exists", true));
-
-                      JSONObject root = new JSONObject();
-                      root.put("writes", new JSONArray().put(write));
-
-                      byte[] payloadBytes = root.toString().getBytes(StandardCharsets.UTF_8);
-                      URL url = new URL(commitUrl);
-                      conn = (HttpURLConnection) url.openConnection();
-                      conn.setRequestMethod("POST");
-                      conn.setConnectTimeout(4500);
-                      conn.setReadTimeout(4500);
-                      conn.setDoOutput(true);
-                      conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-                      try (OutputStream os = conn.getOutputStream()) {
-                          os.write(payloadBytes);
-                          os.flush();
-                      }
-                      conn.getResponseCode();
-                  } catch (Exception ignored) {
-                  } finally {
-                      if (conn != null) conn.disconnect();
-                  }
+                  final String callBase = RTDB_BASE_URL + "/campusChatMeta/__calls/" + cleanCallId;
+                  long nowMs = System.currentTimeMillis();
+                  putRtdbJsonSync(callBase + "/status.json", "\\"declined\\"");
+                  putRtdbJsonSync(callBase + "/endedAtMs.json", String.valueOf(nowMs));
+                  putRtdbJsonSync(callBase + "/durationSec.json", "0");
+                  putRtdbJsonSync(callBase + "/updatedAtMs.json", String.valueOf(nowMs));
               }
 
               private static boolean putRtdbJsonSync(final String endpointUrl, final String jsonBody) {
@@ -3116,7 +3175,7 @@ jobs:
 
                   // Wait briefly if FCM push beat the sender's RTDB write so we never create a partial orphan node
                   boolean messageExists = false;
-                  for (int attempt = 0; attempt < 3; attempt++) {
+                  for (int attempt = 0; attempt < 5; attempt++) {
                       HttpURLConnection conn = null;
                       try {
                           URL url = new URL(checkUrl);
@@ -3144,9 +3203,9 @@ jobs:
                       } finally {
                           if (conn != null) conn.disconnect();
                       }
-                      if (attempt < 2) {
+                      if (attempt < 4) {
                           try {
-                              Thread.sleep(1200L);
+                              Thread.sleep(750L);
                           } catch (InterruptedException ignored) {
                           }
                       }
@@ -3187,6 +3246,10 @@ jobs:
                   if (callId == null) callId = "";
                   callId = callId.trim();
                   String callType = "video".equalsIgnoreCase(data.get("callType")) ? "video" : "voice";
+                  String callerId = data.get("senderId");
+                  callerId = callerId != null ? callerId.trim() : "";
+                  String callerAvatarUrl = data.get("senderAvatarUrl");
+                  callerAvatarUrl = callerAvatarUrl != null ? callerAvatarUrl.trim() : "";
                   String callerName = data.get("callerName");
                   if (callerName == null || callerName.trim().isEmpty()) {
                       callerName = (fallbackTitle != null && !fallbackTitle.trim().isEmpty()) ? fallbackTitle.trim() : "ICS Academy";
@@ -3203,6 +3266,20 @@ jobs:
                   if (manager == null) return;
                   ensureCallChannel(manager);
 
+                  try {
+                      android.os.PowerManager pm = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
+                      if (pm != null && !pm.isInteractive()) {
+                          android.os.PowerManager.WakeLock wl = pm.newWakeLock(
+                              android.os.PowerManager.FULL_WAKE_LOCK
+                                  | android.os.PowerManager.ACQUIRE_CAUSES_WAKEUP
+                                  | android.os.PowerManager.ON_AFTER_RELEASE,
+                              "icsacademy:incoming_call_wake"
+                          );
+                          wl.acquire(10_000L);
+                      }
+                  } catch (Exception ignored) {
+                  }
+
                   int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
                       ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
                       : PendingIntent.FLAG_UPDATE_CURRENT;
@@ -3215,8 +3292,10 @@ jobs:
                   );
                   fullScreenIntent.putExtra(IncomingCallActivity.EXTRA_CALL_ID, callId);
                   fullScreenIntent.putExtra(IncomingCallActivity.EXTRA_CALL_TYPE, callType);
+                  fullScreenIntent.putExtra(IncomingCallActivity.EXTRA_CALLER_ID, callerId);
                   fullScreenIntent.putExtra(IncomingCallActivity.EXTRA_CALLER_NAME, callerName);
                   fullScreenIntent.putExtra(IncomingCallActivity.EXTRA_CALLER_SUBTITLE, callerSubtitle);
+                  fullScreenIntent.putExtra(IncomingCallActivity.EXTRA_CALLER_AVATAR, callerAvatarUrl);
                   fullScreenIntent.putExtra(IncomingCallActivity.EXTRA_ROOM_ID, roomId);
                   fullScreenIntent.putExtra(IncomingCallActivity.EXTRA_NOTIFY_ID, callNotifyId);
                   PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(this, callNotifyId, fullScreenIntent, flags);
@@ -3257,11 +3336,28 @@ jobs:
                       ? "Incoming Video Call • ICS Academy"
                       : "Incoming Voice Call • ICS Academy";
 
+                  Bitmap callerBmp = resolveChatAvatarBitmap(this, false, callerId, callerAvatarUrl);
+                  Person.Builder callerPersonBuilder = new Person.Builder()
+                      .setName(callerName)
+                      .setImportant(true);
+                  if (callerBmp != null) {
+                      callerPersonBuilder.setIcon(IconCompat.createWithBitmap(callerBmp));
+                  }
+                  Person callerPerson = callerPersonBuilder.build();
+
+                  NotificationCompat.CallStyle callStyle = NotificationCompat.CallStyle.forIncomingCall(
+                      callerPerson,
+                      declinePendingIntent,
+                      acceptPendingIntent
+                  );
+                  callStyle.setIsVideo("video".equals(callType));
+
                   NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CALL_CHANNEL_ID)
                       .setSmallIcon(R.drawable.ic_stat_ics)
                       .setColor(Color.parseColor("#009245"))
                       .setContentTitle(callerName)
                       .setContentText(callDesc)
+                      .setStyle(callStyle)
                       .setPriority(NotificationCompat.PRIORITY_MAX)
                       .setCategory(NotificationCompat.CATEGORY_CALL)
                       .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -3269,9 +3365,11 @@ jobs:
                       .setAutoCancel(true)
                       .setTimeoutAfter(45000L)
                       .setContentIntent(fullScreenPendingIntent)
-                      .setFullScreenIntent(fullScreenPendingIntent, true)
-                      .addAction(R.drawable.ic_call_decline, "Decline", declinePendingIntent)
-                      .addAction(R.drawable.ic_call_accept, "Accept", acceptPendingIntent);
+                      .setFullScreenIntent(fullScreenPendingIntent, true);
+
+                  if (callerBmp != null) {
+                      builder.setLargeIcon(callerBmp);
+                  }
 
                   Notification built = builder.build();
                   built.flags |= Notification.FLAG_INSISTENT;
@@ -3319,6 +3417,24 @@ jobs:
                           return;
                       }
 
+                      // 0. Real WhatsApp-style 2-tick delivery ACK in parallel:
+                      //    Fires IMMEDIATELY when FCM arrives on this device (internet is ON),
+                      //    never delayed by notification avatar rendering or deduplication.
+                      final String resolvedMsgId = (messageId != null && !messageId.trim().isEmpty())
+                          ? messageId.trim()
+                          : (notifId != null && notifId.startsWith("notif_chat_")
+                              ? notifId.substring("notif_chat_".length()).trim()
+                              : "");
+                      final String finalMyActorId = myActorId != null ? myActorId : "";
+                      final String finalSenderId = senderId != null ? senderId : "";
+
+                      if ("chat".equals(type)
+                          && !resolvedMsgId.isEmpty()
+                          && !finalMyActorId.isEmpty()
+                          && !finalMyActorId.equals(finalSenderId)) {
+                          new Thread(() -> acknowledgeChatDeliverySync(resolvedMsgId, finalMyActorId)).start();
+                      }
+
                       // Handle remote caller cancellation -> stop ringing & dismiss full-screen UI immediately
                       if ("call_cancel".equals(type) || "cancel".equals(callAction)) {
                           int callNotifyId = computeCallNotifyId(callId);
@@ -3335,9 +3451,23 @@ jobs:
                           return;
                       }
 
-                      // Handle incoming phone-style Voice/Video call when app is closed or backgrounded
+                      // Handle incoming phone-style Voice/Video call (both background/lockscreen AND foreground)
                       if ("call".equals(type)) {
-                          if (!MainActivity.isActivityInForeground()) {
+                          String cleanCallId = callId != null ? callId.trim() : "";
+                          if (!cleanCallId.isEmpty()) {
+                              String callDedupeKey = "call_ring_" + cleanCallId;
+                              synchronized (CampusFirebaseMessagingService.class) {
+                                  Set<String> seenCalls = new HashSet<String>(prefs.getStringSet("seenNotifIds", new HashSet<String>()));
+                                  if (seenCalls.contains(callDedupeKey)) {
+                                      return;
+                                  }
+                                  seenCalls.add(callDedupeKey);
+                                  prefs.edit().putStringSet("seenNotifIds", seenCalls).apply();
+                              }
+                          }
+                          if (MainActivity.isActivityInForeground()) {
+                              MainActivity.dispatchIncomingCallToForeground(cleanCallId, data.get("roomId"));
+                          } else {
                               showFullScreenIncomingCall(data, title);
                           }
                           return;
@@ -3356,10 +3486,21 @@ jobs:
                           body = "";
                       }
 
+                      // Deduplicate dual Direct-Token + Topic FCM delivery so the phone never rings twice for the same notificationId
                       if (notifId != null && !notifId.trim().isEmpty()) {
-                          Set<String> seen = new HashSet<String>(prefs.getStringSet("seenNotifIds", new HashSet<String>()));
-                          seen.add(notifId.trim());
-                          prefs.edit().putStringSet("seenNotifIds", seen).apply();
+                          String cleanNotifId = notifId.trim();
+                          synchronized (CampusFirebaseMessagingService.class) {
+                              Set<String> seen = new HashSet<String>(prefs.getStringSet("seenNotifIds", new HashSet<String>()));
+                              if (seen.contains(cleanNotifId)) {
+                                  return;
+                              }
+                              seen.add(cleanNotifId);
+                              if (seen.size() > 160) {
+                                  ArrayList<String> list = new ArrayList<String>(seen);
+                                  seen = new HashSet<String>(list.subList(list.size() - 120, list.size()));
+                              }
+                              prefs.edit().putStringSet("seenNotifIds", seen).apply();
+                          }
                       }
 
                       String rawHref = data.get("href");
@@ -3428,22 +3569,6 @@ jobs:
                                   manager.notify(notifyId, builder.build());
                               }
                           }
-                      }
-
-                      // 2. Real WhatsApp-style 2-tick delivery ACK: ONLY fires because this device's internet is ON
-                      //    and FCM actually delivered this chat message to the device!
-                      String resolvedMsgId = (messageId != null && !messageId.trim().isEmpty())
-                          ? messageId.trim()
-                          : (notifId != null && notifId.startsWith("notif_chat_")
-                              ? notifId.substring("notif_chat_".length()).trim()
-                              : "");
-
-                      if ("chat".equals(type)
-                          && !resolvedMsgId.isEmpty()
-                          && myActorId != null
-                          && !myActorId.isEmpty()
-                          && !myActorId.equals(senderId)) {
-                          acknowledgeChatDeliverySync(resolvedMsgId, myActorId);
                       }
                   } catch (Exception ignored) {
                   }

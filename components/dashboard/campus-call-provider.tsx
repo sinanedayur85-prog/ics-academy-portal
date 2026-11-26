@@ -10,19 +10,12 @@ import React, {
   useState,
 } from 'react'
 import {
-  arrayUnion,
-  collection,
-  doc,
-  getDoc,
-  limit,
-  onSnapshot,
-  query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-  where,
-} from 'firebase/firestore'
-import { ref as rtdbRef, set as rtdbSet } from 'firebase/database'
+  get as rtdbGet,
+  onValue,
+  ref as rtdbRef,
+  set as rtdbSet,
+  update as rtdbUpdate,
+} from 'firebase/database'
 import {
   ChevronDown,
   Maximize2,
@@ -46,19 +39,15 @@ import {
   getCanonicalUsthadId,
   students,
 } from '@/components/dashboard/data'
-import {
-  db,
-  rtdb,
-  sanitizeRtdbKey,
-  handleFirestoreError,
-  OperationType,
-} from '@/src/lib/firebase'
+import { rtdb, sanitizeRtdbKey } from '@/src/lib/firebase'
 import {
   parseNotificationHref,
   peekPendingNotificationHref,
   type ParsedNotificationTarget,
 } from '@/lib/mobile-pdf'
 import { cn } from '@/lib/utils'
+
+const RTDB_CALLS_ROOT = 'campusChatMeta/__calls'
 
 function dispatchCallPushSignal(callPayload: {
   id: string
@@ -67,6 +56,7 @@ function dispatchCallPushSignal(callPayload: {
   callerId: string
   callerName: string
   callerSubtitle?: string
+  callerAvatarUrl?: string
   calleeId: string
   action?: 'ring' | 'cancel'
 }) {
@@ -86,6 +76,49 @@ function dispatchCallPushSignal(callPayload: {
       body,
     }).catch(() => {})
   }
+}
+
+function resolveSavedContactNickname(myActorId: string, peerId: string): string {
+  if (typeof window === 'undefined' || !myActorId || !peerId) return ''
+  try {
+    const raw = window.localStorage.getItem(`ics_messenger_contact_nicknames_v1_${myActorId}`)
+    if (!raw) return ''
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const nick = parsed?.[peerId]
+    return typeof nick === 'string' && nick.trim() ? nick.trim().slice(0, 80) : ''
+  } catch {
+    return ''
+  }
+}
+
+function resolveKnownAvatarUrl(actorId: string, explicitUrl?: string): string | undefined {
+  if (explicitUrl && explicitUrl.trim()) return explicitUrl.trim()
+  if (!actorId) return undefined
+  const canonical = actorId.startsWith('usthad-') || actorId.startsWith('principal-')
+    ? getCanonicalUsthadId(actorId)
+    : actorId
+  if (typeof window !== 'undefined') {
+    try {
+      const savedPhotosRaw = window.localStorage.getItem('ics_custom_profile_photos_v1')
+      if (savedPhotosRaw) {
+        const map = JSON.parse(savedPhotosRaw) as Record<string, string>
+        const found = map[actorId] || map[canonical]
+        if (typeof found === 'string' && found.trim()) return found.trim()
+      }
+    } catch {
+      // Ignore storage error
+    }
+  }
+  const st = students.find((s) => s.id === actorId)
+  if (st?.avatarUrl) return st.avatarUrl
+  const ust =
+    CLASS_USTHADS.find((u) => getCanonicalUsthadId(u.id) === canonical) ||
+    OFFICIAL_CLASS_USTHADS.find((u) => getCanonicalUsthadId(u.id) === canonical)
+  if (ust?.avatarUrl) return ust.avatarUrl
+  if (canonical === getCanonicalUsthadId(ACADEMY_PRINCIPAL.usthadId || 'usthad-07')) {
+    return ACADEMY_PRINCIPAL.avatarUrl
+  }
+  return undefined
 }
 
 export type CallMediaType = 'voice' | 'video'
@@ -126,10 +159,12 @@ export interface CampusCallRecord {
   callerName: string
   callerRole: CallActorRole
   callerSubtitle?: string
+  callerAvatarUrl?: string
   calleeId: string
   calleeName: string
   calleeRole: CallActorRole
   calleeSubtitle?: string
+  calleeAvatarUrl?: string
   status: CampusCallStatus
   offerSdp: string
   answerSdp?: string
@@ -417,7 +452,26 @@ class CallAudioEngine {
   }
 }
 
-function parseFirestoreCallDoc(id: string, raw: Record<string, unknown>): CampusCallRecord | null {
+function extractCandidatesList(mapVal: unknown, arrVal: unknown): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  const pushItem = (item: unknown) => {
+    if (typeof item !== 'string' || !item.trim() || seen.has(item)) return
+    seen.add(item)
+    out.push(item)
+  }
+  if (Array.isArray(arrVal)) {
+    for (const item of arrVal) pushItem(item)
+  }
+  if (mapVal && typeof mapVal === 'object') {
+    for (const val of Object.values(mapVal as Record<string, unknown>)) {
+      pushItem(val)
+    }
+  }
+  return out
+}
+
+function parseRtdbCallDoc(id: string, raw: Record<string, unknown>): CampusCallRecord | null {
   if (!raw || typeof raw !== 'object') return null
   const callerId = String(raw.callerId || '')
   const calleeId = String(raw.calleeId || '')
@@ -432,11 +486,19 @@ function parseFirestoreCallDoc(id: string, raw: Record<string, unknown>): Campus
     callerRole:
       raw.callerRole === 'principal' || raw.callerRole === 'usthad' ? raw.callerRole : 'student',
     callerSubtitle: raw.callerSubtitle ? String(raw.callerSubtitle) : undefined,
+    callerAvatarUrl:
+      typeof raw.callerAvatarUrl === 'string' && raw.callerAvatarUrl.trim()
+        ? raw.callerAvatarUrl.trim()
+        : undefined,
     calleeId,
     calleeName: String(raw.calleeName || 'Member'),
     calleeRole:
       raw.calleeRole === 'principal' || raw.calleeRole === 'usthad' ? raw.calleeRole : 'student',
     calleeSubtitle: raw.calleeSubtitle ? String(raw.calleeSubtitle) : undefined,
+    calleeAvatarUrl:
+      typeof raw.calleeAvatarUrl === 'string' && raw.calleeAvatarUrl.trim()
+        ? raw.calleeAvatarUrl.trim()
+        : undefined,
     status: (
       ['ringing', 'accepted', 'connected', 'declined', 'missed', 'ended', 'busy'].includes(
         String(raw.status),
@@ -446,12 +508,8 @@ function parseFirestoreCallDoc(id: string, raw: Record<string, unknown>): Campus
     ) as CampusCallStatus,
     offerSdp: String(raw.offerSdp || ''),
     answerSdp: raw.answerSdp ? String(raw.answerSdp) : undefined,
-    callerCandidates: Array.isArray(raw.callerCandidates)
-      ? raw.callerCandidates.map(String)
-      : [],
-    calleeCandidates: Array.isArray(raw.calleeCandidates)
-      ? raw.calleeCandidates.map(String)
-      : [],
+    callerCandidates: extractCandidatesList(raw.callerCandidatesMap, raw.callerCandidates),
+    calleeCandidates: extractCandidatesList(raw.calleeCandidatesMap, raw.calleeCandidates),
     startedAtMs: Number(raw.startedAtMs) || Date.now(),
     connectedAtMs: typeof raw.connectedAtMs === 'number' ? raw.connectedAtMs : undefined,
     endedAtMs: typeof raw.endedAtMs === 'number' ? raw.endedAtMs : undefined,
@@ -788,25 +846,14 @@ export function CampusCallProvider({
       const safeDur = Math.max(0, Math.min(86400, Math.round(durationSec)))
       handledCallIdsRef.current.add(callId)
 
-      updateDoc(doc(db, 'campusCalls', callId), {
+      rtdbUpdate(rtdbRef(rtdb, `${RTDB_CALLS_ROOT}/${sanitizeRtdbKey(callId)}`), {
         status,
         endedAtMs: now,
         durationSec: safeDur,
         updatedAtMs: now,
       }).catch(() => {
-        // Ignore if already in a terminal state
+        // Ignore if offline or already terminal
       })
-
-      fetch('/api/campus/call/action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: status === 'declined' ? 'decline' : status === 'ended' ? 'end' : status,
-          callId,
-          actorId: actorRef.current.id,
-          durationSec: safeDur,
-        }),
-      }).catch(() => {})
     },
     [],
   )
@@ -1022,103 +1069,65 @@ export function CampusCallProvider({
     [showToast, syncTerminalStatus],
   )
 
-  // Global Firestore listeners (callee + caller) + Express server fallback polling
+  // Global Firebase Realtime Database (RTDB) call signaling listener (zero Firestore quota limits, <150ms delivery)
   useEffect(() => {
     if (!actor.id) return
 
-    const calleeQuery = query(
-      collection(db, 'campusCalls'),
-      where('campusId', '==', 'ics-academy'),
-      where('calleeId', '==', actor.id),
-      limit(10),
-    )
-    const callerQuery = query(
-      collection(db, 'campusCalls'),
-      where('campusId', '==', 'ics-academy'),
-      where('callerId', '==', actor.id),
-      limit(10),
-    )
-
-    const unsubCallee = onSnapshot(
-      calleeQuery,
+    const callsRootRef = rtdbRef(rtdb, RTDB_CALLS_ROOT)
+    const unsubCalls = onValue(
+      callsRootRef,
       (snap) => {
+        const val = snap.val() as Record<string, Record<string, unknown>> | null
+        if (!val || typeof val !== 'object') return
         const batch: CampusCallRecord[] = []
-        snap.forEach((docSnap) => {
-          const parsed = parseFirestoreCallDoc(
-            docSnap.id,
-            docSnap.data() as Record<string, unknown>,
-          )
-          if (parsed) batch.push(parsed)
-        })
-        if (batch.length > 0) mergeCallRecords(batch)
-      },
-      (err) => {
-        const msg = err instanceof Error ? err.message : String(err)
-        if (msg.includes('permission') || msg.includes('insufficient')) {
-          try {
-            handleFirestoreError(err, OperationType.LIST, 'campusCalls')
-          } catch {
-            // Graceful degradation to server fallback
+        for (const [key, raw] of Object.entries(val)) {
+          if (!raw || typeof raw !== 'object') continue
+          const parsed = parseRtdbCallDoc(key, raw)
+          if (parsed && (parsed.callerId === actor.id || parsed.calleeId === actor.id)) {
+            batch.push(parsed)
           }
         }
+        if (batch.length > 0) {
+          mergeCallRecords(batch)
+        }
+      },
+      () => {
+        // Ignore transient offline RTDB errors
       },
     )
 
-    const unsubCaller = onSnapshot(
-      callerQuery,
-      (snap) => {
-        const batch: CampusCallRecord[] = []
-        snap.forEach((docSnap) => {
-          const parsed = parseFirestoreCallDoc(
-            docSnap.id,
-            docSnap.data() as Record<string, unknown>,
-          )
-          if (parsed) batch.push(parsed)
-        })
-        if (batch.length > 0) mergeCallRecords(batch)
-      },
-      (err) => {
-        const msg = err instanceof Error ? err.message : String(err)
-        if (msg.includes('permission') || msg.includes('insufficient')) {
-          try {
-            handleFirestoreError(err, OperationType.LIST, 'campusCalls')
-          } catch {
-            // Graceful degradation to server fallback
+    const refreshCallsOnce = () => {
+      void rtdbGet(callsRootRef)
+        .then((snap) => {
+          const val = snap.val() as Record<string, Record<string, unknown>> | null
+          if (!val || typeof val !== 'object') return
+          const batch: CampusCallRecord[] = []
+          for (const [key, raw] of Object.entries(val)) {
+            if (!raw || typeof raw !== 'object') continue
+            const parsed = parseRtdbCallDoc(key, raw)
+            if (parsed && (parsed.callerId === actor.id || parsed.calleeId === actor.id)) {
+              batch.push(parsed)
+            }
           }
-        }
-      },
-    )
+          if (batch.length > 0) mergeCallRecords(batch)
+        })
+        .catch(() => {})
+    }
 
-    let cancelled = false
-    const pollServer = async () => {
-      if (cancelled) return
-      try {
-        const activeId = activeCallRef.current?.id
-        const url = activeId
-          ? `/api/campus/call/state?actorId=${encodeURIComponent(actor.id)}&callId=${encodeURIComponent(activeId)}`
-          : `/api/campus/call/state?actorId=${encodeURIComponent(actor.id)}`
-        const res = await fetch(url, { cache: 'no-store' })
-        if (!res.ok) return
-        const data = (await res.json()) as { calls?: CampusCallRecord[] }
-        if (Array.isArray(data.calls) && data.calls.length > 0) {
-          mergeCallRecords(data.calls)
-        }
-      } catch {
-        // Ignore transient network errors
+    const onWake = () => {
+      if (document.visibilityState === 'visible') {
+        refreshCallsOnce()
       }
     }
-
-    void pollServer()
-    const pollMs = activeCall || incomingCall ? 1100 : 2800
-    const pollTimer = window.setInterval(pollServer, pollMs)
+    window.addEventListener('focus', onWake)
+    document.addEventListener('visibilitychange', onWake)
 
     return () => {
-      cancelled = true
-      unsubCallee()
-      unsubCaller()
-      window.clearInterval(pollTimer)
+      unsubCalls()
+      window.removeEventListener('focus', onWake)
+      document.removeEventListener('visibilitychange', onWake)
     }
-  }, [actor.id, activeCall, incomingCall, mergeCallRecords])
+  }, [actor.id, mergeCallRecords])
 
   // Auto-dismiss incoming call UI if it times out locally (safety net if caller disconnects)
   useEffect(() => {
@@ -1219,26 +1228,15 @@ export function CampusCallProvider({
 
       pc.onicecandidate = (event) => {
         if (!event.candidate || localIceCountRef.current >= 55) return
+        const idx = localIceCountRef.current
         localIceCountRef.current += 1
         const candStr = JSON.stringify(event.candidate.toJSON())
         const now = Date.now()
-        const field = side === 'caller' ? 'callerCandidates' : 'calleeCandidates'
+        const mapField = side === 'caller' ? 'callerCandidatesMap' : 'calleeCandidatesMap'
 
-        updateDoc(doc(db, 'campusCalls', callId), {
-          [field]: arrayUnion(candStr),
+        rtdbUpdate(rtdbRef(rtdb, `${RTDB_CALLS_ROOT}/${sanitizeRtdbKey(callId)}`), {
+          [`${mapField}/c${idx}`]: candStr,
           updatedAtMs: now,
-        }).catch(() => {})
-
-        fetch('/api/campus/call/action', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'add_ice',
-            callId,
-            actorId: actorRef.current.id,
-            candidateSide: side,
-            candidate: candStr,
-          }),
         }).catch(() => {})
       }
 
@@ -1256,19 +1254,10 @@ export function CampusCallProvider({
                 }
               : prev,
           )
-          updateDoc(doc(db, 'campusCalls', callId), {
+          rtdbUpdate(rtdbRef(rtdb, `${RTDB_CALLS_ROOT}/${sanitizeRtdbKey(callId)}`), {
             status: 'connected',
             connectedAtMs: now,
             updatedAtMs: now,
-          }).catch(() => {})
-          fetch('/api/campus/call/action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'connected',
-              callId,
-              actorId: actorRef.current.id,
-            }),
           }).catch(() => {})
         }
       }
@@ -1338,6 +1327,14 @@ export function CampusCallProvider({
         await pc.setLocalDescription(offer)
 
         const offerSdpStr = JSON.stringify(offer)
+        const callerAvatarResolved = resolveKnownAvatarUrl(me.id, me.avatarUrl)
+        const calleeAvatarResolved = resolveKnownAvatarUrl(peer.id, peer.avatarUrl)
+        const shortCallerAvatar =
+          callerAvatarResolved &&
+          !callerAvatarResolved.startsWith('data:') &&
+          callerAvatarResolved.length <= 240
+            ? callerAvatarResolved
+            : ''
         const callRecordBase: CampusCallRecord = {
           id: callId,
           campusId: 'ics-academy',
@@ -1347,10 +1344,17 @@ export function CampusCallProvider({
           callerName: me.name.slice(0, 120),
           callerRole: me.role,
           callerSubtitle: (me.subtitle || '').slice(0, 120),
+          callerAvatarUrl: shortCallerAvatar || undefined,
           calleeId: peer.id,
           calleeName: peer.name.slice(0, 120),
           calleeRole: peer.role,
           calleeSubtitle: (peer.subtitle || '').slice(0, 120),
+          calleeAvatarUrl:
+            calleeAvatarResolved &&
+            !calleeAvatarResolved.startsWith('data:') &&
+            calleeAvatarResolved.length <= 240
+              ? calleeAvatarResolved
+              : undefined,
           status: 'ringing',
           offerSdp: offerSdpStr,
           callerCandidates: [],
@@ -1360,30 +1364,30 @@ export function CampusCallProvider({
         }
         activeCallRecordRef.current = callRecordBase
 
-        // Write to Firestore
-        await setDoc(doc(db, 'campusCalls', callId), {
-          ...callRecordBase,
-          createdAt: serverTimestamp(),
-        }).catch((err) => {
-          try {
-            handleFirestoreError(err, OperationType.CREATE, `campusCalls/${callId}`)
-          } catch {
-            // Fall back cleanly to Express signaling
-          }
+        // Write call signaling record directly to Singapore RTDB FIRST so callee reads it in <150ms
+        const safeCallKey = sanitizeRtdbKey(callId)
+        await rtdbSet(rtdbRef(rtdb, `${RTDB_CALLS_ROOT}/${safeCallKey}`), {
+          id: callRecordBase.id,
+          campusId: 'ics-academy',
+          roomId: callRecordBase.roomId,
+          callType: callRecordBase.callType,
+          callerId: callRecordBase.callerId,
+          callerName: callRecordBase.callerName,
+          callerRole: callRecordBase.callerRole,
+          callerSubtitle: callRecordBase.callerSubtitle || '',
+          callerAvatarUrl: shortCallerAvatar,
+          calleeId: callRecordBase.calleeId,
+          calleeName: callRecordBase.calleeName,
+          calleeRole: callRecordBase.calleeRole,
+          calleeSubtitle: callRecordBase.calleeSubtitle || '',
+          calleeAvatarUrl: callRecordBase.calleeAvatarUrl || '',
+          status: 'ringing',
+          offerSdp: offerSdpStr,
+          startedAtMs: now,
+          updatedAtMs: now,
         })
 
-        // Dual-sync to Express server + instant Vercel FCM push for closed Android APKs
-        fetch('/api/campus/call/action', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'initiate',
-            callId,
-            actorId: me.id,
-            call: callRecordBase,
-          }),
-        }).catch(() => {})
-
+        // Dispatch instant FCM (Android full-screen lockscreen call) + Web Push (iPhone Home Screen PWA)
         dispatchCallPushSignal({
           id: callId,
           roomId,
@@ -1391,16 +1395,18 @@ export function CampusCallProvider({
           callerId: me.id,
           callerName: me.name,
           callerSubtitle: callRecordBase.callerSubtitle || '',
+          callerAvatarUrl: shortCallerAvatar,
           calleeId: callRecordBase.calleeId,
           action: 'ring',
         })
 
-        // Subscribe directly to this call doc for fastest SDP/ICE delivery
-        activeCallUnsubRef.current = onSnapshot(
-          doc(db, 'campusCalls', callId),
+        // Subscribe directly to this call node in RTDB for fastest SDP Answer & ICE delivery
+        activeCallUnsubRef.current = onValue(
+          rtdbRef(rtdb, `${RTDB_CALLS_ROOT}/${safeCallKey}`),
           (snap) => {
-            if (!snap.exists()) return
-            const parsed = parseFirestoreCallDoc(snap.id, snap.data() as Record<string, unknown>)
+            const val = snap.val() as Record<string, unknown> | null
+            if (!val || typeof val !== 'object') return
+            const parsed = parseRtdbCallDoc(callId, val)
             if (parsed) {
               void handleCallRecordUpdateRef.current(parsed)
             }
@@ -1488,6 +1494,9 @@ export function CampusCallProvider({
     setIsCallMinimized(false)
 
     const now = Date.now()
+    const resolvedCallerDisplayName =
+      resolveSavedContactNickname(actorRef.current.id, incoming.callerId) || incoming.callerName
+    const resolvedCallerPhoto = resolveKnownAvatarUrl(incoming.callerId, incoming.callerAvatarUrl)
     const session: ActiveCallSession = {
       id: incoming.id,
       roomId: incoming.roomId,
@@ -1497,10 +1506,11 @@ export function CampusCallProvider({
       statusLabel: 'Connecting...',
       peer: {
         id: incoming.callerId,
-        name: incoming.callerName,
+        name: resolvedCallerDisplayName,
         role: incoming.callerRole,
         subtitle: incoming.callerSubtitle,
         roomId: incoming.roomId,
+        avatarUrl: resolvedCallerPhoto,
       },
       startedAtMs: incoming.startedAtMs,
       connectedAtMs: now,
@@ -1524,29 +1534,20 @@ export function CampusCallProvider({
       await pc.setLocalDescription(answer)
       const answerSdpStr = JSON.stringify(answer)
 
-      await updateDoc(doc(db, 'campusCalls', incoming.id), {
+      const safeCallKey = sanitizeRtdbKey(incoming.id)
+      await rtdbUpdate(rtdbRef(rtdb, `${RTDB_CALLS_ROOT}/${safeCallKey}`), {
         status: 'accepted',
         answerSdp: answerSdpStr,
         connectedAtMs: now,
         updatedAtMs: now,
-      }).catch(() => {})
+      })
 
-      fetch('/api/campus/call/action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'answer',
-          callId: incoming.id,
-          actorId: actorRef.current.id,
-          answerSdp: answerSdpStr,
-        }),
-      }).catch(() => {})
-
-      activeCallUnsubRef.current = onSnapshot(
-        doc(db, 'campusCalls', incoming.id),
+      activeCallUnsubRef.current = onValue(
+        rtdbRef(rtdb, `${RTDB_CALLS_ROOT}/${safeCallKey}`),
         (snap) => {
-          if (!snap.exists()) return
-          const parsed = parseFirestoreCallDoc(snap.id, snap.data() as Record<string, unknown>)
+          const val = snap.val() as Record<string, unknown> | null
+          if (!val || typeof val !== 'object') return
+          const parsed = parseRtdbCallDoc(incoming.id, val)
           if (parsed) {
             void handleCallRecordUpdateRef.current(parsed)
           }
@@ -1654,15 +1655,12 @@ export function CampusCallProvider({
   const acceptIncomingCallRef = useRef(acceptIncomingCall)
   acceptIncomingCallRef.current = acceptIncomingCall
 
-  // Handle native Android full-screen IncomingCallActivity Accept/Decline or call notification taps
+  // Handle native Android full-screen IncomingCallActivity Accept/Decline, iPhone PWA call notification taps & foreground call pushes
   useEffect(() => {
     if (typeof window === 'undefined' || !actor.id) return
 
-    const handleCallDeepLink = (rawHref?: string | null) => {
-      const parsed = parseNotificationHref(rawHref)
-      if (!parsed?.callId) return
-      const targetCallId = parsed.callId
-      const targetAction = parsed.callAction
+    const fetchAndOpenCallById = (targetCallId: string, targetAction?: 'accept' | 'decline') => {
+      if (!targetCallId) return
 
       if (targetAction === 'accept') {
         pendingNativeCallActionRef.current = { callId: targetCallId, action: 'accept' }
@@ -1680,16 +1678,28 @@ export function CampusCallProvider({
         return
       }
 
-      // Immediately fetch the exact call doc from Firestore so cold-start Accept answers in <300ms
-      void getDoc(doc(db, 'campusCalls', targetCallId))
+      // Immediately fetch the exact call record from Singapore RTDB so tapping a notification opens/answers in <200ms
+      void rtdbGet(rtdbRef(rtdb, `${RTDB_CALLS_ROOT}/${sanitizeRtdbKey(targetCallId)}`))
         .then((snap) => {
-          if (!snap.exists()) return
-          const rec = parseFirestoreCallDoc(snap.id, snap.data() as Record<string, unknown>)
-          if (rec) {
+          const val = snap.val() as Record<string, unknown> | null
+          if (!val || typeof val !== 'object') return
+          const rec = parseRtdbCallDoc(targetCallId, val)
+          if (!rec) return
+          if (rec.status === 'ringing' && Date.now() - rec.startedAtMs < STALE_RING_WINDOW_MS) {
             mergeCallRecords([rec])
+          } else if (rec.calleeId === actorRef.current.id && !activeCallRef.current) {
+            const displayCaller =
+              resolveSavedContactNickname(actorRef.current.id, rec.callerId) || rec.callerName
+            showToast(`Missed ${rec.callType} call from ${displayCaller}`)
           }
         })
         .catch(() => {})
+    }
+
+    const handleCallDeepLink = (rawHref?: string | null) => {
+      const parsed = parseNotificationHref(rawHref)
+      if (!parsed?.callId) return
+      fetchAndOpenCallById(parsed.callId, parsed.callAction)
     }
 
     handleCallDeepLink(window.location.hash)
@@ -1703,17 +1713,25 @@ export function CampusCallProvider({
       const custom = e as CustomEvent<{ href?: string }>
       if (custom.detail?.href) handleCallDeepLink(custom.detail.href)
     }
+    const onIncomingCallPush = (e: Event) => {
+      const custom = e as CustomEvent<{ callId?: string; callAction?: 'accept' | 'decline' }>
+      if (custom.detail?.callId) {
+        fetchAndOpenCallById(custom.detail.callId, custom.detail.callAction)
+      }
+    }
     const onHash = () => handleCallDeepLink(window.location.hash)
 
     window.addEventListener('ics-notification-navigate', onNotifNav)
     window.addEventListener('ics-notification-open', onNativeOpen)
+    window.addEventListener('ics-incoming-call-push', onIncomingCallPush)
     window.addEventListener('hashchange', onHash)
     return () => {
       window.removeEventListener('ics-notification-navigate', onNotifNav)
       window.removeEventListener('ics-notification-open', onNativeOpen)
+      window.removeEventListener('ics-incoming-call-push', onIncomingCallPush)
       window.removeEventListener('hashchange', onHash)
     }
-  }, [actor.id, mergeCallRecords, syncTerminalStatus])
+  }, [actor.id, mergeCallRecords, showToast, syncTerminalStatus])
 
   // Auto-answer immediately when the targeted ringing call loads after native Accept tap
   useEffect(() => {
@@ -2106,12 +2124,22 @@ export function CampusCallProvider({
             )}
           </div>
 
-          {/* Center Stage (Voice Call Focal Avatar & Timer) */}
+              {/* Center Stage (Voice Call Focal Avatar & Timer) */}
           <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 text-center">
-            {activeCall.callType === 'voice' && (
+            {activeCall.callType === 'voice' && (() => {
+              const activePeerAvatar = resolveKnownAvatarUrl(activeCall.peer.id, activeCall.peer.avatarUrl)
+              return (
               <>
                 <div className="relative flex size-32 items-center justify-center rounded-full bg-[#0095F6]/20 text-4xl font-bold tracking-tight text-white shadow-2xl">
-                  {getInitials(activeCall.peer.name)}
+                  {activePeerAvatar ? (
+                    <img
+                      src={activePeerAvatar}
+                      alt={activeCall.peer.name}
+                      className="size-full rounded-full object-cover object-top"
+                    />
+                  ) : (
+                    getInitials(activeCall.peer.name)
+                  )}
                   {activeCall.status !== 'connected' ? (
                     <span className="pointer-events-none absolute -inset-3 rounded-full bg-[#0095F6]/15 animate-ping" />
                   ) : (
@@ -2136,7 +2164,8 @@ export function CampusCallProvider({
                   </p>
                 )}
               </>
-            )}
+              )
+            })()}
           </div>
 
           {/* Bottom Control Dock (Thumb-Zone Ergonomics) */}
@@ -2224,11 +2253,18 @@ export function CampusCallProvider({
       )}
 
       {/* 3. GLOBAL FULL-SCREEN INCOMING CALL OVERLAY (Rings across every screen like a real phone call) */}
-      {incomingCall && !activeCall && (
+      {incomingCall && !activeCall && (() => {
+        const displayCallerName =
+          resolveSavedContactNickname(actor.id, incomingCall.callerId) || incomingCall.callerName
+        const displayCallerAvatar = resolveKnownAvatarUrl(
+          incomingCall.callerId,
+          incomingCall.callerAvatarUrl,
+        )
+        return (
         <div
           role="alertdialog"
           aria-modal="true"
-          aria-label={`Incoming ${incomingCall.callType} call from ${incomingCall.callerName}`}
+          aria-label={`Incoming ${incomingCall.callType} call from ${displayCallerName}`}
           className="fixed inset-0 z-[9999] flex h-[100dvh] w-full flex-col justify-between overflow-hidden bg-[#06090D] px-6 pt-[calc(var(--safe-top)+2rem)] pb-[calc(var(--safe-bottom)+2.75rem)] text-white"
         >
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(16,185,129,0.22),transparent_65%)]" />
@@ -2248,12 +2284,20 @@ export function CampusCallProvider({
           {/* Caller focal identity */}
           <div className="relative z-10 flex flex-col items-center text-center">
             <div className="relative flex size-36 items-center justify-center rounded-full border-2 border-emerald-400/50 bg-emerald-500/20 text-4xl font-bold text-white shadow-2xl shadow-emerald-950/60">
-              {getInitials(incomingCall.callerName)}
+              {displayCallerAvatar ? (
+                <img
+                  src={displayCallerAvatar}
+                  alt={displayCallerName}
+                  className="size-full rounded-full object-cover object-top"
+                />
+              ) : (
+                getInitials(displayCallerName)
+              )}
               <span className="pointer-events-none absolute -inset-4 rounded-full border border-emerald-400/30 animate-ping" />
               <span className="pointer-events-none absolute -inset-8 rounded-full bg-emerald-500/10 animate-pulse" />
             </div>
             <h2 className="mt-8 max-w-xs truncate text-3xl font-bold tracking-tight text-white">
-              {incomingCall.callerName}
+              {displayCallerName}
             </h2>
             <p className="mt-1.5 text-sm text-white/75">
               {incomingCall.callerSubtitle ||
@@ -2297,7 +2341,8 @@ export function CampusCallProvider({
             </button>
           </div>
         </div>
-      )}
+        )
+      })()}
     </CampusCallContext.Provider>
   )
 }

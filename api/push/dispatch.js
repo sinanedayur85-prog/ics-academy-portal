@@ -1,6 +1,8 @@
 import crypto from 'crypto'
 import {
+  deleteFcmTokenByToken,
   dispatchWebPushToMatchingSubs,
+  listMatchingFcmTokens,
   resolveRecipientSavedChatName,
 } from '../_push-web-store.js'
 
@@ -288,6 +290,7 @@ async function sendFcmV1Message(creds, accessToken, target, payload, ttlSeconds)
         senderId: payload.senderId || '',
         senderName: payload.senderName || '',
         senderAvatarUrl: payload.senderAvatarUrl || '',
+        recipientId: payload.recipientId || '',
         messageId: payload.messageId || '',
         callId: payload.callId || '',
         callType: payload.callType || '',
@@ -314,6 +317,15 @@ async function sendFcmV1Message(creds, accessToken, target, payload, ttlSeconds)
 
   if (!res.ok) {
     const errText = await res.text().catch(() => '')
+    if (
+      target.token &&
+      (res.status === 404 ||
+        errText.includes('UNREGISTERED') ||
+        errText.includes('NOT_FOUND') ||
+        errText.includes('INVALID_ARGUMENT'))
+    ) {
+      await deleteFcmTokenByToken(target.token).catch(() => {})
+    }
     throw new Error(`FCM v1 error (${res.status}): ${errText.slice(0, 200)}`)
   }
   return await res.json()
@@ -392,26 +404,39 @@ export default async function handler(req, res) {
 
       const safeCallerId = typeof call.callerId === 'string' ? call.callerId.slice(0, 64) : ''
       const safeCalleeId = typeof call.calleeId === 'string' ? call.calleeId.trim() : ''
+      const rawCallerAvatar = typeof call.callerAvatarUrl === 'string' ? call.callerAvatarUrl.trim() : ''
+      const safeCallerAvatar =
+        rawCallerAvatar &&
+        rawCallerAvatar.length <= 240 &&
+        (rawCallerAvatar.startsWith('/images/') ||
+          rawCallerAvatar.startsWith('/icons/') ||
+          rawCallerAvatar.startsWith('https://'))
+          ? rawCallerAvatar
+          : ''
       const savedCallerName =
         safeCalleeId && safeCallerId
           ? await resolveRecipientSavedChatName(safeCalleeId, safeCallerId)
           : ''
       const resolvedCallerName = savedCallerName || callerName
+      const callEmoji = safeCallType === 'video' ? '📹' : '📞'
 
       payload = {
         title:
           callAction === 'cancel'
             ? 'Call Ended'
-            : `${callLabel} — ${resolvedCallerName}`.slice(0, 140),
+            : `${callEmoji} ${resolvedCallerName}`.slice(0, 140),
         body:
           callAction === 'cancel'
             ? `${resolvedCallerName} ended the call.`
-            : `${resolvedCallerName} is calling you on ICS Academy`,
+            : `${callLabel} — Tap to Answer`,
         href: callHref,
         tag: `ics-call-${safeCallId.slice(0, 48)}`,
         notificationId: `call_${safeCallId.slice(0, 48)}`,
         type: callAction === 'cancel' ? 'call_cancel' : 'call',
         senderId: safeCallerId,
+        senderName: resolvedCallerName,
+        senderAvatarUrl: safeCallerAvatar,
+        icon: safeCallerAvatar || '/icons/icon-192.png',
         callId: safeCallId,
         callType: safeCallType,
         callerName: resolvedCallerName,
@@ -486,6 +511,7 @@ export default async function handler(req, res) {
         senderId: typeof n.actorId === 'string' ? n.actorId.slice(0, 64) : '',
         senderName: typeof n.actorName === 'string' ? n.actorName.trim().slice(0, 80) : '',
         senderAvatarUrl: safeAvatarUrl,
+        recipientId: typeof n.targetRecipientId === 'string' ? n.targetRecipientId.trim().slice(0, 64) : '',
         icon: safeAvatarUrl || '/icons/icon-192.png',
         roomId: extractedRoomId,
         messageId: derivedChatMsgId,
@@ -529,13 +555,28 @@ export default async function handler(req, res) {
     }
 
     const fcmPromise = (async () => {
-      if (!creds || targets.length === 0) return { sent: 0, failed: 0 }
-      const accessToken = await getGoogleFcmAccessToken(creds)
+      if (!creds) return { sent: 0, failed: 0, directTokens: 0, topics: 0 }
+      const [accessToken, directTokens] = await Promise.all([
+        getGoogleFcmAccessToken(creds),
+        webPushFilter ? listMatchingFcmTokens(webPushFilter).catch(() => []) : Promise.resolve([]),
+      ])
+      const combinedTargets = [
+        ...directTokens.map((tok) => ({ token: tok })),
+        ...targets,
+      ]
+      if (combinedTargets.length === 0) {
+        return { sent: 0, failed: 0, directTokens: 0, topics: 0 }
+      }
       const results = await Promise.allSettled(
-        targets.map((t) => sendFcmV1Message(creds, accessToken, t, payload, ttlSeconds)),
+        combinedTargets.map((t) => sendFcmV1Message(creds, accessToken, t, payload, ttlSeconds)),
       )
       const sent = results.filter((r) => r.status === 'fulfilled').length
-      return { sent, failed: results.length - sent }
+      return {
+        sent,
+        failed: results.length - sent,
+        directTokens: directTokens.length,
+        topics: targets.length,
+      }
     })()
 
     const webPushPromise = skipWebPush

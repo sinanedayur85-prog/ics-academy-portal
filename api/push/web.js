@@ -3,9 +3,11 @@ import {
   getVapidKeyPair,
   getWebPushSubByEndpoint,
   isValidBase64UrlKey,
+  isValidFcmToken,
   isValidPortalActorId,
   isValidPushEndpointUrl,
   sendWebPushNotification,
+  upsertFcmToken,
   upsertWebPushSub,
 } from '../_push-web-store.js'
 
@@ -30,6 +32,7 @@ function resolveAction(req) {
   const qAction = typeof req.query?.action === 'string' ? req.query.action.trim().toLowerCase() : ''
   if (qAction) return qAction
   const rawUrl = String(req.url || '')
+  if (rawUrl.includes('fcm/register') || rawUrl.includes('fcm-register')) return 'fcm-register'
   if (rawUrl.includes('vapid-public-key')) return 'vapid-public-key'
   if (rawUrl.includes('unsubscribe')) return 'unsubscribe'
   if (rawUrl.includes('subscribe')) return 'subscribe'
@@ -195,6 +198,63 @@ export default async function handler(req, res) {
         120,
       )
       res.status(200).json({ ok: delivered })
+      return
+    }
+
+    if (action === 'fcm-register') {
+      const {
+        token,
+        actorId,
+        actorRole,
+        actorName,
+        className,
+        assignedClasses,
+        platform,
+      } = body
+
+      const cleanToken = typeof token === 'string' ? token.trim() : ''
+      if (!isValidFcmToken(cleanToken)) {
+        res.status(400).json({ error: 'Valid FCM device token is required.' })
+        return
+      }
+      if (!isValidPortalActorId(actorId)) {
+        res.status(400).json({ error: 'Valid portal actorId is required.' })
+        return
+      }
+
+      const safeRole =
+        actorRole === 'principal' || actorRole === 'usthad' ? actorRole : 'student'
+      const safeName =
+        typeof actorName === 'string' && actorName.trim()
+          ? actorName.trim().slice(0, 120)
+          : 'Campus Member'
+      const safeClass = typeof className === 'string' ? className.trim().slice(0, 60) : ''
+      const safeAssigned = Array.isArray(assignedClasses)
+        ? assignedClasses
+            .filter((c) => typeof c === 'string' && c.trim().length > 0)
+            .map((c) => c.trim().slice(0, 60))
+            .slice(0, 20)
+        : []
+      const safePlatform =
+        typeof platform === 'string' && platform.trim().length >= 2
+          ? platform.trim().slice(0, 40)
+          : 'android-apk'
+
+      await upsertFcmToken({
+        token: cleanToken,
+        actorId: actorId.trim(),
+        actorRole: safeRole,
+        actorName: safeName,
+        className: safeClass,
+        assignedClasses: safeAssigned,
+        platform: safePlatform,
+      })
+
+      res.status(200).json({
+        ok: true,
+        actorId: actorId.trim(),
+        actorRole: safeRole,
+      })
       return
     }
 

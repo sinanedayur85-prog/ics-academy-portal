@@ -74,6 +74,10 @@
       "destination": "/api/push/web.js?action=test"
     },
     {
+      "source": "/api/push/fcm/register",
+      "destination": "/api/push/web.js?action=fcm-register"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app/api/:path*"
     },

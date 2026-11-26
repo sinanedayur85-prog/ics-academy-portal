@@ -578,3 +578,137 @@ export async function dispatchWebPushToMatchingSubs(payload, filter, urgency = '
   const sent = results.filter((r) => r.status === 'fulfilled' && r.value === true).length
   return { sent, failed: matched.length - sent, matched: matched.length }
 }
+
+// ============================================================================
+// Direct Android APK FCM Device Token Store (RTDB campusFcmTokens via Admin token)
+// Enables guaranteed instant direct-token FCM delivery alongside topic delivery,
+// preventing OEM Android (ColorOS / Realme / Xiaomi / Vivo) topic subscription drops.
+// ============================================================================
+
+export function isValidFcmToken(raw) {
+  return (
+    typeof raw === 'string' &&
+    raw.trim().length >= 32 &&
+    raw.trim().length <= 4096 &&
+    !/\s/.test(raw.trim())
+  )
+}
+
+export function makeFcmTokenDocId(fcmToken) {
+  return `fcm_${crypto.createHash('sha256').update(String(fcmToken).trim()).digest('hex').slice(0, 40)}`
+}
+
+function parseRtdbFcmTokenRecord(raw, fallbackId = '') {
+  if (!raw || typeof raw !== 'object') return null
+  const token = typeof raw.token === 'string' ? raw.token.trim() : ''
+  const actorId = typeof raw.actorId === 'string' ? raw.actorId.trim() : ''
+  if (!token || !actorId || !isValidFcmToken(token)) return null
+
+  const assignedArr = Array.isArray(raw.assignedClasses)
+    ? raw.assignedClasses.filter((v) => typeof v === 'string' && v.trim().length > 0)
+    : []
+
+  return {
+    id: typeof raw.id === 'string' && raw.id ? raw.id : fallbackId || makeFcmTokenDocId(token),
+    token,
+    actorId,
+    actorRole: typeof raw.actorRole === 'string' ? raw.actorRole : 'student',
+    actorName: typeof raw.actorName === 'string' ? raw.actorName : 'Campus Member',
+    className: typeof raw.className === 'string' ? raw.className : '',
+    assignedClasses: assignedArr,
+    platform: typeof raw.platform === 'string' ? raw.platform : 'android-apk',
+    updatedAtMs: Number(raw.updatedAtMs || 0),
+  }
+}
+
+export async function upsertFcmToken(record) {
+  const token = await getRtdbAdminAccessToken()
+  const cleanFcmToken = String(record.token || '').trim()
+  const docId = makeFcmTokenDocId(cleanFcmToken)
+  const nowMs = Date.now()
+  const url = `${getRtdbBaseUrl()}/campusFcmTokens/${encodeURIComponent(docId)}.json`
+
+  const payload = {
+    id: docId,
+    campusId: 'ics-academy',
+    token: cleanFcmToken,
+    actorId: String(record.actorId || '').trim(),
+    actorRole: record.actorRole || 'student',
+    actorName: record.actorName || 'Campus Member',
+    className: record.className || '',
+    assignedClasses: Array.isArray(record.assignedClasses) ? record.assignedClasses : [],
+    platform: record.platform || 'android-apk',
+    updatedAtMs: nowMs,
+  }
+
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json; charset=UTF-8',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '')
+    throw new Error(`RTDB FCM token save failed (${res.status}): ${errText.slice(0, 180)}`)
+  }
+  return { id: docId, updatedAtMs: nowMs }
+}
+
+export async function deleteFcmTokenByToken(fcmToken) {
+  if (!isValidFcmToken(fcmToken)) return false
+  try {
+    const token = await getRtdbAdminAccessToken()
+    const docId = makeFcmTokenDocId(fcmToken)
+    const url = `${getRtdbBaseUrl()}/campusFcmTokens/${encodeURIComponent(docId)}.json`
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    return res.ok || res.status === 404
+  } catch {
+    return false
+  }
+}
+
+export async function listFcmTokens() {
+  try {
+    const token = await getRtdbAdminAccessToken()
+    const url = `${getRtdbBaseUrl()}/campusFcmTokens.json`
+    const res = await fetch(url, {
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(2500),
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    if (!data || typeof data !== 'object') return []
+    const records = []
+    for (const [key, value] of Object.entries(data)) {
+      const parsed = parseRtdbFcmTokenRecord(value, key)
+      if (parsed) records.push(parsed)
+    }
+    return records
+  } catch {
+    return []
+  }
+}
+
+export async function listMatchingFcmTokens(filter) {
+  if (!filter || typeof filter !== 'object') return []
+  const all = await listFcmTokens()
+  if (all.length === 0) return []
+  const matched = all.filter((rec) => matchesWebPushTarget(rec, filter))
+  const seen = new Set()
+  const uniqueTokens = []
+  for (const rec of matched) {
+    if (!seen.has(rec.token)) {
+      seen.add(rec.token)
+      uniqueTokens.push(rec.token)
+    }
+  }
+  return uniqueTokens
+}
+
