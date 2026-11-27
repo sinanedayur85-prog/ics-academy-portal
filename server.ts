@@ -465,43 +465,110 @@ function isTransientOrTimeoutError(error: unknown): boolean {
   )
 }
 
+const UNAVAILABLE_MODEL_TTL_MS = 15 * 60 * 1000
+const unavailableAiModels = new Map<string, number>()
+const preferredWorkingModelByTier = new Map<string, string>()
+
+function isModelMarkedUnavailable(modelName: string): boolean {
+  const ts = unavailableAiModels.get(modelName)
+  if (!ts) return false
+  if (Date.now() - ts > UNAVAILABLE_MODEL_TTL_MS) {
+    unavailableAiModels.delete(modelName)
+    return false
+  }
+  return true
+}
+
+function isNotFoundModelError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error)
+  return (
+    msg.includes('404') ||
+    msg.includes('NOT_FOUND') ||
+    msg.includes('is not found') ||
+    msg.includes('not supported for generateContent') ||
+    msg.includes('no longer available')
+  )
+}
+
+function getOrderedChatModels(
+  preferredTier: ChatModelTier,
+  isLongForm: boolean,
+): { tierKey: string; models: string[] } {
+  const tierKey = preferredTier === 'flash-lite' && !isLongForm ? 'fast' : 'deep'
+  const baseModels =
+    tierKey === 'fast'
+      ? [
+          'gemini-3.1-flash-lite',
+          'gemini-4-hydrogen',
+          'gemini-2.5-flash-lite',
+          'gemini-2.5-flash',
+          'gemini-3.1-flash-lite-preview',
+          'gemini-3-flash-preview',
+        ]
+      : [
+          'gemini-4-hydrogen',
+          'gemini-3.1-flash-lite',
+          'gemini-2.5-flash',
+          'gemini-3-flash-preview',
+          'gemini-2.5-flash-lite',
+          'gemini-3.1-flash-lite-preview',
+        ]
+
+  const preferred = preferredWorkingModelByTier.get(tierKey)
+  const prioritized =
+    preferred && baseModels.includes(preferred)
+      ? [preferred, ...baseModels.filter((m) => m !== preferred)]
+      : baseModels
+
+  const filtered = prioritized.filter((m) => !isModelMarkedUnavailable(m))
+  return {
+    tierKey,
+    models: filtered.length > 0 ? filtered : prioritized,
+  }
+}
+
+function buildGeminiThinkingConfig(modelName: string, isLongForm: boolean) {
+  if (modelName === 'gemini-4-hydrogen') {
+    return {
+      thinkingConfig: {
+        thinkingLevel: isLongForm ? ThinkingLevel.MEDIUM : ThinkingLevel.LOW,
+      },
+    }
+  }
+  if (modelName === 'gemini-3.1-flash-lite') {
+    return {
+      thinkingConfig: {
+        thinkingLevel: ThinkingLevel.MINIMAL,
+      },
+    }
+  }
+  return {}
+}
+
 async function generateWithFallback(
   contents: string,
   systemInstruction: string,
   language: OutputLanguage = 'ml',
   isLongForm = false,
 ): Promise<string> {
-  const models = [
-    'gemini-4-hydrogen',
-    'gemini-3.8-flash',
-    'gemini-3.1-flash-lite',
-    'gemini-3-flash-preview',
-    'gemini-3.1-flash-lite-preview',
-    'gemini-2.5-flash',
-    'gemini-2.5-flash-lite',
-    'gemini-flash-lite-latest',
-  ] as const
+  const { tierKey, models } = getOrderedChatModels('flash', isLongForm)
   let lastError: unknown = null
 
   for (const modelName of models) {
     try {
       const ai = getAiClient()
-      const useLowThinking =
-        modelName === 'gemini-4-hydrogen' || modelName === 'gemini-3.8-flash'
       const timeoutMs = isLongForm
         ? 110000
         : modelName.includes('lite')
-          ? 28000
-          : 42000
+          ? 24000
+          : 35000
       const response = await withTimeout(
         ai.models.generateContent({
           model: modelName,
           contents,
           config: {
             systemInstruction,
-            ...(useLowThinking
-              ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
-              : {}),
+            ...buildGeminiThinkingConfig(modelName, isLongForm),
           },
         }),
         timeoutMs,
@@ -512,10 +579,14 @@ async function generateWithFallback(
           console.warn(`Model ${modelName} returned wrong script for ${language}, retrying next model...`)
           continue
         }
+        preferredWorkingModelByTier.set(tierKey, modelName)
         return redactPrivateIdsFromBotReply(response.text)
       }
     } catch (err) {
       lastError = err
+      if (isNotFoundModelError(err)) {
+        unavailableAiModels.set(modelName, Date.now())
+      }
       if (isTransientOrTimeoutError(err)) {
         console.warn(`Model ${modelName} slow/busy, falling back to next available model...`)
         continue
@@ -527,48 +598,23 @@ async function generateWithFallback(
   throw lastError ?? new Error('All study assistant models are currently busy.')
 }
 
-async function sendMultiTurnChatWithFallback(
+function prepareMultiTurnChatPayload(
   message: string,
   history: ClientChatTurn[],
-  systemInstruction: string,
-  preferredTier: ChatModelTier,
   language: OutputLanguage,
   isExplicitLanguage = false,
   attachments: ClientChatAttachment[] = [],
-): Promise<{ reply: string; modelUsed: string }> {
+) {
   const longFormInfo = detectLongFormRequest(message)
+  const maxHistoryTurns = longFormInfo.isLongForm ? 12 : 10
+  const maxTurnChars = longFormInfo.isLongForm ? 6000 : 3500
 
-  // For multi-page / expansive study document requests, prioritize full-capacity Flash models first
-  const modelOrder =
-    preferredTier === 'flash-lite' && !longFormInfo.isLongForm
-      ? ([
-          'gemini-3.1-flash-lite',
-          'gemini-4-hydrogen',
-          'gemini-3.1-flash-lite-preview',
-          'gemini-3.8-flash',
-          'gemini-3-flash-preview',
-          'gemini-2.5-flash-lite',
-          'gemini-2.5-flash',
-          'gemini-flash-lite-latest',
-        ] as const)
-      : ([
-          'gemini-4-hydrogen',
-          'gemini-3.8-flash',
-          'gemini-3-flash-preview',
-          'gemini-2.5-flash',
-          'gemini-3.1-flash-lite',
-          'gemini-3.1-flash-lite-preview',
-          'gemini-2.5-flash-lite',
-          'gemini-flash-lite-latest',
-        ] as const)
-
-  // Preserve rich multi-turn conversation history so follow-up answers and "continue next pages" work seamlessly
   const sanitizedHistory = history
     .filter((turn) => Boolean(turn && typeof turn.text === 'string' && turn.text.trim()))
-    .slice(-16)
+    .slice(-maxHistoryTurns)
     .map((turn) => ({
       role: turn.role === 'model' ? ('model' as const) : ('user' as const),
-      parts: [{ text: turn.text.trim().slice(0, 12000) }],
+      parts: [{ text: turn.text.trim().slice(0, maxTurnChars) }],
     }))
 
   const validAttachments = Array.isArray(attachments)
@@ -599,64 +645,61 @@ async function sendMultiTurnChatWithFallback(
     longFormInfo,
   )}`
 
+  const contents = [
+    ...sanitizedHistory,
+    {
+      role: 'user' as const,
+      parts: [...validAttachments, { text: enforcedMessage }],
+    },
+  ]
+
+  return { longFormInfo, validAttachments, contents }
+}
+
+async function sendMultiTurnChatWithFallback(
+  message: string,
+  history: ClientChatTurn[],
+  systemInstruction: string,
+  preferredTier: ChatModelTier,
+  language: OutputLanguage,
+  isExplicitLanguage = false,
+  attachments: ClientChatAttachment[] = [],
+): Promise<{ reply: string; modelUsed: string }> {
+  const { longFormInfo, validAttachments, contents } = prepareMultiTurnChatPayload(
+    message,
+    history,
+    language,
+    isExplicitLanguage,
+    attachments,
+  )
+  const { tierKey, models } = getOrderedChatModels(preferredTier, longFormInfo.isLongForm)
+
   let lastError: unknown = null
 
-  for (const modelName of modelOrder) {
+  for (const modelName of models) {
     try {
       const ai = getAiClient()
-      let responseText: string | undefined
-      const useLowThinking =
-        modelName === 'gemini-4-hydrogen' || modelName === 'gemini-3.8-flash'
       const requestTimeoutMs = longFormInfo.isLongForm
-        ? 115000
+        ? 110000
         : validAttachments.length > 0
-          ? 45000
+          ? 38000
           : modelName.includes('lite')
-            ? 28000
-            : 45000
+            ? 22000
+            : 32000
 
-      if (validAttachments.length > 0) {
-        const multimodalContents = [
-          ...sanitizedHistory,
-          {
-            role: 'user' as const,
-            parts: [...validAttachments, { text: enforcedMessage }],
-          },
-        ]
-        const response = await withTimeout(
-          ai.models.generateContent({
-            model: modelName,
-            contents: multimodalContents,
-            config: {
-              systemInstruction,
-              ...(useLowThinking
-                ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
-                : {}),
-            },
-          }),
-          requestTimeoutMs,
-          modelName,
-        )
-        responseText = response.text
-      } else {
-        const chat = ai.chats.create({
+      const response = await withTimeout(
+        ai.models.generateContent({
           model: modelName,
-          history: sanitizedHistory,
+          contents,
           config: {
             systemInstruction,
-            ...(useLowThinking
-              ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
-              : {}),
+            ...buildGeminiThinkingConfig(modelName, longFormInfo.isLongForm),
           },
-        })
-
-        const response = await withTimeout(
-          chat.sendMessage({ message: enforcedMessage }),
-          requestTimeoutMs,
-          modelName,
-        )
-        responseText = response.text
-      }
+        }),
+        requestTimeoutMs,
+        modelName,
+      )
+      const responseText = response.text
 
       if (responseText) {
         if (!isResponseValidForLanguage(responseText, language)) {
@@ -665,6 +708,7 @@ async function sendMultiTurnChatWithFallback(
           )
           continue
         }
+        preferredWorkingModelByTier.set(tierKey, modelName)
         return {
           reply: redactPrivateIdsFromBotReply(responseText),
           modelUsed: modelName,
@@ -672,6 +716,9 @@ async function sendMultiTurnChatWithFallback(
       }
     } catch (err) {
       lastError = err
+      if (isNotFoundModelError(err)) {
+        unavailableAiModels.set(modelName, Date.now())
+      }
       if (isTransientOrTimeoutError(err)) {
         console.warn(`Chat model ${modelName} slow/busy, falling back immediately...`)
         continue
@@ -775,7 +822,6 @@ async function startServer() {
   })
 
   app.post('/api/ai/chat', async (req, res) => {
-    res.setHeader('Content-Type', 'application/json')
     try {
       const {
         message = '',
@@ -787,8 +833,10 @@ async function startServer() {
         studentName,
         studentClass,
         attachments = [],
+        stream = false,
       } = req.body ?? {}
 
+      const wantsStream = Boolean(stream)
       const hasAttachments = Array.isArray(attachments) && attachments.length > 0
       const rawMessage = typeof message === 'string' ? message.trim() : ''
 
@@ -825,6 +873,129 @@ async function startServer() {
         studentClass,
       )
 
+      if (wantsStream) {
+        const { longFormInfo, validAttachments, contents } = prepareMultiTurnChatPayload(
+          cleanMessage,
+          safeHistory,
+          validLanguage,
+          isExplicitLanguage,
+          attachments,
+        )
+        const { tierKey, models } = getOrderedChatModels(validTier, longFormInfo.isLongForm)
+        const firstChunkTimeoutMs =
+          longFormInfo.isLongForm || validAttachments.length > 0 ? 22000 : 14000
+
+        let clientClosed = false
+        req.on('close', () => {
+          clientClosed = true
+        })
+
+        let lastError: unknown = null
+
+        for (const modelName of models) {
+          if (clientClosed) return
+          try {
+            const ai = getAiClient()
+            const streamIterable = await withTimeout(
+              ai.models.generateContentStream({
+                model: modelName,
+                contents,
+                config: {
+                  systemInstruction,
+                  ...buildGeminiThinkingConfig(modelName, longFormInfo.isLongForm),
+                },
+              }),
+              firstChunkTimeoutMs,
+              `${modelName} connect`,
+            )
+
+            const iterator = streamIterable[Symbol.asyncIterator]()
+            let firstText = ''
+
+            while (true) {
+              const step = await withTimeout(
+                iterator.next(),
+                firstChunkTimeoutMs,
+                `${modelName} first token`,
+              )
+              if (step.done) break
+              const chunkText = typeof step.value?.text === 'string' ? step.value.text : ''
+              if (chunkText) {
+                firstText = redactPrivateIdsFromBotReply(chunkText)
+                break
+              }
+            }
+
+            if (!firstText) continue
+
+            preferredWorkingModelByTier.set(tierKey, modelName)
+            if (clientClosed) return
+
+            res.status(200)
+            res.setHeader('Content-Type', 'text/event-stream; charset=utf-8')
+            res.setHeader('Cache-Control', 'no-cache, no-transform')
+            res.setHeader('Connection', 'keep-alive')
+            res.setHeader('X-Accel-Buffering', 'no')
+            res.flushHeaders()
+
+            res.write(
+              `data: ${JSON.stringify({
+                type: 'meta',
+                modelUsed: modelName,
+                role: validRole,
+                language: validLanguage,
+              })}\n\n`,
+            )
+            res.write(`data: ${JSON.stringify({ type: 'delta', text: firstText })}\n\n`)
+
+            while (!clientClosed) {
+              const nextStep = await withTimeout(iterator.next(), 25000, `${modelName} chunk`)
+              if (nextStep.done) break
+              const deltaText = typeof nextStep.value?.text === 'string' ? nextStep.value.text : ''
+              if (deltaText) {
+                res.write(
+                  `data: ${JSON.stringify({
+                    type: 'delta',
+                    text: redactPrivateIdsFromBotReply(deltaText),
+                  })}\n\n`,
+                )
+              }
+            }
+
+            if (!clientClosed) {
+              res.write(`data: ${JSON.stringify({ type: 'done', modelUsed: modelName })}\n\n`)
+              res.end()
+            }
+            return
+          } catch (err) {
+            lastError = err
+            if (isNotFoundModelError(err)) {
+              unavailableAiModels.set(modelName, Date.now())
+            }
+            if (res.headersSent) {
+              if (!clientClosed) {
+                res.write(
+                  `data: ${JSON.stringify({
+                    type: 'error',
+                    error: err instanceof Error ? err.message : 'Stream interrupted',
+                  })}\n\n`,
+                )
+                res.end()
+              }
+              return
+            }
+            if (isTransientOrTimeoutError(err)) {
+              console.warn(`Chat stream model ${modelName} slow/busy, falling back immediately...`)
+              continue
+            }
+            throw err
+          }
+        }
+
+        throw lastError ?? new Error('All Gemini chat models are currently busy.')
+      }
+
+      res.setHeader('Content-Type', 'application/json')
       const { reply, modelUsed } = await sendMultiTurnChatWithFallback(
         cleanMessage,
         safeHistory,
@@ -843,6 +1014,10 @@ async function startServer() {
       })
     } catch (error) {
       console.error('Gemini multi-turn chat error:', error)
+      if (res.headersSent) {
+        res.end()
+        return
+      }
       if (isTransientOrTimeoutError(error)) {
         res.status(429).json({
           error:

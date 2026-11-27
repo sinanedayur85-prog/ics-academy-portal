@@ -1,3 +1,5 @@
+import { GoogleGenAI, ThinkingLevel } from '@google/genai'
+
 function getApiKey() {
   return (
     process.env.GEMINI_API_KEY ||
@@ -6,6 +8,135 @@ function getApiKey() {
     process.env.VITE_GEMINI_API_KEY ||
     ''
   ).trim()
+}
+
+function createAiClient(apiKey) {
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
+    },
+  })
+}
+
+// Warm-instance model caches so unavailable (404) models are skipped in 0ms on subsequent requests
+const UNAVAILABLE_MODEL_TTL_MS = 15 * 60 * 1000
+const unavailableModels = new Map()
+const preferredWorkingModelByTier = new Map()
+
+function isModelMarkedUnavailable(modelName) {
+  const ts = unavailableModels.get(modelName)
+  if (!ts) return false
+  if (Date.now() - ts > UNAVAILABLE_MODEL_TTL_MS) {
+    unavailableModels.delete(modelName)
+    return false
+  }
+  return true
+}
+
+function markModelUnavailable(modelName) {
+  unavailableModels.set(modelName, Date.now())
+}
+
+function isNotFoundModelError(err) {
+  const msg = err instanceof Error ? err.message : String(err)
+  return (
+    msg.includes('404') ||
+    msg.includes('NOT_FOUND') ||
+    msg.includes('is not found') ||
+    msg.includes('not supported for generateContent') ||
+    msg.includes('no longer available')
+  )
+}
+
+function isTransientOrFallbackError(err) {
+  const msg = err instanceof Error ? err.message : String(err)
+  return (
+    isNotFoundModelError(err) ||
+    msg.includes('TIMEOUT:') ||
+    msg.includes('503') ||
+    msg.includes('UNAVAILABLE') ||
+    msg.includes('high demand') ||
+    msg.includes('429') ||
+    msg.includes('RESOURCE_EXHAUSTED') ||
+    msg.includes('overloaded') ||
+    msg.includes('fetch failed') ||
+    msg.includes('ECONNRESET') ||
+    msg.includes('socket hang up')
+  )
+}
+
+function getOrderedModels(modelTier, isLongForm) {
+  const tierKey = modelTier === 'flash-lite' && !isLongForm ? 'fast' : 'deep'
+  const baseList =
+    tierKey === 'fast'
+      ? [
+          'gemini-3.1-flash-lite',
+          'gemini-4-hydrogen',
+          'gemini-2.5-flash-lite',
+          'gemini-2.5-flash',
+          'gemini-3.1-flash-lite-preview',
+          'gemini-3-flash-preview',
+        ]
+      : [
+          'gemini-4-hydrogen',
+          'gemini-3.1-flash-lite',
+          'gemini-2.5-flash',
+          'gemini-3-flash-preview',
+          'gemini-2.5-flash-lite',
+          'gemini-3.1-flash-lite-preview',
+        ]
+
+  const preferred = preferredWorkingModelByTier.get(tierKey)
+  const prioritized =
+    preferred && baseList.includes(preferred)
+      ? [preferred, ...baseList.filter((m) => m !== preferred)]
+      : baseList
+
+  const filtered = prioritized.filter((m) => !isModelMarkedUnavailable(m))
+  return {
+    tierKey,
+    models: filtered.length > 0 ? filtered : prioritized,
+  }
+}
+
+function buildModelConfig(modelName, systemInstruction, isLongForm) {
+  const config = {
+    ...(systemInstruction ? { systemInstruction } : {}),
+  }
+
+  // Only pass thinkingLevel to Gemini 3/4 series models (lowest latency for chat)
+  if (modelName === 'gemini-4-hydrogen') {
+    config.thinkingConfig = {
+      thinkingLevel: isLongForm ? ThinkingLevel.MEDIUM : ThinkingLevel.LOW,
+    }
+  } else if (modelName === 'gemini-3.1-flash-lite') {
+    config.thinkingConfig = {
+      thinkingLevel: ThinkingLevel.MINIMAL,
+    }
+  }
+
+  return config
+}
+
+function withTimeout(promise, timeoutMs, label) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`TIMEOUT: ${label} exceeded ${timeoutMs}ms`))
+    }, timeoutMs)
+
+    promise
+      .then((val) => {
+        clearTimeout(timer)
+        resolve(val)
+      })
+      .catch((err) => {
+        clearTimeout(timer)
+        reject(err)
+      })
+  })
 }
 
 function isUrduScript(text) {
@@ -115,7 +246,8 @@ function buildChatbotInstruction(role, language, studentName, studentClass) {
     language === 'ml'
       ? `Respond in natural, fluent, scholarly Malayalam (മലയാളം) script.
 - Keep Islamic greetings (السَّلَامُ عَلَيْكُمْ / وَعَلَيْكُمُ السَّلَامُ) on their own line in Arabic script, and keep quoted Quranic verses, Hadith, and Kitab terms in vocalized Arabic script alongside clear Malayalam explanation.
-- Refer to the institution in Malayalam as "ഐ.സി.എസ് അക്കാദമി".`
+- Refer to the institution in Malayalam as "ഐ.സി.എസ് അക്കാദമി".
+- Always address the student respectfully as "താങ്കൾ" (never "നീ" or "നിങ്ങൾ").`
       : language === 'ar'
         ? `Respond 100% in clear Classical/Modern Standard Arabic (العربية الفصحى). Refer to the institution as "أكاديمية ICS".`
         : language === 'ur'
@@ -186,44 +318,11 @@ function redactPrivateIds(text) {
     .replace(/\s*•\s*Batch\s+\d+\b/gi, '')
 }
 
-async function callGeminiGenerateContent(apiKey, modelName, contents, systemInstruction) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-    modelName,
-  )}:generateContent?key=${encodeURIComponent(apiKey)}`
-
-  const body = {
-    contents,
-    ...(systemInstruction
-      ? {
-          systemInstruction: {
-            parts: [{ text: systemInstruction }],
-          },
-        }
-      : {}),
+function writeSseEvent(res, payload) {
+  res.write(`data: ${JSON.stringify(payload)}\n\n`)
+  if (typeof res.flush === 'function') {
+    res.flush()
   }
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '')
-    throw new Error(`Gemini API ${res.status}: ${errText.slice(0, 300)}`)
-  }
-
-  const data = await res.json()
-  const parts = data?.candidates?.[0]?.content?.parts
-  if (!Array.isArray(parts)) return ''
-  return redactPrivateIds(
-    parts
-      .map((p) => (typeof p?.text === 'string' ? p.text : ''))
-      .join('')
-      .trim(),
-  )
 }
 
 export default async function handler(req, res) {
@@ -259,12 +358,14 @@ export default async function handler(req, res) {
       role = 'usthad',
       language = 'en',
       languageMode = 'auto',
-      modelTier = 'flash',
+      modelTier = 'flash-lite',
       studentName,
       studentClass,
       attachments = [],
+      stream = false,
     } = req.body ?? {}
 
+    const wantsStream = Boolean(stream)
     const rawText = String(message || '').trim()
     const validAttachments = Array.isArray(attachments)
       ? attachments.filter((a) => a && typeof a.data === 'string' && a.data.trim())
@@ -295,12 +396,16 @@ export default async function handler(req, res) {
       studentClass,
     )
 
+    const longFormInfo = detectLongFormRequest(finalPrompt)
+    const maxHistoryTurns = longFormInfo.isLongForm ? 12 : 10
+    const maxTurnChars = longFormInfo.isLongForm ? 6000 : 3500
+
     const sanitizedHistory = safeHistory
       .filter((t) => t && typeof t.text === 'string' && t.text.trim())
-      .slice(-16)
+      .slice(-maxHistoryTurns)
       .map((t) => ({
         role: t.role === 'model' ? 'model' : 'user',
-        parts: [{ text: t.text.trim().slice(0, 12000) }],
+        parts: [{ text: t.text.trim().slice(0, maxTurnChars) }],
       }))
 
     const inlineParts = validAttachments.slice(0, 3).map((att) => ({
@@ -312,7 +417,6 @@ export default async function handler(req, res) {
 
     const userSaidSalam = didStudentSaySalam(finalPrompt)
     const isFirstTurn = sanitizedHistory.length === 0
-    const longFormInfo = detectLongFormRequest(finalPrompt)
     const salamHint = userSaidSalam
       ? '\n[The student greeted with Salam; start your reply with "وَعَلَيْكُمُ السَّلَامُ وَرَحْمَةُ اللَّهِ وَبَرَكَاتُهُ" on its own line.]'
       : isFirstTurn
@@ -340,25 +444,6 @@ export default async function handler(req, res) {
 
     const promptWithDirective = `${finalPrompt}${salamHint}${longFormHint}\n[Respond in ${langNameMap[validLanguage] || 'Malayalam'}. If the student is answering a previous question from you, evaluate their answer directly.]`
 
-    const models =
-      modelTier === 'flash-lite' && !longFormInfo.isLongForm
-        ? [
-            'gemini-3.1-flash-lite',
-            'gemini-4-hydrogen',
-            'gemini-2.5-flash',
-            'gemini-2.5-flash-lite',
-            'gemini-3.1-flash-lite-preview',
-            'gemini-3-flash-preview',
-          ]
-        : [
-            'gemini-4-hydrogen',
-            'gemini-2.5-flash',
-            'gemini-3-flash-preview',
-            'gemini-3.1-flash-lite',
-            'gemini-3.1-flash-lite-preview',
-            'gemini-2.5-flash-lite',
-          ]
-
     const contents = [
       ...sanitizedHistory,
       {
@@ -367,16 +452,136 @@ export default async function handler(req, res) {
       },
     ]
 
+    const { tierKey, models } = getOrderedModels(modelTier, longFormInfo.isLongForm)
+    const ai = createAiClient(apiKey)
+
+    if (wantsStream) {
+      let clientClosed = false
+      req.on('close', () => {
+        clientClosed = true
+      })
+
+      let lastError = ''
+      const firstChunkTimeoutMs =
+        longFormInfo.isLongForm || validAttachments.length > 0 ? 22000 : 14000
+
+      for (const modelName of models) {
+        if (clientClosed) return
+        try {
+          const config = buildModelConfig(modelName, systemInstruction, longFormInfo.isLongForm)
+          const streamIterable = await withTimeout(
+            ai.models.generateContentStream({
+              model: modelName,
+              contents,
+              config,
+            }),
+            firstChunkTimeoutMs,
+            `${modelName} connect`,
+          )
+
+          const iterator = streamIterable[Symbol.asyncIterator]()
+          let firstText = ''
+
+          // Read until first non-empty text chunk BEFORE sending SSE headers so fallback stays clean
+          while (true) {
+            const step = await withTimeout(
+              iterator.next(),
+              firstChunkTimeoutMs,
+              `${modelName} first token`,
+            )
+            if (step.done) break
+            const chunkText = typeof step.value?.text === 'string' ? step.value.text : ''
+            if (chunkText) {
+              firstText = redactPrivateIds(chunkText)
+              break
+            }
+          }
+
+          if (!firstText) {
+            continue
+          }
+
+          preferredWorkingModelByTier.set(tierKey, modelName)
+
+          if (clientClosed) return
+
+          res.status(200)
+          res.setHeader('Content-Type', 'text/event-stream; charset=utf-8')
+          res.setHeader('Cache-Control', 'no-cache, no-transform')
+          res.setHeader('Connection', 'keep-alive')
+          res.setHeader('X-Accel-Buffering', 'no')
+          if (typeof res.flushHeaders === 'function') {
+            res.flushHeaders()
+          }
+
+          writeSseEvent(res, {
+            type: 'meta',
+            modelUsed: modelName,
+            role,
+            language: validLanguage,
+          })
+          writeSseEvent(res, { type: 'delta', text: firstText })
+
+          while (!clientClosed) {
+            const nextStep = await withTimeout(iterator.next(), 25000, `${modelName} chunk`)
+            if (nextStep.done) break
+            const deltaText = typeof nextStep.value?.text === 'string' ? nextStep.value.text : ''
+            if (deltaText) {
+              writeSseEvent(res, { type: 'delta', text: redactPrivateIds(deltaText) })
+            }
+          }
+
+          if (!clientClosed) {
+            writeSseEvent(res, { type: 'done', modelUsed: modelName })
+            res.end()
+          }
+          return
+        } catch (err) {
+          lastError = err instanceof Error ? err.message : String(err)
+          if (isNotFoundModelError(err)) {
+            markModelUnavailable(modelName)
+          }
+          if (res.headersSent) {
+            if (!clientClosed) {
+              writeSseEvent(res, { type: 'error', error: lastError })
+              res.end()
+            }
+            return
+          }
+          if (isTransientOrFallbackError(err)) {
+            continue
+          }
+          break
+        }
+      }
+
+      if (!res.headersSent) {
+        res.status(503).json({
+          error: `AI service error: ${lastError || 'All models busy. Please try again.'}`,
+        })
+      }
+      return
+    }
+
+    // Standard non-streaming JSON response (100% backward compatible for older APKs)
     let lastError = ''
+    const requestTimeoutMs = longFormInfo.isLongForm ? 55000 : validAttachments.length > 0 ? 35000 : 25000
+
     for (const modelName of models) {
       try {
-        const replyText = await callGeminiGenerateContent(
-          apiKey,
+        const config = buildModelConfig(modelName, systemInstruction, longFormInfo.isLongForm)
+        const response = await withTimeout(
+          ai.models.generateContent({
+            model: modelName,
+            contents,
+            config,
+          }),
+          requestTimeoutMs,
           modelName,
-          contents,
-          systemInstruction,
         )
+        const replyText = redactPrivateIds(String(response.text || '').trim())
         if (replyText) {
+          preferredWorkingModelByTier.set(tierKey, modelName)
           res.status(200).json({
             reply: replyText,
             modelUsed: modelName,
@@ -387,7 +592,13 @@ export default async function handler(req, res) {
         }
       } catch (err) {
         lastError = err instanceof Error ? err.message : String(err)
-        continue
+        if (isNotFoundModelError(err)) {
+          markModelUnavailable(modelName)
+        }
+        if (isTransientOrFallbackError(err)) {
+          continue
+        }
+        break
       }
     }
 
@@ -395,8 +606,12 @@ export default async function handler(req, res) {
       error: `AI service error: ${lastError || 'All models busy. Please try again.'}`,
     })
   } catch (err) {
-    res.status(500).json({
-      error: err instanceof Error ? err.message : 'Chat request failed',
-    })
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'Chat request failed',
+      })
+    } else {
+      res.end()
+    }
   }
 }

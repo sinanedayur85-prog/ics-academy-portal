@@ -1,3 +1,5 @@
+import { GoogleGenAI, ThinkingLevel } from '@google/genai'
+
 function getApiKey() {
   return (
     process.env.GEMINI_API_KEY ||
@@ -7,6 +9,20 @@ function getApiKey() {
     ''
   ).trim()
 }
+
+function createAiClient(apiKey) {
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
+    },
+  })
+}
+
+const unavailableModels = new Map()
+let cachedWorkingModel = ''
 
 function detectLanguage(text, fallbackLanguage) {
   if (!text) return fallbackLanguage
@@ -80,44 +96,53 @@ Mode: ${mode}
 ${langRule}
 STRICT PRIVACY RULE: Neither Usthads nor Students are permitted to view anything about other students or staff members in this Chatbot except their NAME (and class). Never disclose, guess, or generate any Admission ID (ICS2K...), Password, Batch number (e.g. Batch 14), Leader ID (CL-.../ACL-...), Staff ID (UST-.../ADM-...), attendance record, or leave status.`
 
-    const models = [
+    const baseModels = [
+      'gemini-4-hydrogen',
+      'gemini-3.1-flash-lite',
       'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
       'gemini-3-flash-preview',
       'gemini-3.1-flash-lite-preview',
-      'gemini-2.5-flash-lite',
-      'gemini-2.0-flash',
     ]
 
-    for (const modelName of models) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-          modelName,
-        )}:generateContent?key=${encodeURIComponent(apiKey)}`
+    const now = Date.now()
+    const prioritized =
+      cachedWorkingModel && baseModels.includes(cachedWorkingModel)
+        ? [cachedWorkingModel, ...baseModels.filter((m) => m !== cachedWorkingModel)]
+        : baseModels
+    const activeModels = prioritized.filter((m) => {
+      const ts = unavailableModels.get(m)
+      return !ts || now - ts > 15 * 60 * 1000
+    })
 
-        const apiRes = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: cleanPrompt }] }],
-            systemInstruction: { parts: [{ text: systemInstruction }] },
-          }),
+    const ai = createAiClient(apiKey)
+
+    for (const modelName of activeModels.length > 0 ? activeModels : prioritized) {
+      try {
+        const config = {
+          systemInstruction,
+          ...(modelName === 'gemini-4-hydrogen'
+            ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
+            : modelName === 'gemini-3.1-flash-lite'
+              ? { thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL } }
+              : {}),
+        }
+
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: cleanPrompt,
+          config,
         })
 
-        if (!apiRes.ok) continue
-        const data = await apiRes.json()
-        const parts = data?.candidates?.[0]?.content?.parts
-        const replyText = Array.isArray(parts)
-          ? parts
-              .map((p) => (typeof p?.text === 'string' ? p.text : ''))
-              .join('')
-              .trim()
-              .replace(/\bICS2K\d{2}[A-Z0-9]*\b/gi, '[Private Admission ID]')
-              .replace(/\bICS-\d{4}-\d+\b/gi, '[Private Admission ID]')
-              .replace(/\b(?:ACL|CL)-\d{1,3}(?:-[A-Z0-9]+)?\b/gi, '[Private Leader ID]')
-              .replace(/\b(?:UST|ADM)-\d{1,4}\b/gi, '[Private Staff ID]')
-          : ''
+        const replyText = String(response.text || '')
+          .trim()
+          .replace(/\bICS2K\d{2}[A-Z0-9]*\b/gi, '[Private Admission ID]')
+          .replace(/\bICS-\d{4}-\d+\b/gi, '[Private Admission ID]')
+          .replace(/\b(?:ACL|CL)-\d{1,3}(?:-[A-Z0-9]+)?\b/gi, '[Private Leader ID]')
+          .replace(/\b(?:UST|ADM)-\d{1,4}\b/gi, '[Private Staff ID]')
 
         if (replyText) {
+          cachedWorkingModel = modelName
           res.status(200).json({
             response: replyText,
             mode,
@@ -125,7 +150,11 @@ STRICT PRIVACY RULE: Neither Usthads nor Students are permitted to view anything
           })
           return
         }
-      } catch {
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        if (msg.includes('404') || msg.includes('NOT_FOUND')) {
+          unavailableModels.set(modelName, Date.now())
+        }
         continue
       }
     }

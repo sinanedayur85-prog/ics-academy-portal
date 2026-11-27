@@ -16,11 +16,21 @@ export interface ClientChatAttachment {
   name?: string
 }
 
-const REMOTE_BACKEND_ORIGINS = [
-  'https://ais-dev-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app',
-  'https://ais-pre-rhfqjrwneaewkmnanoof2j-896319436298.asia-east1.run.app',
-  'https://ics-academy-manhappatta.vercel.app',
-]
+export interface AiChatRequestPayload {
+  message: string
+  history: ClientChatTurn[]
+  role: ChatRole
+  language: ChatLanguage
+  languageMode: 'auto' | 'explicit'
+  modelTier: ChatModelTier
+  studentName?: string
+  studentClass?: string
+  attachments?: ClientChatAttachment[]
+}
+
+// Always target the live Vercel production server directly for native APK/Capacitor bundles
+// (avoids 45-90s timeouts against sleeping preview containers).
+const REMOTE_BACKEND_ORIGINS = ['https://ics-academy-manhappatta.vercel.app']
 
 function isLocalCapacitorBundleOrigin(): boolean {
   if (typeof window === 'undefined') return false
@@ -54,37 +64,149 @@ function isLongFormPrompt(text: string): boolean {
   )
 }
 
-export async function fetchAiChatReply(payload: {
-  message: string
-  history: ClientChatTurn[]
-  role: ChatRole
-  language: ChatLanguage
-  languageMode: 'auto' | 'explicit'
-  modelTier: ChatModelTier
-  studentName?: string
-  studentClass?: string
-  attachments?: ClientChatAttachment[]
-}): Promise<{ reply: string; modelUsed: string }> {
+export async function streamAiChatReply(
+  payload: AiChatRequestPayload,
+  options?: {
+    onDelta?: (delta: string, accumulated: string) => void
+    onModelResolved?: (modelUsed: string) => void
+    signal?: AbortSignal
+  },
+): Promise<{ reply: string; modelUsed: string }> {
   const urls = getCandidateApiUrls('/api/ai/chat')
   const hasAttachments = Array.isArray(payload.attachments) && payload.attachments.length > 0
   const isLongForm = isLongFormPrompt(payload.message)
-  const requestTimeoutMs = isLongForm ? 125000 : hasAttachments ? 55000 : 45000
+  const firstByteTimeoutMs = isLongForm || hasAttachments ? 42000 : 25000
+  const chunkIdleTimeoutMs = isLongForm ? 35000 : 28000
+  const fallbackModelLabel =
+    payload.modelTier === 'flash-lite' ? 'gemini-3.1-flash-lite' : 'gemini-4-hydrogen'
+
   let lastErrorMsg = ''
 
   for (const url of urls) {
+    if (options?.signal?.aborted) {
+      throw new DOMException('Request aborted', 'AbortError')
+    }
+
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs)
+    const onExternalAbort = () => controller.abort()
+    options?.signal?.addEventListener('abort', onExternalAbort, { once: true })
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = setTimeout(
+      () => controller.abort(),
+      firstByteTimeoutMs,
+    )
+
+    const resetIdleTimer = () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => controller.abort(), chunkIdleTimeoutMs)
+    }
+
+    const clearTimer = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
+    }
 
     try {
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream, application/json',
+        },
         signal: controller.signal,
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, stream: true }),
       })
-      clearTimeout(timeoutId)
 
-      const contentType = res.headers.get('content-type') || ''
+      const contentType = (res.headers.get('content-type') || '').toLowerCase()
+
+      if (res.ok && contentType.includes('text/event-stream') && res.body) {
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        let accumulated = ''
+        let modelUsed = fallbackModelLabel
+        let streamError = ''
+
+        resetIdleTimer()
+
+        try {
+          while (true) {
+            const { value, done } = await reader.read()
+            if (done) break
+            resetIdleTimer()
+
+            buffer += decoder.decode(value, { stream: true })
+
+            let sepIdx = buffer.indexOf('\n\n')
+            while (sepIdx !== -1) {
+              const rawEvent = buffer.slice(0, sepIdx)
+              buffer = buffer.slice(sepIdx + 2)
+
+              const lines = rawEvent.split('\n')
+              for (const line of lines) {
+                const trimmed = line.trim()
+                if (!trimmed.startsWith('data:')) continue
+                const jsonStr = trimmed.slice(5).trim()
+                if (!jsonStr || jsonStr === '[DONE]') continue
+
+                try {
+                  const evt = JSON.parse(jsonStr) as {
+                    type?: string
+                    text?: string
+                    modelUsed?: string
+                    reply?: string
+                    error?: string
+                  }
+
+                  if (evt.modelUsed) {
+                    modelUsed = evt.modelUsed
+                    options?.onModelResolved?.(modelUsed)
+                  }
+
+                  if (evt.type === 'delta' && typeof evt.text === 'string' && evt.text.length > 0) {
+                    accumulated += evt.text
+                    options?.onDelta?.(evt.text, accumulated)
+                  } else if (evt.type === 'done') {
+                    if (!accumulated && typeof evt.reply === 'string' && evt.reply.trim()) {
+                      accumulated = evt.reply.trim()
+                      options?.onDelta?.(accumulated, accumulated)
+                    }
+                  } else if (evt.type === 'error' && evt.error) {
+                    streamError = evt.error
+                  }
+                } catch {
+                  // Ignore malformed partial SSE line
+                }
+              }
+
+              sepIdx = buffer.indexOf('\n\n')
+            }
+          }
+        } finally {
+          clearTimer()
+          try {
+            reader.releaseLock()
+          } catch {
+            // Ignore lock release errors
+          }
+        }
+
+        if (accumulated.trim()) {
+          return {
+            reply: accumulated.trim(),
+            modelUsed,
+          }
+        }
+        if (streamError) {
+          lastErrorMsg = streamError
+        }
+        continue
+      }
+
+      clearTimer()
+
       if (contentType.includes('application/json')) {
         const data = (await res.json()) as {
           reply?: string
@@ -92,24 +214,26 @@ export async function fetchAiChatReply(payload: {
           error?: string
         }
         if (res.ok && data && typeof data.reply === 'string' && data.reply.trim()) {
-          return {
-            reply: data.reply.trim(),
-            modelUsed:
-              data.modelUsed ||
-              (payload.modelTier === 'flash-lite'
-                ? 'gemini-3.1-flash-lite'
-                : 'gemini-4-hydrogen'),
-          }
+          const reply = data.reply.trim()
+          const modelUsed = data.modelUsed || fallbackModelLabel
+          options?.onModelResolved?.(modelUsed)
+          options?.onDelta?.(reply, reply)
+          return { reply, modelUsed }
         }
         if (data?.error) {
           lastErrorMsg = data.error
         }
       }
     } catch (err) {
-      clearTimeout(timeoutId)
-      if (err instanceof Error && err.message) {
-        lastErrorMsg = err.message
+      clearTimer()
+      if (options?.signal?.aborted) {
+        throw err
       }
+      if (err instanceof Error && err.message) {
+        lastErrorMsg = err.name === 'AbortError' ? 'AI response timed out. Please try again.' : err.message
+      }
+    } finally {
+      options?.signal?.removeEventListener('abort', onExternalAbort)
     }
   }
 
@@ -117,6 +241,12 @@ export async function fetchAiChatReply(payload: {
     lastErrorMsg ||
       'Unable to reach the AI server. Please check your internet connection and try again.',
   )
+}
+
+export async function fetchAiChatReply(
+  payload: AiChatRequestPayload,
+): Promise<{ reply: string; modelUsed: string }> {
+  return streamAiChatReply(payload)
 }
 
 export async function fetchAiStudyAssistantReply(payload: {
@@ -127,7 +257,7 @@ export async function fetchAiStudyAssistantReply(payload: {
   studentName?: string
 }): Promise<{ response: string }> {
   const urls = getCandidateApiUrls('/api/ai/study-assistant')
-  const requestTimeoutMs = isLongFormPrompt(payload.prompt) ? 125000 : 45000
+  const requestTimeoutMs = isLongFormPrompt(payload.prompt) ? 90000 : 35000
   let lastErrorMsg = ''
 
   for (const url of urls) {
@@ -305,4 +435,3 @@ export async function fetchTtsSpeechAudio(payload: {
 
   return null
 }
-

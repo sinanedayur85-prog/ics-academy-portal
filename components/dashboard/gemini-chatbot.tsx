@@ -37,7 +37,7 @@ import {
   Zap,
 } from 'lucide-react'
 import {
-  fetchAiChatReply,
+  streamAiChatReply,
   normalizeSpokenVoiceText,
   transcribeVoiceAudio,
   type ClientChatAttachment,
@@ -1309,6 +1309,8 @@ export function GeminiChatbot({
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [savedId, setSavedId] = useState<string | null>(null)
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null)
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
+  const streamAbortRef = useRef<AbortController | null>(null)
 
   // Voice Input (Speech-to-Text) State
   const [isListening, setIsListening] = useState(false)
@@ -1461,6 +1463,13 @@ export function GeminiChatbot({
           // Ignore
         }
       }
+      if (streamAbortRef.current) {
+        try {
+          streamAbortRef.current.abort()
+        } catch {
+          // Ignore
+        }
+      }
     }
   }, [])
 
@@ -1544,14 +1553,15 @@ export function GeminiChatbot({
     }
   }, [userChatStorageKey])
 
-  // Persist threads under the current user's isolated key
+  // Persist threads under the current user's isolated key (local-only; skips mid-stream writes for 60fps smoothness)
   useEffect(() => {
+    if (streamingMessageId) return
     try {
       window.localStorage.setItem(userChatStorageKey, JSON.stringify(threads))
     } catch {
       // Ignore quota errors
     }
-  }, [threads, userChatStorageKey])
+  }, [threads, userChatStorageKey, streamingMessageId])
 
   // Scroll thread container cleanly when messages change
   useEffect(() => {
@@ -1561,8 +1571,15 @@ export function GeminiChatbot({
       el.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
+    if (streamingMessageId) {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+      if (distanceFromBottom < 180) {
+        el.scrollTo({ top: el.scrollHeight, behavior: 'auto' })
+      }
+      return
+    }
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
-  }, [currentMessages, sending])
+  }, [currentMessages, sending, streamingMessageId])
 
   async function compressAndReadStudyFile(file: File): Promise<ChatAttachmentItem> {
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
@@ -1845,6 +1862,57 @@ export function GeminiChatbot({
 
     setSending(true)
 
+    const targetRole = role
+    const botMsgId = `model-${Date.now()}`
+    const abortController = new AbortController()
+    streamAbortRef.current = abortController
+
+    const sanitizeBotText = (raw: string) =>
+      String(raw ?? '')
+        .replace(/\bICS2K\d{2}[A-Z0-9]*\b/gi, '[Private Admission ID]')
+        .replace(/\bICS-\d{4}-\d+\b/gi, '[Private Admission ID]')
+        .replace(/\b(?:ACL|CL)-\d{1,3}(?:-[A-Z0-9]+)?\b/gi, '[Private Leader ID]')
+        .replace(/\b(?:UST|ADM)-\d{1,4}\b/gi, '[Private Staff ID]')
+
+    let hasInsertedBotBubble = false
+    let latestStreamText = ''
+    let resolvedModelName =
+      modelTier === 'flash-lite' ? 'gemini-3.1-flash-lite' : 'gemini-4-hydrogen'
+    let rafId: number | null = null
+
+    const flushStreamingText = () => {
+      rafId = null
+      const textSnapshot = sanitizeBotText(latestStreamText)
+      if (!textSnapshot) return
+
+      if (!hasInsertedBotBubble) {
+        hasInsertedBotBubble = true
+        setStreamingMessageId(botMsgId)
+        const initialBotMsg: ChatTurnMessage = {
+          id: botMsgId,
+          role: 'model',
+          text: textSnapshot,
+          timestamp: Date.now(),
+          modelUsed: resolvedModelName,
+          persona: targetRole,
+        }
+        setThreads((prev) => ({
+          ...prev,
+          [targetRole]: [...(prev[targetRole] ?? []), initialBotMsg],
+        }))
+        return
+      }
+
+      setThreads((prev) => ({
+        ...prev,
+        [targetRole]: (prev[targetRole] ?? []).map((msg) =>
+          msg.id === botMsgId
+            ? { ...msg, text: textSnapshot, modelUsed: resolvedModelName }
+            : msg,
+        ),
+      }))
+    }
+
     try {
       const apiAttachments: ClientChatAttachment[] = attachmentsToSend.map((att) => ({
         mimeType: att.mimeType,
@@ -1852,53 +1920,98 @@ export function GeminiChatbot({
         name: att.name,
       }))
 
-      const data = await fetchAiChatReply({
-        message: textToSend.slice(0, 4000),
-        history: previousHistory,
-        role,
-        language: effectiveLanguage,
-        languageMode: isAutoLanguage ? 'auto' : 'explicit',
-        modelTier,
-        studentName: student.name,
-        studentClass: student.className,
-        ...(apiAttachments.length > 0 ? { attachments: apiAttachments } : {}),
-      })
+      const data = await streamAiChatReply(
+        {
+          message: textToSend.slice(0, 4000),
+          history: previousHistory,
+          role: targetRole,
+          language: effectiveLanguage,
+          languageMode: isAutoLanguage ? 'auto' : 'explicit',
+          modelTier,
+          studentName: student.name,
+          studentClass: student.className,
+          ...(apiAttachments.length > 0 ? { attachments: apiAttachments } : {}),
+        },
+        {
+          signal: abortController.signal,
+          onModelResolved: (modelName) => {
+            if (modelName) resolvedModelName = modelName
+          },
+          onDelta: (_delta, accumulated) => {
+            latestStreamText = accumulated
+            if (rafId === null) {
+              rafId = window.requestAnimationFrame(flushStreamingText)
+            }
+          },
+        },
+      )
 
-      const sanitizedBotReply = String(data.reply ?? '')
-        .trim()
-        .replace(/\bICS2K\d{2}[A-Z0-9]*\b/gi, '[Private Admission ID]')
-        .replace(/\bICS-\d{4}-\d+\b/gi, '[Private Admission ID]')
-        .replace(/\b(?:ACL|CL)-\d{1,3}(?:-[A-Z0-9]+)?\b/gi, '[Private Leader ID]')
-        .replace(/\b(?:UST|ADM)-\d{1,4}\b/gi, '[Private Staff ID]')
-
-      const botMsg: ChatTurnMessage = {
-        id: `model-${Date.now()}`,
-        role: 'model',
-        text: sanitizedBotReply,
-        timestamp: Date.now(),
-        modelUsed: String(
-          data.modelUsed ??
-            (modelTier === 'flash-lite' ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash'),
-        ),
-        persona: role,
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId)
+        rafId = null
       }
 
-      setThreads((prev) => ({
-        ...prev,
-        [role]: [...(prev[role] ?? []), botMsg],
-      }))
+      const sanitizedBotReply = sanitizeBotText(data.reply ?? '').trim()
+      const finalModelName = String(data.modelUsed ?? resolvedModelName)
+
+      if (sanitizedBotReply) {
+        if (hasInsertedBotBubble) {
+          setThreads((prev) => ({
+            ...prev,
+            [targetRole]: (prev[targetRole] ?? []).map((msg) =>
+              msg.id === botMsgId
+                ? { ...msg, text: sanitizedBotReply, modelUsed: finalModelName }
+                : msg,
+            ),
+          }))
+        } else {
+          const botMsg: ChatTurnMessage = {
+            id: botMsgId,
+            role: 'model',
+            text: sanitizedBotReply,
+            timestamp: Date.now(),
+            modelUsed: finalModelName,
+            persona: targetRole,
+          }
+          setThreads((prev) => ({
+            ...prev,
+            [targetRole]: [...(prev[targetRole] ?? []), botMsg],
+          }))
+        }
+      }
     } catch (err) {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId)
+        rafId = null
+      }
+      if (abortController.signal.aborted) {
+        return
+      }
       const rawMsg =
         err instanceof Error
           ? err.message
           : 'Could not receive a response right now. Please try again.'
       setErrorMessage(rawMsg)
     } finally {
+      if (streamAbortRef.current === abortController) {
+        streamAbortRef.current = null
+      }
+      setStreamingMessageId(null)
       setSending(false)
     }
   }
 
   function handleResetThread() {
+    if (streamAbortRef.current) {
+      try {
+        streamAbortRef.current.abort()
+      } catch {
+        // Ignore
+      }
+      streamAbortRef.current = null
+    }
+    setStreamingMessageId(null)
+    setSending(false)
     cancelAllVoiceActivity(true)
     setInput('')
     if (textareaRef.current) {
@@ -3187,7 +3300,12 @@ export function GeminiChatbot({
                         </span>
                       </div>
 
-                      {!isUser ? (
+                      {!isUser && streamingMessageId === msg.id ? (
+                        <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#0077CC] dark:text-[#0095F6]">
+                          <span className="inline-block size-1.5 animate-pulse rounded-full bg-[#0095F6]" />
+                          <span>Typing...</span>
+                        </div>
+                      ) : !isUser ? (
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
@@ -3234,7 +3352,7 @@ export function GeminiChatbot({
               )
             })}
 
-            {sending ? (
+            {sending && !streamingMessageId ? (
               <div className="flex items-end gap-2.5">
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#7C3AED] to-[#0095F6] text-white">
                   <Loader2 className="size-4 animate-spin" aria-hidden="true" />
