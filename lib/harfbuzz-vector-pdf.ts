@@ -11,6 +11,9 @@ export type HbFontKey =
   | 'latinRegular'
   | 'latinSemiBold'
   | 'latinBold'
+  | 'soraRegular'
+  | 'soraSemiBold'
+  | 'soraBold'
 
 export interface VectorInlineRun {
   text: string
@@ -69,6 +72,9 @@ const FONT_URLS: Record<HbFontKey, string> = {
   latinRegular: '/fonts/Poppins-Regular.ttf',
   latinSemiBold: '/fonts/Poppins-SemiBold.ttf',
   latinBold: '/fonts/Poppins-Bold.ttf',
+  soraRegular: '/fonts/Sora-Regular.ttf',
+  soraSemiBold: '/fonts/Sora-SemiBold.ttf',
+  soraBold: '/fonts/Sora-Bold.ttf',
 }
 
 let hbModulePromise: Promise<typeof HarfBuzzModuleTypes> | null = null
@@ -165,7 +171,14 @@ export async function ensureHarfBuzzVectorFonts(options: {
     keysToLoad.push('arabicRegular', 'arabicBold')
   }
   if (options.loadLatin !== false) {
-    keysToLoad.push('latinRegular', 'latinSemiBold', 'latinBold')
+    keysToLoad.push(
+      'latinRegular',
+      'latinSemiBold',
+      'latinBold',
+      'soraRegular',
+      'soraSemiBold',
+      'soraBold',
+    )
   }
   if (options.loadMalayalam) {
     keysToLoad.push('malayalamRegular', 'malayalamBold')
@@ -186,6 +199,9 @@ function getFontEntryOrFallback(key: HbFontKey): HbFontEntry {
   if (key === 'urduBold') return loadedFontEntries.get('arabicBold') ?? loadedFontEntries.get('arabicRegular')!
   if (key === 'urduRegular') return loadedFontEntries.get('arabicRegular')!
   if (key === 'malayalamBold') return loadedFontEntries.get('malayalamRegular') ?? loadedFontEntries.get('latinBold')!
+  if (key === 'soraBold') return loadedFontEntries.get('soraRegular') ?? loadedFontEntries.get('latinBold') ?? loadedFontEntries.get('latinRegular')!
+  if (key === 'soraSemiBold') return loadedFontEntries.get('soraBold') ?? loadedFontEntries.get('soraRegular') ?? loadedFontEntries.get('latinSemiBold')!
+  if (key === 'soraRegular') return loadedFontEntries.get('latinRegular') ?? loadedFontEntries.values().next().value!
   if (key === 'latinSemiBold') return loadedFontEntries.get('latinBold') ?? loadedFontEntries.get('latinRegular')!
   return loadedFontEntries.get('latinRegular') ?? loadedFontEntries.values().next().value!
 }
@@ -386,12 +402,32 @@ export class HarfBuzzVectorPdfSession {
 
 // ==================== BIDI + SCRIPT SEGMENTATION & HARFBUZZ SHAPING ====================
 
-type ScriptAtomKind = 'arabic' | 'urdu' | 'malayalam' | 'latin' | 'number'
+type ScriptAtomKind = 'arabic' | 'urdu' | 'malayalam' | 'latin' | 'number' | 'asciiNumber'
 
 interface DirectionalSubRun {
   text: string
   script: ScriptAtomKind
   direction: 'rtl' | 'ltr'
+}
+
+function pushWithSoraAsciiDigits(
+  out: DirectionalSubRun[],
+  text: string,
+  baseScript: 'latin' | 'malayalam',
+): void {
+  if (!/[0-9]/.test(text)) {
+    out.push({ text, script: baseScript, direction: 'ltr' })
+    return
+  }
+  const chunks = text.split(/([0-9]+)/g)
+  for (const chunk of chunks) {
+    if (!chunk) continue
+    if (/^[0-9]+$/.test(chunk)) {
+      out.push({ text: chunk, script: 'asciiNumber', direction: 'ltr' })
+    } else {
+      out.push({ text: chunk, script: baseScript, direction: 'ltr' })
+    }
+  }
 }
 
 const ARABIC_CHAR_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/
@@ -400,7 +436,7 @@ const MALAYALAM_CHAR_RE = /[\u0D00-\u0D7F]/
 /**
  * Splits a single styled text segment into script- and direction-homogeneous sub-runs
  * in logical reading order so HarfBuzz shapes every Arabic, Urdu, Malayalam, Latin, and
- * numeric run with exact OpenType GSUB/GPOS and proper BiDi ordering.
+ * numeric run with exact OpenType GSUB/GPOS and proper BiDi ordering (with ASCII digits in Sora).
  */
 function splitIntoDirectionalSubRuns(
   text: string,
@@ -412,9 +448,10 @@ function splitIntoDirectionalSubRuns(
 
   if (lineIsRtl) {
     // RTL line (Arabic or Urdu):
-    // - Multi-word Latin phrases -> LTR Poppins
-    // - Number runs (e.g. ١٢٣ or 2026-27) -> LTR in Arabic/Urdu font so digits read left-to-right
-    // - Malayalam runs -> LTR NotoSerifMalayalam
+    // - Multi-word Latin phrases -> LTR Poppins (ASCII digits in Sora)
+    // - ASCII digit runs -> LTR Sora
+    // - Eastern Arabic/Urdu digits (e.g. ١٢٣) -> LTR Arabic/Urdu font
+    // - Malayalam runs -> LTR NotoSerifMalayalam (ASCII digits in Sora)
     // - Everything else (Arabic/Urdu words, harakat, spaces, punctuation) -> RTL Arabic/Urdu font
     const rtlSplitRe =
       /([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F0-9._/\-']*(?:\s+[A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F0-9._/\-']*)*|[\u0D00-\u0D7F][\u0D00-\u0D7F\u200C\u200D]*(?:\s+[\u0D00-\u0D7F][\u0D00-\u0D7F\u200C\u200D]*)*|[0-9\u0660-\u0669\u06F0-\u06F9]+(?:[.,/:\\-][0-9\u0660-\u0669\u06F0-\u06F9]+)*)/g
@@ -423,10 +460,12 @@ function splitIntoDirectionalSubRuns(
     for (const part of parts) {
       if (!part) continue
       if (/^[A-Za-z\u00C0-\u024F]/.test(part)) {
-        out.push({ text: part, script: 'latin', direction: 'ltr' })
+        pushWithSoraAsciiDigits(out, part, 'latin')
       } else if (MALAYALAM_CHAR_RE.test(part)) {
-        out.push({ text: part, script: 'malayalam', direction: 'ltr' })
-      } else if (/^[0-9\u0660-\u0669\u06F0-\u06F9]/.test(part)) {
+        pushWithSoraAsciiDigits(out, part, 'malayalam')
+      } else if (/^[0-9]/.test(part)) {
+        out.push({ text: part, script: 'asciiNumber', direction: 'ltr' })
+      } else if (/^[\u0660-\u0669\u06F0-\u06F9]/.test(part)) {
         out.push({ text: part, script: 'number', direction: 'ltr' })
       } else {
         out.push({ text: part, script: lineIsUrdu ? 'urdu' : 'arabic', direction: 'rtl' })
@@ -445,13 +484,12 @@ function splitIntoDirectionalSubRuns(
   for (const part of parts) {
     if (!part) continue
     if (ARABIC_CHAR_RE.test(part)) {
-      // Embedded RTL Arabic/Urdu phrase inside an LTR line.
-      // If it contains multi-digit numbers, split internally and reverse logical order so
-      // visual left-to-right drawing places the RTL phrase properly right-to-left.
       const subParts = part.split(/([0-9\u0660-\u0669\u06F0-\u06F9]+(?:[.,/:\\-][0-9\u0660-\u0669\u06F0-\u06F9]+)*)/g).filter(Boolean)
       const visualRtlPieces: DirectionalSubRun[] = []
       for (const sp of subParts) {
-        if (/^[0-9\u0660-\u0669\u06F0-\u06F9]/.test(sp)) {
+        if (/^[0-9]/.test(sp)) {
+          visualRtlPieces.push({ text: sp, script: 'asciiNumber', direction: 'ltr' })
+        } else if (/^[\u0660-\u0669\u06F0-\u06F9]/.test(sp)) {
           visualRtlPieces.push({ text: sp, script: 'number', direction: 'ltr' })
         } else {
           visualRtlPieces.push({
@@ -461,16 +499,12 @@ function splitIntoDirectionalSubRuns(
           })
         }
       }
-      // Since the parent line draws LTR, reverse the RTL sub-pieces so the first Arabic word
-      // appears on the RIGHT of the embedded phrase and the last word on the LEFT.
       visualRtlPieces.reverse()
       out.push(...visualRtlPieces)
     } else if (lineHasMalayalam) {
-      // Keep Malayalam text, spaces, digits, and punctuation unified in NotoSerifMalayalam
-      // for crisp consistent serif typography and baseline alignment.
-      out.push({ text: part, script: 'malayalam', direction: 'ltr' })
+      pushWithSoraAsciiDigits(out, part, 'malayalam')
     } else {
-      out.push({ text: part, script: 'latin', direction: 'ltr' })
+      pushWithSoraAsciiDigits(out, part, 'latin')
     }
   }
 
@@ -488,6 +522,14 @@ function resolveFontForSubRun(
   const isBold = bold || baseWeight === 'bold'
   const isSemiBold = !isBold && baseWeight === 'semibold'
 
+  if (sub.script === 'asciiNumber') {
+    return {
+      fontKey: isBold ? 'soraBold' : isSemiBold ? 'soraSemiBold' : 'soraRegular',
+      fontSizePt: lineIsRtl ? baseFontSizePt * 0.86 : baseFontSizePt,
+      hbScript: 'Latn',
+      hbLang: 'en',
+    }
+  }
   if (sub.script === 'urdu' || (sub.script === 'number' && lineIsUrdu)) {
     return {
       fontKey: isBold ? 'urduBold' : 'urduRegular',

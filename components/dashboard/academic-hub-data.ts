@@ -30,6 +30,7 @@ import {
   type Student,
 } from '@/components/dashboard/data'
 import {
+  attachSoraDigitsToJsPdf,
   loadVectorPdfAssets,
   registerOfficialVectorPdfFonts,
   shapeArabicLineForUthmanVector,
@@ -1015,19 +1016,25 @@ async function loadOfficialPdfFontsAndLogo(pdf: {
 }): Promise<{
   fontFamily: 'Poppins' | 'helvetica'
   hasElMessiri: boolean
+  hasSora: boolean
   logoDataUrl: string | null
 }> {
   let fontFamily: 'Poppins' | 'helvetica' = 'helvetica'
   let hasElMessiri = false
+  let hasSora = false
   let logoDataUrl: string | null = null
 
   try {
-    const [regRes, semiRes, boldRes, elMessiriRes] = await Promise.all([
-      fetch('/fonts/Poppins-Regular.ttf'),
-      fetch('/fonts/Poppins-SemiBold.ttf'),
-      fetch('/fonts/Poppins-Bold.ttf'),
-      fetch('/fonts/ElMessiri-Bold.ttf').catch(() => null),
-    ])
+    const [regRes, semiRes, boldRes, soraRegRes, soraSemiRes, soraBoldRes, elMessiriRes] =
+      await Promise.all([
+        fetch('/fonts/Poppins-Regular.ttf'),
+        fetch('/fonts/Poppins-SemiBold.ttf'),
+        fetch('/fonts/Poppins-Bold.ttf'),
+        fetch('/fonts/Sora-Regular.ttf').catch(() => null),
+        fetch('/fonts/Sora-SemiBold.ttf').catch(() => null),
+        fetch('/fonts/Sora-Bold.ttf').catch(() => null),
+        fetch('/fonts/ElMessiri-Bold.ttf').catch(() => null),
+      ])
     if (regRes.ok && semiRes.ok && boldRes.ok) {
       const [regBuf, semiBuf, boldBuf] = await Promise.all([
         regRes.arrayBuffer(),
@@ -1041,6 +1048,21 @@ async function loadOfficialPdfFontsAndLogo(pdf: {
       pdf.addFileToVFS('Poppins-Bold.ttf', arrayBufferToBase64(boldBuf))
       pdf.addFont('Poppins-Bold.ttf', 'Poppins', 'bold')
       fontFamily = 'Poppins'
+    }
+    if (soraRegRes?.ok && soraSemiRes?.ok && soraBoldRes?.ok) {
+      const [sRegBuf, sSemiBuf, sBoldBuf] = await Promise.all([
+        soraRegRes.arrayBuffer(),
+        soraSemiRes.arrayBuffer(),
+        soraBoldRes.arrayBuffer(),
+      ])
+      pdf.addFileToVFS('Sora-Regular.ttf', arrayBufferToBase64(sRegBuf))
+      pdf.addFont('Sora-Regular.ttf', 'Sora', 'normal')
+      pdf.addFileToVFS('Sora-SemiBold.ttf', arrayBufferToBase64(sSemiBuf))
+      pdf.addFont('Sora-SemiBold.ttf', 'Sora', 'semibold')
+      pdf.addFileToVFS('Sora-Bold.ttf', arrayBufferToBase64(sBoldBuf))
+      pdf.addFont('Sora-Bold.ttf', 'Sora', 'bold')
+      attachSoraDigitsToJsPdf(pdf as never)
+      hasSora = true
     }
     if (elMessiriRes && elMessiriRes.ok) {
       const elMessiriBuf = await elMessiriRes.arrayBuffer()
@@ -1062,7 +1084,7 @@ async function loadOfficialPdfFontsAndLogo(pdf: {
     logoDataUrl = null
   }
 
-  return { fontFamily, hasElMessiri, logoDataUrl }
+  return { fontFamily, hasElMessiri, hasSora, logoDataUrl }
 }
 
 export type ZadulKhairMonthlyLedgerRow = {
@@ -1606,15 +1628,24 @@ export async function exportStudentZadulKhairReceiptPdf(params: {
     align: 'right',
   })
 
-  setBrandFont()
-  pdf.setFontSize(7.2)
-  pdf.setTextColor(71, 85, 105)
-  pdf.text(
-    'ICS ACADEMY MANHAPPATTA • OFFICIAL DIGITAL PORTAL • VOLUNTARY ZADUL KHAIR RECEIPT',
-    pageWidth / 2,
-    footerY + 13,
-    { align: 'center' },
-  )
+  {
+    const fBrand = 'ICS ACADEMY MANHAPPATTA'
+    const fSuffix = ' • OFFICIAL DIGITAL PORTAL • VOLUNTARY ZADUL KHAIR RECEIPT'
+    setBrandFont()
+    pdf.setFontSize(7.2)
+    const fBrandW = pdf.getTextWidth(fBrand)
+    setFont('semibold')
+    pdf.setFontSize(6.8)
+    const fSuffixW = pdf.getTextWidth(fSuffix)
+    const fStartX = pageWidth / 2 - (fBrandW + fSuffixW) / 2
+    pdf.setTextColor(71, 85, 105)
+    setBrandFont()
+    pdf.setFontSize(7.2)
+    pdf.text(fBrand, fStartX, footerY + 13)
+    setFont('semibold')
+    pdf.setFontSize(6.8)
+    pdf.text(fSuffix, fStartX + fBrandW, footerY + 13)
+  }
 
   const safeName = student.name.replace(/[^a-zA-Z0-9_-]/g, '_')
   const baseFileName = `ICS_Zadul_Khair_Receipt_${student.admissionNo}_${safeName}`
@@ -1880,15 +1911,24 @@ export async function exportClassZadulKhairReportPdf(params: {
 
   // Footer
   const footerY = Math.min(282, y + 8)
-  setBrandFont()
-  pdf.setFontSize(7.5)
-  pdf.setTextColor(71, 85, 105)
-  pdf.text(
-    `ICS ACADEMY MANHAPPATTA • OFFICIAL VOLUNTARY CLASS STATEMENT • ${new Date().toLocaleDateString('en-IN')}`,
-    pageWidth / 2,
-    footerY,
-    { align: 'center' },
-  )
+  {
+    const fBrand = 'ICS ACADEMY MANHAPPATTA'
+    const fSuffix = ` • OFFICIAL VOLUNTARY CLASS STATEMENT • ${new Date().toLocaleDateString('en-IN')}`
+    setBrandFont()
+    pdf.setFontSize(7.5)
+    const fBrandW = pdf.getTextWidth(fBrand)
+    setFont('semibold')
+    pdf.setFontSize(7.0)
+    const fSuffixW = pdf.getTextWidth(fSuffix)
+    const fStartX = pageWidth / 2 - (fBrandW + fSuffixW) / 2
+    pdf.setTextColor(71, 85, 105)
+    setBrandFont()
+    pdf.setFontSize(7.5)
+    pdf.text(fBrand, fStartX, footerY)
+    setFont('semibold')
+    pdf.setFontSize(7.0)
+    pdf.text(fSuffix, fStartX + fBrandW, footerY)
+  }
 
   const blob = pdf.output('blob')
   const safeClass = className.replace(/\s+/g, '_')

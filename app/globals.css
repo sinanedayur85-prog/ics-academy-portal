@@ -49,6 +49,74 @@
 }
 
 @font-face {
+  font-family: 'Sora';
+  src: url('/fonts/Sora-Regular.ttf') format('truetype');
+  font-weight: 100 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sora';
+  src: url('/fonts/Sora-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sora';
+  src: url('/fonts/Sora-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sora';
+  src: url('/fonts/Sora-Bold.ttf') format('truetype');
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SoraDigits';
+  src: url('/fonts/Sora-Regular.ttf') format('truetype');
+  font-weight: 100 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0030-0039;
+}
+
+@font-face {
+  font-family: 'SoraDigits';
+  src: url('/fonts/Sora-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0030-0039;
+}
+
+@font-face {
+  font-family: 'SoraDigits';
+  src: url('/fonts/Sora-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0030-0039;
+}
+
+@font-face {
+  font-family: 'SoraDigits';
+  src: url('/fonts/Sora-Bold.ttf') format('truetype');
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0030-0039;
+}
+
+@font-face {
   font-family: 'Poppins';
   src:
     local('Poppins Regular'),
@@ -101,12 +169,13 @@
 }
 
 @theme inline {
-  --font-sans: 'Poppins', var(--font-poppins), 'KFGQPC Uthman Taha Naskh', 'Noto Nastaliq Urdu', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'Poppins', var(--font-poppins), 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'El Messiri Local', 'El Messiri', var(--font-el-messiri), 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', ui-serif, Georgia, serif;
-  --font-malayalam: 'Noto Serif Malayalam', 'KFGQPC Uthman Taha Naskh', var(--font-poppins), 'Poppins', serif;
-  --font-arabic: 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', serif;
-  --font-urdu: 'Noto Nastaliq Urdu', 'KFGQPC Uthman Taha Naskh', serif;
+  --font-sans: 'SoraDigits', 'Poppins', var(--font-poppins), 'KFGQPC Uthman Taha Naskh', 'Noto Nastaliq Urdu', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'SoraDigits', 'Poppins', var(--font-poppins), 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Sora', var(--font-sora), 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', ui-sans-serif, system-ui, sans-serif;
+  --font-brand: 'El Messiri Local', 'El Messiri', var(--font-el-messiri), ui-serif, Georgia, serif;
+  --font-malayalam: 'SoraDigits', 'Noto Serif Malayalam', 'KFGQPC Uthman Taha Naskh', var(--font-poppins), 'Poppins', serif;
+  --font-arabic: 'SoraDigits', 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', serif;
+  --font-urdu: 'SoraDigits', 'Noto Nastaliq Urdu', 'KFGQPC Uthman Taha Naskh', serif;
   --color-lime: var(--lime);
   --color-cyan: var(--cyan);
   --color-ring: var(--ring);
@@ -205,26 +274,30 @@
   animation: fadeInUp 1.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.font-brand {
+  font-family: 'El Messiri Local', 'El Messiri', var(--font-el-messiri), ui-serif, Georgia, serif;
+}
+
 .font-poppins,
 .font-mono,
 code,
 kbd,
 samp,
 pre {
-  font-family: 'Poppins', var(--font-poppins), 'KFGQPC Uthman Taha Naskh', ui-sans-serif, system-ui, sans-serif !important;
+  font-family: 'SoraDigits', 'Poppins', var(--font-poppins), 'KFGQPC Uthman Taha Naskh', ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .font-malayalam {
-  font-family: 'Noto Serif Malayalam', 'KFGQPC Uthman Taha Naskh', var(--font-poppins), 'Poppins', serif;
+  font-family: 'SoraDigits', 'Noto Serif Malayalam', 'KFGQPC Uthman Taha Naskh', var(--font-poppins), 'Poppins', serif;
 }
 
 .font-arabic {
-  font-family: 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', serif;
+  font-family: 'SoraDigits', 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', serif;
   line-height: 1.95;
 }
 
 .font-urdu {
-  font-family: 'Noto Nastaliq Urdu', 'KFGQPC Uthman Taha Naskh', serif;
+  font-family: 'SoraDigits', 'Noto Nastaliq Urdu', 'KFGQPC Uthman Taha Naskh', serif;
   line-height: 2.15;
 }
 
@@ -263,13 +336,13 @@ pre {
   }
   [dir='rtl'],
   :lang(ar) {
-    font-family: 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', serif;
+    font-family: 'SoraDigits', 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', var(--font-poppins), 'Poppins', serif;
   }
   :lang(ur) {
-    font-family: 'Noto Nastaliq Urdu', 'KFGQPC Uthman Taha Naskh', serif;
+    font-family: 'SoraDigits', 'Noto Nastaliq Urdu', 'KFGQPC Uthman Taha Naskh', serif;
   }
   :lang(ml) {
-    font-family: 'Noto Serif Malayalam', 'KFGQPC Uthman Taha Naskh', var(--font-poppins), 'Poppins', serif;
+    font-family: 'SoraDigits', 'Noto Serif Malayalam', 'KFGQPC Uthman Taha Naskh', var(--font-poppins), 'Poppins', serif;
   }
 }
 

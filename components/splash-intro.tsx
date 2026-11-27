@@ -180,8 +180,8 @@ export function SplashIntro() {
               </motion.svg>
             </div>
 
-            {/* 2. Exact Home Screen Header Wordmark Alignment (BrandWordmark layout + El Messiri font-display) */}
-            <div className="mt-4 inline-flex w-max flex-col font-display antialiased">
+            {/* 2. Exact Home Screen Header Wordmark Alignment (BrandWordmark layout + El Messiri font-brand) */}
+            <div className="mt-4 inline-flex w-max flex-col font-brand antialiased">
               {/* Top Line: "ICS ACADEMY" with Keyboard Typewriter Animation */}
               <span className="relative -ml-[0.078em] block text-3xl leading-none font-bold text-white sm:text-5xl">
                 {/* Invisible full text preserves exact width so MANHAPPATTA below aligns edge-to-edge */}

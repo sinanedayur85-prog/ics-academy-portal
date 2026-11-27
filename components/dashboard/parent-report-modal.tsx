@@ -37,6 +37,7 @@ import {
   type Student,
 } from '@/components/dashboard/data'
 import type { SavedLeaveEntry } from '@/components/dashboard/leave-register'
+import { attachSoraDigitsToJsPdf } from '@/components/dashboard/study-note-pdf'
 import {
   downloadBlobOnDevice,
   isAndroidNativeApp,
@@ -49,6 +50,9 @@ type CachedPdfAssets = {
   regularB64: string
   semiBoldB64: string
   boldB64: string
+  soraRegularB64: string
+  soraSemiBoldB64: string
+  soraBoldB64: string
   elMessiriBoldB64: string
   logoDataUrl: string | null
 }
@@ -70,20 +74,36 @@ async function loadPdfAssets(): Promise<CachedPdfAssets> {
   if (cachedPdfAssetsPromise) return cachedPdfAssetsPromise
 
   cachedPdfAssetsPromise = (async () => {
-    const [regRes, semiRes, boldRes, elMessiriRes, logoRes] = await Promise.all([
+    const [
+      regRes,
+      semiRes,
+      boldRes,
+      soraRegRes,
+      soraSemiRes,
+      soraBoldRes,
+      elMessiriRes,
+      logoRes,
+    ] = await Promise.all([
       fetch('/fonts/Poppins-Regular.ttf'),
       fetch('/fonts/Poppins-SemiBold.ttf'),
       fetch('/fonts/Poppins-Bold.ttf'),
+      fetch('/fonts/Sora-Regular.ttf'),
+      fetch('/fonts/Sora-SemiBold.ttf'),
+      fetch('/fonts/Sora-Bold.ttf'),
       fetch('/fonts/ElMessiri-Bold.ttf'),
       fetch('/images/ics-mark-transparent.png').catch(() => null),
     ])
 
-    const [regBuf, semiBuf, boldBuf, elMessiriBuf] = await Promise.all([
-      regRes.arrayBuffer(),
-      semiRes.arrayBuffer(),
-      boldRes.arrayBuffer(),
-      elMessiriRes.arrayBuffer(),
-    ])
+    const [regBuf, semiBuf, boldBuf, soraRegBuf, soraSemiBuf, soraBoldBuf, elMessiriBuf] =
+      await Promise.all([
+        regRes.arrayBuffer(),
+        semiRes.arrayBuffer(),
+        boldRes.arrayBuffer(),
+        soraRegRes.arrayBuffer(),
+        soraSemiRes.arrayBuffer(),
+        soraBoldRes.arrayBuffer(),
+        elMessiriRes.arrayBuffer(),
+      ])
 
     let logoDataUrl: string | null = null
     if (logoRes && logoRes.ok) {
@@ -95,6 +115,9 @@ async function loadPdfAssets(): Promise<CachedPdfAssets> {
       regularB64: arrayBufferToBase64(regBuf),
       semiBoldB64: arrayBufferToBase64(semiBuf),
       boldB64: arrayBufferToBase64(boldBuf),
+      soraRegularB64: arrayBufferToBase64(soraRegBuf),
+      soraSemiBoldB64: arrayBufferToBase64(soraSemiBuf),
+      soraBoldB64: arrayBufferToBase64(soraBoldBuf),
       elMessiriBoldB64: arrayBufferToBase64(elMessiriBuf),
       logoDataUrl,
     }
@@ -369,15 +392,23 @@ export function ParentReportModal({
       compress: true,
     })
 
-      // Register embedded Poppins & El Messiri TrueType fonts for 100% vector text at any zoom level
+      // Register embedded Poppins, Sora (for digits & headings), & El Messiri (strictly for brand) TrueType fonts
       pdf.addFileToVFS('Poppins-Regular.ttf', assets.regularB64)
       pdf.addFont('Poppins-Regular.ttf', 'Poppins', 'normal')
       pdf.addFileToVFS('Poppins-SemiBold.ttf', assets.semiBoldB64)
       pdf.addFont('Poppins-SemiBold.ttf', 'Poppins', 'semibold')
       pdf.addFileToVFS('Poppins-Bold.ttf', assets.boldB64)
       pdf.addFont('Poppins-Bold.ttf', 'Poppins', 'bold')
+      pdf.addFileToVFS('Sora-Regular.ttf', assets.soraRegularB64)
+      pdf.addFont('Sora-Regular.ttf', 'Sora', 'normal')
+      pdf.addFileToVFS('Sora-SemiBold.ttf', assets.soraSemiBoldB64)
+      pdf.addFont('Sora-SemiBold.ttf', 'Sora', 'semibold')
+      pdf.addFileToVFS('Sora-Bold.ttf', assets.soraBoldB64)
+      pdf.addFont('Sora-Bold.ttf', 'Sora', 'bold')
       pdf.addFileToVFS('ElMessiri-Bold.ttf', assets.elMessiriBoldB64)
       pdf.addFont('ElMessiri-Bold.ttf', 'ElMessiri', 'bold')
+
+      attachSoraDigitsToJsPdf(pdf)
 
       const setFont = (weight: 'normal' | 'semibold' | 'bold', sizePt: number) => {
         pdf.setFont('Poppins', weight)
@@ -1054,7 +1085,7 @@ export function ParentReportModal({
     printColorAdjust: 'exact' as const,
     WebkitFontSmoothing: 'antialiased' as const,
     fontFamily:
-      "'Poppins', 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', system-ui, -apple-system, sans-serif",
+      "'SoraDigits', 'Poppins', 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', system-ui, -apple-system, sans-serif",
   }
 
   const modalContent = (
@@ -1185,7 +1216,7 @@ export function ParentReportModal({
                   </div>
                   <div>
                     <p className="font-display text-[10px] font-bold tracking-[0.15em] text-[#a3e635] uppercase">
-                      ICS ACADEMY MANHAPPATTA • DA&apos;WA COLLEGE
+                      <span className="font-brand">ICS ACADEMY MANHAPPATTA</span> • DA&apos;WA COLLEGE
                     </p>
                     <h3 className="mt-0.5 text-[15px] font-bold tracking-tight text-white leading-snug">
                       Official Student Attendance & Leave Report
@@ -1421,7 +1452,7 @@ export function ParentReportModal({
               {/* Page 1 Footer */}
               <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-2 text-[9.5px] text-slate-500">
                 <span>
-                  <strong className="font-display font-bold text-slate-700">ICS ACADEMY MANHAPPATTA</strong> • {student.name} ({student.admissionNo})
+                  <strong className="font-brand font-bold text-slate-700">ICS ACADEMY MANHAPPATTA</strong> • {student.name} ({student.admissionNo})
                 </span>
                 <span className="font-semibold text-slate-700">
                   Page 1 of {totalPages}
@@ -1457,7 +1488,7 @@ export function ParentReportModal({
                         </div>
                         <div>
                           <p className="font-display text-[9.5px] font-bold tracking-[0.15em] text-[#a3e635] uppercase">
-                            ICS ACADEMY MANHAPPATTA • OFFICIAL ATTENDANCE & LEAVE REPORT
+                            <span className="font-brand">ICS ACADEMY MANHAPPATTA</span> • OFFICIAL ATTENDANCE & LEAVE REPORT
                           </p>
                           <p className="text-[12px] font-bold text-white">
                             {student.name} ({student.admissionNo}) • {student.className}

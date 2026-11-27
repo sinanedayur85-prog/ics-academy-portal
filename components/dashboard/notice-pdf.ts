@@ -78,16 +78,16 @@ function buildOfficialNoticeInnerHtml(
   const bodyIsMalayalam = hasMalayalamText(notice.body) || hasMalayalamText(notice.title)
 
   const bodyFontFamily = bodyIsArabic
-    ? `'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', 'Poppins', serif`
+    ? `'SoraDigits', 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', 'Poppins', serif`
     : bodyIsMalayalam
-      ? `'Noto Serif Malayalam', 'Poppins', serif`
-      : `'Poppins', 'Noto Serif Malayalam', sans-serif`
+      ? `'SoraDigits', 'Noto Serif Malayalam', 'Poppins', serif`
+      : `'SoraDigits', 'Poppins', 'Noto Serif Malayalam', sans-serif`
 
   const titleFontFamily = titleIsArabic
-    ? `'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', serif`
+    ? `'SoraDigits', 'KFGQPC Uthman Taha Naskh', 'Noto Serif Malayalam', serif`
     : bodyIsMalayalam
-      ? `'Noto Serif Malayalam', 'El Messiri', serif`
-      : `'El Messiri', 'Poppins', serif`
+      ? `'SoraDigits', 'Noto Serif Malayalam', 'Sora', sans-serif`
+      : `'Sora', 'Poppins', sans-serif`
 
   const paragraphsHtml = String(notice.body || '')
     .split(/\n+/)
@@ -102,10 +102,10 @@ function buildOfficialNoticeInnerHtml(
   const holidayScheduleHtml = hMeta?.isOfficialHoliday
     ? `
       <div style="margin-top:22px;border:1.5px solid #bae6fd;background:#f0f9ff;border-radius:14px;padding:18px 20px;">
-        <div style="font-family:'Poppins',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#0369a1;margin-bottom:12px;">
+        <div style="font-family:'SoraDigits','Poppins',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#0369a1;margin-bottom:12px;">
           ${hMeta.holidayType === 'monthly-second-saturday' ? 'Official 2nd Saturday Leave Schedule' : 'Official Festival / Batch Holiday Schedule'}
         </div>
-        <table style="width:100%;border-collapse:collapse;font-family:'Poppins',sans-serif;font-size:13px;">
+        <table style="width:100%;border-collapse:collapse;font-family:'SoraDigits','Poppins',sans-serif;font-size:13px;">
           <tr>
             <td style="width:33.3%;vertical-align:top;padding-right:12px;">
               <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Departure Date &amp; Time</div>
@@ -132,7 +132,7 @@ function buildOfficialNoticeInnerHtml(
   const issuedByName = hMeta?.announcedBy || issuerLabel || 'ICS Academy Administration'
 
   return `
-    <div style="width:794px;min-height:1123px;box-sizing:border-box;background:#ffffff;color:#0f172a;padding:44px 50px 42px 50px;display:flex;flex-direction:column;justify-content:space-between;font-family:'Poppins','Noto Serif Malayalam',sans-serif;">
+    <div style="width:794px;min-height:1123px;box-sizing:border-box;background:#ffffff;color:#0f172a;padding:44px 50px 42px 50px;display:flex;flex-direction:column;justify-content:space-between;font-family:'SoraDigits','Poppins','Noto Serif Malayalam',sans-serif;">
       <div>
         <!-- Official ICS Academy Letterhead -->
         <div style="display:flex;align-items:center;justify-content:space-between;gap:18px;border-bottom:3px solid #009245;padding-bottom:18px;">
@@ -149,12 +149,12 @@ function buildOfficialNoticeInnerHtml(
               <div style="font-family:'El Messiri',serif;font-size:12.5px;font-weight:700;letter-spacing:0.32em;color:#009245;margin-top:2px;">
                 MANHAPPATTA
               </div>
-              <div style="font-family:'Poppins',sans-serif;font-size:11px;color:#475569;margin-top:3px;">
+              <div style="font-family:'SoraDigits','Poppins',sans-serif;font-size:11px;color:#475569;margin-top:3px;">
                 Islamic Cultural &amp; Studies Academy • Official Campus Circular
               </div>
             </div>
           </div>
-          <div style="text-align:right;font-family:'Poppins',sans-serif;">
+          <div style="text-align:right;font-family:'SoraDigits','Poppins',sans-serif;">
             <div style="display:inline-block;background:#0f172a;color:#ffffff;font-size:10.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;padding:5px 12px;border-radius:999px;">
               OFFICIAL NOTICE
             </div>
@@ -199,7 +199,7 @@ function buildOfficialNoticeInnerHtml(
       <div style="margin-top:44px;padding-top:20px;border-top:1px solid #e2e8f0;">
         <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;">
           <div style="font-size:11px;color:#64748b;line-height:1.6;">
-            <div style="font-weight:700;color:#0f172a;">ICS Academy Manhappatta</div>
+            <div style="font-family:'El Messiri',serif;font-weight:700;color:#0f172a;">ICS ACADEMY MANHAPPATTA</div>
             <div>Official Digital Notice Board Copy</div>
           </div>
           <div style="text-align:right;min-width:210px;">
@@ -322,6 +322,39 @@ function printHtmlViaHiddenIframe(innerHtml: string, title: string): void {
       font-family: 'El Messiri';
       src: url('/fonts/ElMessiri-Bold.ttf') format('truetype');
       font-weight: 400 700;
+    }
+    @font-face {
+      font-family: 'Sora';
+      src: url('/fonts/Sora-Regular.ttf') format('truetype');
+      font-weight: 400;
+    }
+    @font-face {
+      font-family: 'Sora';
+      src: url('/fonts/Sora-SemiBold.ttf') format('truetype');
+      font-weight: 600;
+    }
+    @font-face {
+      font-family: 'Sora';
+      src: url('/fonts/Sora-Bold.ttf') format('truetype');
+      font-weight: 700;
+    }
+    @font-face {
+      font-family: 'SoraDigits';
+      src: url('/fonts/Sora-Regular.ttf') format('truetype');
+      font-weight: 100 400;
+      unicode-range: U+0030-0039;
+    }
+    @font-face {
+      font-family: 'SoraDigits';
+      src: url('/fonts/Sora-SemiBold.ttf') format('truetype');
+      font-weight: 500 600;
+      unicode-range: U+0030-0039;
+    }
+    @font-face {
+      font-family: 'SoraDigits';
+      src: url('/fonts/Sora-Bold.ttf') format('truetype');
+      font-weight: 700 900;
+      unicode-range: U+0030-0039;
     }
     @font-face {
       font-family: 'Poppins';

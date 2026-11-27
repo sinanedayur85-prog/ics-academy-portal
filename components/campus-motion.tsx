@@ -32,7 +32,12 @@ export function CampusMarqueeRibbon() {
       >
         {repeatedItems.map((item, idx) => (
           <div key={idx} className="inline-flex items-center gap-8">
-            <span className="font-display text-xs font-semibold tracking-[0.22em] text-foreground/80 uppercase sm:text-sm">
+            <span
+              className={cn(
+                'text-xs font-semibold tracking-[0.22em] text-foreground/80 uppercase sm:text-sm',
+                item === 'ICS ACADEMY MANHAPPATTA' ? 'font-brand' : 'font-display',
+              )}
+            >
               {item}
             </span>
             <span

@@ -21,12 +21,18 @@ export type CachedVectorPdfAssets = {
   regularB64: string
   semiBoldB64: string
   boldB64: string
+  soraRegularB64: string
+  soraSemiBoldB64: string
+  soraBoldB64: string
   elMessiriBoldB64: string
   uthmanRegularB64: string
   uthmanBoldB64: string
   regularBuf: ArrayBuffer
   semiBoldBuf: ArrayBuffer
   boldBuf: ArrayBuffer
+  soraRegularBuf: ArrayBuffer
+  soraSemiBoldBuf: ArrayBuffer
+  soraBoldBuf: ArrayBuffer
   uthmanRegularBuf: ArrayBuffer
   uthmanBoldBuf: ArrayBuffer
   logoDataUrl: string | null
@@ -86,16 +92,29 @@ export async function loadVectorPdfAssets(): Promise<CachedVectorPdfAssets> {
   if (cachedVectorAssetsPromise) return cachedVectorAssetsPromise
 
   cachedVectorAssetsPromise = (async () => {
-    const [regBuf, semiBuf, boldBuf, elMessiriBuf, uthmanRegBuf, uthmanBoldBuf, logoBuf] =
-      await Promise.all([
-        fetchArrayBufferSafe('/fonts/Poppins-Regular.ttf'),
-        fetchArrayBufferSafe('/fonts/Poppins-SemiBold.ttf'),
-        fetchArrayBufferSafe('/fonts/Poppins-Bold.ttf'),
-        fetchArrayBufferSafe('/fonts/ElMessiri-Bold.ttf'),
-        fetchArrayBufferSafe('/fonts/UthmanTN1-Regular.ttf'),
-        fetchArrayBufferSafe('/fonts/UthmanTN1-Bold.ttf'),
-        fetchArrayBufferSafe('/images/ics-mark-transparent.png', 0).catch(() => null),
-      ])
+    const [
+      regBuf,
+      semiBuf,
+      boldBuf,
+      soraRegBuf,
+      soraSemiBuf,
+      soraBoldBuf,
+      elMessiriBuf,
+      uthmanRegBuf,
+      uthmanBoldBuf,
+      logoBuf,
+    ] = await Promise.all([
+      fetchArrayBufferSafe('/fonts/Poppins-Regular.ttf'),
+      fetchArrayBufferSafe('/fonts/Poppins-SemiBold.ttf'),
+      fetchArrayBufferSafe('/fonts/Poppins-Bold.ttf'),
+      fetchArrayBufferSafe('/fonts/Sora-Regular.ttf'),
+      fetchArrayBufferSafe('/fonts/Sora-SemiBold.ttf'),
+      fetchArrayBufferSafe('/fonts/Sora-Bold.ttf'),
+      fetchArrayBufferSafe('/fonts/ElMessiri-Bold.ttf'),
+      fetchArrayBufferSafe('/fonts/UthmanTN1-Regular.ttf'),
+      fetchArrayBufferSafe('/fonts/UthmanTN1-Bold.ttf'),
+      fetchArrayBufferSafe('/images/ics-mark-transparent.png', 0).catch(() => null),
+    ])
 
     // Ensure KFGQPC Uthman Taha Naskh is also registered in document.fonts for any mixed-script canvas measurement
     if (typeof window !== 'undefined' && 'FontFace' in window && document.fonts) {
@@ -127,12 +146,18 @@ export async function loadVectorPdfAssets(): Promise<CachedVectorPdfAssets> {
       regularB64: arrayBufferToBase64(regBuf),
       semiBoldB64: arrayBufferToBase64(semiBuf),
       boldB64: arrayBufferToBase64(boldBuf),
+      soraRegularB64: arrayBufferToBase64(soraRegBuf),
+      soraSemiBoldB64: arrayBufferToBase64(soraSemiBuf),
+      soraBoldB64: arrayBufferToBase64(soraBoldBuf),
       elMessiriBoldB64: arrayBufferToBase64(elMessiriBuf),
       uthmanRegularB64: arrayBufferToBase64(uthmanRegBuf),
       uthmanBoldB64: arrayBufferToBase64(uthmanBoldBuf),
       regularBuf: regBuf,
       semiBoldBuf: semiBuf,
       boldBuf: boldBuf,
+      soraRegularBuf: soraRegBuf,
+      soraSemiBoldBuf: soraSemiBuf,
+      soraBoldBuf: soraBoldBuf,
       uthmanRegularBuf: uthmanRegBuf,
       uthmanBoldBuf: uthmanBoldBuf,
       logoDataUrl,
@@ -199,6 +224,13 @@ export function registerOfficialVectorPdfFonts(
   pdf.addFileToVFS('Poppins-Bold.ttf', assets.boldB64)
   pdf.addFont('Poppins-Bold.ttf', 'Poppins', 'bold')
 
+  pdf.addFileToVFS('Sora-Regular.ttf', assets.soraRegularB64)
+  pdf.addFont('Sora-Regular.ttf', 'Sora', 'normal')
+  pdf.addFileToVFS('Sora-SemiBold.ttf', assets.soraSemiBoldB64)
+  pdf.addFont('Sora-SemiBold.ttf', 'Sora', 'semibold')
+  pdf.addFileToVFS('Sora-Bold.ttf', assets.soraBoldB64)
+  pdf.addFont('Sora-Bold.ttf', 'Sora', 'bold')
+
   pdf.addFileToVFS('ElMessiri-Bold.ttf', assets.elMessiriBoldB64)
   pdf.addFont('ElMessiri-Bold.ttf', 'ElMessiri', 'bold')
   pdf.addFont('ElMessiri-Bold.ttf', 'ElMessiri', 'normal')
@@ -207,6 +239,131 @@ export function registerOfficialVectorPdfFonts(
   pdf.addFont('UthmanTN1-Regular.ttf', 'UthmanTN1', 'normal')
   pdf.addFileToVFS('UthmanTN1-Bold.ttf', assets.uthmanBoldB64)
   pdf.addFont('UthmanTN1-Bold.ttf', 'UthmanTN1', 'bold')
+
+  attachSoraDigitsToJsPdf(pdf)
+}
+
+/**
+ * Wraps `pdf.text` on a jsPDF instance (after `'Sora'` normal/semibold/bold fonts are registered)
+ * so every ASCII digit run (`0-9`) drawn in body fonts (`Poppins` / `helvetica`) automatically
+ * renders in crisp vector `Sora` matching the active weight and alignment.
+ */
+export function attachSoraDigitsToJsPdf(pdf: jsPDF): void {
+  const flagged = pdf as unknown as { __icsSoraDigitsAttached?: boolean }
+  if (flagged.__icsSoraDigitsAttached) return
+  flagged.__icsSoraDigitsAttached = true
+
+  const origText = pdf.text.bind(pdf)
+  let inWrapper = false
+
+  pdf.text = ((
+    text: string | string[],
+    x: number,
+    y: number,
+    options?: Record<string, unknown>,
+    transform?: unknown,
+  ) => {
+    if (inWrapper) {
+      return origText(text, x, y, options as never, transform as never)
+    }
+
+    const opts = options && typeof options === 'object' ? options : undefined
+    // Preserve native behavior for rotated/exotic text transforms
+    if (
+      transform !== undefined ||
+      (opts &&
+        (opts.angle !== undefined ||
+          opts.rotationDirection !== undefined ||
+          opts.renderingMode !== undefined ||
+          opts.charSpace !== undefined))
+    ) {
+      return origText(text, x, y, options as never, transform as never)
+    }
+
+    const activeFont = pdf.getFont()
+    const origFontName = activeFont?.fontName || 'Poppins'
+    const origFontStyle = activeFont?.fontStyle || 'normal'
+
+    if (
+      origFontName === 'Sora' ||
+      origFontName === 'ElMessiri' ||
+      origFontName === 'UthmanTN1'
+    ) {
+      return origText(text, x, y, options as never, transform as never)
+    }
+
+    const rawLines = Array.isArray(text) ? text.map((t) => String(t)) : [String(text)]
+    if (!rawLines.some((line) => /[0-9]/.test(line))) {
+      return origText(text, x, y, options as never, transform as never)
+    }
+
+    const maxWidth = typeof opts?.maxWidth === 'number' && opts.maxWidth > 0 ? opts.maxWidth : 0
+    const lines: string[] = maxWidth
+      ? rawLines.flatMap((line) => pdf.splitTextToSize(line, maxWidth) as string[])
+      : rawLines
+
+    const align = typeof opts?.align === 'string' ? opts.align : 'left'
+    const soraStyle: 'normal' | 'semibold' | 'bold' =
+      origFontStyle === 'bold'
+        ? 'bold'
+        : origFontStyle === 'semibold'
+          ? 'semibold'
+          : 'normal'
+
+    const lineStep = (pdf.getFontSize() / pdf.internal.scaleFactor) * pdf.getLineHeightFactor()
+    const passthroughOpts: Record<string, unknown> | undefined =
+      opts && opts.baseline !== undefined ? { baseline: opts.baseline } : undefined
+
+    inWrapper = true
+    try {
+      let curY = y
+      for (const line of lines) {
+        if (!line) {
+          curY += lineStep
+          continue
+        }
+        const segments = line.split(/([0-9]+)/g).filter((s) => s.length > 0)
+        const segWidths: number[] = []
+        let totalW = 0
+
+        for (const seg of segments) {
+          if (/^[0-9]+$/.test(seg)) {
+            pdf.setFont('Sora', soraStyle)
+          } else {
+            pdf.setFont(origFontName, origFontStyle)
+          }
+          const w = pdf.getTextWidth(seg)
+          segWidths.push(w)
+          totalW += w
+        }
+
+        let curX = x
+        if (align === 'right') {
+          curX = x - totalW
+        } else if (align === 'center') {
+          curX = x - totalW / 2
+        }
+
+        for (let i = 0; i < segments.length; i++) {
+          const seg = segments[i]
+          if (/^[0-9]+$/.test(seg)) {
+            pdf.setFont('Sora', soraStyle)
+          } else {
+            pdf.setFont(origFontName, origFontStyle)
+          }
+          origText(seg, curX, curY, passthroughOpts as never)
+          curX += segWidths[i]
+        }
+
+        curY += lineStep
+      }
+    } finally {
+      pdf.setFont(origFontName, origFontStyle)
+      inWrapper = false
+    }
+
+    return pdf
+  }) as typeof pdf.text
 }
 
 // ==================== UTHMAN TAHA NASKH 100% VECTOR ARABIC SHAPER ====================
@@ -918,6 +1075,9 @@ export async function exportStudyNoteDirectPdf({
         latinRegular: assets.regularBuf,
         latinSemiBold: assets.semiBoldBuf,
         latinBold: assets.boldBuf,
+        soraRegular: assets.soraRegularBuf,
+        soraSemiBold: assets.soraSemiBoldBuf,
+        soraBold: assets.soraBoldBuf,
       },
     })
     hbSession = new HarfBuzzVectorPdfSession(pdf, hb)
@@ -969,10 +1129,15 @@ export async function exportStudyNoteDirectPdf({
   // White Logo Badge (16x16mm square with exact 381:512 object-contain logo)
   drawLogoBadge(16.5, 16, 16, 2, 1.8)
 
-  // Header Brand Title in El Messiri Bold
+  // Header Brand Title: El Messiri strictly for ICS ACADEMY MANHAPPATTA, Sora for suffix
   setElMessiriFont(8.4)
   pdf.setTextColor(163, 230, 53)
-  pdf.text("ICS ACADEMY MANHAPPATTA  •  DA'WA COLLEGE", 35.5, 19.2)
+  const hdrBrand = 'ICS ACADEMY MANHAPPATTA'
+  pdf.text(hdrBrand, 35.5, 19.2)
+  const hdrBrandW = pdf.getTextWidth(hdrBrand)
+  pdf.setFont('Sora', 'bold')
+  pdf.setFontSize(7.6)
+  pdf.text("  •  DA'WA COLLEGE", 35.5 + hdrBrandW, 19.2)
 
   setFont('bold', 12.2)
   pdf.setTextColor(255, 255, 255)
@@ -1022,7 +1187,11 @@ export async function exportStudyNoteDirectPdf({
   const instLabelW = pdf.getTextWidth('Institution: ')
   setElMessiriFont(8.5)
   pdf.setTextColor(15, 23, 42)
-  pdf.text("ICS ACADEMY MANHAPPATTA (Da'wa College)", 16.5 + instLabelW, 59)
+  const instBrand = 'ICS ACADEMY MANHAPPATTA'
+  pdf.text(instBrand, 16.5 + instLabelW, 59)
+  const instBrandW = pdf.getTextWidth(instBrand)
+  setFont('semibold', 8.0)
+  pdf.text(" (Da'wa College)", 16.5 + instLabelW + instBrandW, 59)
 
   setFont('normal', 8.2)
   pdf.setTextColor(71, 85, 105)
@@ -1157,9 +1326,14 @@ export async function exportStudyNoteDirectPdf({
   pdf.setTextColor(30, 41, 59)
   pdf.text('2. STUDY NOTE & SCHOLARLY EXPLANATION', 13, cursorY)
 
-  setElMessiriFont(7.6)
+  pdf.setFont('Sora', 'semibold')
+  pdf.setFontSize(7.1)
   pdf.setTextColor(100, 116, 139)
-  pdf.text("ICS ACADEMY MANHAPPATTA  •  DA'WA COLLEGE", 197, cursorY, { align: 'right' })
+  const sec2Suffix = "  •  DA'WA COLLEGE"
+  const sec2SuffixW = pdf.getTextWidth(sec2Suffix)
+  pdf.text(sec2Suffix, 197, cursorY, { align: 'right' })
+  setElMessiriFont(7.6)
+  pdf.text('ICS ACADEMY MANHAPPATTA', 197 - sec2SuffixW, cursorY, { align: 'right' })
 
   let cardTopY = cursorY + 2.3
   const headerBarH = 6.8
@@ -1210,7 +1384,12 @@ export async function exportStudyNoteDirectPdf({
 
     setElMessiriFont(7.6)
     pdf.setTextColor(163, 230, 53)
-    pdf.text('ICS ACADEMY MANHAPPATTA  •  OFFICIAL ACADEMIC STUDY NOTE', 31, 19.5)
+    const contBrand = 'ICS ACADEMY MANHAPPATTA'
+    pdf.text(contBrand, 31, 19.5)
+    const contBrandW = pdf.getTextWidth(contBrand)
+    pdf.setFont('Sora', 'bold')
+    pdf.setFontSize(7.0)
+    pdf.text('  •  OFFICIAL ACADEMIC STUDY NOTE', 31 + contBrandW, 19.5)
 
     setFont('bold', 10)
     pdf.setTextColor(255, 255, 255)

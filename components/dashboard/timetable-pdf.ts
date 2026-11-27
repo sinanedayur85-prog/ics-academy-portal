@@ -256,10 +256,34 @@ function drawLandscapeFooter(params: {
   pdf.text(leftLabel, marginX, footerY + 4.6)
   pdf.text(rightLabel, pageWidth - marginX, footerY + 4.6, { align: 'right' })
 
-  setBrandFont()
-  pdf.setFontSize(6.8)
-  pdf.setTextColor(8, 30, 33)
-  pdf.text(centerLabel, pageWidth / 2, footerY + 4.6, { align: 'center' })
+  const brandPrefix = 'ICS ACADEMY MANHAPPATTA'
+  if (centerLabel.startsWith(brandPrefix)) {
+    const suffix = centerLabel.slice(brandPrefix.length)
+    setBrandFont()
+    pdf.setFontSize(6.8)
+    const brandW = pdf.getTextWidth(brandPrefix)
+    pdf.setFont('Sora', 'bold')
+    pdf.setFontSize(6.4)
+    const suffixW = suffix ? pdf.getTextWidth(suffix) : 0
+    const startX = pageWidth / 2 - (brandW + suffixW) / 2
+
+    setBrandFont()
+    pdf.setFontSize(6.8)
+    pdf.setTextColor(8, 30, 33)
+    pdf.text(brandPrefix, startX, footerY + 4.6)
+
+    if (suffix) {
+      pdf.setFont('Sora', 'bold')
+      pdf.setFontSize(6.4)
+      pdf.setTextColor(51, 65, 85)
+      pdf.text(suffix, startX + brandW, footerY + 4.6)
+    }
+  } else {
+    setFont('semibold')
+    pdf.setFontSize(6.6)
+    pdf.setTextColor(8, 30, 33)
+    pdf.text(centerLabel, pageWidth / 2, footerY + 4.6, { align: 'center' })
+  }
 }
 
 async function emitPdfOutput(pdf: jsPDF, fileName: string, mode: 'download' | 'print') {

@@ -66,7 +66,7 @@ export function BrandWordmark({
   return (
     <Tag
       className={cn(
-        'inline-flex w-max shrink-0 flex-col whitespace-nowrap font-display antialiased',
+        'inline-flex w-max shrink-0 flex-col whitespace-nowrap font-brand antialiased',
         gapClassName,
         className,
       )}

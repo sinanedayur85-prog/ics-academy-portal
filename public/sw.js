@@ -1,5 +1,5 @@
 // ICS Academy Service Worker for Instant Black Launch, Offline Support & Real-Time Web Push (Android + iOS Home Screen PWA)
-const CACHE_NAME = 'ics-academy-pwa-v33';
+const CACHE_NAME = 'ics-academy-pwa-v34';
 const RTDB_BASE_URL = 'https://ics-academy-push-default-rtdb.asia-southeast1.firebasedatabase.app';
 const PRECACHE_URLS = [
   '/',
@@ -9,6 +9,10 @@ const PRECACHE_URLS = [
   '/images/ics-mark-transparent.png',
   '/icons/icon-192.png',
   '/fonts/ElMessiri-Bold.ttf',
+  '/fonts/Sora-Regular.ttf',
+  '/fonts/Sora-Medium.ttf',
+  '/fonts/Sora-SemiBold.ttf',
+  '/fonts/Sora-Bold.ttf',
   '/fonts/Poppins-Regular.ttf',
   '/fonts/Poppins-SemiBold.ttf',
   '/fonts/Poppins-Bold.ttf',
